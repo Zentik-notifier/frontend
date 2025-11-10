@@ -87,6 +87,15 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
         sendMessageToWatch(message, description: "reload trigger")
     }
     
+    /**
+     * Notify Watch to perform incremental sync using change token
+     * Watch will call fetchIncrementalChanges() with its saved token
+     */
+    func notifyWatchToSyncIncremental() {
+        let message: [String: Any] = ["action": "syncIncremental"]
+        sendMessageToWatch(message, description: "incremental sync trigger")
+    }
+    
     // MARK: - Private Helpers
     
     /**
@@ -157,37 +166,43 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
     func sessionReachabilityDidChange(_ session: WCSession) {
         print("📱 Watch reachability changed: \(session.isReachable)")
         
-        // When Watch becomes reachable, trigger a reload so it fetches fresh data from CloudKit
-        if session.isReachable {
-            notifyWatchOfUpdate()
-        }
+        // Don't force updates to Watch - let Watch manage its own data fetching
+        // Watch will fetch from CloudKit when app opens
+        // Watch will request iOS refresh only when user explicitly taps refresh button
     }
     
     func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
-        print("📱 Received message from Watch: \(message)")
+        print("📱 ========== MESSAGE RECEIVED FROM WATCH ==========")
+        print("📱 Message: \(message)")
+        print("📱 Session state - isReachable: \(session.isReachable), isPaired: \(session.isPaired), isWatchAppInstalled: \(session.isWatchAppInstalled)")
         
         guard let action = message["action"] as? String else {
+            print("📱 ❌ Missing action in message")
             replyHandler(["error": "Missing action"])
             return
         }
+        
+        print("📱 Action received: \(action)")
         
         switch action {
         case "notificationRead":
             // Watch marked notification as read
             if let notificationId = message["notificationId"] as? String,
                let readAt = message["readAt"] as? String {
-                print("📱 Watch marked notification \(notificationId) as read")
+                print("📱 ✅ Watch marked notification \(notificationId) as read at \(readAt)")
                 
                 // Notify React Native to update backend
                 if WatchConnectivityBridge.shared != nil {
                     print("📱 Calling WatchConnectivityBridge.shared.emitNotificationRead...")
                     WatchConnectivityBridge.shared?.emitNotificationRead(notificationId: notificationId, readAt: readAt)
+                    print("📱 ✅ Event emitted to React Native")
                 } else {
                     print("📱 ❌ WatchConnectivityBridge.shared is nil!")
                 }
                 
                 replyHandler(["success": true])
             } else {
+                print("📱 ❌ Missing notificationId or readAt")
                 replyHandler(["error": "Missing notificationId or readAt"])
             }
             
@@ -222,6 +237,15 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
             // We can still respond with a reload trigger for backward compatibility
             print("📱 Watch requested data - responding with reload trigger")
             replyHandler(["action": "reload", "message": "Please fetch from CloudKit"])
+        
+        case "refresh":
+            // Watch is requesting a full refresh - trigger iOS to sync with backend DB
+            print("📱 Watch requested full refresh - triggering iOS sync with backend")
+            
+            // Emit refresh event to React Native to trigger full sync
+            WatchConnectivityBridge.shared?.emitRefreshRequest()
+            
+            replyHandler(["success": true, "message": "iOS sync triggered"])
         
         case "watchLogs":
             // Watch is sending logs for debugging
@@ -275,7 +299,26 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                let readAt = userInfo["readAt"] as? String {
                 print("📱 Watch marked notification \(notificationId) as read (background)")
                 
-                // Notify React Native to update backend
+                // 1. Update local SQLite immediately (works even if React Native is not active)
+                DatabaseAccess.markNotificationAsRead(notificationId: notificationId, source: "WatchConnectivity") { success in
+                    if success {
+                        print("📱 ✅ SQLite updated for notification read (background)")
+                    } else {
+                        print("📱 ⚠️ SQLite update failed for notification read (background)")
+                    }
+                }
+                
+                // 2. Update CloudKit immediately (works in background)
+                CloudKitAccess.markNotificationAsRead(id: notificationId) { result in
+                    switch result {
+                    case .success:
+                        print("📱 ✅ CloudKit updated for notification read (background)")
+                    case .failure(let error):
+                        print("📱 ⚠️ CloudKit update failed for notification read (background): \(error)")
+                    }
+                }
+                
+                // 3. Notify React Native to update backend (only if React Native is active)
                 WatchConnectivityBridge.shared?.emitNotificationRead(notificationId: notificationId, readAt: readAt)
             }
             
@@ -283,7 +326,26 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
             if let notificationId = userInfo["notificationId"] as? String {
                 print("📱 Watch marked notification \(notificationId) as unread (background)")
                 
-                // Notify React Native to update backend
+                // 1. Update local SQLite immediately
+                DatabaseAccess.markNotificationAsUnread(notificationId: notificationId, source: "WatchConnectivity") { success in
+                    if success {
+                        print("📱 ✅ SQLite updated for notification unread (background)")
+                    } else {
+                        print("📱 ⚠️ SQLite update failed for notification unread (background)")
+                    }
+                }
+                
+                // 2. Update CloudKit immediately
+                CloudKitAccess.markNotificationAsUnread(id: notificationId) { result in
+                    switch result {
+                    case .success:
+                        print("📱 ✅ CloudKit updated for notification unread (background)")
+                    case .failure(let error):
+                        print("📱 ⚠️ CloudKit update failed for notification unread (background): \(error)")
+                    }
+                }
+                
+                // 3. Notify React Native to update backend (only if React Native is active)
                 WatchConnectivityBridge.shared?.emitNotificationUnread(notificationId: notificationId)
             }
             
@@ -291,9 +353,35 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
             if let notificationId = userInfo["notificationId"] as? String {
                 print("📱 Watch deleted notification \(notificationId) (background)")
                 
-                // Notify React Native to delete from backend via GraphQL
+                // 1. Delete from local SQLite immediately
+                DatabaseAccess.deleteNotification(notificationId: notificationId, source: "WatchConnectivity") { success in
+                    if success {
+                        print("📱 ✅ SQLite updated for notification deletion (background)")
+                    } else {
+                        print("📱 ⚠️ SQLite update failed for notification deletion (background)")
+                    }
+                }
+                
+                // 2. Delete from CloudKit immediately
+                CloudKitAccess.deleteNotification(id: notificationId) { result in
+                    switch result {
+                    case .success:
+                        print("📱 ✅ CloudKit updated for notification deletion (background)")
+                    case .failure(let error):
+                        print("📱 ⚠️ CloudKit update failed for notification deletion (background): \(error)")
+                    }
+                }
+                
+                // 3. Notify React Native to delete from backend (only if React Native is active)
                 WatchConnectivityBridge.shared?.emitNotificationDeleted(notificationId: notificationId)
             }
+            
+        case "refresh":
+            // Watch is requesting a full refresh (background) - trigger iOS to sync with backend DB
+            print("📱 Watch requested full refresh (background) - triggering iOS sync with backend")
+            
+            // Emit refresh event to React Native to trigger full sync
+            WatchConnectivityBridge.shared?.emitRefreshRequest()
             
         case "watchLogs":
             // Watch is sending logs via background transfer (auto-sent)
@@ -328,4 +416,7 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
         }
     }
 }
+
+// Typealias for backwards compatibility
+typealias WatchConnectivityManager = iPhoneWatchConnectivityManager
 

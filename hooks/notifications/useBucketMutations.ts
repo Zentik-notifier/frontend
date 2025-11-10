@@ -6,6 +6,7 @@ import {
   UpdateBucketSnoozesMutationVariables,
   useCreateBucketMutation,
   useDeleteBucketMutation,
+  useUpdateBucketMutation,
   UserRole,
   useSetBucketSnoozeMutation,
   useShareBucketMutation,
@@ -186,10 +187,11 @@ export function useDeleteBucketWithNotifications(options?: {
         console.error('[useDeleteBucketWithNotifications] Error recalculating stats:', error);
       }
 
-      // Step 6: Sync CloudKit + Watch + Widget
+      // Step 6: Sync to CloudKit and notify Watch/Widget
       try {
-        await IosBridgeService.syncAll('reload');
-        console.log('[useDeleteBucketWithNotifications] Synced to CloudKit, Watch, and Widget');
+        // Delete bucket from CloudKit
+        await IosBridgeService.deleteBucketFromCloudKit(bucketId);
+        console.log('[useDeleteBucketWithNotifications] Deleted bucket from CloudKit');
       } catch (error) {
         console.error('[useDeleteBucketWithNotifications] Failed to sync:', error);
       }
@@ -508,12 +510,26 @@ export function useUpdateBucketSnoozes(options?: {
 
       console.log('[useUpdateBucketSnoozes] Queries invalidated');
 
-      // Sync CloudKit + Watch + Widget
+      // Update bucket in CloudKit
       try {
-        await IosBridgeService.syncAll('reload');
-        console.log('[useUpdateBucketSnoozes] Synced to CloudKit, Watch, and Widget');
+        const bucket = queryClient.getQueryData<BucketDetailData>(
+          bucketKeys.detail(variables.bucketId)
+        );
+        
+        if (bucket) {
+          await IosBridgeService.updateBucketInCloudKit({
+            id: bucket.id,
+            name: bucket.name,
+            description: bucket.description || undefined,
+            color: bucket.color || undefined,
+            iconUrl: bucket.iconUrl || undefined,
+            createdAt: bucket.createdAt,
+            updatedAt: bucket.updatedAt,
+          });
+          console.log('[useUpdateBucketSnoozes] Bucket updated in CloudKit');
+        }
       } catch (error) {
-        console.error('[useUpdateBucketSnoozes] Failed to sync:', error);
+        console.error('[useUpdateBucketSnoozes] Failed to update in CloudKit:', error);
       }
 
       if (options?.onSuccess) {
@@ -728,12 +744,26 @@ export function useShareBucket(options?: {
       });
       console.log('[useShareBucket] AppState updated with new permission');
 
-      // Sync CloudKit + Watch + Widget
+      // Update bucket in CloudKit
       try {
-        await IosBridgeService.syncAll('reload');
-        console.log('[useShareBucket] Synced to CloudKit, Watch, and Widget');
+        const bucket = queryClient.getQueryData<BucketDetailData>(
+          bucketKeys.detail(bucketId)
+        );
+        
+        if (bucket) {
+          await IosBridgeService.updateBucketInCloudKit({
+            id: bucket.id,
+            name: bucket.name,
+            description: bucket.description || undefined,
+            color: bucket.color || undefined,
+            iconUrl: bucket.iconUrl || undefined,
+            createdAt: bucket.createdAt,
+            updatedAt: bucket.updatedAt,
+          });
+          console.log('[useShareBucket] Bucket updated in CloudKit');
+        }
       } catch (error) {
-        console.error('[useShareBucket] Failed to sync:', error);
+        console.error('[useShareBucket] Failed to update in CloudKit:', error);
       }
 
       if (options?.onSuccess) {
@@ -877,12 +907,26 @@ export function useUnshareBucket(options?: {
       // No need to update cache again, optimistic update is already correct
       console.log('[useUnshareBucket] Optimistic update confirmed');
 
-      // Sync CloudKit + Watch + Widget
+      // Update bucket in CloudKit
       try {
-        await IosBridgeService.syncAll('reload');
-        console.log('[useUnshareBucket] Synced to CloudKit, Watch, and Widget');
+        const bucket = queryClient.getQueryData<BucketDetailData>(
+          bucketKeys.detail(context.bucketId)
+        );
+        
+        if (bucket) {
+          await IosBridgeService.updateBucketInCloudKit({
+            id: bucket.id,
+            name: bucket.name,
+            description: bucket.description || undefined,
+            color: bucket.color || undefined,
+            iconUrl: bucket.iconUrl || undefined,
+            createdAt: bucket.createdAt,
+            updatedAt: bucket.updatedAt,
+          });
+          console.log('[useUnshareBucket] Bucket updated in CloudKit');
+        }
       } catch (error) {
-        console.error('[useUnshareBucket] Failed to sync:', error);
+        console.error('[useUnshareBucket] Failed to update in CloudKit:', error);
       }
 
       if (options?.onSuccess) {
@@ -1065,10 +1109,19 @@ export function useCreateBucket(options?: {
       });
       console.log('[useCreateBucket] Related queries invalidated');
 
-      // Step 4: Sync CloudKit + Watch + Widget
+      // Step 4: Sync new bucket to CloudKit and notify Watch/Widget
       try {
-        await IosBridgeService.syncAll('reload');
-        console.log('[useCreateBucket] Synced to CloudKit, Watch, and Widget');
+        // Add new bucket to CloudKit
+        await IosBridgeService.addBucketToCloudKit({
+          id: bucket.id,
+          name: bucket.name,
+          description: bucket.description || undefined,
+          color: bucket.color || undefined,
+          iconUrl: bucket.iconUrl || undefined,
+          createdAt: bucket.createdAt,
+          updatedAt: bucket.updatedAt,
+        });
+        console.log('[useCreateBucket] New bucket added to CloudKit');
       } catch (error) {
         console.error('[useCreateBucket] Failed to sync:', error);
       }
@@ -1088,6 +1141,180 @@ export function useCreateBucket(options?: {
 
   return {
     createBucket: mutation.mutateAsync,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+/**
+ * Hook for updating an existing bucket with CloudKit sync
+ * 
+ * @example
+ * ```typescript
+ * import { useUpdateBucket } from '@/hooks/notifications';
+ * 
+ * const { updateBucket, isLoading } = useUpdateBucket({
+ *   onSuccess: () => router.back(),
+ *   onError: (error) => Alert.alert('Error', error.message)
+ * });
+ * 
+ * await updateBucket({
+ *   bucketId: 'bucket-id',
+ *   data: { name: 'New Name', color: '#FF0000' }
+ * });
+ * ```
+ */
+export function useUpdateBucket(options?: {
+  onSuccess?: (bucketId: string) => void;
+  onError?: (error: Error) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [updateBucketMutation] = useUpdateBucketMutation();
+
+  const mutation = useMutation({
+    mutationFn: async (variables: {
+      bucketId: string;
+      data: {
+        name?: string | null;
+        description?: string | null;
+        color?: string | null;
+        icon?: string | null;
+        generateIconWithInitials?: boolean | null;
+      };
+    }) => {
+      console.log('[useUpdateBucket] Updating bucket:', variables.bucketId);
+
+      // Call GraphQL mutation
+      const result = await updateBucketMutation({
+        variables: {
+          id: variables.bucketId,
+          input: variables.data,
+        },
+      });
+
+      if (!result.data?.updateBucket) {
+        throw new Error('Failed to update bucket');
+      }
+
+      return result.data.updateBucket;
+    },
+    onSuccess: async (bucket, variables) => {
+      console.log('[useUpdateBucket] Bucket updated successfully:', bucket.id);
+
+      // Step 1: Save bucket to local database
+      try {
+        await saveBuckets([{
+          id: bucket.id,
+          name: bucket.name,
+          description: bucket.description,
+          icon: bucket.icon,
+          iconAttachmentUuid: bucket.iconAttachmentUuid,
+          iconUrl: bucket.iconUrl,
+          color: bucket.color,
+          createdAt: bucket.createdAt,
+          updatedAt: bucket.updatedAt,
+          isProtected: bucket.isProtected,
+          isPublic: bucket.isPublic,
+          isAdmin: bucket.isAdmin,
+          userBucket: bucket.userBucket,
+          user: bucket.user,
+          permissions: bucket.permissions,
+          userPermissions: bucket.userPermissions,
+          isOrphan: false,
+        }]);
+        console.log('[useUpdateBucket] Bucket saved to local database');
+      } catch (error) {
+        console.error('[useUpdateBucket] Error saving bucket to local database:', error);
+      }
+
+      // Step 2: Update bucket detail cache
+      queryClient.setQueryData<BucketDetailData>(
+        bucketKeys.detail(bucket.id),
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            name: bucket.name,
+            description: bucket.description,
+            color: bucket.color,
+            icon: bucket.icon,
+            iconAttachmentUuid: bucket.iconAttachmentUuid,
+            iconUrl: bucket.iconUrl,
+            updatedAt: bucket.updatedAt,
+          };
+        }
+      );
+
+      // Step 3: Update bucket in appState
+      queryClient.setQueryData(['app-state'], (oldAppState: any) => {
+        if (!oldAppState) return oldAppState;
+
+        const updatedBuckets = oldAppState.buckets.map((b: BucketWithStats) => {
+          if (b.id === bucket.id) {
+            return {
+              ...b,
+              name: bucket.name,
+              description: bucket.description,
+              color: bucket.color,
+              icon: bucket.icon,
+              iconAttachmentUuid: bucket.iconAttachmentUuid,
+              iconUrl: bucket.iconUrl,
+              updatedAt: bucket.updatedAt,
+            };
+          }
+          return b;
+        });
+
+        return {
+          ...oldAppState,
+          buckets: updatedBuckets,
+          lastSync: new Date().toISOString(),
+        };
+      });
+      console.log('[useUpdateBucket] Bucket updated in appState');
+
+      // Step 4: Invalidate related queries
+      await queryClient.invalidateQueries({
+        queryKey: bucketKeys.detail(bucket.id),
+        refetchType: 'none',
+      });
+      await queryClient.invalidateQueries({
+        queryKey: notificationKeys.bucketsStats(),
+        refetchType: 'none',
+      });
+      console.log('[useUpdateBucket] Related queries invalidated');
+
+      // Step 5: Update bucket in CloudKit
+      try {
+        await IosBridgeService.updateBucketInCloudKit({
+          id: bucket.id,
+          name: bucket.name,
+          description: bucket.description || undefined,
+          color: bucket.color || undefined,
+          iconUrl: bucket.iconUrl || undefined,
+          createdAt: bucket.createdAt,
+          updatedAt: bucket.updatedAt,
+        });
+        console.log('[useUpdateBucket] Bucket updated in CloudKit');
+      } catch (error) {
+        console.error('[useUpdateBucket] Failed to update in CloudKit:', error);
+      }
+
+      if (options?.onSuccess) {
+        options.onSuccess(bucket.id);
+      }
+    },
+    onError: (error, variables) => {
+      console.error('[useUpdateBucket] Mutation failed:', error);
+
+      if (options?.onError) {
+        options.onError(error as Error);
+      }
+    },
+  });
+
+  return {
+    updateBucket: mutation.mutateAsync,
     isLoading: mutation.isPending,
     error: mutation.error,
   };

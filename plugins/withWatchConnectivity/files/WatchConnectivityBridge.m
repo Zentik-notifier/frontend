@@ -5,6 +5,9 @@
 RCT_EXTERN_METHOD(notifyWatchOfUpdate:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(notifyWatchToSyncIncremental:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(notifyWatchNotificationRead:(NSString *)notificationId
                   readAt:(NSString *)readAt
                   resolver:(RCTPromiseResolveBlock)resolve

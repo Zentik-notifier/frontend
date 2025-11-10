@@ -252,27 +252,7 @@ export function useNotificationsState(
                 ]);
 
                 // Process notifications from API
-                let apiNotifications: NotificationFragment[] = [];
-                if (notificationsResult.status === 'fulfilled' && notificationsResult.value.data?.notifications) {
-                    apiNotifications = notificationsResult.value.data.notifications as NotificationFragment[];
-                    
-                    if (apiNotifications.length > 0) {
-                        await upsertNotificationsBatch(apiNotifications);
-                        
-                        // Sync to CloudKit + Watch + Widget
-                        try {
-                            const { default: IosBridgeService } = await import('@/services/ios-bridge');
-                            await IosBridgeService.syncAll('reload');
-                            console.log('[useNotificationsState] Synced to CloudKit, Watch, and Widget');
-                        } catch (error) {
-                            console.error('[useNotificationsState] Failed to sync:', error);
-                        }
-                    }
-                    console.log(`[useNotificationsState] API synced: ${apiNotifications.length} notifications`);
-                } else {
-                    console.warn('[useNotificationsState] Failed to fetch notifications from API:', 
-                        notificationsResult.status === 'rejected' ? notificationsResult.reason : 'No data');
-                }
+                const apiNotifications: NotificationFragment[] = [];
 
                 // Process buckets from API
                 let apiBuckets: BucketWithUserData[] = [];

@@ -139,6 +139,25 @@ public class LoggingSystem {
             return logs
         } catch {
             print("[LoggingSystem] ⚠️ Failed to read existing logs: \(error)")
+            
+            // If JSON is corrupted, backup the corrupted file and start fresh
+            if let decodingError = error as? DecodingError {
+                print("[LoggingSystem] 🔧 Detected corrupted log file, creating backup and starting fresh")
+                
+                let backupPath = filePath.replacingOccurrences(of: ".json", with: "_corrupted_\(Int(Date().timeIntervalSince1970)).json")
+                
+                do {
+                    // Try to backup the corrupted file
+                    if fileManager.fileExists(atPath: filePath) {
+                        try fileManager.moveItem(atPath: filePath, toPath: backupPath)
+                        print("[LoggingSystem] 📦 Backed up corrupted logs to: \(backupPath)")
+                    }
+                } catch {
+                    print("[LoggingSystem] ⚠️ Failed to backup corrupted file, deleting: \(error)")
+                    try? fileManager.removeItem(atPath: filePath)
+                }
+            }
+            
             return []
         }
     }

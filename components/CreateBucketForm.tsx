@@ -4,16 +4,15 @@ import {
   UpdateBucketDto,
   useCreateAccessTokenForBucketMutation,
   usePublicAppConfigQuery,
-  useUpdateBucketMutation,
 } from "@/generated/gql-operations-generated";
 import {
   useBucket,
   useCreateBucket,
+  useUpdateBucket,
   useRefreshBucket,
 } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
-import IosBridgeService from "@/services/ios-bridge";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -112,30 +111,19 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
     },
   });
 
-  const [updateBucketMutation, { loading: updatingBucket }] =
-    useUpdateBucketMutation({
-      onCompleted: async (data) => {
-        if (bucketId) {
-          await refreshBucket(bucketId).catch(console.error);
-          
-          // Sync to CloudKit so Watch can see the changes
-          try {
-            await IosBridgeService.syncAll('reload');
-            console.log('[CreateBucketForm] Synced updated bucket to CloudKit, Watch, and Widget');
-          } catch (error) {
-            console.error('[CreateBucketForm] Failed to sync updated bucket:', error);
-          }
-        }
-        router.back();
-      },
-      onError: (error) => {
-        console.error("Update bucket error:", error);
-        Alert.alert(
-          t("buckets.form.updateErrorTitle"),
-          error.message || t("buckets.form.updateErrorMessage")
-        );
-      },
-    });
+  const { updateBucket, isLoading: updatingBucket } = useUpdateBucket({
+    onSuccess: async (bucketId) => {
+      await refreshBucket(bucketId).catch(console.error);
+      router.back();
+    },
+    onError: (error) => {
+      console.error("Update bucket error:", error);
+      Alert.alert(
+        t("buckets.form.updateErrorTitle"),
+        error.message || t("buckets.form.updateErrorMessage")
+      );
+    },
+  });
 
   const isLoading = creatingBucket || updatingBucket;
 
@@ -186,10 +174,14 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       };
 
       if (isEditing && bucket) {
-        await updateBucketMutation({
-          variables: {
-            id: bucket.id,
-            input: bucketData as UpdateBucketDto,
+        await updateBucket({
+          bucketId: bucket.id,
+          data: {
+            name: bucketData.name,
+            description: bucketData.description,
+            color: bucketData.color,
+            icon: bucketData.icon,
+            generateIconWithInitials: bucketData.generateIconWithInitials,
           },
         });
       } else {

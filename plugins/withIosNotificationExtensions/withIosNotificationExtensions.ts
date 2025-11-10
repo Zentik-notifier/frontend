@@ -40,14 +40,16 @@ function copySharedFilesToTarget(
     return;
   }
 
-  const sharedFiles = [
-    'KeychainAccess.swift',
-    'DatabaseAccess.swift',
-    'LoggingSystem.swift',
-    'SharedTypes.swift',
-    'NotificationActionHandler.swift',
-    'MediaAccess.swift',
-  ];
+  // Read all .swift files from the ZentikShared directory
+  const sharedFiles = fs.readdirSync(sharedFilesSource)
+    .filter(file => file.endsWith('.swift'));
+
+  if (sharedFiles.length === 0) {
+    console.log(`[${targetName}] ⚠️  No .swift files found in ${sharedFilesSource}`);
+    return;
+  }
+
+  console.log(`[${targetName}] 📦 Found ${sharedFiles.length} shared files to copy`);
 
   for (const file of sharedFiles) {
     const sourcePath = path.join(sharedFilesSource, file);

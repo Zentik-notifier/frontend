@@ -4,10 +4,10 @@ import CloudKit
 /**
  * CloudKitAccess - Gestione centralizzata di CloudKit
  * 
- * Nuovo approccio con record individuali:
+ * Nuovo approccio con record individuali e custom zone:
  * - Ogni bucket è un CKRecord separato (tipo "Bucket")
  * - Ogni notifica è un CKRecord separato (tipo "Notification")
- * - Utilizza la zona di default (_defaultZone) per compatibilità
+ * - Utilizza una custom zone "ZentikCrossSync" per sync incrementale ottimizzato
  * - iOS scrive e legge, Watch legge solo
  * - Sincronizzazione bidirezionale tra dispositivi
  */
@@ -15,6 +15,9 @@ import CloudKit
 // MARK: - CloudKit Configuration
 
 public struct CloudKitConfig {
+    /// Custom zone name for cross-device sync
+    public static let customZoneName = "ZentikCrossSync"
+    
     /// Container identifier
     public static func getContainerIdentifier() -> String {
         let mainBundleId = KeychainAccess.getMainBundleIdentifier()
@@ -26,9 +29,19 @@ public struct CloudKitConfig {
         return CKContainer(identifier: getContainerIdentifier())
     }
     
-    /// Get private database (uses default zone)
+    /// Get private database
     public static func getPrivateDatabase() -> CKDatabase {
         return getContainer().privateCloudDatabase
+    }
+    
+    /// Get custom zone ID
+    public static func getCustomZoneID() -> CKRecordZone.ID {
+        return CKRecordZone.ID(zoneName: customZoneName, ownerName: CKCurrentUserDefaultName)
+    }
+    
+    /// Get custom zone
+    public static func getCustomZone() -> CKRecordZone {
+        return CKRecordZone(zoneID: getCustomZoneID())
     }
 }
 
@@ -135,7 +148,7 @@ public struct CloudKitBucket: Codable, Identifiable {
     
     /// Convert to CKRecord
     public func toCKRecord() -> CKRecord {
-        let recordID = CKRecord.ID(recordName: id)
+        let recordID = CKRecord.ID(recordName: id, zoneID: CloudKitConfig.getCustomZoneID())
         let record = CKRecord(recordType: CloudKitRecordType.bucket, recordID: recordID)
         
         record[CloudKitField.bucketName] = name as CKRecordValue
@@ -146,6 +159,16 @@ public struct CloudKitBucket: Codable, Identifiable {
         record[CloudKitField.bucketUpdatedAt] = updatedAt as CKRecordValue
         
         return record
+    }
+    
+    /// Update an existing CKRecord with current values
+    public func updateCKRecord(_ record: CKRecord) {
+        record[CloudKitField.bucketName] = name as CKRecordValue
+        record[CloudKitField.bucketDescription] = (description ?? "") as CKRecordValue
+        record[CloudKitField.bucketColor] = (color ?? "") as CKRecordValue
+        record[CloudKitField.bucketIconUrl] = (iconUrl ?? "") as CKRecordValue
+        record[CloudKitField.bucketCreatedAt] = createdAt as CKRecordValue
+        record[CloudKitField.bucketUpdatedAt] = updatedAt as CKRecordValue
     }
     
     /// Create from CKRecord
@@ -260,7 +283,7 @@ public struct CloudKitNotification: Codable, Identifiable {
     
     /// Convert to CKRecord
     public func toCKRecord() -> CKRecord {
-        let recordID = CKRecord.ID(recordName: id)
+        let recordID = CKRecord.ID(recordName: id, zoneID: CloudKitConfig.getCustomZoneID())
         let record = CKRecord(recordType: CloudKitRecordType.notification, recordID: recordID)
         
         record[CloudKitField.notificationTitle] = title as CKRecordValue
@@ -290,6 +313,35 @@ public struct CloudKitNotification: Codable, Identifiable {
         }
         
         return record
+    }
+    
+    /// Update an existing CKRecord with current values
+    public func updateCKRecord(_ record: CKRecord) {
+        record[CloudKitField.notificationTitle] = title as CKRecordValue
+        record[CloudKitField.notificationSubtitle] = (subtitle ?? "") as CKRecordValue
+        record[CloudKitField.notificationBody] = (body ?? "") as CKRecordValue
+        record[CloudKitField.notificationReadAt] = readAt as? CKRecordValue
+        record[CloudKitField.notificationSentAt] = sentAt as? CKRecordValue
+        record[CloudKitField.notificationCreatedAt] = createdAt as CKRecordValue
+        record[CloudKitField.notificationUpdatedAt] = updatedAt as CKRecordValue
+        record[CloudKitField.notificationBucketId] = bucketId as CKRecordValue
+        
+        // Serialize attachments, actions, tapAction as JSON strings
+        if let attachmentsData = try? JSONEncoder().encode(attachments),
+           let attachmentsString = String(data: attachmentsData, encoding: .utf8) {
+            record[CloudKitField.notificationAttachments] = attachmentsString as CKRecordValue
+        }
+        
+        if let actionsData = try? JSONEncoder().encode(actions),
+           let actionsString = String(data: actionsData, encoding: .utf8) {
+            record[CloudKitField.notificationActions] = actionsString as CKRecordValue
+        }
+        
+        if let tapAction = tapAction,
+           let tapActionData = try? JSONEncoder().encode(tapAction),
+           let tapActionString = String(data: tapActionData, encoding: .utf8) {
+            record[CloudKitField.notificationTapAction] = tapActionString as CKRecordValue
+        }
     }
     
     /// Create from CKRecord
@@ -351,14 +403,82 @@ public struct CloudKitNotification: Codable, Identifiable {
 public class CloudKitAccess {
     
     private static let database = CloudKitConfig.getPrivateDatabase()
+    private static let customZoneID = CloudKitConfig.getCustomZoneID()
     private static let logger = LoggingSystem.shared
+    
+    // MARK: - Custom Zone Management
+    
+    /// Ensure custom zone exists, create if needed
+    public static func ensureCustomZoneExists(completion: @escaping (Result<Void, Error>) -> Void) {
+        let customZone = CloudKitConfig.getCustomZone()
+        
+        logger.info(
+            tag: "EnsureZone",
+            message: "Checking/creating custom zone",
+            metadata: ["zoneName": CloudKitConfig.customZoneName],
+            source: "CloudKitAccess"
+        )
+        
+        // Try to fetch the zone first
+        database.fetch(withRecordZoneID: customZoneID) { zone, error in
+            if let zone = zone {
+                logger.info(
+                    tag: "EnsureZone",
+                    message: "Custom zone already exists",
+                    metadata: ["zoneName": zone.zoneID.zoneName],
+                    source: "CloudKitAccess"
+                )
+                completion(.success(()))
+            } else if let error = error as? CKError, error.code == .zoneNotFound {
+                // Zone doesn't exist, create it
+                logger.info(
+                    tag: "EnsureZone",
+                    message: "Creating custom zone",
+                    metadata: ["zoneName": CloudKitConfig.customZoneName],
+                    source: "CloudKitAccess"
+                )
+                
+                let modifyOp = CKModifyRecordZonesOperation(recordZonesToSave: [customZone], recordZoneIDsToDelete: nil)
+                modifyOp.modifyRecordZonesResultBlock = { result in
+                    switch result {
+                    case .success:
+                        logger.info(
+                            tag: "EnsureZone",
+                            message: "Successfully created custom zone",
+                            metadata: ["zoneName": CloudKitConfig.customZoneName],
+                            source: "CloudKitAccess"
+                        )
+                        completion(.success(()))
+                    case .failure(let error):
+                        logger.error(
+                            tag: "EnsureZone",
+                            message: "Failed to create custom zone",
+                            metadata: [
+                                "zoneName": CloudKitConfig.customZoneName,
+                                "error": error.localizedDescription
+                            ],
+                            source: "CloudKitAccess"
+                        )
+                        completion(.failure(error))
+                    }
+                }
+                database.add(modifyOp)
+            } else if let error = error {
+                logger.error(
+                    tag: "EnsureZone",
+                    message: "Failed to check custom zone",
+                    metadata: ["error": error.localizedDescription],
+                    source: "CloudKitAccess"
+                )
+                completion(.failure(error))
+            }
+        }
+    }
     
     // MARK: - Bucket Operations
     
     /// Save a bucket to CloudKit
     public static func saveBucket(_ bucket: CloudKitBucket, completion: @escaping (Result<CloudKitBucket, Error>) -> Void) {
-        let record = bucket.toCKRecord()
-        
         logger.info(
             tag: "SaveBucket",
             message: "Saving bucket to CloudKit",
@@ -369,36 +489,67 @@ public class CloudKitAccess {
             source: "CloudKitAccess"
         )
         
-        database.save(record) { savedRecord, error in
-            if let error = error {
-                logger.error(
-                    tag: "SaveBucket",
-                    message: "Failed to save bucket",
-                    metadata: [
-                        "bucketId": bucket.id,
-                        "error": error.localizedDescription
-                    ],
-                    source: "CloudKitAccess"
-                )
-                completion(.failure(error))
-            } else if let savedRecord = savedRecord, let savedBucket = CloudKitBucket.from(record: savedRecord) {
+        // First, try to fetch the existing record to update it
+        let recordID = CKRecord.ID(recordName: bucket.id, zoneID: customZoneID)
+        
+        database.fetch(withRecordID: recordID) { existingRecord, fetchError in
+            let record: CKRecord
+            
+            if let existingRecord = existingRecord {
+                // Update existing record
+                record = existingRecord
+                bucket.updateCKRecord(record)
+                
                 logger.info(
                     tag: "SaveBucket",
-                    message: "Successfully saved bucket",
+                    message: "Updating existing bucket in CloudKit",
                     metadata: ["bucketId": bucket.id],
                     source: "CloudKitAccess"
                 )
-                completion(.success(savedBucket))
             } else {
-                let error = NSError(domain: "CloudKitAccess", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to parse saved bucket"])
-                completion(.failure(error))
+                // Create new record
+                record = bucket.toCKRecord()
+                
+                logger.info(
+                    tag: "SaveBucket",
+                    message: "Creating new bucket in CloudKit",
+                    metadata: ["bucketId": bucket.id],
+                    source: "CloudKitAccess"
+                )
+            }
+            
+            // Save the record
+            database.save(record) { savedRecord, error in
+                if let error = error {
+                    logger.error(
+                        tag: "SaveBucket",
+                        message: "Failed to save bucket",
+                        metadata: [
+                            "bucketId": bucket.id,
+                            "error": error.localizedDescription
+                        ],
+                        source: "CloudKitAccess"
+                    )
+                    completion(.failure(error))
+                } else if let savedRecord = savedRecord, let savedBucket = CloudKitBucket.from(record: savedRecord) {
+                    logger.info(
+                        tag: "SaveBucket",
+                        message: "Successfully saved bucket",
+                        metadata: ["bucketId": bucket.id],
+                        source: "CloudKitAccess"
+                    )
+                    completion(.success(savedBucket))
+                } else {
+                    let error = NSError(domain: "CloudKitAccess", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to parse saved bucket"])
+                    completion(.failure(error))
+                }
             }
         }
     }
     
     /// Fetch a single bucket by ID
     public static func fetchBucket(id: String, completion: @escaping (Result<CloudKitBucket?, Error>) -> Void) {
-        let recordID = CKRecord.ID(recordName: id)
+        let recordID = CKRecord.ID(recordName: id, zoneID: customZoneID)
         
         database.fetch(withRecordID: recordID) { record, error in
             if let error = error {
@@ -427,7 +578,7 @@ public class CloudKitAccess {
             source: "CloudKitAccess"
         )
         
-        database.perform(query, inZoneWith: nil) { records, error in
+        database.perform(query, inZoneWith: customZoneID) { records, error in
             if let error = error {
                 logger.error(
                     tag: "FetchBuckets",
@@ -453,7 +604,7 @@ public class CloudKitAccess {
     
     /// Delete a bucket
     public static func deleteBucket(id: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        let recordID = CKRecord.ID(recordName: id)
+        let recordID = CKRecord.ID(recordName: id, zoneID: customZoneID)
         
         logger.info(
             tag: "DeleteBucket",
@@ -490,8 +641,6 @@ public class CloudKitAccess {
     
     /// Save a notification to CloudKit
     public static func saveNotification(_ notification: CloudKitNotification, completion: @escaping (Result<CloudKitNotification, Error>) -> Void) {
-        let record = notification.toCKRecord()
-        
         logger.info(
             tag: "SaveNotification",
             message: "Saving notification to CloudKit",
@@ -502,36 +651,67 @@ public class CloudKitAccess {
             source: "CloudKitAccess"
         )
         
-        database.save(record) { savedRecord, error in
-            if let error = error {
-                logger.error(
-                    tag: "SaveNotification",
-                    message: "Failed to save notification",
-                    metadata: [
-                        "notificationId": notification.id,
-                        "error": error.localizedDescription
-                    ],
-                    source: "CloudKitAccess"
-                )
-                completion(.failure(error))
-            } else if let savedRecord = savedRecord, let savedNotification = CloudKitNotification.from(record: savedRecord) {
+        // First, try to fetch the existing record to update it
+        let recordID = CKRecord.ID(recordName: notification.id, zoneID: customZoneID)
+        
+        database.fetch(withRecordID: recordID) { existingRecord, fetchError in
+            let record: CKRecord
+            
+            if let existingRecord = existingRecord {
+                // Update existing record
+                record = existingRecord
+                notification.updateCKRecord(record)
+                
                 logger.info(
                     tag: "SaveNotification",
-                    message: "Successfully saved notification",
+                    message: "Updating existing notification in CloudKit",
                     metadata: ["notificationId": notification.id],
                     source: "CloudKitAccess"
                 )
-                completion(.success(savedNotification))
             } else {
-                let error = NSError(domain: "CloudKitAccess", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to parse saved notification"])
-                completion(.failure(error))
+                // Create new record
+                record = notification.toCKRecord()
+                
+                logger.info(
+                    tag: "SaveNotification",
+                    message: "Creating new notification in CloudKit",
+                    metadata: ["notificationId": notification.id],
+                    source: "CloudKitAccess"
+                )
+            }
+            
+            // Save the record
+            database.save(record) { savedRecord, error in
+                if let error = error {
+                    logger.error(
+                        tag: "SaveNotification",
+                        message: "Failed to save notification",
+                        metadata: [
+                            "notificationId": notification.id,
+                            "error": error.localizedDescription
+                        ],
+                        source: "CloudKitAccess"
+                    )
+                    completion(.failure(error))
+                } else if let savedRecord = savedRecord, let savedNotification = CloudKitNotification.from(record: savedRecord) {
+                    logger.info(
+                        tag: "SaveNotification",
+                        message: "Successfully saved notification",
+                        metadata: ["notificationId": notification.id],
+                        source: "CloudKitAccess"
+                    )
+                    completion(.success(savedNotification))
+                } else {
+                    let error = NSError(domain: "CloudKitAccess", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to parse saved notification"])
+                    completion(.failure(error))
+                }
             }
         }
     }
     
     /// Fetch a single notification by ID
     public static func fetchNotification(id: String, completion: @escaping (Result<CloudKitNotification?, Error>) -> Void) {
-        let recordID = CKRecord.ID(recordName: id)
+        let recordID = CKRecord.ID(recordName: id, zoneID: customZoneID)
         
         database.fetch(withRecordID: recordID) { record, error in
             if let error = error {
@@ -562,6 +742,7 @@ public class CloudKitAccess {
         )
         
         let operation = CKQueryOperation(query: query)
+        operation.zoneID = customZoneID
         if let limit = limit {
             operation.resultsLimit = limit
         }
@@ -630,6 +811,7 @@ public class CloudKitAccess {
         )
         
         let operation = CKQueryOperation(query: query)
+        operation.zoneID = customZoneID
         if let limit = limit {
             operation.resultsLimit = limit
         }
@@ -688,7 +870,7 @@ public class CloudKitAccess {
     
     /// Delete a notification
     public static func deleteNotification(id: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        let recordID = CKRecord.ID(recordName: id)
+        let recordID = CKRecord.ID(recordName: id, zoneID: customZoneID)
         
         logger.info(
             tag: "DeleteNotification",
@@ -723,7 +905,7 @@ public class CloudKitAccess {
     
     /// Mark notification as read
     public static func markNotificationAsRead(id: String, completion: @escaping (Result<CloudKitNotification, Error>) -> Void) {
-        let recordID = CKRecord.ID(recordName: id)
+        let recordID = CKRecord.ID(recordName: id, zoneID: customZoneID)
         
         database.fetch(withRecordID: recordID) { record, error in
             if let error = error {
@@ -739,6 +921,38 @@ public class CloudKitAccess {
             
             // Update readAt field
             record[CloudKitField.notificationReadAt] = Date() as CKRecordValue
+            record[CloudKitField.notificationUpdatedAt] = Date() as CKRecordValue
+            
+            database.save(record) { savedRecord, saveError in
+                if let saveError = saveError {
+                    completion(.failure(saveError))
+                } else if let savedRecord = savedRecord, let notification = CloudKitNotification.from(record: savedRecord) {
+                    completion(.success(notification))
+                } else {
+                    let error = NSError(domain: "CloudKitAccess", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to parse updated notification"])
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+    
+    public static func markNotificationAsUnread(id: String, completion: @escaping (Result<CloudKitNotification, Error>) -> Void) {
+        let recordID = CKRecord.ID(recordName: id, zoneID: customZoneID)
+        
+        database.fetch(withRecordID: recordID) { record, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let record = record else {
+                let error = NSError(domain: "CloudKitAccess", code: 3, userInfo: [NSLocalizedDescriptionKey: "Notification not found"])
+                completion(.failure(error))
+                return
+            }
+            
+            // Clear readAt field (mark as unread)
+            record[CloudKitField.notificationReadAt] = nil
             record[CloudKitField.notificationUpdatedAt] = Date() as CKRecordValue
             
             database.save(record) { savedRecord, saveError in
@@ -937,6 +1151,593 @@ public class CloudKitAccess {
                     source: "CloudKitAccess"
                 )
                 completion(.success(status))
+            }
+        }
+    }
+    
+    // MARK: - Individual CRUD Operations
+    
+    /// Add a single bucket to CloudKit
+    public static func addBucket(_ bucket: CloudKitBucket, completion: @escaping (Result<CloudKitBucket, Error>) -> Void) {
+        saveBucket(bucket, completion: completion)
+    }
+    
+    /// Update a single bucket in CloudKit
+    public static func updateBucket(_ bucket: CloudKitBucket, completion: @escaping (Result<CloudKitBucket, Error>) -> Void) {
+        saveBucket(bucket, completion: completion)
+    }
+    
+    /// Add a single notification to CloudKit
+    public static func addNotification(_ notification: CloudKitNotification, completion: @escaping (Result<CloudKitNotification, Error>) -> Void) {
+        saveNotification(notification, completion: completion)
+    }
+    
+    /// Create and save a new notification from simple parameters
+    /// Useful for NSE and other contexts where you don't want to build a full CloudKitNotification object
+    public static func createNotification(
+        id: String,
+        bucketId: String,
+        title: String,
+        body: String,
+        subtitle: String? = nil,
+        createdAt: Date = Date(),
+        readAt: Date? = nil,
+        attachments: [[String: Any]]? = nil,
+        completion: @escaping (Result<CloudKitNotification, Error>) -> Void
+    ) {
+        logger.info(
+            tag: "CreateNotification",
+            message: "Creating new notification in CloudKit",
+            metadata: [
+                "notificationId": id,
+                "bucketId": bucketId,
+                "title": title
+            ],
+            source: "CloudKitAccess"
+        )
+        
+        // Convert attachments to CloudKitAttachment array
+        let ckAttachments: [CloudKitAttachment]
+        if let attachments = attachments, !attachments.isEmpty {
+            ckAttachments = attachments.compactMap { dict -> CloudKitAttachment? in
+                guard let mediaType = dict["mediaType"] as? String else { return nil }
+                let url = dict["url"] as? String
+                let name = dict["name"] as? String
+                return CloudKitAttachment(mediaType: mediaType, url: url, name: name)
+            }
+        } else {
+            ckAttachments = []
+        }
+        
+        // Create CloudKitNotification
+        let notification = CloudKitNotification(
+            id: id,
+            title: title,
+            subtitle: subtitle,
+            body: body,
+            readAt: readAt,
+            sentAt: nil,
+            createdAt: createdAt,
+            updatedAt: Date(),
+            bucketId: bucketId,
+            attachments: ckAttachments,
+            actions: [],
+            tapAction: nil
+        )
+        
+        // Save to CloudKit
+        saveNotification(notification, completion: completion)
+    }
+    
+    /// Update a single notification in CloudKit
+    public static func updateNotification(_ notification: CloudKitNotification, completion: @escaping (Result<CloudKitNotification, Error>) -> Void) {
+        saveNotification(notification, completion: completion)
+    }
+    
+    // MARK: - Change Token Management
+    
+    /// UserDefaults keys for storing change tokens
+    private static let bucketChangeTokenKey = "CloudKitBucketChangeToken"
+    private static let notificationChangeTokenKey = "CloudKitNotificationChangeToken"
+    
+    /// Save bucket change token
+    public static func saveBucketChangeToken(_ token: CKServerChangeToken) {
+        if let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true) {
+            UserDefaults.standard.set(data, forKey: bucketChangeTokenKey)
+            logger.debug(
+                tag: "ChangeToken",
+                message: "Saved bucket change token",
+                source: "CloudKitAccess"
+            )
+        }
+    }
+    
+    /// Load bucket change token
+    public static func loadBucketChangeToken() -> CKServerChangeToken? {
+        guard let data = UserDefaults.standard.data(forKey: bucketChangeTokenKey),
+              let token = try? NSKeyedUnarchiver.unarchivedObject(ofClass: CKServerChangeToken.self, from: data) else {
+            return nil
+        }
+        logger.debug(
+            tag: "ChangeToken",
+            message: "Loaded bucket change token",
+            source: "CloudKitAccess"
+        )
+        return token
+    }
+    
+    /// Save notification change token
+    public static func saveNotificationChangeToken(_ token: CKServerChangeToken) {
+        if let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true) {
+            UserDefaults.standard.set(data, forKey: notificationChangeTokenKey)
+            logger.debug(
+                tag: "ChangeToken",
+                message: "Saved notification change token",
+                source: "CloudKitAccess"
+            )
+        }
+    }
+    
+    /// Load notification change token
+    public static func loadNotificationChangeToken() -> CKServerChangeToken? {
+        guard let data = UserDefaults.standard.data(forKey: notificationChangeTokenKey),
+              let token = try? NSKeyedUnarchiver.unarchivedObject(ofClass: CKServerChangeToken.self, from: data) else {
+            return nil
+        }
+        logger.debug(
+            tag: "ChangeToken",
+            message: "Loaded notification change token",
+            source: "CloudKitAccess"
+        )
+        return token
+    }
+    
+    /// Clear all change tokens (useful for forced full sync)
+    public static func clearAllChangeTokens() {
+        UserDefaults.standard.removeObject(forKey: bucketChangeTokenKey)
+        UserDefaults.standard.removeObject(forKey: notificationChangeTokenKey)
+        logger.info(
+            tag: "ChangeToken",
+            message: "Cleared all change tokens",
+            source: "CloudKitAccess"
+        )
+    }
+    
+    // MARK: - Incremental Sync with Change Tokens
+    
+    /// Result of incremental fetch containing changes and new token
+    public struct BucketChanges {
+        public let added: [CloudKitBucket]
+        public let modified: [CloudKitBucket]
+        public let deleted: [String]  // IDs of deleted buckets
+        public let newToken: CKServerChangeToken?
+        
+        public init(added: [CloudKitBucket], modified: [CloudKitBucket], deleted: [String], newToken: CKServerChangeToken?) {
+            self.added = added
+            self.modified = modified
+            self.deleted = deleted
+            self.newToken = newToken
+        }
+    }
+    
+    public struct NotificationChanges {
+        public let added: [CloudKitNotification]
+        public let modified: [CloudKitNotification]
+        public let deleted: [String]  // IDs of deleted notifications
+        public let newToken: CKServerChangeToken?
+        
+        public init(added: [CloudKitNotification], modified: [CloudKitNotification], deleted: [String], newToken: CKServerChangeToken?) {
+            self.added = added
+            self.modified = modified
+            self.deleted = deleted
+            self.newToken = newToken
+        }
+    }
+    
+    /// Fetch bucket changes since last saved token
+    public static func fetchBucketChanges(completion: @escaping (Result<BucketChanges, Error>) -> Void) {
+        let previousToken = loadBucketChangeToken()
+        fetchBucketChanges(from: previousToken, completion: completion)
+    }
+    
+    /// Fetch bucket changes from a specific token
+    public static func fetchBucketChanges(from token: CKServerChangeToken?, completion: @escaping (Result<BucketChanges, Error>) -> Void) {
+        logger.info(
+            tag: "FetchBucketChanges",
+            message: "Fetching bucket changes",
+            metadata: ["hasToken": String(token != nil)],
+            source: "CloudKitAccess"
+        )
+        
+        // Use custom zone ID
+        let zoneID = customZoneID
+        
+        // Configure the fetch options
+        var options: CKFetchRecordZoneChangesOperation.ZoneConfiguration
+        if #available(iOS 12.0, *) {
+            options = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
+            options.previousServerChangeToken = token
+        } else {
+            fatalError("iOS 12.0 or later is required")
+        }
+        
+        // Create the operation
+        let operation = CKFetchRecordZoneChangesOperation(
+            recordZoneIDs: [zoneID],
+            configurationsByRecordZoneID: [zoneID: options]
+        )
+        
+        var addedBuckets: [CloudKitBucket] = []
+        var modifiedBuckets: [CloudKitBucket] = []
+        var deletedBucketIDs: [String] = []
+        var newToken: CKServerChangeToken?
+        
+        // Handle changed records
+        if #available(iOS 15.0, macOS 12.0, *) {
+            operation.recordWasChangedBlock = { recordID, result in
+                switch result {
+                case .success(let record):
+                    guard record.recordType == CloudKitRecordType.bucket,
+                          let bucket = CloudKitBucket.from(record: record) else {
+                        return
+                    }
+                    
+                    // Check if this is a new record or a modified one
+                    if record.modificationDate == record.creationDate {
+                        addedBuckets.append(bucket)
+                    } else {
+                        modifiedBuckets.append(bucket)
+                    }
+                case .failure(let error):
+                    logger.warn(
+                        tag: "FetchBucketChanges",
+                        message: "Failed to process changed bucket",
+                        metadata: [
+                            "recordId": recordID.recordName,
+                            "error": error.localizedDescription
+                        ],
+                        source: "CloudKitAccess"
+                    )
+                }
+            }
+        } else {
+            operation.recordChangedBlock = { record in
+                guard record.recordType == CloudKitRecordType.bucket,
+                      let bucket = CloudKitBucket.from(record: record) else {
+                    return
+                }
+                
+                // Check if this is a new record or a modified one
+                if record.modificationDate == record.creationDate {
+                    addedBuckets.append(bucket)
+                } else {
+                    modifiedBuckets.append(bucket)
+                }
+            }
+        }
+        
+        // Handle deleted records
+        operation.recordWithIDWasDeletedBlock = { recordID, _ in
+            deletedBucketIDs.append(recordID.recordName)
+        }
+        
+        // Handle zone change token
+        operation.recordZoneChangeTokensUpdatedBlock = { _, changeToken, _ in
+            newToken = changeToken
+        }
+        
+        // Handle zone fetch completion
+        operation.recordZoneFetchResultBlock = { _, result in
+            switch result {
+            case .success(let (serverChangeToken, _, _)):
+                newToken = serverChangeToken
+            case .failure:
+                break
+            }
+        }
+        
+        // Handle operation completion
+        operation.fetchRecordZoneChangesResultBlock = { result in
+            switch result {
+            case .success:
+                let changes = BucketChanges(
+                    added: addedBuckets,
+                    modified: modifiedBuckets,
+                    deleted: deletedBucketIDs,
+                    newToken: newToken
+                )
+                
+                logger.info(
+                    tag: "FetchBucketChanges",
+                    message: "Successfully fetched bucket changes",
+                    metadata: [
+                        "added": String(addedBuckets.count),
+                        "modified": String(modifiedBuckets.count),
+                        "deleted": String(deletedBucketIDs.count)
+                    ],
+                    source: "CloudKitAccess"
+                )
+                
+                // Save the new token
+                if let newToken = newToken {
+                    saveBucketChangeToken(newToken)
+                }
+                
+                completion(.success(changes))
+                
+            case .failure(let error):
+                logger.error(
+                    tag: "FetchBucketChanges",
+                    message: "Failed to fetch bucket changes",
+                    metadata: ["error": error.localizedDescription],
+                    source: "CloudKitAccess"
+                )
+                completion(.failure(error))
+            }
+        }
+        
+        database.add(operation)
+    }
+    
+    /// Fetch notification changes since last saved token
+    public static func fetchNotificationChanges(completion: @escaping (Result<NotificationChanges, Error>) -> Void) {
+        let previousToken = loadNotificationChangeToken()
+        fetchNotificationChanges(from: previousToken, completion: completion)
+    }
+    
+    /// Fetch notification changes from a specific token
+    public static func fetchNotificationChanges(from token: CKServerChangeToken?, completion: @escaping (Result<NotificationChanges, Error>) -> Void) {
+        logger.info(
+            tag: "FetchNotificationChanges",
+            message: "Fetching notification changes",
+            metadata: ["hasToken": String(token != nil)],
+            source: "CloudKitAccess"
+        )
+        
+        // Use custom zone ID
+        let zoneID = customZoneID
+        
+        // Configure the fetch options
+        var options: CKFetchRecordZoneChangesOperation.ZoneConfiguration
+        if #available(iOS 12.0, *) {
+            options = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
+            options.previousServerChangeToken = token
+        } else {
+            fatalError("iOS 12.0 or later is required")
+        }
+        
+        // Create the operation
+        let operation = CKFetchRecordZoneChangesOperation(
+            recordZoneIDs: [zoneID],
+            configurationsByRecordZoneID: [zoneID: options]
+        )
+        
+        var addedNotifications: [CloudKitNotification] = []
+        var modifiedNotifications: [CloudKitNotification] = []
+        var deletedNotificationIDs: [String] = []
+        var newToken: CKServerChangeToken?
+        
+        // Handle changed records
+        if #available(iOS 15.0, macOS 12.0, *) {
+            operation.recordWasChangedBlock = { recordID, result in
+                switch result {
+                case .success(let record):
+                    guard record.recordType == CloudKitRecordType.notification,
+                          let notification = CloudKitNotification.from(record: record) else {
+                        return
+                    }
+                    
+                    // Check if this is a new record or a modified one
+                    if record.modificationDate == record.creationDate {
+                        addedNotifications.append(notification)
+                    } else {
+                        modifiedNotifications.append(notification)
+                    }
+                case .failure(let error):
+                    logger.warn(
+                        tag: "FetchNotificationChanges",
+                        message: "Failed to process changed notification",
+                        metadata: [
+                            "recordId": recordID.recordName,
+                            "error": error.localizedDescription
+                        ],
+                        source: "CloudKitAccess"
+                    )
+                }
+            }
+        } else {
+            operation.recordChangedBlock = { record in
+                guard record.recordType == CloudKitRecordType.notification,
+                      let notification = CloudKitNotification.from(record: record) else {
+                    return
+                }
+                
+                // Check if this is a new record or a modified one
+                if record.modificationDate == record.creationDate {
+                    addedNotifications.append(notification)
+                } else {
+                    modifiedNotifications.append(notification)
+                }
+            }
+        }
+        
+        // Handle deleted records
+        operation.recordWithIDWasDeletedBlock = { recordID, recordType in
+            deletedNotificationIDs.append(recordID.recordName)
+        }
+        
+        // Handle zone change token
+        operation.recordZoneChangeTokensUpdatedBlock = { _, changeToken, _ in
+            newToken = changeToken
+        }
+        
+        // Handle zone fetch completion
+        operation.recordZoneFetchResultBlock = { _, result in
+            switch result {
+            case .success(let (serverChangeToken, _, _)):
+                newToken = serverChangeToken
+            case .failure:
+                break
+            }
+        }
+        
+        // Handle operation completion
+        operation.fetchRecordZoneChangesResultBlock = { result in
+            switch result {
+            case .success:
+                let changes = NotificationChanges(
+                    added: addedNotifications,
+                    modified: modifiedNotifications,
+                    deleted: deletedNotificationIDs,
+                    newToken: newToken
+                )
+                
+                logger.info(
+                    tag: "FetchNotificationChanges",
+                    message: "Successfully fetched notification changes",
+                    metadata: [
+                        "added": String(addedNotifications.count),
+                        "modified": String(modifiedNotifications.count),
+                        "deleted": String(deletedNotificationIDs.count)
+                    ],
+                    source: "CloudKitAccess"
+                )
+                
+                // Save the new token
+                if let newToken = newToken {
+                    saveNotificationChangeToken(newToken)
+                }
+                
+                completion(.success(changes))
+                
+            case .failure(let error):
+                logger.error(
+                    tag: "FetchNotificationChanges",
+                    message: "Failed to fetch notification changes",
+                    metadata: ["error": error.localizedDescription],
+                    source: "CloudKitAccess"
+                )
+                completion(.failure(error))
+            }
+        }
+        
+        database.add(operation)
+    }
+    
+    /// Fetch all changes (both buckets and notifications) since last saved tokens
+    public static func fetchAllChanges(completion: @escaping (Result<(buckets: BucketChanges, notifications: NotificationChanges), Error>) -> Void) {
+        var bucketChanges: BucketChanges?
+        var notificationChanges: NotificationChanges?
+        var fetchError: Error?
+        
+        let group = DispatchGroup()
+        
+        // Fetch bucket changes
+        group.enter()
+        fetchBucketChanges { result in
+            switch result {
+            case .success(let changes):
+                bucketChanges = changes
+            case .failure(let error):
+                fetchError = error
+            }
+            group.leave()
+        }
+        
+        // Fetch notification changes
+        group.enter()
+        fetchNotificationChanges { result in
+            switch result {
+            case .success(let changes):
+                notificationChanges = changes
+            case .failure(let error):
+                if fetchError == nil {
+                    fetchError = error
+                }
+            }
+            group.leave()
+        }
+        
+        // Wait for both operations to complete
+        group.notify(queue: .main) {
+            if let error = fetchError {
+                completion(.failure(error))
+            } else if let buckets = bucketChanges, let notifications = notificationChanges {
+                completion(.success((buckets: buckets, notifications: notifications)))
+            } else {
+                let error = NSError(domain: "CloudKitAccess", code: 5, userInfo: [NSLocalizedDescriptionKey: "Failed to fetch changes"])
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    // MARK: - NSE Sync Helper
+    
+    /// Sync a notification from NSE to CloudKit
+    /// This method is designed to be called from the Notification Service Extension
+    /// It runs asynchronously and doesn't block notification delivery
+    public static func syncNotificationFromNSE(
+        notificationId: String,
+        bucketId: String,
+        title: String,
+        body: String,
+        subtitle: String? = nil,
+        createdAt: String,
+        readAt: String? = nil,
+        attachments: [[String: Any]]? = nil,
+        logger: ((String) -> Void)? = nil
+    ) {
+        // Run in background queue to avoid blocking notification delivery
+        DispatchQueue.global(qos: .utility).async {
+            logger?("☁️ Starting async CloudKit sync for: \(notificationId)")
+            
+            // Parse createdAt to Date
+            let createdDate = DateConverter.stringToDate(createdAt)
+            
+            // Parse readAt to Date if present
+            let readDate = DateConverter.stringToDate(readAt)
+            
+            // Create CloudKit notification in custom zone
+            let customZoneID = CloudKitConfig.getCustomZoneID()
+            let recordID = CKRecord.ID(recordName: notificationId, zoneID: customZoneID)
+            let record = CKRecord(recordType: CloudKitRecordType.notification, recordID: recordID)
+            
+            // Set fields
+            record[CloudKitField.notificationTitle] = title as CKRecordValue
+            record[CloudKitField.notificationSubtitle] = (subtitle ?? "") as CKRecordValue
+            record[CloudKitField.notificationBody] = body as CKRecordValue
+            record[CloudKitField.notificationBucketId] = bucketId as CKRecordValue
+            record[CloudKitField.notificationCreatedAt] = createdDate as CKRecordValue
+            record[CloudKitField.notificationSentAt] = createdDate as CKRecordValue  // NSE receives notification when sent
+            record[CloudKitField.notificationUpdatedAt] = Date() as CKRecordValue
+            
+            if let readDate = readDate {
+                record[CloudKitField.notificationReadAt] = readDate as CKRecordValue
+            }
+            
+            // Add attachments as JSON string (CloudKit format)
+            if let attachments = attachments, !attachments.isEmpty {
+                if let jsonData = try? JSONSerialization.data(withJSONObject: attachments),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    record[CloudKitField.notificationAttachments] = jsonString as CKRecordValue
+                }
+            }
+            
+            // Get database from config
+            let database = CloudKitConfig.getPrivateDatabase()
+            let containerIdentifier = CloudKitConfig.getContainerIdentifier()
+            
+            logger?("☁️ Using CloudKit container: \(containerIdentifier)")
+            
+            // Save to CloudKit (non-blocking)
+            database.save(record) { savedRecord, error in
+                if let error = error {
+                    logger?("⚠️ CloudKit sync failed (non-critical): \(error.localizedDescription)")
+                    // Non-critical error - notification is already saved to SQLite
+                    // Main app will sync to CloudKit when it becomes active
+                } else if savedRecord != nil {
+                    logger?("✅ Notification synced to CloudKit: \(notificationId)")
+                }
             }
         }
     }

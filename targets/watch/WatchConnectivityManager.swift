@@ -24,6 +24,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         // Load cached data immediately on init (fast startup)
         loadCachedData()
         
+        // Ensure custom CloudKit zone exists before setting up subscriptions
+        ensureCustomZoneExists()
+        
+        // Setup CloudKit subscriptions for real-time updates
+        // setupCloudKitSubscriptions()
+        
         // Then fetch from CloudKit to update data
         fetchFromCloudKit()
         
@@ -35,6 +41,42 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         
         // Setup automatic log sync
         setupAutomaticLogSync()
+    }
+    
+    // MARK: - CloudKit Subscriptions
+    
+    /**
+     * Ensure custom CloudKit zone exists before any operations
+     * This is required for subscriptions and incremental sync to work
+     */
+    private func ensureCustomZoneExists() {
+        print("🔧 [Watch] Ensuring custom CloudKit zone exists...")
+        
+        CloudKitAccess.ensureCustomZoneExists { result in
+            switch result {
+            case .success:
+                print("✅ [Watch] Custom CloudKit zone ready - zone: \(CloudKitConfig.customZoneName)")
+            case .failure(let error):
+                print("❌ [Watch] Failed to ensure custom zone exists: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    /**
+     * Setup CloudKit subscriptions to receive real-time updates when data changes
+     * This allows Watch to update automatically when iOS modifies data
+     */
+    private func setupCloudKitSubscriptions() {
+        print("🔔 [Watch] Setting up CloudKit subscriptions for real-time updates...")
+        
+        CloudKitAccess.setupSubscriptions { result in
+            switch result {
+            case .success:
+                print("✅ [Watch] CloudKit subscriptions setup successfully - will receive updates from iOS")
+            case .failure(let error):
+                print("❌ [Watch] Failed to setup CloudKit subscriptions: \(error.localizedDescription)")
+            }
+        }
     }
     
     // MARK: - Automatic Log Sync
@@ -287,12 +329,242 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     }
     
     /**
-     * Request data refresh from CloudKit
-     * Used by manual refresh button in Watch UI
-     * Forces full fetch from CloudKit
+     * Fetch incremental changes from CloudKit using change token
+     * This method applies only the changes (added/modified/deleted) to local cache
      */
-    func requestData() {
-        // Fetch directly from CloudKit (no WatchConnectivity involved)
+    func fetchIncrementalChanges() {
+        print("⌚ [WatchConnectivity] 🔄 Starting incremental sync from CloudKit...")
+        
+        // Fetch incremental changes from CloudKit using CloudKitAccess
+        CloudKitAccess.fetchAllChanges { [weak self] result in
+            guard let self = self else { return }
+            
+            switch result {
+            case .success(let changes):
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    
+                    let bucketChanges = changes.buckets
+                    let notificationChanges = changes.notifications
+                    
+                    print("⌚ [WatchConnectivity] 📊 Incremental changes received:")
+                    print("  - Buckets: \(bucketChanges.added.count) added, \(bucketChanges.modified.count) modified, \(bucketChanges.deleted.count) deleted")
+                    print("  - Notifications: \(notificationChanges.added.count) added, \(notificationChanges.modified.count) modified, \(notificationChanges.deleted.count) deleted")
+                    
+                    // Apply bucket changes
+                    self.applyBucketChanges(bucketChanges)
+                    
+                    // Apply notification changes
+                    self.applyNotificationChanges(notificationChanges)
+                    
+                    // Save to cache
+                    self.saveToCache()
+                    
+                    print("⌚ [WatchConnectivity] ✅ Incremental sync completed")
+                }
+                
+            case .failure(let error):
+                print("⌚ [WatchConnectivity] ❌ Failed to fetch incremental changes: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    /**
+     * Apply bucket changes (add/modify/delete) to in-memory state
+     */
+    private func applyBucketChanges(_ changes: CloudKitAccess.BucketChanges) {
+        // Delete buckets
+        for deletedId in changes.deleted {
+            if let index = buckets.firstIndex(where: { $0.id == deletedId }) {
+                buckets.remove(at: index)
+                print("⌚ [WatchConnectivity] 🗑️ Deleted bucket: \(deletedId)")
+            }
+        }
+        
+        // Add or modify buckets
+        let allBucketChanges = changes.added + changes.modified
+        for bucket in allBucketChanges {
+            // Calculate unread count for this bucket from notifications
+            let unreadCount = notifications.filter { 
+                $0.notification.bucketId == bucket.id && !$0.notification.isRead 
+            }.count
+            
+            let totalCount = notifications.filter { 
+                $0.notification.bucketId == bucket.id 
+            }.count
+            
+            let bucketItem = BucketItem(
+                id: bucket.id,
+                name: bucket.name,
+                unreadCount: unreadCount,
+                totalCount: totalCount,
+                color: bucket.color,
+                iconUrl: bucket.iconUrl
+            )
+            
+            if let index = buckets.firstIndex(where: { $0.id == bucket.id }) {
+                // Modify existing bucket
+                buckets[index] = bucketItem
+                print("⌚ [WatchConnectivity] ♻️ Updated bucket: \(bucket.name)")
+            } else {
+                // Add new bucket
+                buckets.append(bucketItem)
+                print("⌚ [WatchConnectivity] ➕ Added bucket: \(bucket.name)")
+            }
+        }
+        
+        // Recalculate unread count
+        unreadCount = notifications.filter { !$0.notification.isRead }.count
+    }
+    
+    /**
+     * Apply notification changes (add/modify/delete) to in-memory state
+     */
+    private func applyNotificationChanges(_ changes: CloudKitAccess.NotificationChanges) {
+        // Create bucket lookup map
+        var bucketMap: [String: BucketItem] = [:]
+        for bucket in buckets {
+            bucketMap[bucket.id] = bucket
+        }
+        
+        // Delete notifications
+        for deletedId in changes.deleted {
+            if let index = notifications.firstIndex(where: { $0.id == deletedId }) {
+                let deletedNotif = notifications[index]
+                notifications.remove(at: index)
+                print("⌚ [WatchConnectivity] 🗑️ Deleted notification: \(deletedId)")
+                
+                // Update bucket counts
+                if let bucket = bucketMap[deletedNotif.notification.bucketId],
+                   let bucketIndex = buckets.firstIndex(where: { $0.id == bucket.id }) {
+                    let newBucket = BucketItem(
+                        id: bucket.id,
+                        name: bucket.name,
+                        unreadCount: max(0, bucket.unreadCount - (deletedNotif.notification.isRead ? 0 : 1)),
+                        totalCount: max(0, bucket.totalCount - 1),
+                        color: bucket.color,
+                        iconUrl: bucket.iconUrl
+                    )
+                    buckets[bucketIndex] = newBucket
+                }
+            }
+        }
+        
+        // Add or modify notifications
+        let allNotificationChanges = changes.added + changes.modified
+        for ckNotification in allNotificationChanges {
+            // Get bucket info
+            let bucket = bucketMap[ckNotification.bucketId]
+            
+            // Convert attachments
+            let attachments = ckNotification.attachments.map { attachment in
+                DatabaseAccess.WidgetAttachment(
+                    mediaType: attachment.mediaType,
+                    url: attachment.url,
+                    name: attachment.name
+                )
+            }
+            
+            let notification = DatabaseAccess.WidgetNotification(
+                id: ckNotification.id,
+                title: ckNotification.title,
+                body: ckNotification.body ?? "",
+                subtitle: ckNotification.subtitle,
+                createdAt: DateConverter.dateToString(ckNotification.createdAt),
+                isRead: ckNotification.readAt != nil,
+                bucketId: ckNotification.bucketId,
+                bucketName: bucket?.name,
+                bucketColor: bucket?.color,
+                bucketIconUrl: bucket?.iconUrl,
+                attachments: attachments
+            )
+            
+            let notificationData = NotificationData(notification: notification)
+            
+            if let index = notifications.firstIndex(where: { $0.id == ckNotification.id }) {
+                // Modify existing notification
+                let oldNotification = notifications[index]
+                let wasUnread = !oldNotification.notification.isRead
+                let isUnread = !notification.isRead
+                
+                notifications[index] = notificationData
+                print("⌚ [WatchConnectivity] ♻️ Updated notification: \(ckNotification.title)")
+                
+                // Update bucket unread count if read status changed
+                if wasUnread != isUnread {
+                    if let bucket = bucketMap[ckNotification.bucketId],
+                       let bucketIndex = buckets.firstIndex(where: { $0.id == bucket.id }) {
+                        let delta = isUnread ? 1 : -1
+                        let newBucket = BucketItem(
+                            id: bucket.id,
+                            name: bucket.name,
+                            unreadCount: max(0, bucket.unreadCount + delta),
+                            totalCount: bucket.totalCount,
+                            color: bucket.color,
+                            iconUrl: bucket.iconUrl
+                        )
+                        buckets[bucketIndex] = newBucket
+                    }
+                }
+            } else {
+                // Add new notification
+                notifications.append(notificationData)
+                print("⌚ [WatchConnectivity] ➕ Added notification: \(ckNotification.title)")
+                
+                // Update bucket counts
+                if let bucket = bucketMap[ckNotification.bucketId],
+                   let bucketIndex = buckets.firstIndex(where: { $0.id == bucket.id }) {
+                    let newBucket = BucketItem(
+                        id: bucket.id,
+                        name: bucket.name,
+                        unreadCount: bucket.unreadCount + (notification.isRead ? 0 : 1),
+                        totalCount: bucket.totalCount + 1,
+                        color: bucket.color,
+                        iconUrl: bucket.iconUrl
+                    )
+                    buckets[bucketIndex] = newBucket
+                }
+            }
+        }
+        
+        // Recalculate total unread count
+        unreadCount = notifications.filter { !$0.notification.isRead }.count
+    }
+    
+    /**
+     * Request FULL data refresh from iPhone and CloudKit
+     * Used ONLY by manual refresh button in Watch UI
+     * 1. Sends refresh request to iPhone (to sync with backend DB)
+     * 2. Then fetches fresh data from CloudKit
+     */
+    func requestFullRefresh() {
+        print("⌚ [Watch] 🔄 FULL refresh requested (manual button)")
+        
+        // 1. Send refresh request to iPhone to sync with backend first (only if reachable)
+        if WCSession.default.isReachable {
+            print("⌚ [Watch] 📱 iPhone reachable - requesting full iOS sync")
+            sendMessageToiPhone([
+                "action": "refresh",
+                "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
+            ])
+            
+            // 2. Wait a moment for iPhone to sync, then fetch from CloudKit
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.fetchFromCloudKit()
+            }
+        } else {
+            print("⌚ [Watch] ⚠️ iPhone not reachable - fetching from CloudKit only")
+            // iPhone not reachable, just fetch from CloudKit
+            fetchFromCloudKit()
+        }
+    }
+    
+    /**
+     * Fetch data from CloudKit only (without requesting iOS sync)
+     * Used when Watch app opens - Watch manages its own data independently
+     */
+    func fetchFromCloudKitOnly() {
+        print("⌚ [Watch] 🔄 Fetching from CloudKit only (app opened)")
         fetchFromCloudKit()
     }
     
@@ -377,24 +649,32 @@ class WatchConnectivityManager: NSObject, ObservableObject {
      * Send message to iPhone (with fallback to background transfer)
      */
     private func sendMessageToiPhone(_ message: [String: Any]) {
+        print("⌚ ========== SENDING MESSAGE TO IPHONE ==========")
+        print("⌚ Message: \(message)")
+        print("⌚ Session state - activationState: \(WCSession.default.activationState.rawValue), isReachable: \(WCSession.default.isReachable)")
+        
         guard WCSession.default.activationState == .activated else {
-            print("⌚ [Watch] ⚠️ WCSession not activated, cannot send message")
+            print("⌚ ❌ WCSession not activated, cannot send message")
             return
         }
         
         if WCSession.default.isReachable {
+            print("⌚ ✅ iPhone is reachable, sending message immediately...")
             // iPhone is reachable, send immediately
             WCSession.default.sendMessage(message, replyHandler: { reply in
-                print("⌚ [Watch] ✅ Message sent to iPhone: \(message["action"] ?? "")")
+                print("⌚ ✅ Message sent successfully to iPhone: \(message["action"] ?? "")")
+                print("⌚ Reply from iPhone: \(reply)")
             }) { error in
-                print("⌚ [Watch] ⚠️ Failed to send message, using background transfer: \(error.localizedDescription)")
+                print("⌚ ❌ Failed to send message: \(error.localizedDescription)")
+                print("⌚ Falling back to background transfer...")
                 // Fallback to background transfer
                 WCSession.default.transferUserInfo(message)
             }
         } else {
+            print("⌚ ⚠️ iPhone not reachable, using background transfer...")
             // iPhone not reachable, use background transfer (guaranteed delivery)
             WCSession.default.transferUserInfo(message)
-            print("⌚ [Watch] 📦 Queued message to iPhone (background): \(message["action"] ?? "")")
+            print("⌚ 📦 Queued message to iPhone (background): \(message["action"] ?? "")")
         }
     }
     
@@ -564,23 +844,23 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             
             notifications.remove(at: index)
             
-            // Update unread count if it was unread
+            // Update global unread count if it was unread
             if wasUnread {
                 unreadCount = max(0, unreadCount - 1)
-                
-                // Update bucket unread count and total count
-                if let bucketIndex = buckets.firstIndex(where: { $0.id == deletedNotification.bucketId }) {
-                    let oldBucket = buckets[bucketIndex]
-                    let newBucket = BucketItem(
-                        id: oldBucket.id,
-                        name: oldBucket.name,
-                        unreadCount: max(0, oldBucket.unreadCount - 1),
-                        totalCount: max(0, oldBucket.totalCount - 1),
-                        color: oldBucket.color,
-                        iconUrl: oldBucket.iconUrl
-                    )
-                    buckets[bucketIndex] = newBucket
-                }
+            }
+            
+            // ALWAYS update bucket counts (both total and unread if applicable)
+            if let bucketIndex = buckets.firstIndex(where: { $0.id == deletedNotification.bucketId }) {
+                let oldBucket = buckets[bucketIndex]
+                let newBucket = BucketItem(
+                    id: oldBucket.id,
+                    name: oldBucket.name,
+                    unreadCount: wasUnread ? max(0, oldBucket.unreadCount - 1) : oldBucket.unreadCount,
+                    totalCount: max(0, oldBucket.totalCount - 1),
+                    color: oldBucket.color,
+                    iconUrl: oldBucket.iconUrl
+                )
+                buckets[bucketIndex] = newBucket
             }
             
             // Save to cache
@@ -727,6 +1007,12 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 self.fetchFromCloudKit()
                 replyHandler(["success": true])
                 
+            case "syncIncremental":
+                // Incremental sync - fetch only changes from CloudKit
+                print("⌚ [WatchConnectivity] 🔄 Received incremental sync trigger from iPhone")
+                self.fetchIncrementalChanges()
+                replyHandler(["success": true])
+                
             case "fullUpdate":
                 // Full data update from iPhone - completely overwrite cache
                 if let notificationsData = message["notifications"] as? [[String: Any]],
@@ -802,6 +1088,11 @@ extension WatchConnectivityManager: WCSessionDelegate {
             case "reload":
                 print("⌚ [WatchConnectivity] 🔄 Received reload trigger from iPhone (background)")
                 self.fetchFromCloudKit()
+            
+            case "syncIncremental":
+                // Incremental sync - fetch only changes from CloudKit (background)
+                print("⌚ [WatchConnectivity] 🔄 Received incremental sync trigger from iPhone (background)")
+                self.fetchIncrementalChanges()
             
             case "fullUpdate":
                 // Full data update from iPhone - completely overwrite cache

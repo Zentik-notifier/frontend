@@ -8,7 +8,9 @@ import {
     useMarkNotificationAsReadMutation, 
     useMarkNotificationAsUnreadMutation,
     useMassMarkNotificationsAsReadMutation,
-    useMassMarkNotificationsAsUnreadMutation
+    useMassMarkNotificationsAsUnreadMutation,
+    useMarkAllNotificationsAsReadMutation,
+    useDeleteNotificationMutation
 } from '@/generated/gql-operations-generated';
 import {
     deleteNotificationFromCache,
@@ -45,7 +47,14 @@ import IosBridgeService from '@/services/ios-bridge';
  * @param notificationId - ID of the notification to update
  * @param updates - Partial notification updates
  */
-function updateAppStateNotification(
+/**
+ * Update notification in appState cache
+ * 
+ * @param queryClient - React Query client
+ * @param notificationId - ID of the notification to update
+ * @param updates - Partial notification updates
+ */
+export function updateAppStateNotification(
     queryClient: QueryClient,
     notificationId: string,
     updates: Partial<NotificationFragment>
@@ -79,7 +88,7 @@ function updateAppStateNotification(
  * @param queryClient - React Query client
  * @param notificationId - ID of the notification to remove
  */
-function removeAppStateNotification(
+export function removeAppStateNotification(
     queryClient: QueryClient,
     notificationId: string
 ): void {
@@ -225,23 +234,38 @@ function updateAppStateBucketStats(
     );
 }
 
+export interface MarkAsReadOptions {
+    /** Skip local SQLite database update (when already done natively) */
+    skipLocalDb?: boolean;
+    /** Skip CloudKit sync (when already done natively) */
+    skipCloudKit?: boolean;
+    /** Custom readAt timestamp (from Watch event) */
+    readAt?: string;
+}
+
 export function useMarkAsRead(
-    mutationOptions?: Omit<UseMutationOptions<string, Error, string>, 'mutationFn'>
-): UseMutationResult<string, Error, string> {
+    mutationOptions?: Omit<UseMutationOptions<string, Error, string | MarkAsReadOptions>, 'mutationFn'>
+): UseMutationResult<string, Error, string | MarkAsReadOptions> {
     const queryClient = useQueryClient();
     const [markAsReadGQL] = useMarkNotificationAsReadMutation();
 
     return useMutation({
-        mutationFn: async (notificationId: string) => {
-            const now = new Date().toISOString();
+        mutationFn: async (input: string | MarkAsReadOptions) => {
+            // Parse input
+            const notificationId = typeof input === 'string' ? input : input.skipLocalDb ? null : input;
+            const options: MarkAsReadOptions = typeof input === 'string' ? {} : input;
+            const id = typeof input === 'string' ? input : (input as any).notificationId || input;
+            const now = options.readAt || new Date().toISOString();
             
-            // 1. Update local DB first (optimistic update)
-            await updateNotificationReadStatus(notificationId, now);
+            // 1. Update local DB first (unless skipped - e.g., from Watch events where native already updated)
+            if (!options.skipLocalDb) {
+                await updateNotificationReadStatus(id as string, now);
+            }
 
             // 2. Try to call backend GraphQL mutation (this cancels reminders)
             try {
                 await markAsReadGQL({
-                    variables: { id: notificationId }
+                    variables: { id: id as string }
                 });
             } catch (error) {
                 // If backend fails, we still want to update the cache
@@ -249,10 +273,12 @@ export function useMarkAsRead(
                 console.warn('Backend markAsRead failed, but local update succeeded:', error);
             }
 
-            return notificationId;
+            return id as string;
         },
-        onSuccess: (notificationId) => {
-            const now = new Date().toISOString();
+        onSuccess: (id, input) => {
+            const notificationId = id;
+            const options: MarkAsReadOptions = typeof input === 'string' ? {} : input;
+            const now = options.readAt || new Date().toISOString();
             const wasUnreadRef = { current: false };
             const bucketIdRef = { current: undefined as string | undefined };
 
@@ -301,11 +327,54 @@ export function useMarkAsRead(
                 );
             }
             
-            // Sync CloudKit + Watch + Widget in one call
-            IosBridgeService.syncAll('read', { notificationId, readAt: now })
-                .catch((error) => {
-                    console.error('[useMarkAsRead] Failed to sync:', error);
-                });
+            // Update single notification in CloudKit (unless skipped - e.g., from Watch events where native already updated)
+            if (!options.skipCloudKit) {
+                (async () => {
+                    try {
+                        // Find the notification in cache to get full data
+                        const appState = queryClient.getQueryData<{
+                            notifications: NotificationFragment[];
+                        }>(['app-state']);
+                        
+                        const notification = appState?.notifications.find(n => n.id === notificationId);
+                        
+                        if (notification?.message?.bucket?.id) {
+                            await IosBridgeService.updateNotificationInCloudKit({
+                                id: notification.id,
+                                title: notification.message.title,
+                                subtitle: notification.message.subtitle || undefined,
+                                body: notification.message.body || undefined,
+                                bucketId: notification.message.bucket.id,
+                                readAt: now,
+                                createdAt: notification.message.createdAt,
+                                updatedAt: notification.message.updatedAt,
+                                attachments: notification.message.attachments?.map(a => ({
+                                    mediaType: a.mediaType,
+                                    url: a.url || undefined,
+                                    name: a.name || undefined,
+                                })),
+                                actions: notification.message.actions?.map(a => ({
+                                    type: a.type,
+                                    value: a.value || undefined,
+                                    title: a.title || undefined,
+                                    icon: a.icon || undefined,
+                                    destructive: a.destructive || undefined,
+                                })),
+                                tapAction: notification.message.tapAction ? {
+                                    type: notification.message.tapAction.type,
+                                    value: notification.message.tapAction.value || undefined,
+                                    title: notification.message.tapAction.title || undefined,
+                                    icon: notification.message.tapAction.icon || undefined,
+                                    destructive: notification.message.tapAction.destructive || undefined,
+                                } : undefined,
+                            });
+                            console.log('[useMarkAsRead] Notification updated in CloudKit');
+                        }
+                    } catch (error) {
+                        console.error('[useMarkAsRead] Failed to update in CloudKit:', error);
+                    }
+                })();
+            }
         },
         ...mutationOptions,
     });
@@ -323,19 +392,44 @@ export function useMarkAsRead(
  * };
  * ```
  */
+export interface MarkAsUnreadOptions {
+    /** Skip local SQLite database update (when already done natively) */
+    skipLocalDb?: boolean;
+    /** Skip CloudKit sync (when already done natively) */
+    skipCloudKit?: boolean;
+}
+
 export function useMarkAsUnread(
-    mutationOptions?: Omit<UseMutationOptions<string, Error, string>, 'mutationFn'>
-): UseMutationResult<string, Error, string> {
+    mutationOptions?: Omit<UseMutationOptions<string, Error, string | MarkAsUnreadOptions>, 'mutationFn'>
+): UseMutationResult<string, Error, string | MarkAsUnreadOptions> {
     const queryClient = useQueryClient();
+    const [markAsUnreadGQL] = useMarkNotificationAsUnreadMutation();
 
     return useMutation({
-        mutationFn: async (notificationId: string) => {
-            // LOCAL ONLY: Mark as unread in local DB (set readAt to null)
-            await updateNotificationReadStatus(notificationId, null);
+        mutationFn: async (input: string | MarkAsUnreadOptions) => {
+            // Parse input
+            const options: MarkAsUnreadOptions = typeof input === 'string' ? {} : input;
+            const notificationId = typeof input === 'string' ? input : (input as any).notificationId || input;
+            
+            // 1. Update local DB (unless skipped - e.g., from Watch events where native already updated)
+            if (!options.skipLocalDb) {
+                await updateNotificationReadStatus(notificationId as string, null);
+            }
 
-            return notificationId;
+            // 2. Call backend GraphQL mutation
+            try {
+                await markAsUnreadGQL({
+                    variables: { id: notificationId as string }
+                });
+            } catch (error) {
+                console.warn('Backend markAsUnread failed, but local update succeeded:', error);
+            }
+
+            return notificationId as string;
         },
-        onSuccess: (notificationId) => {
+        onSuccess: (id, input) => {
+            const notificationId = id;
+            const options: MarkAsUnreadOptions = typeof input === 'string' ? {} : input;
             const wasReadRef = { current: false };
             const bucketIdRef = { current: undefined as string | undefined };
 
@@ -384,11 +478,54 @@ export function useMarkAsUnread(
                 );
             }
             
-            // Sync CloudKit + Watch + Widget in one call
-            IosBridgeService.syncAll('unread', { notificationId })
-                .catch((error) => {
-                    console.error('[useMarkAsUnread] Failed to sync:', error);
-                });
+            // Update single notification in CloudKit (unless skipped - e.g., from Watch events where native already updated)
+            if (!options.skipCloudKit) {
+                (async () => {
+                    try {
+                        // Find the notification in cache to get full data
+                        const appState = queryClient.getQueryData<{
+                            notifications: NotificationFragment[];
+                        }>(['app-state']);
+                        
+                        const notification = appState?.notifications.find(n => n.id === notificationId);
+                        
+                        if (notification?.message?.bucket?.id) {
+                            await IosBridgeService.updateNotificationInCloudKit({
+                                id: notification.id,
+                                title: notification.message.title,
+                                subtitle: notification.message.subtitle || undefined,
+                                body: notification.message.body || undefined,
+                                bucketId: notification.message.bucket.id,
+                                readAt: undefined, // Mark as unread
+                                createdAt: notification.message.createdAt,
+                                updatedAt: notification.message.updatedAt,
+                                attachments: notification.message.attachments?.map(a => ({
+                                    mediaType: a.mediaType,
+                                    url: a.url || undefined,
+                                    name: a.name || undefined,
+                                })),
+                                actions: notification.message.actions?.map(a => ({
+                                    type: a.type,
+                                    value: a.value || undefined,
+                                    title: a.title || undefined,
+                                    icon: a.icon || undefined,
+                                    destructive: a.destructive || undefined,
+                                })),
+                                tapAction: notification.message.tapAction ? {
+                                    type: notification.message.tapAction.type,
+                                    value: notification.message.tapAction.value || undefined,
+                                    title: notification.message.tapAction.title || undefined,
+                                    icon: notification.message.tapAction.icon || undefined,
+                                    destructive: notification.message.tapAction.destructive || undefined,
+                                } : undefined,
+                            });
+                            console.log('[useMarkAsUnread] Notification updated in CloudKit');
+                        }
+                    } catch (error) {
+                        console.error('[useMarkAsUnread] Failed to update in CloudKit:', error);
+                    }
+                })();
+            }
         },
         ...mutationOptions,
     });
@@ -505,21 +642,57 @@ export function useBatchMarkAsRead(
                 }
             });
             
-            // Sync CloudKit + Watch + Widget in one call
-            if (isMarkingAsRead && timestamp) {
-                IosBridgeService.syncAll('read', { notificationIds, readAt: timestamp })
-                    .catch((error) => {
-                        console.error('[useBatchMarkAsRead] Failed to sync:', error);
-                    });
-            } else {
-                // For unread batch, send individual unread messages
-                notificationIds.forEach(id => {
-                    IosBridgeService.syncAll('unread', { notificationId: id })
-                        .catch((error) => {
-                            console.error('[useBatchMarkAsRead] Failed to sync:', error);
-                        });
-                });
-            }
+            // Update notifications in CloudKit (batch)
+            (async () => {
+                try {
+                    const appState = queryClient.getQueryData<{
+                        notifications: NotificationFragment[];
+                    }>(['app-state']);
+                    
+                    const notificationsToUpdate = appState?.notifications.filter(
+                        n => notificationIds.includes(n.id)
+                    ) || [];
+                    
+                    await Promise.all(
+                        notificationsToUpdate.map(notification => {
+                            if (!notification.message?.bucket?.id) return Promise.resolve();
+                            
+                            return IosBridgeService.updateNotificationInCloudKit({
+                                id: notification.id,
+                                title: notification.message.title,
+                                subtitle: notification.message.subtitle || undefined,
+                                body: notification.message.body || undefined,
+                                bucketId: notification.message.bucket.id,
+                                readAt: timestamp || undefined,
+                                createdAt: notification.message.createdAt,
+                                updatedAt: notification.message.updatedAt,
+                                attachments: notification.message.attachments?.map(a => ({
+                                    mediaType: a.mediaType,
+                                    url: a.url || undefined,
+                                    name: a.name || undefined,
+                                })),
+                                actions: notification.message.actions?.map(a => ({
+                                    type: a.type,
+                                    value: a.value || undefined,
+                                    title: a.title || undefined,
+                                    icon: a.icon || undefined,
+                                    destructive: a.destructive || undefined,
+                                })),
+                                tapAction: notification.message.tapAction ? {
+                                    type: notification.message.tapAction.type,
+                                    value: notification.message.tapAction.value || undefined,
+                                    title: notification.message.tapAction.title || undefined,
+                                    icon: notification.message.tapAction.icon || undefined,
+                                    destructive: notification.message.tapAction.destructive || undefined,
+                                } : undefined,
+                            });
+                        })
+                    );
+                    console.log(`[useBatchMarkAsRead] Updated ${notificationsToUpdate.length} notifications in CloudKit`);
+                } catch (error) {
+                    console.error('[useBatchMarkAsRead] Failed to update in CloudKit:', error);
+                }
+            })();
         },
         ...mutationOptions,
     });
@@ -541,19 +714,27 @@ export function useMarkAllAsRead(
     mutationOptions?: Omit<UseMutationOptions<string, Error, void>, 'mutationFn'>
 ): UseMutationResult<string, Error, void> {
     const queryClient = useQueryClient();
+    const [markAllAsReadGQL] = useMarkAllNotificationsAsReadMutation();
 
     return useMutation({
         mutationFn: async () => {
             const now = new Date().toISOString();
 
-            // LOCAL ONLY: Read all notifications from DB to find unread ones
+            // 1. Call backend GraphQL mutation (this cancels all reminders)
+            try {
+                await markAllAsReadGQL();
+            } catch (error) {
+                console.warn('Backend markAllAsRead failed, but proceeding with local update:', error);
+            }
+
+            // 2. Read all notifications from DB to find unread ones
             const allNotifications = await getAllNotificationsFromCache();
 
             // Filter for unread notifications
             const unreadNotifications = allNotifications.filter(n => !n.readAt);
             const unreadNotificationIds = unreadNotifications.map(n => n.id);
 
-            // Update local DB for all unread notifications
+            // 3. Update local DB for all unread notifications
             if (unreadNotificationIds.length > 0) {
                 await updateNotificationsReadStatus(unreadNotificationIds, now);
             }
@@ -617,11 +798,26 @@ export function useMarkAllAsRead(
                 }
             );
             
-            // Sync CloudKit + Watch + Widget in one call
-            IosBridgeService.syncAll('reload')
-                .catch((error) => {
-                    console.error('[useMarkAllAsRead] Failed to sync:', error);
-                });
+            // Update all unread notifications in CloudKit
+            (async () => {
+                try {
+                    const appState = queryClient.getQueryData<{
+                        notifications: NotificationFragment[];
+                    }>(['app-state']);
+                    
+                    // Get only notification IDs that were unread before (readAt was null)
+                    const unreadNotificationIds = appState?.notifications
+                        .filter(n => !n.readAt)
+                        .map(n => n.id) || [];
+                    
+                    if (unreadNotificationIds.length > 0) {
+                        const result = await IosBridgeService.batchMarkNotificationsAsReadInCloudKit(unreadNotificationIds);
+                        console.log(`[useMarkAllAsRead] Updated ${result.updatedCount}/${unreadNotificationIds.length} notifications in CloudKit`);
+                    }
+                } catch (error) {
+                    console.error('[useMarkAllAsRead] Failed to update in CloudKit:', error);
+                }
+            })();
         },
         ...mutationOptions,
     });
@@ -647,17 +843,42 @@ export function useMarkAllAsRead(
  * };
  * ```
  */
+export interface DeleteNotificationOptions {
+    /** Skip local SQLite database update (when already done natively) */
+    skipLocalDb?: boolean;
+    /** Skip CloudKit sync (when already done natively) */
+    skipCloudKit?: boolean;
+}
+
 export function useDeleteNotification(
-    mutationOptions?: Omit<UseMutationOptions<void, Error, string>, 'mutationFn'>
-): UseMutationResult<void, Error, string> {
+    mutationOptions?: Omit<UseMutationOptions<void, Error, string | DeleteNotificationOptions>, 'mutationFn'>
+): UseMutationResult<void, Error, string | DeleteNotificationOptions> {
     const queryClient = useQueryClient();
+    const [deleteNotificationGQL] = useDeleteNotificationMutation();
 
     return useMutation({
-        mutationFn: async (notificationId: string) => {
-            // LOCAL ONLY: Delete from local DB
-            await deleteNotificationFromCache(notificationId);
+        mutationFn: async (input: string | DeleteNotificationOptions) => {
+            // Parse input
+            const options: DeleteNotificationOptions = typeof input === 'string' ? {} : input;
+            const notificationId = typeof input === 'string' ? input : (input as any).notificationId || input;
+            
+            // 1. Delete from local DB (unless skipped - e.g., from Watch events where native already deleted)
+            if (!options.skipLocalDb) {
+                await deleteNotificationFromCache(notificationId as string);
+            }
+
+            // 2. Call backend GraphQL mutation
+            try {
+                await deleteNotificationGQL({
+                    variables: { id: notificationId as string }
+                });
+            } catch (error) {
+                console.warn('Backend deleteNotification failed, but local delete succeeded:', error);
+            }
         },
-        onSuccess: (data, notificationId, context) => {
+        onSuccess: (data, input, context) => {
+            const options: DeleteNotificationOptions = typeof input === 'string' ? {} : input;
+            const notificationId = typeof input === 'string' ? input : (input as any).notificationId || input;
             // Track if deleted notification was unread and its bucket
             const wasUnreadRef = { current: false };
             const bucketIdRef = { current: undefined as string | undefined };
@@ -702,14 +923,21 @@ export function useDeleteNotification(
 
             // Remove from detail cache
             queryClient.removeQueries({
-                queryKey: notificationKeys.detail(notificationId),
+                queryKey: notificationKeys.detail(notificationId as string),
             });
             
-            // Sync CloudKit + Watch + Widget in one call
-            IosBridgeService.syncAll('delete', { notificationId })
-                .catch((error) => {
-                    console.error('[useDeleteNotification] Failed to sync:', error);
-                });
+            // Sync to CloudKit (unless skipped - e.g., from Watch events where native already deleted)
+            if (!options.skipCloudKit) {
+                (async () => {
+                    try {
+                        // Delete notification from CloudKit
+                        await IosBridgeService.deleteNotificationFromCloudKit(notificationId as string);
+                        console.log('[useDeleteNotification] Deleted notification from CloudKit');
+                    } catch (error) {
+                        console.error('[useDeleteNotification] Failed to sync:', error);
+                    }
+                })();
+            }
         },
         ...mutationOptions,
     });
@@ -800,11 +1028,20 @@ export function useBatchDeleteNotifications(
                 });
             });
             
-            // Sync CloudKit + Watch + Widget in one call
-            IosBridgeService.syncAll('delete', { notificationIds: deletedIds })
-                .catch((error) => {
+            // Sync to CloudKit and notify Watch/Widget
+            (async () => {
+                try {
+                    // Delete notifications from CloudKit
+                    await Promise.all(
+                        deletedIds.map(id =>
+                            IosBridgeService.deleteNotificationFromCloudKit(id)
+                        )
+                    );
+                    console.log(`[useBatchDeleteNotifications] Deleted ${deletedIds.length} notifications from CloudKit`);
+                } catch (error) {
                     console.error('[useBatchDeleteNotifications] Failed to sync:', error);
-                });
+                }
+            })();
         },
         ...mutationOptions,
     });

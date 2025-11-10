@@ -159,6 +159,55 @@ public class DatabaseAccess {
         }
     }
     
+    /// Mark notification as unread in local database
+    /// - Parameters:
+    ///   - notificationId: The notification ID to mark as unread
+    ///   - source: Source identifier for logging (default: "DatabaseAccess")
+    ///   - completion: Completion handler with success status
+    public static func markNotificationAsUnread(
+        notificationId: String,
+        source: String = "DatabaseAccess",
+        completion: @escaping (Bool) -> Void = { _ in }
+    ) {
+        performDatabaseOperation(
+            type: .write,
+            name: "MarkAsUnread",
+            source: source,
+            operation: { db in
+                let sql = "UPDATE notifications SET read_at = NULL WHERE id = ?"
+                var stmt: OpaquePointer?
+                
+                let prepareResult = sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+                guard prepareResult == SQLITE_OK else {
+                    let errorMsg = String(cString: sqlite3_errmsg(db))
+                    return .failure("Failed to prepare statement: \(errorMsg) (code: \(prepareResult))")
+                }
+                
+                defer { sqlite3_finalize(stmt) }
+                
+                sqlite3_bind_text(stmt, 1, (notificationId as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                
+                let result = sqlite3_step(stmt)
+                let changes = sqlite3_changes(db)
+                print("📱 [DatabaseAccess] 🔍 [MarkAsUnread] sqlite3_step result: \(result) (SQLITE_DONE=\(SQLITE_DONE)), changes: \(changes)")
+                
+                if result == SQLITE_DONE {
+                    return .success
+                } else {
+                    let errorMsg = String(cString: sqlite3_errmsg(db))
+                    return .failure("Step failed: \(result) - \(errorMsg)")
+                }
+            }
+        ) { (dbResult: DatabaseOperationResult) in
+            switch dbResult {
+            case .success:
+                completion(true)
+            default:
+                completion(false)
+            }
+        }
+    }
+    
     /// Delete notification from local database
     /// - Parameters:
     ///   - notificationId: The notification ID to delete

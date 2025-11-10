@@ -315,11 +315,31 @@ public class CloudKitSyncManager {
             source: "CloudKitSyncManager"
         )
         
-        do {
-            // 1. Esporta buckets dal DB
-            let buckets = try exportBucketsFromDatabase()
+        // Ensure custom zone exists before syncing
+        CloudKitAccess.ensureCustomZoneExists { result in
+            switch result {
+            case .failure(let error):
+                self.logger.error(
+                    tag: "CloudKitSync",
+                    message: "Failed to ensure custom zone exists",
+                    metadata: ["error": error.localizedDescription],
+                    source: "CloudKitSyncManager"
+                )
+                completion(false, 0)
+                return
+            case .success:
+                self.logger.debug(
+                    tag: "CloudKitSync",
+                    message: "Custom zone verified/created successfully",
+                    source: "CloudKitSyncManager"
+                )
+            }
             
-            logger.debug(
+            do {
+                // 1. Esporta buckets dal DB
+                let buckets = try self.exportBucketsFromDatabase()
+            
+            self.logger.debug(
                 tag: "CloudKitSync",
                 message: "Exported buckets from database",
                 metadata: [
@@ -370,7 +390,7 @@ public class CloudKitSyncManager {
                 }
             }
         } catch {
-            logger.error(
+            self.logger.error(
                 tag: "CloudKitSync",
                 message: "Error exporting buckets",
                 metadata: ["error": error.localizedDescription],
@@ -378,6 +398,7 @@ public class CloudKitSyncManager {
             )
             completion(false, 0)
         }
+        } // End ensureCustomZoneExists
     }
     
     /**
@@ -397,16 +418,36 @@ public class CloudKitSyncManager {
             source: "CloudKitSyncManager"
         )
         
-        do {
-            // 1. Esporta notifiche dal DB
-            let notifications = try exportNotificationsFromDatabase(limit: limit)
+        // Ensure custom zone exists before syncing
+        CloudKitAccess.ensureCustomZoneExists { result in
+            switch result {
+            case .failure(let error):
+                self.logger.error(
+                    tag: "CloudKitSync",
+                    message: "Failed to ensure custom zone exists",
+                    metadata: ["error": error.localizedDescription],
+                    source: "CloudKitSyncManager"
+                )
+                completion(false, 0)
+                return
+            case .success:
+                self.logger.debug(
+                    tag: "CloudKitSync",
+                    message: "Custom zone verified/created successfully",
+                    source: "CloudKitSyncManager"
+                )
+            }
+            
+            do {
+                // 1. Esporta notifiche dal DB
+                let notifications = try self.exportNotificationsFromDatabase(limit: limit)
             
             // Log estremi identificativi
             let firstNotification = notifications.first
             let lastNotification = notifications.last
             let unreadCount = notifications.filter { $0.readAt == nil }.count
             
-            logger.debug(
+            self.logger.debug(
                 tag: "CloudKitSync",
                 message: "Exported notifications from database",
                 metadata: [
@@ -490,7 +531,7 @@ public class CloudKitSyncManager {
                 }
             }
         } catch {
-            logger.error(
+            self.logger.error(
                 tag: "CloudKitSync",
                 message: "Error exporting notifications",
                 metadata: ["error": error.localizedDescription],
@@ -498,6 +539,7 @@ public class CloudKitSyncManager {
             )
             completion(false, 0)
         }
+        } // End ensureCustomZoneExists
     }
     
     // MARK: - Sync All
@@ -688,17 +730,24 @@ public class CloudKitSyncManager {
     /**
      * Setup CloudKit subscriptions for real-time updates on individual records
      */
+    /**
+     * Setup CloudKit subscriptions (DISABLED - using WatchConnectivity only)
+     */
     public func setupSubscriptions(completion: @escaping (Bool) -> Void) {
-        CloudKitAccess.setupSubscriptions { result in
-            switch result {
-            case .success:
-                print("☁️ [CloudKitSync][iOS] ✅ Subscriptions setup successful")
-                completion(true)
-            case .failure(let error):
-                print("☁️ [CloudKitSync][iOS] ❌ Failed to setup subscriptions: \(error.localizedDescription)")
-                completion(false)
-            }
-        }
+        print("☁️ [CloudKitSync][iOS] ℹ️ CloudKit subscriptions disabled - using WatchConnectivity for sync")
+        completion(true)
+        
+        // CloudKit subscriptions not used - WatchConnectivity provides real-time sync
+        // CloudKitAccess.setupSubscriptions { result in
+        //     switch result {
+        //     case .success:
+        //         print("☁️ [CloudKitSync][iOS] ✅ Subscriptions setup successful")
+        //         completion(true)
+        //     case .failure(let error):
+        //         print("☁️ [CloudKitSync][iOS] ❌ Failed to setup subscriptions: \(error.localizedDescription)")
+        //         completion(false)
+        //     }
+        // }
     }
     
     // MARK: - Individual Delete Methods
@@ -733,5 +782,319 @@ public class CloudKitSyncManager {
                 completion(false)
             }
         }
+    }
+    
+    // MARK: - Individual Add/Update Methods
+    
+    /**
+     * Add a single notification to CloudKit
+     */
+    public func addNotificationToCloudKit(_ notification: SyncNotification, completion: @escaping (Bool) -> Void = { _ in }) {
+        let cloudKitNotification = CloudKitNotification(
+            id: notification.id,
+            title: notification.title,
+            subtitle: notification.subtitle,
+            body: notification.body,
+            readAt: DateConverter.stringToDate(notification.readAt),
+            sentAt: DateConverter.stringToDate(notification.sentAt),
+            createdAt: DateConverter.stringToDate(notification.createdAt),
+            updatedAt: DateConverter.stringToDate(notification.updatedAt),
+            bucketId: notification.bucketId,
+            attachments: notification.attachments.map { attachment in
+                CloudKitAttachment(
+                    mediaType: attachment.mediaType,
+                    url: attachment.url,
+                    name: attachment.name
+                )
+            },
+            actions: notification.actions.map { action in
+                CloudKitAction(
+                    type: action.type,
+                    value: action.value,
+                    title: action.title,
+                    icon: action.icon,
+                    destructive: action.destructive
+                )
+            },
+            tapAction: notification.tapAction.map { tapAction in
+                CloudKitAction(
+                    type: tapAction.type,
+                    value: tapAction.value,
+                    title: tapAction.title,
+                    icon: tapAction.icon,
+                    destructive: tapAction.destructive
+                )
+            }
+        )
+        
+        CloudKitAccess.addNotification(cloudKitNotification) { result in
+            switch result {
+            case .success:
+                print("☁️ [CloudKitSync][iOS] ✅ Added notification \(notification.id) to CloudKit")
+                completion(true)
+            case .failure(let error):
+                print("☁️ [CloudKitSync][iOS] ❌ Failed to add notification: \(error.localizedDescription)")
+                completion(false)
+            }
+        }
+    }
+    
+    /**
+     * Update a single notification in CloudKit
+     */
+    public func updateNotificationInCloudKit(_ notification: SyncNotification, completion: @escaping (Bool) -> Void = { _ in }) {
+        let cloudKitNotification = CloudKitNotification(
+            id: notification.id,
+            title: notification.title,
+            subtitle: notification.subtitle,
+            body: notification.body,
+            readAt: DateConverter.stringToDate(notification.readAt),
+            sentAt: DateConverter.stringToDate(notification.sentAt),
+            createdAt: DateConverter.stringToDate(notification.createdAt),
+            updatedAt: DateConverter.stringToDate(notification.updatedAt),
+            bucketId: notification.bucketId,
+            attachments: notification.attachments.map { attachment in
+                CloudKitAttachment(
+                    mediaType: attachment.mediaType,
+                    url: attachment.url,
+                    name: attachment.name
+                )
+            },
+            actions: notification.actions.map { action in
+                CloudKitAction(
+                    type: action.type,
+                    value: action.value,
+                    title: action.title,
+                    icon: action.icon,
+                    destructive: action.destructive
+                )
+            },
+            tapAction: notification.tapAction.map { tapAction in
+                CloudKitAction(
+                    type: tapAction.type,
+                    value: tapAction.value,
+                    title: tapAction.title,
+                    icon: tapAction.icon,
+                    destructive: tapAction.destructive
+                )
+            }
+        )
+        
+        CloudKitAccess.updateNotification(cloudKitNotification) { result in
+            switch result {
+            case .success:
+                print("☁️ [CloudKitSync][iOS] ✅ Updated notification \(notification.id) in CloudKit")
+                completion(true)
+            case .failure(let error):
+                print("☁️ [CloudKitSync][iOS] ❌ Failed to update notification: \(error.localizedDescription)")
+                completion(false)
+            }
+        }
+    }
+    
+    /**
+     * Add a single bucket to CloudKit
+     */
+    public func addBucketToCloudKit(_ bucket: Bucket, completion: @escaping (Bool) -> Void = { _ in }) {
+        let cloudKitBucket = CloudKitBucket(
+            id: bucket.id,
+            name: bucket.name,
+            description: bucket.description,
+            color: bucket.color,
+            iconUrl: bucket.iconUrl,
+            createdAt: DateConverter.stringToDate(bucket.createdAt),
+            updatedAt: DateConverter.stringToDate(bucket.updatedAt)
+        )
+        
+        CloudKitAccess.addBucket(cloudKitBucket) { result in
+            switch result {
+            case .success:
+                print("☁️ [CloudKitSync][iOS] ✅ Added bucket \(bucket.id) to CloudKit")
+                completion(true)
+            case .failure(let error):
+                print("☁️ [CloudKitSync][iOS] ❌ Failed to add bucket: \(error.localizedDescription)")
+                completion(false)
+            }
+        }
+    }
+    
+    /**
+     * Update a single bucket in CloudKit
+     */
+    public func updateBucketInCloudKit(_ bucket: Bucket, completion: @escaping (Bool) -> Void = { _ in }) {
+        let cloudKitBucket = CloudKitBucket(
+            id: bucket.id,
+            name: bucket.name,
+            description: bucket.description,
+            color: bucket.color,
+            iconUrl: bucket.iconUrl,
+            createdAt: DateConverter.stringToDate(bucket.createdAt),
+            updatedAt: DateConverter.stringToDate(bucket.updatedAt)
+        )
+        
+        CloudKitAccess.updateBucket(cloudKitBucket) { result in
+            switch result {
+            case .success:
+                print("☁️ [CloudKitSync][iOS] ✅ Updated bucket \(bucket.id) in CloudKit")
+                completion(true)
+            case .failure(let error):
+                print("☁️ [CloudKitSync][iOS] ❌ Failed to update bucket: \(error.localizedDescription)")
+                completion(false)
+            }
+        }
+    }
+    
+    // MARK: - Incremental Sync with Change Tokens
+    
+    /**
+     * Fetch changes from CloudKit since the last sync using stored tokens
+     * This is the recommended approach for efficient syncing
+     */
+    public func fetchIncrementalChanges(completion: @escaping (Bool, Int, Int) -> Void) {
+        logger.info(
+            tag: "IncrementalSync",
+            message: "Fetching incremental changes from CloudKit",
+            source: "CloudKitSyncManager"
+        )
+        
+        // Ensure custom zone exists before fetching
+        CloudKitAccess.ensureCustomZoneExists { result in
+            switch result {
+            case .failure(let error):
+                self.logger.error(
+                    tag: "IncrementalSync",
+                    message: "Failed to ensure custom zone exists",
+                    metadata: ["error": error.localizedDescription],
+                    source: "CloudKitSyncManager"
+                )
+                completion(false, 0, 0)
+                return
+            case .success:
+                self.logger.debug(
+                    tag: "IncrementalSync",
+                    message: "Custom zone verified/created successfully",
+                    source: "CloudKitSyncManager"
+                )
+            }
+            
+            CloudKitAccess.fetchAllChanges { result in
+            switch result {
+            case .success(let (bucketChanges, notificationChanges)):
+                let totalBucketChanges = bucketChanges.added.count + bucketChanges.modified.count + bucketChanges.deleted.count
+                let totalNotificationChanges = notificationChanges.added.count + notificationChanges.modified.count + notificationChanges.deleted.count
+                
+                self.logger.info(
+                    tag: "IncrementalSync",
+                    message: "Successfully fetched incremental changes",
+                    metadata: [
+                        "bucketsAdded": String(bucketChanges.added.count),
+                        "bucketsModified": String(bucketChanges.modified.count),
+                        "bucketsDeleted": String(bucketChanges.deleted.count),
+                        "notificationsAdded": String(notificationChanges.added.count),
+                        "notificationsModified": String(notificationChanges.modified.count),
+                        "notificationsDeleted": String(notificationChanges.deleted.count)
+                    ],
+                    source: "CloudKitSyncManager"
+                )
+                
+                completion(true, totalBucketChanges, totalNotificationChanges)
+                
+            case .failure(let error):
+                self.logger.error(
+                    tag: "IncrementalSync",
+                    message: "Failed to fetch incremental changes",
+                    metadata: ["error": error.localizedDescription],
+                    source: "CloudKitSyncManager"
+                )
+                completion(false, 0, 0)
+            }
+        }
+        }
+    }
+    
+    /**
+     * Fetch bucket changes only from CloudKit since the last sync
+     */
+    public func fetchBucketChanges(completion: @escaping (CloudKitAccess.BucketChanges?) -> Void) {
+        logger.info(
+            tag: "IncrementalSync",
+            message: "Fetching bucket changes from CloudKit",
+            source: "CloudKitSyncManager"
+        )
+        
+        CloudKitAccess.fetchBucketChanges { result in
+            switch result {
+            case .success(let changes):
+                self.logger.info(
+                    tag: "IncrementalSync",
+                    message: "Successfully fetched bucket changes",
+                    metadata: [
+                        "added": String(changes.added.count),
+                        "modified": String(changes.modified.count),
+                        "deleted": String(changes.deleted.count)
+                    ],
+                    source: "CloudKitSyncManager"
+                )
+                completion(changes)
+                
+            case .failure(let error):
+                self.logger.error(
+                    tag: "IncrementalSync",
+                    message: "Failed to fetch bucket changes",
+                    metadata: ["error": error.localizedDescription],
+                    source: "CloudKitSyncManager"
+                )
+                completion(nil)
+            }
+        }
+    }
+    
+    /**
+     * Fetch notification changes only from CloudKit since the last sync
+     */
+    public func fetchNotificationChanges(completion: @escaping (CloudKitAccess.NotificationChanges?) -> Void) {
+        logger.info(
+            tag: "IncrementalSync",
+            message: "Fetching notification changes from CloudKit",
+            source: "CloudKitSyncManager"
+        )
+        
+        CloudKitAccess.fetchNotificationChanges { result in
+            switch result {
+            case .success(let changes):
+                self.logger.info(
+                    tag: "IncrementalSync",
+                    message: "Successfully fetched notification changes",
+                    metadata: [
+                        "added": String(changes.added.count),
+                        "modified": String(changes.modified.count),
+                        "deleted": String(changes.deleted.count)
+                    ],
+                    source: "CloudKitSyncManager"
+                )
+                completion(changes)
+                
+            case .failure(let error):
+                self.logger.error(
+                    tag: "IncrementalSync",
+                    message: "Failed to fetch notification changes",
+                    metadata: ["error": error.localizedDescription],
+                    source: "CloudKitSyncManager"
+                )
+                completion(nil)
+            }
+        }
+    }
+    
+    /**
+     * Clear all stored change tokens to force a full sync next time
+     */
+    public func clearSyncTokens() {
+        CloudKitAccess.clearAllChangeTokens()
+        logger.info(
+            tag: "IncrementalSync",
+            message: "Cleared all sync tokens - next sync will be full",
+            source: "CloudKitSyncManager"
+        )
     }
 }

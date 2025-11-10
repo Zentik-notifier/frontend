@@ -33,6 +33,7 @@ export {
 // Bucket Mutation Hooks
 export {
   useCreateBucket,
+  useUpdateBucket,
   useDeleteBucketWithNotifications,
   useSetBucketSnooze,
   useUpdateBucketSnoozes,
@@ -42,6 +43,8 @@ export {
 
 // Bucket Stats Utilities
 export { getBucketStats } from './bucketStatsUtils';
+
+// CloudKit Sync Hook
 
 // Mutation Hooks
 export {

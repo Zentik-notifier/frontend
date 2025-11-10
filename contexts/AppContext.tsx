@@ -34,6 +34,7 @@ import { registerTranslation } from "react-native-paper-dates";
 import { useSettings } from "../hooks/useSettings";
 import { settingsRepository } from "../services/settings-repository";
 import { settingsService } from "../services/settings-service";
+import iosBridge from "@/services/ios-bridge";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -258,7 +259,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await push.initialize();
 
       setIsInitializing(false);
-      cleanup({ immediate: true }).catch((e) => {
+      cleanup({ immediate: true, syncCloud: true }).catch((e) => {
         console.error(
           "Error during cleanup after completeAuth:",
           JSON.stringify(e)
@@ -433,12 +434,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Force refresh from backend and sync to CloudKit
         await cleanup({ immediate: true });
         
-        // Ensure Watch gets latest data from CloudKit
-        console.log("[AppContext] 📱 Notifying Watch to refresh from CloudKit...");
-        const { default: IosBridgeService } = await import('@/services/ios-bridge');
-        await IosBridgeService.notifyAll('reload').catch((error) => {
-          console.log("[AppContext] Failed to notify Watch:", error);
-        });
         
         await connectionStatus.checkForUpdates();
       } else if (

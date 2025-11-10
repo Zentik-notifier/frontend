@@ -20,6 +20,7 @@ const requestIdleCallbackPolyfill = (callback: () => void) => {
 
 interface CleanupProps {
     immediate?: boolean,
+    syncCloud?: boolean,
     force?: boolean,
 }
 
@@ -27,7 +28,7 @@ export const useCleanup = () => {
     const queryClient = useQueryClient();
     const { refreshAll } = useNotificationsState();
 
-    const cleanup = useCallback(async ({ immediate, force }: CleanupProps) => {
+    const cleanup = useCallback(async ({ immediate, syncCloud, force }: CleanupProps) => {
         const shouldCleanup = !settingsService.shouldRunCleanup() ? false : true;
 
         const executeWithRAF = <T>(fn: () => Promise<T>, label: string): Promise<T> => {
@@ -77,34 +78,6 @@ export const useCleanup = () => {
         });
         await waitRAF();
 
-        // 4. FIRST: Notify Watch BEFORE cleaning (with current complete data)
-        await executeWithRAF(
-            async () => {
-                console.log('[Cleanup] 📱 Notifying Apple Watch of updates (BEFORE cleanup)...');
-                await IosBridgeService.notifyAll('reload');
-                console.log('[Cleanup] 📱 Watch notified (will use transferUserInfo buffer if unreachable)');
-            },
-            'notifying watch before cleanup'
-        ).catch((e) => {
-            console.error('[Cleanup] Error notifying watch:', e);
-        });
-
-        await waitRAF();
-
-        // 5. SECOND: Sync to CloudKit + Watch + Widget BEFORE cleaning (upload current complete data)
-        await executeWithRAF(
-            async () => {
-                console.log('[Cleanup] ☁️ Syncing to CloudKit/Watch/Widget (BEFORE cleanup)...');
-                await IosBridgeService.syncAll('reload');
-                console.log('[Cleanup] ☁️ Sync completed with complete data');
-            },
-            'syncing before cleanup'
-        ).catch((e) => {
-            console.error('[Cleanup] Error syncing:', e);
-        });
-
-        await waitRAF();
-
         // 6. THIRD: Now cleanup local notifications by settings
         if (shouldCleanup || force) {
             await executeWithRAF(
@@ -147,7 +120,21 @@ export const useCleanup = () => {
             console.error('[Cleanup] Error reloading media cache metadata', e);
         });
 
-        await waitRAF();
+
+        if (syncCloud) {
+            await waitRAF();
+
+            await executeWithRAF(
+                async () => {
+                    const res = await IosBridgeService.syncAllToCloudKit();
+                    console.log('[Cleanup] Cloud sync result:', res);
+                },
+                'reloading media cache'
+            ).catch((e) => {
+                console.error('[Cleanup] Error reloading media cache metadata', e);
+            });
+
+        }
 
         console.log('[Cleanup] Cleanup completed');
     }, [queryClient, refreshAll]);

@@ -5,6 +5,7 @@ struct ContentView: View {
     @StateObject private var connectivityManager = WatchConnectivityManager.shared
     @State private var isRefreshing: Bool = false
     @State private var isInitialLoad: Bool = true
+    @State private var lastFetchTime: Date?
     
     var body: some View {
         BucketMenuView(
@@ -16,22 +17,52 @@ struct ContentView: View {
             isConnected: connectivityManager.isConnected,
             lastUpdate: connectivityManager.lastUpdate,
             hasCache: !connectivityManager.notifications.isEmpty,
-            onRefresh: loadData
+            onRefresh: requestFullRefresh
         )
         .environmentObject(connectivityManager)
         .onAppear {
-            // Only load if no cached data
-            if connectivityManager.notifications.isEmpty {
-                loadData()
+            // Fetch from CloudKit when app opens, but avoid too frequent fetches
+            // Only fetch if:
+            // 1. No cached data (initial load), OR
+            // 2. Last fetch was more than 30 seconds ago
+            let shouldFetch = connectivityManager.notifications.isEmpty || 
+                              lastFetchTime == nil || 
+                              Date().timeIntervalSince(lastFetchTime!) > 30
+            
+            if shouldFetch {
+                print("⌚ [ContentView] 🔄 App opened - fetching from CloudKit ONLY (no iOS refresh)")
+                fetchFromCloudKitOnly()
             } else {
+                print("⌚ [ContentView] ⏭️ Skipping fetch (last fetch was \(Int(Date().timeIntervalSince(lastFetchTime!)))s ago)")
                 isInitialLoad = false
             }
         }
     }
     
-    private func loadData() {
+    /**
+     * Fetch from CloudKit only when app opens
+     * Does NOT request full iOS refresh
+     */
+    private func fetchFromCloudKitOnly() {
         isRefreshing = true
-        connectivityManager.requestData()
+        lastFetchTime = Date()
+        connectivityManager.fetchFromCloudKitOnly()
+        
+        // Stop loading after a timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            isRefreshing = false
+            isInitialLoad = false
+        }
+    }
+    
+    /**
+     * Request FULL refresh (iOS + CloudKit) when user taps refresh button
+     * If iOS not reachable, falls back to CloudKit only
+     */
+    private func requestFullRefresh() {
+        isRefreshing = true
+        lastFetchTime = Date()
+        connectivityManager.requestFullRefresh()
         
         // Stop loading after a timeout
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
@@ -326,7 +357,8 @@ struct FilteredNotificationListView: View {
                 } else {
                     Button(action: {
                         isLoading = true
-                        connectivityManager.requestData()
+                        // Request FULL refresh (iOS + CloudKit) when user taps button
+                        connectivityManager.requestFullRefresh()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                             isLoading = false
                         }

@@ -21,6 +21,7 @@ class WatchConnectivityBridge: RCTEventEmitter {
   @objc
   override func supportedEvents() -> [String]! {
     return [
+      "onWatchRefresh",
       "onWatchNotificationRead",
       "onWatchNotificationUnread",
       "onWatchNotificationDeleted"
@@ -28,6 +29,33 @@ class WatchConnectivityBridge: RCTEventEmitter {
   }
   
   // MARK: - Event Emitters (called from WatchConnectivityManager)
+  
+  func emitRefreshRequest() {
+    logger.info(
+      tag: "EmitEvent",
+      message: "Emitting onWatchRefresh to React Native - Watch requested full sync from DB",
+      metadata: ["event": "refreshRequest", "source": "watchRefreshButton"],
+      source: "WatchBridge"
+    )
+    sendEvent(withName: "onWatchRefresh", body: [
+      "timestamp": Date().timeIntervalSince1970,
+      "source": "watchRefreshButton"
+    ])
+    logger.debug(tag: "EmitEvent", message: "Refresh request event emitted successfully", source: "WatchBridge")
+  }
+  
+  func emitRefresh() {
+    logger.info(
+      tag: "EmitEvent",
+      message: "Emitting onWatchRefresh to React Native - Watch requested full sync",
+      metadata: ["event": "refresh"],
+      source: "WatchBridge"
+    )
+    sendEvent(withName: "onWatchRefresh", body: [
+      "timestamp": Date().timeIntervalSince1970
+    ])
+    logger.debug(tag: "EmitEvent", message: "Refresh event emitted successfully", source: "WatchBridge")
+  }
   
   func emitNotificationRead(notificationId: String, readAt: String) {
     logger.info(
@@ -79,6 +107,19 @@ class WatchConnectivityBridge: RCTEventEmitter {
     )
     
     iPhoneWatchConnectivityManager.shared.notifyWatchOfUpdate()
+    resolve(["success": true])
+  }
+  
+  @objc
+  func notifyWatchToSyncIncremental(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    logger.info(
+      tag: "ReactNative→Watch",
+      message: "React Native requested Watch incremental sync",
+      metadata: ["action": "syncIncremental"],
+      source: "WatchBridge"
+    )
+    
+    iPhoneWatchConnectivityManager.shared.notifyWatchToSyncIncremental()
     resolve(["success": true])
   }
   

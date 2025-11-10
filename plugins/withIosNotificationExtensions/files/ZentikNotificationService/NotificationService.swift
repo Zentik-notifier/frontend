@@ -1795,9 +1795,18 @@ class NotificationService: UNNotificationServiceExtension {
     if sqlite3_step(stmt) == SQLITE_DONE {
       print("📱 [NotificationService] ✅ Notification saved to database: \(notificationId)")
       
-      // NOTE: CloudKit sync is handled by the main app when it becomes active
-      // NSE doesn't have CloudKit entitlements and can't sync in background
-      // Watch receives push notifications directly from iOS and will sync via CloudKit when needed
+      // Sync to CloudKit asynchronously (non-blocking)
+      // This happens AFTER notification delivery to avoid delays
+      self.syncNotificationToCloudKitAsync(
+        notificationId: notificationId,
+        bucketId: bucketId,
+        title: content.title,
+        body: content.body,
+        subtitle: content.subtitle.isEmpty ? nil : content.subtitle,
+        createdAt: now,
+        readAt: nil,
+        attachments: userInfo["attachmentData"] as? [[String: Any]]
+      )
     } else {
       print("📱 [NotificationService] ❌ Failed to save notification to database")
     }
@@ -1833,6 +1842,38 @@ class NotificationService: UNNotificationServiceExtension {
     print("📱 [NotificationService] ✅ Queued reload trigger to Watch for notification: \(notificationId)")
   }
 
+  // MARK: - CloudKit Sync (Async - Non-Blocking)
+  
+  /**
+   * Sync notification to CloudKit asynchronously
+   * This method runs in background and does NOT block notification delivery
+   */
+  private func syncNotificationToCloudKitAsync(
+    notificationId: String,
+    bucketId: String,
+    title: String,
+    body: String,
+    subtitle: String?,
+    createdAt: String,
+    readAt: String?,
+    attachments: [[String: Any]]?
+  ) {
+    // Delegate to CloudKitAccess for all CloudKit logic
+    CloudKitAccess.syncNotificationFromNSE(
+      notificationId: notificationId,
+      bucketId: bucketId,
+      title: title,
+      body: body,
+      subtitle: subtitle,
+      createdAt: createdAt,
+      readAt: readAt,
+      attachments: attachments,
+      logger: { message in
+        print("📱 [NotificationService] \(message)")
+      }
+    )
+  }
+  
   // MARK: - Pending Notifications Storage
   // NOTE: Removed savePendingNotification and storePendingNotification methods.
   // Notifications are now saved directly to SQLite via saveNotificationToDatabase().

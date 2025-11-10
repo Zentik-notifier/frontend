@@ -3,6 +3,7 @@ import FirebaseCore
 import React
 import ReactAppDependencyProvider
 import UserNotifications
+import CloudKit
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
@@ -59,8 +60,85 @@ FirebaseApp.configure()
     
     UNUserNotificationCenter.current().delegate = self
     print("📱 [AppDelegate] Notification delegate set (with Expo delegate saved)")
+    
+    // Initialize WatchConnectivity early to handle background transfers from Watch
+    // This ensures WCSession is activated even if React Native hasn't started yet
+    _ = iPhoneWatchConnectivityManager.shared
+    print("📱 [AppDelegate] WatchConnectivity initialized early")
 
     return result
+  }
+  
+  // MARK: - CloudKit Remote Notifications
+  
+  /// Handle CloudKit silent push notifications (DISABLED - using WatchConnectivity only)
+  public override func application(
+    _ application: UIApplication,
+    didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    // print("📱 [AppDelegate] ℹ️ CloudKit remote notifications disabled - using WatchConnectivity for sync")
+    
+    // CloudKit subscriptions not used - WatchConnectivity provides real-time sync
+    // Call super to handle other remote notifications (Firebase, etc.)
+    super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
+    
+    /*
+    // Original CloudKit notification handling (DISABLED)
+    print("📱 [AppDelegate] ========== REMOTE NOTIFICATION RECEIVED ==========")
+    print("📱 [AppDelegate] UserInfo: \(userInfo)")
+    
+    // Check if it's a CloudKit notification
+    if let notification = CKNotification(fromRemoteNotificationDictionary: userInfo) {
+      print("📱 [AppDelegate] ☁️ CloudKit notification received")
+      print("📱 [AppDelegate] ☁️ Notification type: \(notification.notificationType.rawValue)")
+      
+      LoggingSystem.shared.info(
+        tag: "CloudKitNotification",
+        message: "CloudKit remote notification received",
+        metadata: [
+          "notificationType": String(notification.notificationType.rawValue),
+          "subscriptionID": notification.subscriptionID ?? "unknown"
+        ],
+        source: "AppDelegate"
+      )
+      
+      // Handle both database and query notifications (changes to records)
+      if notification.notificationType == .database || notification.notificationType == .query {
+        print("📱 [AppDelegate] ☁️ Record change notification - fetching changes...")
+        
+        // Trigger incremental sync to fetch the changes
+        CloudKitSyncManager.shared.fetchIncrementalChanges { success, bucketChanges, notificationChanges in
+          if success {
+            print("📱 [AppDelegate] ✅ Incremental sync completed: \(bucketChanges) buckets, \(notificationChanges) notifications")
+            
+            LoggingSystem.shared.info(
+              tag: "CloudKitNotification",
+              message: "CloudKit changes fetched successfully",
+              metadata: [
+                "bucketChanges": String(bucketChanges),
+                "notificationChanges": String(notificationChanges)
+              ],
+              source: "AppDelegate"
+            )
+            
+            completionHandler(.newData)
+          } else {
+            print("📱 [AppDelegate] ❌ Incremental sync failed")
+            completionHandler(.failed)
+          }
+        }
+      } else {
+        print("📱 [AppDelegate] ⚠️ Unsupported notification type: \(notification.notificationType.rawValue)")
+        completionHandler(.noData)
+      }
+    } else {
+      print("📱 [AppDelegate] ℹ️ Not a CloudKit notification")
+      
+      // Call super to handle other remote notifications
+      super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
+    }
+    */
   }
   
   // MARK: - UNUserNotificationCenterDelegate
