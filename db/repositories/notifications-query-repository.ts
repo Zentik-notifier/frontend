@@ -698,7 +698,7 @@ export async function getNotificationStats(
         }
 
         // Overall stats
-        console.log('[getNotificationStats] Executing overall stats query...');
+        console.log(`[getNotificationStats] Executing overall stats query... with buckets: ${JSON.stringify(params)}`);
         const overallStatsQuery = `SELECT 
             COUNT(*) as total_count,
             SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END) as unread_count,
@@ -708,7 +708,7 @@ export async function getNotificationStats(
             MIN(created_at) as first_notification_date
            FROM notifications ${whereClause}`;
         console.log('[getNotificationStats] Query:', overallStatsQuery, 'Params:', params);
-        
+
         let overallStats;
         try {
           overallStats = await db.getFirstAsync(overallStatsQuery, params);
@@ -732,7 +732,7 @@ export async function getNotificationStats(
            ${whereClause}
            GROUP BY bucket_id`;
         console.log('[getNotificationStats] Query:', bucketStatsQuery, 'Params:', params);
-        
+
         let bucketStatsResults;
         try {
           bucketStatsResults = await db.getAllAsync(bucketStatsQuery, params);
@@ -747,7 +747,7 @@ export async function getNotificationStats(
         const byBucket: BucketStats[] = await Promise.all(
           bucketStatsResults.map(async (stats: any, index: number) => {
             console.log(`[getNotificationStats] Fetching name for bucket ${index + 1}/${bucketStatsResults.length}: ${stats.bucket_id}`);
-            
+
             let firstNotification;
             try {
               firstNotification = await db.getFirstAsync(
@@ -782,7 +782,7 @@ export async function getNotificationStats(
             };
           })
         );
-        
+
         console.log('[getNotificationStats] Successfully processed all bucket stats');
 
         return {
