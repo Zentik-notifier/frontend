@@ -461,9 +461,9 @@ class IosBridgeService {
     }
 
     try {
-      console.log('[CloudKitSync] Fetching buckets...');
+      // console.log('[CloudKitSync] Fetching buckets...');
       const result = await CloudKitSyncBridge.fetchAllBucketsFromCloudKit();
-      console.log(`[CloudKitSync] ✓ Fetched ${result.buckets.length} buckets`);
+      // console.log(`[CloudKitSync] ✓ Fetched ${result.buckets.length} buckets`);
       return result;
     } catch (error) {
       console.error('[CloudKitSync] Failed to fetch buckets:', error);
@@ -483,9 +483,9 @@ class IosBridgeService {
     }
 
     try {
-      console.log('[CloudKitSync] Fetching notifications...');
+      // console.log('[CloudKitSync] Fetching notifications...');
       const result = await CloudKitSyncBridge.fetchAllNotificationsFromCloudKit();
-      console.log(`[CloudKitSync] ✓ Fetched ${result.notifications.length} notifications`);
+      // console.log(`[CloudKitSync] ✓ Fetched ${result.notifications.length} notifications`);
       return result;
     } catch (error) {
       console.error('[CloudKitSync] Failed to fetch notifications:', error);

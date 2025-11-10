@@ -3,20 +3,7 @@ import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
 import { Platform } from 'react-native';
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { NotificationFragment } from '@/generated/gql-operations-generated';
-
-// Wait until IndexedDB is exposed by the environment (some browsers expose it after a tick)
-async function waitForIndexedDB(timeoutMs = 10000, intervalMs = 50): Promise<void> {
-  const start = Date.now();
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const available = (typeof indexedDB !== 'undefined') || (typeof window !== 'undefined' && (window as any).indexedDB);
-    if (available) return;
-    if (Date.now() - start >= timeoutMs) {
-      throw new Error('IndexedDB not ready');
-    }
-    await new Promise(resolve => setTimeout(resolve, intervalMs));
-  }
-}
+import { File, Paths } from 'expo-file-system';
 
 // IndexedDB schema for web storage
 export interface WebStorageDB extends DBSchema {
@@ -133,8 +120,8 @@ export function queueDbOperation<T>(operation: () => Promise<T>): Promise<T> {
       console.warn('[queueDbOperation] Operation failed:', error?.message);
       throw error;
     });
-  
-  dbOperationQueue = queued.catch(() => {}); // Don't propagate errors to next operations
+
+  dbOperationQueue = queued.catch(() => { }); // Don't propagate errors to next operations
   return queued;
 }
 
@@ -166,7 +153,7 @@ export async function executeQuery<T>(
     } catch (error: any) {
       lastError = error;
       const errorMessage = error?.message || String(error);
-      
+
       // Log error with context
       console.warn(
         `[executeQuery] ${operationName} failed (attempt ${attempt + 1}/${retryCount + 1}):`,
@@ -195,7 +182,7 @@ export async function executeQuery<T>(
     `[executeQuery] ${operationName} failed after ${retryCount + 1} attempts:`,
     lastError?.message || lastError
   );
-  
+
   throw new Error(`Database operation failed: ${operationName}`);
 }
 
@@ -369,7 +356,7 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
 
     // Store instance for reuse
     dbInstance = db;
-    
+
     return db;
   })();
 
@@ -421,6 +408,242 @@ export async function closeSharedCacheDb(): Promise<void> {
   }
 }
 
+/**
+ * Delete SQLite database file (mobile only)
+ * This function:
+ * 1. Closes the database connection safely
+ * 2. Deletes the physical database file and WAL files
+ * 3. Resets all database state
+ * 
+ * Use case: Force re-download of all data from backend
+ */
+export async function deleteSQLiteDatabase(): Promise<void> {
+  if (Platform.OS === 'web') {
+    console.log('[DB] Web platform uses IndexedDB, use browser tools to clear data');
+    return;
+  }
+
+  try {
+    // First close the database connection
+    await closeSharedCacheDb();
+    console.log('[DB] Database connection closed, proceeding to delete files...');
+
+    // Import FileSystem module dynamically
+    const { File } = await import('expo-file-system');
+    const { getSharedMediaCacheDirectoryAsync } = await import('../utils/shared-cache');
+
+    const sharedDir = await getSharedMediaCacheDirectoryAsync();
+    const directory = sharedDir.startsWith('file://') ? sharedDir.replace('file://', '') : sharedDir;
+
+    // Delete main database file
+    const dbPath = `${directory}/cache.db`;
+    const walPath = `${dbPath}-wal`;
+    const shmPath = `${dbPath}-shm`;
+
+    const filesToDelete = [
+      { path: dbPath, name: 'database' },
+      { path: walPath, name: 'WAL' },
+      { path: shmPath, name: 'SHM' },
+    ];
+
+    for (const { path, name } of filesToDelete) {
+      try {
+        const file = new File(path);
+        if (file.exists) {
+          await file.delete();
+          console.log(`[DB] ✅ Deleted ${name} file: ${path}`);
+        } else {
+          console.log(`[DB] ℹ️ ${name} file does not exist: ${path}`);
+        }
+      } catch (error: any) {
+        console.warn(`[DB] ⚠️ Error deleting ${name} file:`, error?.message || error);
+      }
+    }
+
+    console.log('[DB] ✅ SQLite database deleted successfully');
+  } catch (error: any) {
+    console.error('[DB] ❌ Error deleting database:', error?.message || error);
+    throw error;
+  }
+}
+
+/**
+ * Export SQLite database to SQL dump file (mobile only)
+ * This function:
+ * 1. Reads all data from the database
+ * 2. Generates SQL INSERT statements
+ * 3. Saves to a .sql file
+ * 
+ * @returns Path to the exported SQL file
+ */
+export async function exportSQLiteDatabaseToFile(): Promise<string> {
+  if (Platform.OS === 'web') {
+    throw new Error('Database export is only available on mobile platforms');
+  }
+
+  try {
+    const db = await openSharedCacheDb();
+
+    // Generate SQL dump
+    let sqlDump = '-- Zentik Notifier SQLite Database Export\n';
+    sqlDump += `-- Exported at: ${new Date().toISOString()}\n\n`;
+    sqlDump += '-- Disable foreign keys during import\n';
+    sqlDump += 'PRAGMA foreign_keys=OFF;\n\n';
+
+    // Get list of all tables
+    const tables = await db.getAllAsync<{ name: string }>(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+    );
+
+    for (const table of tables) {
+      const tableName = table.name;
+
+      // Get table schema
+      const schemaResult = await db.getAllAsync<{ sql: string }>(
+        `SELECT sql FROM sqlite_master WHERE type='table' AND name=?`,
+        [tableName]
+      );
+
+      if (schemaResult.length > 0 && schemaResult[0].sql) {
+        sqlDump += `-- Table: ${tableName}\n`;
+        sqlDump += `DROP TABLE IF EXISTS ${tableName};\n`;
+        sqlDump += `${schemaResult[0].sql};\n\n`;
+      }
+
+      // Get all rows from table
+      const rows = await db.getAllAsync(`SELECT * FROM ${tableName}`);
+
+      if (rows.length > 0) {
+        sqlDump += `-- Data for table: ${tableName}\n`;
+
+        for (const row of rows) {
+          const rowData = row as Record<string, any>;
+          const columns = Object.keys(rowData);
+          const values = columns.map(col => {
+            const val = rowData[col];
+            if (val === null) return 'NULL';
+            if (typeof val === 'number') return val.toString();
+            // Escape single quotes in strings
+            return `'${String(val).replace(/'/g, "''")}'`;
+          });
+
+          sqlDump += `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${values.join(', ')});\n`;
+        }
+
+        sqlDump += '\n';
+      }
+    }
+
+    // Get indices
+    const indices = await db.getAllAsync<{ name: string; sql: string }>(
+      "SELECT name, sql FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'"
+    );
+
+    if (indices.length > 0) {
+      sqlDump += '-- Indices\n';
+      for (const index of indices) {
+        if (index.sql) {
+          sqlDump += `${index.sql};\n`;
+        }
+      }
+      sqlDump += '\n';
+    }
+
+    sqlDump += '-- Re-enable foreign keys\n';
+    sqlDump += 'PRAGMA foreign_keys=ON;\n';
+
+    // Save to file using new API
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `zentik-db-export-${timestamp}.sql`;
+
+    // Create and write file in one operation
+    const file = new File(Paths.cache, fileName);
+    file.write(sqlDump);
+
+    console.log(`[DB] ✅ Database exported to: ${file.uri}`);
+    return file.uri;
+  } catch (error: any) {
+    console.error('[DB] ❌ Error exporting database:', error?.message || error);
+    throw error;
+  }
+}
+
+/**
+ * Import SQLite database from SQL dump file (mobile only)
+ * This function:
+ * 1. Deletes the existing database
+ * 2. Creates a new database
+ * 3. Executes all SQL statements from the dump file
+ * 
+ * @param filePath Path to the SQL dump file
+ */
+export async function importSQLiteDatabaseFromFile(filePath: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    throw new Error('Database import is only available on mobile platforms');
+  }
+
+  try {
+    const { File } = await import('expo-file-system');
+
+    // Read SQL dump file using new API
+    const file = new File(filePath);
+
+    if (!file.exists) {
+      throw new Error('SQL dump file does not exist');
+    }
+
+    const sqlDump = await file.text();
+
+    if (!sqlDump || sqlDump.trim().length === 0) {
+      throw new Error('SQL dump file is empty');
+    }
+
+    console.log('[DB] 📥 Importing database from file...');
+
+    // Close and delete existing database
+    await deleteSQLiteDatabase();
+
+    // Wait a bit to ensure file system is ready
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Open new database (will be created automatically)
+    const db = await openSharedCacheDb();
+
+    // Split SQL dump into individual statements
+    // This is a simple split - for production you might want a proper SQL parser
+    const statements = sqlDump
+      .split(';')
+      .map(s => s.trim())
+      .filter(s => s.length > 0 && !s.startsWith('--'));
+
+    console.log(`[DB] 📝 Executing ${statements.length} SQL statements...`);
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const statement of statements) {
+      try {
+        await db.execAsync(statement + ';');
+        successCount++;
+      } catch (error: any) {
+        // Log error but continue with other statements
+        console.warn(`[DB] ⚠️ Error executing statement: ${error?.message}`);
+        console.warn(`Statement: ${statement.substring(0, 100)}...`);
+        errorCount++;
+      }
+    }
+
+    console.log(`[DB] ✅ Database import completed: ${successCount} success, ${errorCount} errors`);
+
+    if (errorCount > statements.length / 2) {
+      throw new Error(`Too many errors during import: ${errorCount}/${statements.length} statements failed`);
+    }
+  } catch (error: any) {
+    console.error('[DB] ❌ Error importing database:', error?.message || error);
+    throw error;
+  }
+}
+
 // Initialize IndexedDB for web
 export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
   if (webDbPromise) return webDbPromise;
@@ -436,7 +659,7 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
         if (!db.objectStoreNames.contains('keyvalue')) {
           db.createObjectStore('keyvalue');
         }
-        
+
         // Notifications store with indices for efficient querying
         if (!db.objectStoreNames.contains('notifications')) {
           const notificationsStore = db.createObjectStore('notifications');
@@ -460,20 +683,20 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
             notificationsStore.createIndex('bucket_icon_url', 'bucket_icon_url');
           }
         }
-        
+
         // Buckets store for caching bucket metadata
         if (!db.objectStoreNames.contains('buckets')) {
           const bucketsStore = db.createObjectStore('buckets');
           bucketsStore.createIndex('updated_at', 'updated_at');
           bucketsStore.createIndex('synced_at', 'synced_at');
         }
-        
+
         // Deleted notifications tombstone store (v9)
         if (!db.objectStoreNames.contains('deleted_notifications')) {
           const deletedStore = db.createObjectStore('deleted_notifications');
           deletedStore.createIndex('deleted_at', 'deleted_at');
         }
-        
+
         if (!db.objectStoreNames.contains('app_log')) {
           db.createObjectStore('app_log', { keyPath: 'timestamp' });
         }
@@ -604,13 +827,13 @@ async function deleteCorruptedNotification(notificationId: string, db?: any): Pr
 export function parseNotificationFromDB(dbRecord: any, db?: any): NotificationFragment | null {
   try {
     const notification = typeof dbRecord.fragment === 'string' ? JSON.parse(dbRecord.fragment) : dbRecord.fragment;
-    
+
     // Override with column values to ensure consistency
     // This fixes the bug where read_at column is null but fragment JSON has a timestamp
     if (dbRecord.read_at !== undefined) {
       notification.readAt = dbRecord.read_at;
     }
-    
+
     if (dbRecord.created_at !== undefined) {
       notification.createdAt = dbRecord.created_at;
     }
@@ -623,7 +846,7 @@ export function parseNotificationFromDB(dbRecord: any, db?: any): NotificationFr
         hasBucket: !!notification?.message?.bucket,
         hasCreatedAt: !!notification?.createdAt,
       });
-      
+
       // Delete corrupted notification from database (async, non-blocking)
       const notificationId = notification?.id || dbRecord.id;
       if (notificationId) {
@@ -631,14 +854,14 @@ export function parseNotificationFromDB(dbRecord: any, db?: any): NotificationFr
           console.error('[parseNotificationFromDB] Failed to delete corrupted notification:', err);
         });
       }
-      
+
       return null;
     }
-    
+
     return notification as NotificationFragment;
   } catch (error) {
     console.error('[parseNotificationFromDB] Parse error:', error);
-    
+
     // Try to delete using dbRecord.id if available
     const notificationId = dbRecord?.id;
     if (notificationId) {
@@ -646,7 +869,7 @@ export function parseNotificationFromDB(dbRecord: any, db?: any): NotificationFr
         console.error('[parseNotificationFromDB] Failed to delete corrupted notification:', err);
       });
     }
-    
+
     return null;
   }
 }

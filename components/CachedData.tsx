@@ -14,10 +14,16 @@ import { useI18n } from "@/hooks/useI18n";
 import { deleteBucket } from "@/db/repositories/buckets-repository";
 import { Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import * as DocumentPicker from "expo-document-picker";
 import PaperScrollView from "./ui/PaperScrollView";
 import DetailSectionCard from "./ui/DetailSectionCard";
 import DetailModal from "./ui/DetailModal";
 import { useAppState, useDeleteNotification } from "@/hooks/notifications";
+import { 
+  deleteSQLiteDatabase, 
+  exportSQLiteDatabaseToFile,
+  importSQLiteDatabaseFromFile 
+} from "@/services/db-setup";
 
 type CloudKitRecord = {
   recordName: string;
@@ -299,6 +305,139 @@ export default function CachedData() {
     [appState]
   );
 
+  // Bump database: delete SQLite and force re-download
+  const handleBumpDatabase = useCallback(async () => {
+    Alert.alert(
+      "⚠️ Reset Database",
+      "This will delete the local SQLite database and force a complete re-download of all notifications and buckets from the server. This operation cannot be undone.\n\nAre you sure?",
+      [
+        {
+          text: t("common.cancel"),
+          style: "cancel",
+        },
+        {
+          text: "Reset Database",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              console.log('[CachedData] Starting database reset...');
+              
+              // Delete the SQLite database
+              await deleteSQLiteDatabase();
+              
+              Alert.alert(
+                "✅ Success", 
+                "Database deleted successfully. The app will now re-download all data from the server.",
+                [
+                  {
+                    text: "OK",
+                    onPress: async () => {
+                      // Trigger a full refresh from the server
+                      await refetch();
+                    }
+                  }
+                ]
+              );
+            } catch (error) {
+              console.error('[CachedData] Failed to bump database:', error);
+              Alert.alert(
+                t("common.error"), 
+                `Failed to reset database: ${error instanceof Error ? error.message : 'Unknown error'}`
+              );
+            }
+          },
+        },
+      ]
+    );
+  }, [t, refetch]);
+
+  // Export database to SQL file
+  const handleExportDatabase = useCallback(async () => {
+    try {
+      console.log('[CachedData] Exporting database...');
+      
+      const filePath = await exportSQLiteDatabaseToFile();
+      
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(filePath);
+      } else {
+        Alert.alert(t("common.success"), `Database exported to: ${filePath}`);
+      }
+    } catch (error) {
+      console.error('[CachedData] Failed to export database:', error);
+      Alert.alert(
+        t("common.error"), 
+        `Failed to export database: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }, [t]);
+
+  // Import database from SQL file
+  const handleImportDatabase = useCallback(async () => {
+    try {
+      console.log('[CachedData] Picking SQL file...');
+      
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*', // SQL files might not have a specific MIME type
+        copyToCacheDirectory: true,
+      });
+      
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        console.log('[CachedData] File picker cancelled');
+        return;
+      }
+      
+      const file = result.assets[0];
+      
+      // Confirm import
+      Alert.alert(
+        "⚠️ Import Database",
+        `This will replace your current database with the data from:\n\n${file.name}\n\nAll current data will be lost. Are you sure?`,
+        [
+          {
+            text: t("common.cancel"),
+            style: "cancel",
+          },
+          {
+            text: "Import",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await importSQLiteDatabaseFromFile(file.uri);
+                
+                Alert.alert(
+                  "✅ Success", 
+                  "Database imported successfully.",
+                  [
+                    {
+                      text: "OK",
+                      onPress: async () => {
+                        // Trigger a refresh
+                        await refetch();
+                      }
+                    }
+                  ]
+                );
+              } catch (error) {
+                console.error('[CachedData] Failed to import database:', error);
+                Alert.alert(
+                  t("common.error"), 
+                  `Failed to import database: ${error instanceof Error ? error.message : 'Unknown error'}`
+                );
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('[CachedData] Failed to pick file:', error);
+      Alert.alert(
+        t("common.error"), 
+        `Failed to pick file: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }, [t, refetch]);
+
   // Fetch CloudKit data on mount (iOS only)
   useEffect(() => {
     if (Platform.OS === 'ios') {
@@ -315,6 +454,68 @@ export default function CachedData() {
       >
         {t("cachedData.description")}
       </Text>
+
+      {/* Database Reset Button - Mobile Only */}
+      {Platform.OS !== 'web' && (
+        <Card style={[styles.card, { backgroundColor: theme.colors.errorContainer }]}>
+          <Card.Content>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1 }}>
+                <Text variant="titleMedium" style={{ color: theme.colors.onErrorContainer, fontWeight: '600' }}>
+                  Reset Local Database
+                </Text>
+                <Text variant="bodySmall" style={{ color: theme.colors.onErrorContainer, marginTop: 4 }}>
+                  Delete SQLite database and re-download all data from server
+                </Text>
+              </View>
+              <Button
+                mode="contained"
+                onPress={handleBumpDatabase}
+                buttonColor={theme.colors.error}
+                textColor={theme.colors.onError}
+                icon="database-refresh"
+              >
+                Reset
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
+      )}
+
+      {/* Database Export/Import - Mobile Only */}
+      {Platform.OS !== 'web' && (
+        <Card style={styles.card}>
+          <Card.Title
+            title={t("cachedData.databaseBackup.title")}
+            subtitle={t("cachedData.databaseBackup.description")}
+            left={(props) => (
+              <IconButton
+                {...props}
+                icon="database-export"
+                iconColor={theme.colors.primary}
+              />
+            )}
+          />
+          <Card.Content>
+            <View style={{ gap: 8 }}>
+              <Button
+                mode="contained-tonal"
+                icon="database-export"
+                onPress={handleExportDatabase}
+              >
+                {t("cachedData.databaseBackup.exportButton")}
+              </Button>
+              <Button
+                mode="outlined"
+                icon="database-import"
+                onPress={handleImportDatabase}
+              >
+                {t("cachedData.databaseBackup.importButton")}
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
+      )}
 
       {/* Buckets Section */}
       <DetailSectionCard

@@ -1993,6 +1993,17 @@ export interface Translation {
     recordDetails: string;
     bucketsInCloud: string;
     notificationsInCloud: string;
+    databaseBackup: {
+      title: string;
+      description: string;
+      exportButton: string;
+      importButton: string;
+      exportSuccess: string;
+      exportError: string;
+      importSuccess: string;
+      importError: string;
+      importWarning: string;
+    };
   };
   backupManagement: {
     title: string;

@@ -2211,7 +2211,18 @@
     "deleteRecord": "Elimina Record",
     "recordDetails": "Dettagli Record",
     "bucketsInCloud": "Bucket su iCloud",
-    "notificationsInCloud": "Notifiche su iCloud"
+    "notificationsInCloud": "Notifiche su iCloud",
+    "databaseBackup": {
+      "title": "Backup Database",
+      "description": "Esporta e importa file di backup del database SQLite",
+      "exportButton": "Esporta Database (.sql)",
+      "importButton": "Importa Database (.sql)",
+      "exportSuccess": "Database esportato con successo",
+      "exportError": "Errore durante l'esportazione del database",
+      "importSuccess": "Database importato con successo",
+      "importError": "Errore durante l'importazione del database",
+      "importWarning": "Questo sostituirà tutti i dati attuali"
+    }
   },
   "serverLogs": {
     "title": "Log del Server",

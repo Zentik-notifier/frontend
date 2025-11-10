@@ -1990,7 +1990,18 @@
     "deleteRecord": "Delete Record",
     "recordDetails": "Record Details",
     "bucketsInCloud": "Buckets in iCloud",
-    "notificationsInCloud": "Notifications in iCloud"
+    "notificationsInCloud": "Notifications in iCloud",
+    "databaseBackup": {
+      "title": "Database Backup",
+      "description": "Export and import SQLite database backup files",
+      "exportButton": "Export Database (.sql)",
+      "importButton": "Import Database (.sql)",
+      "exportSuccess": "Database exported successfully",
+      "exportError": "Failed to export database",
+      "importSuccess": "Database imported successfully",
+      "importError": "Failed to import database",
+      "importWarning": "This will replace all current data"
+    }
   },
   "backupManagement": {
     "title": "Backup Management",
