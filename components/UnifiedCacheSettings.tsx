@@ -1,10 +1,10 @@
 import { useAppContext } from "@/contexts/AppContext";
+import { useGlobalNotificationStats } from "@/hooks/notifications/useNotificationStats";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useNotificationExportImport } from "@/hooks/useNotificationExportImport";
-import { useGlobalNotificationStats } from "@/hooks/notifications/useNotificationStats";
-import { mediaCache } from "@/services/media-cache-service";
 import { useSettings } from "@/hooks/useSettings";
+import { mediaCache } from "@/services/media-cache-service";
 import type { MarkAsReadMode } from "@/services/settings-service";
 import { formatFileSize } from "@/utils";
 import { File, Paths } from "expo-file-system";
@@ -24,8 +24,8 @@ import {
   useTheme,
 } from "react-native-paper";
 import { CacheResetModal } from "./CacheResetModal";
-import Selector, { SelectorOption } from "./ui/Selector";
 import NumberListInput from "./ui/NumberListInput";
+import Selector from "./ui/Selector";
 
 export default function UnifiedCacheSettings() {
   const theme = useTheme();

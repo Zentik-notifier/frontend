@@ -7,6 +7,8 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
+import { queryNotifications } from '@/db/repositories/notifications-query-repository';
+import { NotificationFragment } from '@/generated/gql-operations-generated';
 
 export const cleanExportData = (data: any): any => {
   if (data === null || data === undefined) {
@@ -85,9 +87,37 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
 
   const exportAllNotifications = async () => {
     try {
-      const rawNotifications = await getAllRawNotificationsFromDB();
+      // Usa queryNotifications con paginazione per ottenere tutte le notifiche
+      const limit = 1000; // Carica 1000 notifiche alla volta
+      let offset = 0;
+      let allNotifications: NotificationFragment[] = [];
+      let hasMore = true;
 
-      if (rawNotifications.length === 0) {
+      console.log('[Export] Starting to fetch all notifications using paginated query...');
+
+      while (hasMore) {
+        const result = await queryNotifications({
+          pagination: { limit, offset },
+          sort: { field: 'createdAt', direction: 'desc' }
+        });
+
+        if (result.notifications.length > 0) {
+          allNotifications = [...allNotifications, ...result.notifications];
+          console.log(`[Export] Fetched ${result.notifications.length} notifications (offset: ${offset}, total: ${allNotifications.length})`);
+          offset += limit;
+          
+          // Se abbiamo ricevuto meno notifiche del limite, abbiamo finito
+          if (result.notifications.length < limit) {
+            hasMore = false;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`[Export] Total notifications fetched: ${allNotifications.length}`);
+
+      if (allNotifications.length === 0) {
         Alert.alert(
           t('appSettings.gqlCache.importExport.exportError'),
           t('appSettings.gqlCache.importExport.noNotificationsToExport')
@@ -96,7 +126,7 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
       }
 
       // Applica cleanExportData per rimuovere metadati e mascherare dati sensibili
-      const cleanedNotifications = cleanExportData(rawNotifications);
+      const cleanedNotifications = cleanExportData(allNotifications);
 
       const fileName = `notifications-${new Date().toISOString().split('T')[0]}.json`;
 

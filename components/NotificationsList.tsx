@@ -225,8 +225,6 @@ export default function NotificationsList({
     );
   }, [data]);
 
-  const filteredNotifications = notifications;
-
   useEffect(() => {
     if (allNotificationIds) {
       console.log(
@@ -282,7 +280,7 @@ export default function NotificationsList({
         setFirstVisibleIndex(firstIndex);
 
         // Controlla se ci sono notifiche non lette prima di questo indice
-        const hasUnread = filteredNotifications
+        const hasUnread = notifications
           .slice(0, firstIndex)
           .some((n: NotificationFragment) => !n.readAt);
         setHasUnreadAbove(hasUnread);
@@ -297,14 +295,14 @@ export default function NotificationsList({
         setLastVisibleIndex(lastIndex);
 
         // Controlla se ci sono notifiche non lette dopo questo indice
-        const hasUnread = filteredNotifications
+        const hasUnread = notifications
           .slice(lastIndex + 1)
           .some((n: NotificationFragment) => !n.readAt);
         setHasUnreadBelow(hasUnread);
       }
 
       try {
-        const firstId = filteredNotifications[0]?.id;
+        const firstId = notifications[0]?.id;
         setShowScrollTop(firstId ? !visibleSet.has(firstId) : false);
       } catch {}
 
@@ -318,7 +316,7 @@ export default function NotificationsList({
         if (!didUserScrollRef.current) return;
         didUserScrollRef.current = false;
         const candidates: string[] = [];
-        for (const n of filteredNotifications) {
+        for (const n of notifications) {
           if (everVisibleIdsRef.current.has(n.id) && !n.readAt) {
             candidates.push(n.id);
           }
@@ -335,7 +333,7 @@ export default function NotificationsList({
     [
       settings.notificationsPreferences?.markAsReadMode,
       batchMarkAsReadMutation,
-      filteredNotifications,
+      notifications,
     ]
   );
 
@@ -388,7 +386,7 @@ export default function NotificationsList({
       `[NotificationsList] Toggling read status for ${notificationIds.length} notifications`
     );
 
-    const selectedNotifications = filteredNotifications.filter(
+    const selectedNotifications = notifications.filter(
       (n: NotificationFragment) => selectedItems.has(n.id)
     );
     const hasUnreadNotifications = selectedNotifications.some(
@@ -406,7 +404,7 @@ export default function NotificationsList({
     }
   }, [
     selectedItems,
-    filteredNotifications,
+    notifications,
     batchMarkAsReadMutation,
     handleCloseSelectionMode,
   ]);
@@ -537,7 +535,7 @@ export default function NotificationsList({
     }
 
     // Show message if no more pages
-    if (!hasNextPage && filteredNotifications.length > 0) {
+    if (!hasNextPage && notifications.length > 0) {
       return (
         <View style={styles.listFooter}>
           <Text
@@ -546,7 +544,7 @@ export default function NotificationsList({
               { color: theme.colors.onSurfaceVariant },
             ]}
           >
-            {t("notifications.endOfList")} ({filteredNotifications.length})
+            {t("notifications.endOfList")} ({notifications.length})
           </Text>
         </View>
       );
@@ -566,7 +564,7 @@ export default function NotificationsList({
     >
       <View style={styles.filtersWrapper}>
         <NotificationFilters
-          totalNotifications={filteredNotifications.length}
+          totalNotifications={notifications.length}
           onToggleReadStatus={handleToggleReadStatus}
           onDeleteSelected={handleDeleteSelected}
           onRefresh={handleRefresh}
@@ -578,7 +576,7 @@ export default function NotificationsList({
 
       <FlashList
         ref={listRef}
-        data={filteredNotifications}
+        data={notifications}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         onViewableItemsChanged={onViewableItemsChanged}
@@ -623,7 +621,7 @@ export default function NotificationsList({
         <TouchableRipple
           onPress={() => {
             try {
-              const firstUnreadIndex = filteredNotifications.findIndex(
+              const firstUnreadIndex = notifications.findIndex(
                 (n: NotificationFragment, idx: number) =>
                   idx < firstVisibleIndex && !n.readAt
               );
@@ -665,7 +663,7 @@ export default function NotificationsList({
         <TouchableRipple
           onPress={() => {
             try {
-              const firstUnreadIndex = filteredNotifications.findIndex(
+              const firstUnreadIndex = notifications.findIndex(
                 (n: NotificationFragment, idx: number) =>
                   idx > lastVisibleIndex && !n.readAt
               );
