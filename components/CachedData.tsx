@@ -126,8 +126,8 @@ export default function CachedData() {
     if (Platform.OS !== 'ios') return;
     
     Alert.alert(
-      "Confirm Deletion",
-      "Are you sure you want to delete this record from CloudKit?",
+      t("cachedData.cloudKit.confirmDeleteTitle"),
+      t("cachedData.cloudKit.confirmDeleteMessage"),
       [
         {
           text: t("common.cancel"),
@@ -144,13 +144,22 @@ export default function CachedData() {
               if (result.success) {
                 // Refresh records after deletion
                 await fetchAllCloudKitRecords();
-                Alert.alert(t("common.success"), "Record deleted successfully");
+                Alert.alert(
+                  t("common.success"), 
+                  t("cachedData.cloudKit.deleteSuccess")
+                );
               } else {
-                Alert.alert(t("common.error"), "Failed to delete record");
+                Alert.alert(
+                  t("common.error"), 
+                  t("cachedData.cloudKit.deleteError")
+                );
               }
             } catch (error) {
               console.error("Failed to delete record:", error);
-              Alert.alert(t("common.error"), "Failed to delete record");
+              Alert.alert(
+                t("common.error"), 
+                t("cachedData.cloudKit.deleteError")
+              );
             }
           },
         },
@@ -298,25 +307,25 @@ export default function CachedData() {
   // Find bucket name for a notification
   const getBucketName = useCallback(
     (bucketId?: string) => {
-      if (!bucketId) return "Unknown";
+      if (!bucketId) return t("cachedData.recordDetails.unknownBucket");
       const bucket = appState?.buckets.find((b) => b.id === bucketId);
-      return bucket?.name || "Unknown";
+      return bucket?.name || t("cachedData.recordDetails.unknownBucket");
     },
-    [appState]
+    [appState, t]
   );
 
   // Bump database: delete SQLite and force re-download
   const handleBumpDatabase = useCallback(async () => {
     Alert.alert(
-      "⚠️ Reset Database",
-      "This will delete the local SQLite database and force a complete re-download of all notifications and buckets from the server. This operation cannot be undone.\n\nAre you sure?",
+      t("cachedData.resetDatabase.warningTitle"),
+      t("cachedData.resetDatabase.warningMessage"),
       [
         {
           text: t("common.cancel"),
           style: "cancel",
         },
         {
-          text: "Reset Database",
+          text: t("cachedData.resetDatabase.buttonText"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -326,8 +335,8 @@ export default function CachedData() {
               await deleteSQLiteDatabase();
               
               Alert.alert(
-                "✅ Success", 
-                "Database deleted successfully. The app will now re-download all data from the server.",
+                t("cachedData.resetDatabase.successTitle"), 
+                t("cachedData.resetDatabase.successMessage"),
                 [
                   {
                     text: "OK",
@@ -342,7 +351,9 @@ export default function CachedData() {
               console.error('[CachedData] Failed to bump database:', error);
               Alert.alert(
                 t("common.error"), 
-                `Failed to reset database: ${error instanceof Error ? error.message : 'Unknown error'}`
+                t("cachedData.resetDatabase.errorMessage", { 
+                  error: error instanceof Error ? error.message : 'Unknown error' 
+                })
               );
             }
           },
@@ -361,13 +372,18 @@ export default function CachedData() {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(filePath);
       } else {
-        Alert.alert(t("common.success"), `Database exported to: ${filePath}`);
+        Alert.alert(
+          t("common.success"), 
+          t("cachedData.exportDatabase.successMessage", { path: filePath })
+        );
       }
     } catch (error) {
       console.error('[CachedData] Failed to export database:', error);
       Alert.alert(
         t("common.error"), 
-        `Failed to export database: ${error instanceof Error ? error.message : 'Unknown error'}`
+        t("cachedData.exportDatabase.errorMessage", { 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        })
       );
     }
   }, [t]);
@@ -391,23 +407,23 @@ export default function CachedData() {
       
       // Confirm import
       Alert.alert(
-        "⚠️ Import Database",
-        `This will replace your current database with the data from:\n\n${file.name}\n\nAll current data will be lost. Are you sure?`,
+        t("cachedData.importDatabase.warningTitle"),
+        t("cachedData.importDatabase.warningMessage", { fileName: file.name }),
         [
           {
             text: t("common.cancel"),
             style: "cancel",
           },
           {
-            text: "Import",
+            text: t("cachedData.importDatabase.buttonText"),
             style: "destructive",
             onPress: async () => {
               try {
                 await importSQLiteDatabaseFromFile(file.uri);
                 
                 Alert.alert(
-                  "✅ Success", 
-                  "Database imported successfully.",
+                  t("cachedData.importDatabase.successTitle"), 
+                  t("cachedData.importDatabase.successMessage"),
                   [
                     {
                       text: "OK",
@@ -422,7 +438,9 @@ export default function CachedData() {
                 console.error('[CachedData] Failed to import database:', error);
                 Alert.alert(
                   t("common.error"), 
-                  `Failed to import database: ${error instanceof Error ? error.message : 'Unknown error'}`
+                  t("cachedData.importDatabase.errorMessage", { 
+                    error: error instanceof Error ? error.message : 'Unknown error' 
+                  })
                 );
               }
             },
@@ -433,7 +451,9 @@ export default function CachedData() {
       console.error('[CachedData] Failed to pick file:', error);
       Alert.alert(
         t("common.error"), 
-        `Failed to pick file: ${error instanceof Error ? error.message : 'Unknown error'}`
+        t("cachedData.importDatabase.filePickerError", { 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        })
       );
     }
   }, [t, refetch]);
@@ -462,10 +482,10 @@ export default function CachedData() {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <View style={{ flex: 1 }}>
                 <Text variant="titleMedium" style={{ color: theme.colors.onErrorContainer, fontWeight: '600' }}>
-                  Reset Local Database
+                  {t("cachedData.resetDatabase.title")}
                 </Text>
                 <Text variant="bodySmall" style={{ color: theme.colors.onErrorContainer, marginTop: 4 }}>
-                  Delete SQLite database and re-download all data from server
+                  {t("cachedData.resetDatabase.description")}
                 </Text>
               </View>
               <Button
@@ -475,7 +495,7 @@ export default function CachedData() {
                 textColor={theme.colors.onError}
                 icon="database-refresh"
               >
-                Reset
+                {t("cachedData.resetDatabase.buttonText")}
               </Button>
             </View>
           </Card.Content>
@@ -520,7 +540,7 @@ export default function CachedData() {
       {/* Buckets Section */}
       <DetailSectionCard
         title={t("cachedData.buckets")}
-        description="Notification buckets stored locally for offline access"
+        description={t("cachedData.bucketsList.description")}
         actionButtons={[
           {
             icon: "download",
@@ -531,7 +551,7 @@ export default function CachedData() {
         loading={isLoading}
         emptyState={{
           icon: "folder-outline",
-          text: "No buckets cached",
+          text: t("cachedData.bucketsList.emptyText"),
         }}
         items={appState?.buckets || []}
         renderItem={(bucket) => (
@@ -565,7 +585,9 @@ export default function CachedData() {
       {/* Notifications Section */}
       <DetailSectionCard
         title={t("cachedData.notifications")}
-        description={`${appState?.stats.totalCount || 0} notifications cached locally`}
+        description={t("cachedData.notificationsList.description", { 
+          count: appState?.stats.totalCount || 0 
+        })}
         actionButtons={[
           {
             icon: "download",
@@ -576,7 +598,7 @@ export default function CachedData() {
         loading={isLoading}
         emptyState={{
           icon: "bell-outline",
-          text: "No notifications cached",
+          text: t("cachedData.notificationsList.emptyText"),
         }}
         items={appState?.notifications || []}
         renderItem={(notification) => (
@@ -612,8 +634,11 @@ export default function CachedData() {
         <>
           {/* CloudKit Buckets Detail */}
           <DetailSectionCard
-            title="CloudKit Buckets"
-            description={cloudKitBuckets.length > 0 ? `${cloudKitBuckets.length} buckets in iCloud` : "CloudKit buckets stored in your private database"}
+            title={t("cachedData.cloudKitBuckets.title")}
+            description={cloudKitBuckets.length > 0 
+              ? t("cachedData.cloudKitBuckets.description", { count: cloudKitBuckets.length })
+              : t("cachedData.cloudKitBuckets.emptyDescription")
+            }
             actionButtons={[
               {
                 icon: "refresh",
@@ -624,7 +649,7 @@ export default function CachedData() {
             loading={loadingCloudKitRecords}
             emptyState={{
               icon: "folder-cloud-outline",
-              text: "No buckets in CloudKit",
+              text: t("cachedData.cloudKitBuckets.emptyText"),
             }}
             items={cloudKitBuckets}
             renderItem={(bucket) => (
@@ -657,8 +682,11 @@ export default function CachedData() {
 
           {/* CloudKit Notifications Detail */}
           <DetailSectionCard
-            title="CloudKit Notifications"
-            description={cloudKitNotifications.length > 0 ? `${cloudKitNotifications.length} notifications in iCloud` : "CloudKit notifications stored in your private database"}
+            title={t("cachedData.cloudKitNotifications.title")}
+            description={cloudKitNotifications.length > 0 
+              ? t("cachedData.cloudKitNotifications.description", { count: cloudKitNotifications.length })
+              : t("cachedData.cloudKitNotifications.emptyDescription")
+            }
             actionButtons={[
               {
                 icon: "refresh",
@@ -669,7 +697,7 @@ export default function CachedData() {
             loading={loadingCloudKitRecords}
             emptyState={{
               icon: "bell-badge-outline",
-              text: "No notifications in CloudKit",
+              text: t("cachedData.cloudKitNotifications.emptyText"),
             }}
             items={cloudKitNotifications}
             renderItem={(notification) => (
@@ -706,7 +734,10 @@ export default function CachedData() {
       <DetailModal
         visible={showLocalRecordModal}
         onDismiss={() => setShowLocalRecordModal(false)}
-        title={selectedLocalRecord?.type === 'bucket' ? 'Bucket Details' : 'Notification Details'}
+        title={selectedLocalRecord?.type === 'bucket' 
+          ? t("cachedData.recordDetails.bucketTitle")
+          : t("cachedData.recordDetails.notificationTitle")
+        }
         icon={selectedLocalRecord?.type === 'bucket' ? 'folder' : 'bell'}
         actions={{
           cancel: {
@@ -731,7 +762,7 @@ export default function CachedData() {
       {/* CloudKit Record Detail Dialog */}
       <Portal>
         <Dialog visible={showRecordDialog} onDismiss={() => setShowRecordDialog(false)}>
-          <Dialog.Title>{t("cachedData.recordDetails")}</Dialog.Title>
+          <Dialog.Title>{t("cachedData.recordDetailsTitle")}</Dialog.Title>
           <Dialog.ScrollArea style={{ maxHeight: 400 }}>
             <ScrollView>
               <Card.Content>

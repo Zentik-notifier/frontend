@@ -1983,14 +1983,14 @@ export interface Translation {
     loadError: string;
     cached: string;
     storageInfo: string;
-    cloudKit: string;
+    cloudKitTitle: string;
     cloudKitDescription: string;
     fetchCloudKit: string;
     cloudKitError: string;
     viewAllRecords: string;
     viewRecord: string;
     deleteRecord: string;
-    recordDetails: string;
+    recordDetailsTitle: string;
     bucketsInCloud: string;
     notificationsInCloud: string;
     databaseBackup: {
@@ -2003,6 +2003,63 @@ export interface Translation {
       importSuccess: string;
       importError: string;
       importWarning: string;
+    };
+    resetDatabase: {
+      title: string;
+      warningTitle: string;
+      warningMessage: string;
+      buttonText: string;
+      description: string;
+      successTitle: string;
+      successMessage: string;
+      errorMessage: string;
+    };
+    importDatabase: {
+      warningTitle: string;
+      warningMessage: string;
+      buttonText: string;
+      successTitle: string;
+      successMessage: string;
+      errorMessage: string;
+      filePickerError: string;
+      pickerCancelled: string;
+    };
+    exportDatabase: {
+      errorMessage: string;
+      successMessage: string;
+    };
+    cloudKit: {
+      confirmDeleteTitle: string;
+      confirmDeleteMessage: string;
+      deleteSuccess: string;
+      deleteError: string;
+    };
+    bucketsList: {
+      description: string;
+      emptyText: string;
+    };
+    notificationsList: {
+      description: string;
+      emptyText: string;
+    };
+    cloudKitBuckets: {
+      title: string;
+      description: string;
+      emptyDescription: string;
+      emptyText: string;
+    };
+    cloudKitNotifications: {
+      title: string;
+      description: string;
+      emptyDescription: string;
+      emptyText: string;
+    };
+    recordDetails: {
+      bucketTitle: string;
+      notificationTitle: string;
+      idLabel: string;
+      bucketLabel: string;
+      unknownBucket: string;
     };
   };
   backupManagement: {

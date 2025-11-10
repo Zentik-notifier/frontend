@@ -88,7 +88,7 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
   const exportAllNotifications = async () => {
     try {
       // Usa queryNotifications con paginazione per ottenere tutte le notifiche
-      const limit = 1000; // Carica 1000 notifiche alla volta
+      const limit = 5000; // Carica 5000 notifiche alla volta
       let offset = 0;
       let allNotifications: NotificationFragment[] = [];
       let hasMore = true;

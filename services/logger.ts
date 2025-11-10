@@ -9,7 +9,7 @@ export interface AppLog {
   level: LogLevel;
   tag?: string;
   message: string;
-  metadata?: Record<string, string>; // Simplified for JSON encoding
+  metadata?: any; // Simplified for JSON encoding
   timestamp: number;
   source: string; // "React", "NSE", or "NCE"
 }
@@ -151,103 +151,103 @@ class JsonFileLogger {
     }, BATCH_TIMEOUT_MS) as any;
   }
 
-  private convertMetadataToStrings(meta: any): Record<string, string> | undefined {
-    if (!meta) return undefined;
+  // private convertMetadataToStrings(meta: any): Record<string, string> | undefined {
+  //   if (!meta) return undefined;
 
-    // If meta is a string, try to parse it as JSON first
-    if (typeof meta === 'string') {
-      try {
-        const parsed = JSON.parse(meta);
-        if (typeof parsed === 'object' && parsed !== null) {
-          // Recursively convert the parsed object
-          return this.convertMetadataToStrings(parsed);
-        }
-        // If parsed is not an object, return it as a single value
-        return { value: meta };
-      } catch {
-        // Not valid JSON, return as-is
-        return { value: meta };
-      }
-    }
+  //   // If meta is a string, try to parse it as JSON first
+  //   if (typeof meta === 'string') {
+  //     try {
+  //       const parsed = JSON.parse(meta);
+  //       if (typeof parsed === 'object' && parsed !== null) {
+  //         // Recursively convert the parsed object
+  //         return this.convertMetadataToStrings(parsed);
+  //       }
+  //       // If parsed is not an object, return it as a single value
+  //       return { value: meta };
+  //     } catch {
+  //       // Not valid JSON, return as-is
+  //       return { value: meta };
+  //     }
+  //   }
 
-    if (typeof meta !== 'object') {
-      return { value: String(meta) };
-    }
+  //   if (typeof meta !== 'object') {
+  //     return { value: String(meta) };
+  //   }
 
-    // Handle arrays
-    if (Array.isArray(meta)) {
-      try {
-        return { value: JSON.stringify(meta) };
-      } catch {
-        return { value: String(meta) };
-      }
-    }
+  //   // Handle arrays
+  //   if (Array.isArray(meta)) {
+  //     try {
+  //       return { value: JSON.stringify(meta) };
+  //     } catch {
+  //       return { value: String(meta) };
+  //     }
+  //   }
 
-    // Handle Error objects - extract ALL useful properties including SQLite-specific ones
-    if (meta instanceof Error) {
-      const errorMeta: Record<string, string> = {
-        name: meta.name,
-        message: meta.message,
-      };
-      
-      // Add stack trace if available
-      if (meta.stack) {
-        errorMeta.stack = meta.stack;
-      }
-      
-      // Add cause if available (for nested errors)
-      if ((meta as any).cause) {
-        try {
-          errorMeta.cause = JSON.stringify((meta as any).cause);
-        } catch {
-          errorMeta.cause = String((meta as any).cause);
-        }
-      }
-      
-      // Extract ALL enumerable properties from the error (SQLite errors often have extra props)
-      for (const [key, value] of Object.entries(meta)) {
-        if (key !== 'name' && key !== 'message' && key !== 'stack') {
-          if (typeof value === 'string') {
-            errorMeta[key] = value;
-          } else if (typeof value === 'number' || typeof value === 'boolean') {
-            errorMeta[key] = String(value);
-          } else if (value === null || value === undefined) {
-            errorMeta[key] = String(value);
-          } else {
-            try {
-              errorMeta[key] = JSON.stringify(value);
-            } catch {
-              errorMeta[key] = String(value);
-            }
-          }
-        }
-      }
-      
-      return errorMeta;
-    }
+  //   // Handle Error objects - extract ALL useful properties including SQLite-specific ones
+  //   if (meta instanceof Error) {
+  //     const errorMeta: Record<string, string> = {
+  //       name: meta.name,
+  //       message: meta.message,
+  //     };
 
-    const result: Record<string, string> = {};
-    for (const [key, value] of Object.entries(meta)) {
-      if (typeof value === 'string') {
-        result[key] = value;
-      } else if (typeof value === 'number' || typeof value === 'boolean') {
-        result[key] = String(value);
-      } else if (value instanceof Error) {
-        // Handle nested Error objects
-        const errorData = this.convertMetadataToStrings(value);
-        if (errorData) {
-          result[key] = JSON.stringify(errorData);
-        }
-      } else {
-        try {
-          result[key] = JSON.stringify(value);
-        } catch {
-          result[key] = String(value);
-        }
-      }
-    }
-    return Object.keys(result).length > 0 ? result : undefined;
-  }
+  //     // Add stack trace if available
+  //     if (meta.stack) {
+  //       errorMeta.stack = meta.stack;
+  //     }
+
+  //     // Add cause if available (for nested errors)
+  //     if ((meta as any).cause) {
+  //       try {
+  //         errorMeta.cause = JSON.stringify((meta as any).cause);
+  //       } catch {
+  //         errorMeta.cause = String((meta as any).cause);
+  //       }
+  //     }
+
+  //     // Extract ALL enumerable properties from the error (SQLite errors often have extra props)
+  //     for (const [key, value] of Object.entries(meta)) {
+  //       if (key !== 'name' && key !== 'message' && key !== 'stack') {
+  //         if (typeof value === 'string') {
+  //           errorMeta[key] = value;
+  //         } else if (typeof value === 'number' || typeof value === 'boolean') {
+  //           errorMeta[key] = String(value);
+  //         } else if (value === null || value === undefined) {
+  //           errorMeta[key] = String(value);
+  //         } else {
+  //           try {
+  //             errorMeta[key] = JSON.stringify(value);
+  //           } catch {
+  //             errorMeta[key] = String(value);
+  //           }
+  //         }
+  //       }
+  //     }
+
+  //     return errorMeta;
+  //   }
+
+  //   const result: Record<string, string> = {};
+  //   for (const [key, value] of Object.entries(meta)) {
+  //     if (typeof value === 'string') {
+  //       result[key] = value;
+  //     } else if (typeof value === 'number' || typeof value === 'boolean') {
+  //       result[key] = String(value);
+  //     } else if (value instanceof Error) {
+  //       // Handle nested Error objects
+  //       const errorData = this.convertMetadataToStrings(value);
+  //       if (errorData) {
+  //         result[key] = JSON.stringify(errorData);
+  //       }
+  //     } else {
+  //       try {
+  //         result[key] = JSON.stringify(value);
+  //       } catch {
+  //         result[key] = String(value);
+  //       }
+  //     }
+  //   }
+  //   return Object.keys(result).length > 0 ? result : undefined;
+  // }
 
   private async write(level: LogLevel, tag: string | undefined, message: string, meta?: any) {
     try {
@@ -257,7 +257,9 @@ class JsonFileLogger {
         level,
         tag,
         message,
-        metadata: this.convertMetadataToStrings({ ...meta, origin }),
+        metadata: { ...meta, origin },
+        // metadata: JSON.stringify({ ...meta, origin }),
+        // metadata: this.convertMetadataToStrings({ ...meta, origin }),
         timestamp: Date.now(),
         source: 'React',
       };
@@ -419,12 +421,12 @@ class WebJsonFileLogger {
         name: meta.name,
         message: meta.message,
       };
-      
+
       // Add stack trace if available
       if (meta.stack) {
         errorMeta.stack = meta.stack;
       }
-      
+
       // Add cause if available (for nested errors)
       if ((meta as any).cause) {
         try {
@@ -433,7 +435,7 @@ class WebJsonFileLogger {
           errorMeta.cause = String((meta as any).cause);
         }
       }
-      
+
       // Extract ALL enumerable properties from the error (SQLite errors often have extra props)
       for (const [key, value] of Object.entries(meta)) {
         if (key !== 'name' && key !== 'message' && key !== 'stack') {
@@ -452,7 +454,7 @@ class WebJsonFileLogger {
           }
         }
       }
-      
+
       return errorMeta;
     }
 
@@ -487,7 +489,9 @@ class WebJsonFileLogger {
         level,
         tag,
         message,
-        metadata: this.convertMetadataToStrings({ ...meta, origin }),
+        metadata: { ...meta, origin },
+        // metadata: JSON.stringify({ ...meta, origin }),
+        // metadata: this.convertMetadataToStrings({ ...meta, origin }),
         timestamp: Date.now(),
         source: 'Web',
       };

@@ -32,16 +32,38 @@ export function installConsoleLoggerBridge(): void {
   const toMessage = (args: any[]): { msg: string, meta?: any, shouldFilter?: boolean } => {
     try {
       if (!args || args.length === 0) return { msg: '' };
-      if (typeof args[0] === 'string') {
-        const msg = args[0] as string;
-        const rest = args.slice(1);
-        const meta = rest && rest.length ? (rest.length === 1 ? rest[0] : rest) : undefined;
-        return { msg, meta, shouldFilter: shouldFilterMessage(msg) };
+
+      let msg = typeof args[0] === 'string' ? args[0] : JSON.stringify(args[0]);
+
+      const meta: any = {};
+      const additionalMessages: string[] = [];
+
+      for (let i = 1; i < args.length; i++) {
+        const arg = args[i];
+
+        // Gestione speciale per gli errori
+        if (arg instanceof Error) {
+          if (arg.message) meta.message = arg.message;
+          if ((arg as any).code) meta.code = (arg as any).code;
+          if (arg.stack) meta.trace = arg.stack;
+          // Aggiungi anche il nome dell'errore se disponibile
+          if (arg.name && arg.name !== 'Error') meta.errorName = arg.name;
+        } else if (arg !== null && typeof arg === 'object' && !Array.isArray(arg)) {
+          Object.assign(meta, arg);
+        } else {
+          additionalMessages.push(typeof arg === 'string' ? arg : JSON.stringify(arg));
+        }
       }
-      // First arg is not a string: stringify compact
-      const msg = JSON.stringify(args[0]);
-      const meta = args.length > 1 ? args.slice(1) : undefined;
-      return { msg, meta, shouldFilter: shouldFilterMessage(msg) };
+
+      if (additionalMessages.length > 0) {
+        msg = `${msg} ${additionalMessages.join(' ')}`;
+      }
+
+      return {
+        msg,
+        meta: Object.keys(meta).length > 0 ? meta : undefined,
+        shouldFilter: shouldFilterMessage(msg)
+      };
     } catch {
       const msg = String(args?.[0] ?? '');
       return { msg, shouldFilter: shouldFilterMessage(msg) };
