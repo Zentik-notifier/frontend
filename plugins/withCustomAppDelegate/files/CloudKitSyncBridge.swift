@@ -2,6 +2,15 @@ import Foundation
 import React
 import CloudKit
 
+// MARK: - Date Extension for ISO8601 String Conversion
+extension Date {
+    func toISO8601String() -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: self)
+    }
+}
+
 @objc(CloudKitSyncBridge)
 class CloudKitSyncBridge: RCTEventEmitter {
   
