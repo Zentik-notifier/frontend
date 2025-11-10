@@ -81,6 +81,39 @@ export const cleanExportData = (data: any): any => {
   return data;
 };
 
+/**
+ * Converte un frammento GraphQL (camelCase) in formato SQL (snake_case) per l'import
+ */
+const convertGraphQLToSQL = (gqlNotification: any): any => {
+  const now = new Date().toISOString();
+  
+  // Estrai le date e normalizzale
+  const createdAt = gqlNotification.createdAt || gqlNotification.sentAt || now;
+  const readAt = gqlNotification.readAt || null;
+  
+  // Estrai informazioni dal bucket
+  const bucketId = gqlNotification.message?.bucket?.id || null;
+  const bucketIconUrl = gqlNotification.message?.bucket?.iconUrl || null;
+  
+  // Determina se ha allegati
+  const hasAttachments = gqlNotification.message?.attachments?.length > 0 ? 1 : 0;
+  
+  // Il fragment rimane l'intera notifica GraphQL per preservare tutti i dati
+  const fragment = typeof gqlNotification === 'string' 
+    ? gqlNotification 
+    : JSON.stringify(gqlNotification);
+  
+  return {
+    id: gqlNotification.id,
+    created_at: createdAt,
+    read_at: readAt,
+    bucket_id: bucketId,
+    bucket_icon_url: bucketIconUrl,
+    has_attachments: hasAttachments,
+    fragment: fragment
+  };
+};
+
 export function useNotificationExportImport(onImportSuccess?: (notifications: any[]) => void) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -162,10 +195,10 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
         return false;
       }
 
-      // Parse JSON content - expects raw DB format
-      const rawNotifications = JSON.parse(fileContent);
+      // Parse JSON content - expects GraphQL format, needs conversion to SQL format
+      const gqlNotifications = JSON.parse(fileContent);
 
-      if (!Array.isArray(rawNotifications) || rawNotifications.length === 0) {
+      if (!Array.isArray(gqlNotifications) || gqlNotifications.length === 0) {
         Alert.alert(
           t('appSettings.gqlCache.importExport.importError'),
           t('appSettings.gqlCache.importExport.noValidNotificationsFound')
@@ -173,11 +206,15 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
         return false;
       }
 
+      // Converti i frammenti GraphQL in formato SQL
+      const sqlNotifications = gqlNotifications.map(convertGraphQLToSQL);
+      console.log(`[Import] Converted ${sqlNotifications.length} GraphQL notifications to SQL format`);
+
       // Show confirmation dialog
       return new Promise((resolve) => {
         Alert.alert(
           t('appSettings.gqlCache.importExport.confirmImportTitle'),
-          t('appSettings.gqlCache.importExport.confirmImportQuestion', { count: rawNotifications.length }),
+          t('appSettings.gqlCache.importExport.confirmImportQuestion', { count: sqlNotifications.length }),
           [
             {
               text: t('appSettings.gqlCache.importExport.buttons.cancel'),
@@ -190,7 +227,7 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
               onPress: async () => {
                 try {
                   // Import raw notifications directly to database
-                  await importRawNotificationsToDB(rawNotifications);
+                  await importRawNotificationsToDB(sqlNotifications);
 
                   // Invalidate all React Query notification queries to refresh from DB
                   await queryClient.invalidateQueries({ 
@@ -203,11 +240,11 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
                     type: 'active', // Only refetch if query is mounted
                   });
                   
-                  console.log(`[Import] Imported ${rawNotifications.length} notifications, invalidated React Query cache, and rebuilt app state`);
+                  console.log(`[Import] Imported ${sqlNotifications.length} notifications, invalidated React Query cache, and rebuilt app state`);
 
                   Alert.alert(
                     t('appSettings.gqlCache.importExport.importCompleted'),
-                    t('appSettings.gqlCache.importExport.importCompletedMessage', { count: rawNotifications.length })
+                    t('appSettings.gqlCache.importExport.importCompletedMessage', { count: sqlNotifications.length })
                   );
                   resolve(true);
                 } catch (error) {
