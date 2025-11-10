@@ -698,21 +698,29 @@ export async function getNotificationStats(
         }
 
         // Overall stats
-        const overallStats = await db.getFirstAsync(
-          `SELECT 
+        console.log('[getNotificationStats] Executing overall stats query...');
+        const overallStatsQuery = `SELECT 
             COUNT(*) as total_count,
             SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END) as unread_count,
             SUM(CASE WHEN read_at IS NOT NULL THEN 1 ELSE 0 END) as read_count,
             SUM(has_attachments) as with_attachments_count,
             MAX(created_at) as last_notification_date,
             MIN(created_at) as first_notification_date
-           FROM notifications ${whereClause}`,
-          params
-        );
+           FROM notifications ${whereClause}`;
+        console.log('[getNotificationStats] Query:', overallStatsQuery, 'Params:', params);
+        
+        let overallStats;
+        try {
+          overallStats = await db.getFirstAsync(overallStatsQuery, params);
+          console.log('[getNotificationStats] Overall stats result:', overallStats);
+        } catch (error) {
+          console.error('[getNotificationStats] Overall stats query failed:', error);
+          throw error;
+        }
 
         // Stats by bucket
-        const bucketStatsResults = await db.getAllAsync(
-          `SELECT 
+        console.log('[getNotificationStats] Executing bucket stats query...');
+        const bucketStatsQuery = `SELECT 
             bucket_id,
             COUNT(*) as total_count,
             SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END) as unread_count,
@@ -722,22 +730,44 @@ export async function getNotificationStats(
             MIN(created_at) as first_notification_date
            FROM notifications 
            ${whereClause}
-           GROUP BY bucket_id`,
-          params
-        );
+           GROUP BY bucket_id`;
+        console.log('[getNotificationStats] Query:', bucketStatsQuery, 'Params:', params);
+        
+        let bucketStatsResults;
+        try {
+          bucketStatsResults = await db.getAllAsync(bucketStatsQuery, params);
+          console.log('[getNotificationStats] Bucket stats result count:', bucketStatsResults?.length);
+        } catch (error) {
+          console.error('[getNotificationStats] Bucket stats query failed:', error);
+          throw error;
+        }
 
         // Get bucket names
+        console.log('[getNotificationStats] Fetching bucket names...');
         const byBucket: BucketStats[] = await Promise.all(
-          bucketStatsResults.map(async (stats: any) => {
-            const firstNotification = await db.getFirstAsync(
-              'SELECT fragment FROM notifications WHERE bucket_id = ? LIMIT 1',
-              [stats.bucket_id]
-            );
+          bucketStatsResults.map(async (stats: any, index: number) => {
+            console.log(`[getNotificationStats] Fetching name for bucket ${index + 1}/${bucketStatsResults.length}: ${stats.bucket_id}`);
+            
+            let firstNotification;
+            try {
+              firstNotification = await db.getFirstAsync(
+                'SELECT fragment FROM notifications WHERE bucket_id = ? LIMIT 1',
+                [stats.bucket_id]
+              );
+            } catch (error) {
+              console.error(`[getNotificationStats] Failed to fetch notification for bucket ${stats.bucket_id}:`, error);
+              throw error;
+            }
 
             let bucketName: string | undefined;
             if (firstNotification) {
-              const parsed = parseNotificationFromDB(firstNotification, db);
-              bucketName = parsed?.message?.bucket?.name;
+              try {
+                const parsed = parseNotificationFromDB(firstNotification, db);
+                bucketName = parsed?.message?.bucket?.name;
+              } catch (error) {
+                console.error(`[getNotificationStats] Failed to parse notification for bucket ${stats.bucket_id}:`, error);
+                // Don't throw, just log - we can continue without bucket name
+              }
             }
 
             return {
@@ -752,6 +782,8 @@ export async function getNotificationStats(
             };
           })
         );
+        
+        console.log('[getNotificationStats] Successfully processed all bucket stats');
 
         return {
           totalCount: overallStats?.total_count || 0,

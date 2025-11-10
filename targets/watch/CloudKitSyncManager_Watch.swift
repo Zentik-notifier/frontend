@@ -106,12 +106,6 @@ public class CloudKitSyncManager {
     
     /// Fetch all buckets from CloudKit
     public func fetchBuckets(completion: @escaping ([CloudKitBucket]) -> Void) {
-        logger.info(
-            tag: "FetchBuckets",
-            message: "Fetching buckets from CloudKit",
-            source: "CloudKit-Watch"
-        )
-        
         CloudKitAccess.fetchAllBuckets { result in
             switch result {
             case .success(let buckets):
@@ -148,13 +142,6 @@ public class CloudKitSyncManager {
     /// Fetch all notifications from CloudKit
     public func fetchNotifications(limit: Int? = nil, completion: @escaping ([CloudKitNotification]) -> Void) {
         let effectiveLimit = limit ?? watchNotificationLimit
-        
-        logger.info(
-            tag: "FetchNotifications",
-            message: "Fetching notifications from CloudKit",
-            metadata: ["limit": String(effectiveLimit)],
-            source: "CloudKit-Watch"
-        )
         
         CloudKitAccess.fetchAllNotifications(limit: effectiveLimit) { result in
             switch result {
