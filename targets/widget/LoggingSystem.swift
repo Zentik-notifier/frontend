@@ -37,6 +37,7 @@ public class LoggingSystem {
     // Separate buffer per source to enable parallel logging without conflicts
     private var logBuffers: [String: [LogEntry]] = [:]
     private let bufferLimit = 20
+    private let maxLogsPerFile = 2000 // Auto-cleanup threshold
     private var flushTimers: [String: Timer] = [:]
     private let flushInterval: TimeInterval = 5.0
     private let queue = DispatchQueue(label: "com.zentik.loggingsystem", attributes: .concurrent)
@@ -189,6 +190,13 @@ public class LoggingSystem {
 
             // Append new logs
             existingLogs.append(contentsOf: logs)
+
+            // Auto-cleanup: Keep only the most recent maxLogsPerFile entries
+            if existingLogs.count > maxLogsPerFile {
+                // Keep the newest entries (sorted by timestamp DESC, so take first maxLogsPerFile)
+                existingLogs = Array(existingLogs.sorted { $0.timestamp > $1.timestamp }.prefix(maxLogsPerFile))
+                print("[LoggingSystem] 🧹 Auto-cleanup: Trimmed \(source).json to \(maxLogsPerFile) most recent entries")
+            }
 
             // Write back to file atomically
             let data = try JSONEncoder().encode(existingLogs)

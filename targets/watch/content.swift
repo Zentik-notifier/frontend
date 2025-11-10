@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var isRefreshing: Bool = false
     @State private var isInitialLoad: Bool = true
     @State private var lastFetchTime: Date?
+    @Environment(\.scenePhase) private var scenePhase
     
     var body: some View {
         BucketMenuView(
@@ -35,6 +36,23 @@ struct ContentView: View {
             } else {
                 print("⌚ [ContentView] ⏭️ Skipping fetch (last fetch was \(Int(Date().timeIntervalSince(lastFetchTime!)))s ago)")
                 isInitialLoad = false
+            }
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            // Detect when app transitions from background to active (foreground)
+            if oldPhase == .background && newPhase == .active {
+                print("⌚ [ContentView] 📱→⌚ App returned to foreground from background")
+                
+                // Fetch from CloudKit if last fetch was more than 30 seconds ago
+                let shouldFetch = lastFetchTime == nil || 
+                                  Date().timeIntervalSince(lastFetchTime!) > 30
+                
+                if shouldFetch {
+                    print("⌚ [ContentView] 🔄 Fetching fresh data from CloudKit (background→foreground)")
+                    fetchFromCloudKitOnly()
+                } else {
+                    print("⌚ [ContentView] ⏭️ Skipping fetch (last fetch was \(Int(Date().timeIntervalSince(lastFetchTime!)))s ago)")
+                }
             }
         }
     }

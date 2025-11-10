@@ -20,7 +20,7 @@ export interface AppLog {
 }
 
 const ONE_DAY_MS = 3 * 24 * 60 * 60 * 1000;
-const MAX_LOGS = 10000; // Keep max 10000 logs
+const MAX_LOGS = 2000; // Keep max 2000 logs
 const BATCH_SIZE = 20; // Write to file after 20 logs
 const BATCH_TIMEOUT_MS = 5000; // Write to file after 5 seconds
 

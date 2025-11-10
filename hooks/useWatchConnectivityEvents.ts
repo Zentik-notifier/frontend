@@ -33,16 +33,16 @@ export function useWatchConnectivityEvents() {
     const unsubscribeRefresh = IosBridgeService.onWatchRefresh(async (event) => {
       console.log('[WatchSync] ⌚→📱 Watch requested full refresh');
       try {
-        // Trigger full sync to CloudKit
+        // Trigger FULL sync to CloudKit (not incremental)
         const limit = settings.retentionPolicies?.watchNMaxNotifications ?? 150;
-        const result = await IosBridgeService.syncAllToCloudKit(limit);
+        const result = await IosBridgeService.syncAllToCloudKitFull(limit);
         if (result.success) {
           console.log(`[WatchSync] ✅ Full sync completed: ${result.bucketsCount} buckets, ${result.notificationsCount} notifications`);
         } else {
           console.error('[WatchSync] ❌ Full sync failed');
         }
       } catch (error) {
-        console.error('[WatchSync] ❌ Failed to sync all to CloudKit:', error);
+        console.error('[WatchSync] ❌ Failed to perform full sync to CloudKit:', error);
       }
     });
 

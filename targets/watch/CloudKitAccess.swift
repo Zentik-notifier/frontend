@@ -1904,10 +1904,22 @@ public class CloudKitAccess {
     
     /// Fetch notification changes from a specific token
     public static func fetchNotificationChanges(from token: CKServerChangeToken?, completion: @escaping (Result<NotificationChanges, Error>) -> Void) {
+        // Log the change token for debugging
+        let tokenDebugInfo: String
+        if let token = token {
+            let archivedData = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true)
+            tokenDebugInfo = archivedData?.base64EncodedString().prefix(40).description ?? "archiving_failed"
+        } else {
+            tokenDebugInfo = "null"
+        }
+        
         logger.info(
             tag: "FetchNotificationChanges",
             message: "Fetching notification changes",
-            metadata: ["hasToken": String(token != nil)],
+            metadata: [
+                "hasToken": String(token != nil),
+                "tokenPreview": tokenDebugInfo
+            ],
             source: "CloudKitAccess"
         )
         
@@ -1945,7 +1957,25 @@ public class CloudKitAccess {
                     }
                     
                     // Check if this is a new record or a modified one
-                    if record.modificationDate == record.creationDate {
+                    let isNew = record.modificationDate == record.creationDate
+                    
+                    // Log detailed info for debugging
+                    logger.debug(
+                        tag: "FetchNotificationChanges",
+                        message: "Record change detected",
+                        metadata: [
+                            "id": notification.id,
+                            "title": notification.title,
+                            "isNew": String(isNew),
+                            "creationDate": DateConverter.dateToString(record.creationDate ?? Date()),
+                            "modificationDate": DateConverter.dateToString(record.modificationDate ?? Date()),
+                            "hasReadAt": String(notification.readAt != nil),
+                            "readAt": notification.readAt != nil ? DateConverter.dateToString(notification.readAt!) : "null"
+                        ],
+                        source: "CloudKitAccess"
+                    )
+                    
+                    if isNew {
                         addedNotifications.append(notification)
                     } else {
                         modifiedNotifications.append(notification)
@@ -1970,7 +2000,25 @@ public class CloudKitAccess {
                 }
                 
                 // Check if this is a new record or a modified one
-                if record.modificationDate == record.creationDate {
+                let isNew = record.modificationDate == record.creationDate
+                
+                // Log detailed info for debugging
+                logger.debug(
+                    tag: "FetchNotificationChanges",
+                    message: "Record change detected",
+                    metadata: [
+                        "id": notification.id,
+                        "title": notification.title,
+                        "isNew": String(isNew),
+                        "creationDate": DateConverter.dateToString(record.creationDate ?? Date()),
+                        "modificationDate": DateConverter.dateToString(record.modificationDate ?? Date()),
+                        "hasReadAt": String(notification.readAt != nil),
+                        "readAt": notification.readAt != nil ? DateConverter.dateToString(notification.readAt!) : "null"
+                    ],
+                    source: "CloudKitAccess"
+                )
+                
+                if isNew {
                     addedNotifications.append(notification)
                 } else {
                     modifiedNotifications.append(notification)
@@ -2009,13 +2057,23 @@ public class CloudKitAccess {
                     newToken: newToken
                 )
                 
+                // Log the new change token for debugging
+                let newTokenDebugInfo: String
+                if let newToken = newToken {
+                    let archivedData = try? NSKeyedArchiver.archivedData(withRootObject: newToken, requiringSecureCoding: true)
+                    newTokenDebugInfo = archivedData?.base64EncodedString().prefix(40).description ?? "archiving_failed"
+                } else {
+                    newTokenDebugInfo = "null"
+                }
+                
                 logger.info(
                     tag: "FetchNotificationChanges",
                     message: "Successfully fetched notification changes",
                     metadata: [
                         "added": String(addedNotifications.count),
                         "modified": String(modifiedNotifications.count),
-                        "deleted": String(deletedNotificationIDs.count)
+                        "deleted": String(deletedNotificationIDs.count),
+                        "newTokenPreview": newTokenDebugInfo
                     ],
                     source: "CloudKitAccess"
                 )

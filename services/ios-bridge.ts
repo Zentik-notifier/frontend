@@ -242,7 +242,38 @@ class IosBridgeService {
   // ========== CloudKit Methods ==========
 
   /**
-   * Sync all data (buckets and notifications) to CloudKit
+   * Perform a FULL sync to CloudKit (forces re-upload of all data)
+   * This is used when Watch requests a manual refresh.
+   */
+  async syncAllToCloudKitFull(limit: number): Promise<{
+    success: boolean;
+    bucketsCount: number;
+    notificationsCount: number;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      console.log('[CloudKitSync] Not available on this platform');
+      return { success: false, bucketsCount: 0, notificationsCount: 0 };
+    }
+
+    try {
+      console.log('[CloudKitSync] 🚀 Starting FULL sync to CloudKit (limit:', limit, ')');
+      const result = await CloudKitSyncBridge.syncAllToCloudKit(limit);
+      console.log('[CloudKitSync] ✓ Full sync completed:', result);
+      return {
+        success: result.success,
+        bucketsCount: result.bucketsCount || 0,
+        notificationsCount: result.notificationsCount || 0
+      };
+    } catch (error) {
+      console.error('[CloudKitSync] Failed to perform full sync to CloudKit:', error);
+      return { success: false, bucketsCount: 0, notificationsCount: 0 };
+    }
+  }
+
+  /**
+   * Sync all data (buckets and notifications) to CloudKit (uses incremental sync)
+   * This method performs an INCREMENTAL sync using change tokens for efficiency.
+   * For full sync, use syncAllToCloudKitFull() instead.
    */
   async syncAllToCloudKit(limit: number): Promise<{
     success: boolean;
@@ -255,9 +286,14 @@ class IosBridgeService {
     }
 
     try {
-      const result = await CloudKitSyncBridge.syncAllToCloudKit(limit);
-      console.log('[CloudKitSync] Full sync completed:', result);
-      return result;
+      // Use incremental sync instead of full sync for efficiency
+      const result = await CloudKitSyncBridge.fetchIncrementalChanges();
+      console.log('[CloudKitSync] ✓ Incremental sync completed:', result);
+      return {
+        success: result.success,
+        bucketsCount: result.bucketChanges || 0,
+        notificationsCount: result.notificationChanges || 0
+      };
     } catch (error) {
       console.error('[CloudKitSync] Failed to sync to CloudKit:', error);
       return { success: false, bucketsCount: 0, notificationsCount: 0 };

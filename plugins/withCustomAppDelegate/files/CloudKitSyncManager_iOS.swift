@@ -1362,6 +1362,66 @@ public class CloudKitSyncManager {
         // }
         
         // Apply notification changes
+        
+        // Log added notifications
+        if !notificationChanges.added.isEmpty {
+            logger.info(
+                tag: "IncrementalSync",
+                message: "Processing ADDED notifications",
+                metadata: [
+                    "count": String(notificationChanges.added.count),
+                    "ids": notificationChanges.added.map { $0.id }.joined(separator: ", ")
+                ],
+                source: "CloudKitSyncManager"
+            )
+            
+            // Log each added notification details
+            for notification in notificationChanges.added {
+                logger.debug(
+                    tag: "IncrementalSync",
+                    message: "Added notification details",
+                    metadata: [
+                        "id": notification.id,
+                        "title": notification.title,
+                        "bucketId": notification.bucketId,
+                        "hasReadAt": notification.readAt != nil ? "true" : "false",
+                        "readAt": notification.readAt != nil ? DateConverter.dateToString(notification.readAt!) : "null",
+                        "createdAt": DateConverter.dateToString(notification.createdAt),
+                        "updatedAt": DateConverter.dateToString(notification.updatedAt)
+                    ],
+                    source: "CloudKitSyncManager"
+                )
+            }
+        }
+        
+        // Log modified notifications with details
+        if !notificationChanges.modified.isEmpty {
+            logger.info(
+                tag: "IncrementalSync",
+                message: "Processing MODIFIED notifications",
+                metadata: [
+                    "count": String(notificationChanges.modified.count),
+                    "ids": notificationChanges.modified.map { $0.id }.joined(separator: ", ")
+                ],
+                source: "CloudKitSyncManager"
+            )
+            
+            // Log each modified notification details
+            for notification in notificationChanges.modified {
+                logger.debug(
+                    tag: "IncrementalSync",
+                    message: "Modified notification details",
+                    metadata: [
+                        "id": notification.id,
+                        "title": notification.title,
+                        "bucketId": notification.bucketId,
+                        "hasReadAt": notification.readAt != nil ? "true" : "false",
+                    ],
+                    source: "CloudKitSyncManager"
+                )
+            }
+        }
+        
         for notification in notificationChanges.added + notificationChanges.modified {
             group.enter()
             self.saveNotificationToDatabase(notification) { success in
