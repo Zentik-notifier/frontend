@@ -244,8 +244,9 @@ class IosBridgeService {
   /**
    * Perform a FULL sync to CloudKit (forces re-upload of all data)
    * This is used when Watch requests a manual refresh.
+   * The native implementation handles batching automatically (100 notifications per batch).
    */
-  async syncAllToCloudKitFull(limit: number): Promise<{
+  async syncAllToCloudKitFull(): Promise<{
     success: boolean;
     bucketsCount: number;
     notificationsCount: number;
@@ -256,8 +257,9 @@ class IosBridgeService {
     }
 
     try {
-      console.log('[CloudKitSync] 🚀 Starting FULL sync to CloudKit (limit:', limit, ')');
-      const result = await CloudKitSyncBridge.syncAllToCloudKit(limit);
+      console.log('[CloudKitSync] 🚀 Starting FULL sync to CloudKit (with native batching)');
+      // Pass 0 to sync ALL notifications (batching handled natively)
+      const result = await CloudKitSyncBridge.syncAllToCloudKit(0);
       console.log('[CloudKitSync] ✓ Full sync completed:', result);
       return {
         success: result.success,

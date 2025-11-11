@@ -338,6 +338,131 @@ public class CloudKitSyncManager {
         return notifications
     }
     
+    /**
+     * Export notifications from database with LIMIT and OFFSET (for batching)
+     */
+    private func exportNotificationsFromDatabaseWithOffset(limit: Int, offset: Int) throws -> [SyncNotification] {
+        var notifications: [SyncNotification] = []
+        var exportError: Error?
+        let semaphore = DispatchSemaphore(value: 0)
+        
+        DatabaseAccess.performDatabaseOperation(
+            type: .read,
+            name: "ExportNotificationsWithOffset",
+            source: "CloudKitSync"
+        ) { db in
+            let sql = "SELECT id, fragment, created_at, read_at, bucket_id FROM notifications ORDER BY created_at DESC LIMIT ? OFFSET ?"
+            var stmt: OpaquePointer?
+            
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                exportError = NSError(domain: "CloudKitSync", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to prepare statement"])
+                return .failure("Failed to prepare statement")
+            }
+            defer { sqlite3_finalize(stmt) }
+            
+            let safeLimit = min(limit, Int(Int32.max))
+            let safeOffset = min(offset, Int(Int32.max))
+            
+            guard sqlite3_bind_int64(stmt, 1, Int64(safeLimit)) == SQLITE_OK,
+                  sqlite3_bind_int64(stmt, 2, Int64(safeOffset)) == SQLITE_OK else {
+                exportError = NSError(domain: "CloudKitSync", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to bind parameters"])
+                return .failure("Failed to bind parameters")
+            }
+            
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let idCString = sqlite3_column_text(stmt, 0),
+                      let fragmentCString = sqlite3_column_text(stmt, 1),
+                      let createdAtCString = sqlite3_column_text(stmt, 2),
+                      let bucketIdCString = sqlite3_column_text(stmt, 4) else {
+                    continue
+                }
+                
+                let id = String(cString: idCString)
+                let fragment = String(cString: fragmentCString)
+                let createdAtString = String(cString: createdAtCString)
+                let bucketId = String(cString: bucketIdCString)
+                let readAtString = sqlite3_column_text(stmt, 3).map { String(cString: $0) }
+                
+                // Parse fragment JSON (same as original method)
+                guard let fragmentData = fragment.data(using: .utf8),
+                      let fragmentJson = try? JSONSerialization.jsonObject(with: fragmentData) as? [String: Any],
+                      let message = fragmentJson["message"] as? [String: Any] else {
+                    continue
+                }
+                
+                let title = message["title"] as? String ?? ""
+                let subtitle = message["subtitle"] as? String
+                let body = message["body"] as? String
+                
+                let sentAtString = fragmentJson["sentAt"] as? String ?? createdAtString
+                let updatedAtString = fragmentJson["updatedAt"] as? String ?? createdAtString
+                
+                // Extract attachments
+                var attachments: [SyncAttachment] = []
+                if let attachmentsArray = message["attachments"] as? [[String: Any]] {
+                    attachments = attachmentsArray.compactMap { attDict in
+                        guard let mediaType = attDict["mediaType"] as? String else { return nil }
+                        let url = attDict["url"] as? String
+                        let name = attDict["name"] as? String
+                        return SyncAttachment(mediaType: mediaType, url: url, name: name)
+                    }
+                }
+                
+                // Extract actions
+                var actions: [SyncAction] = []
+                if let actionsArray = message["actions"] as? [[String: Any]] {
+                    actions = actionsArray.compactMap { actionDict in
+                        guard let type = actionDict["type"] as? String else { return nil }
+                        let value = actionDict["value"] as? String
+                        let title = actionDict["title"] as? String
+                        let icon = actionDict["icon"] as? String
+                        let destructive = actionDict["destructive"] as? Bool ?? false
+                        return SyncAction(type: type, value: value, title: title, icon: icon, destructive: destructive)
+                    }
+                }
+                
+                // Extract tapAction
+                var tapAction: SyncAction? = nil
+                if let tapActionDict = message["tapAction"] as? [String: Any],
+                   let type = tapActionDict["type"] as? String {
+                    let value = tapActionDict["value"] as? String
+                    let title = tapActionDict["title"] as? String
+                    let icon = tapActionDict["icon"] as? String
+                    let destructive = tapActionDict["destructive"] as? Bool ?? false
+                    tapAction = SyncAction(type: type, value: value, title: title, icon: icon, destructive: destructive)
+                }
+                
+                let notification = SyncNotification(
+                    id: id,
+                    title: title,
+                    subtitle: subtitle,
+                    body: body,
+                    readAt: readAtString,
+                    sentAt: sentAtString,
+                    createdAt: createdAtString,
+                    updatedAt: updatedAtString,
+                    bucketId: bucketId,
+                    attachments: attachments,
+                    actions: actions,
+                    tapAction: tapAction
+                )
+                
+                notifications.append(notification)
+            }
+            
+            semaphore.signal()
+            return .success
+        }
+        
+        _ = semaphore.wait(timeout: .now() + DatabaseAccess.DB_OPERATION_TIMEOUT)
+        
+        if let error = exportError {
+            throw error
+        }
+        
+        return notifications
+    }
+    
     // MARK: - CloudKit Sync Methods
     
     /**
@@ -535,6 +660,8 @@ public class CloudKitSyncManager {
     /**
      * Sincronizza le notifiche su CloudKit come record individuali
      * Strategia: MASS REPLACEMENT - elimina tutti i record esistenti e carica solo le notifiche attuali
+     * Se limit = 0, sincronizza TUTTE le notifiche in batch da 100
+     * Se limit > 0, sincronizza solo le N notifiche più recenti
      */
     public func syncNotificationsToCloudKit(limit: Int, completion: @escaping (Bool, Int) -> Void) {
         // Verifica se il sync è necessario (Watch abbinato)
@@ -543,13 +670,18 @@ public class CloudKitSyncManager {
             return
         }
         
+        let syncAllNotifications = (limit == 0)
+        let batchSize = 100
+        
         logger.info(
             tag: "CloudKitSync",
             message: "Starting notifications sync to CloudKit (MASS REPLACEMENT)",
             metadata: [
                 "syncType": "notifications",
                 "method": "mass-replacement",
-                "limit": String(limit)
+                "limit": String(limit),
+                "syncAll": String(syncAllNotifications),
+                "batchSize": String(batchSize)
             ],
             source: "CloudKitSyncManager"
         )
@@ -602,93 +734,103 @@ public class CloudKitSyncManager {
                     )
                 }
                 
-                // Step 2: Export current notifications from local database
-                do {
-                    let notifications = try self.exportNotificationsFromDatabase(limit: limit)
-                    
-                    let firstNotification = notifications.first
-                    let lastNotification = notifications.last
-                    let unreadCount = notifications.filter { $0.readAt == nil }.count
-                    
-                    self.logger.debug(
-                        tag: "CloudKitSync",
-                        message: "Exported notifications from database",
-                        metadata: [
-                            "count": String(notifications.count),
-                            "unreadCount": String(unreadCount),
-                            "firstId": firstNotification?.id ?? "none",
-                            "firstBucket": firstNotification?.bucketId ?? "none",
-                            "firstTitle": firstNotification?.title ?? "none",
-                            "lastId": lastNotification?.id ?? "none",
-                            "lastBucket": lastNotification?.bucketId ?? "none",
-                            "lastTitle": lastNotification?.title ?? "none"
-                        ],
-                        source: "CloudKitSyncManager"
+                // Step 2: Export and sync notifications
+                if syncAllNotifications {
+                    // Sync ALL notifications in batches
+                    self.syncAllNotificationsInBatches(
+                        batchSize: batchSize,
+                        existingCloudKitIDs: existingNotificationIDs,
+                        completion: completion
                     )
-                    
-                    // Step 3: Determine which IDs to delete (exist in CloudKit but not in local DB)
-                    let localNotificationIDs = Set(notifications.map { $0.id })
-                    let idsToDelete = existingNotificationIDs.filter { !localNotificationIDs.contains($0) }
-                    
-                    self.logger.info(
-                        tag: "CloudKitSync",
-                        message: "Calculated sync changes",
-                        metadata: [
-                            "localCount": String(notifications.count),
-                            "cloudCount": String(existingNotificationIDs.count),
-                            "toDelete": String(idsToDelete.count)
-                        ],
-                        source: "CloudKitSyncManager"
-                    )
-                    
-                    // Step 4: Delete obsolete records from CloudKit
-                    if !idsToDelete.isEmpty {
-                        self.logger.info(
+                } else {
+                    // Sync only the most recent N notifications (single batch)
+                    do {
+                        let notifications = try self.exportNotificationsFromDatabase(limit: limit)
+                        
+                        let firstNotification = notifications.first
+                        let lastNotification = notifications.last
+                        let unreadCount = notifications.filter { $0.readAt == nil }.count
+                        
+                        self.logger.debug(
                             tag: "CloudKitSync",
-                            message: "Deleting obsolete notifications from CloudKit",
-                            metadata: ["count": String(idsToDelete.count)],
+                            message: "Exported notifications from database",
+                            metadata: [
+                                "count": String(notifications.count),
+                                "unreadCount": String(unreadCount),
+                                "firstId": firstNotification?.id ?? "none",
+                                "firstBucket": firstNotification?.bucketId ?? "none",
+                                "firstTitle": firstNotification?.title ?? "none",
+                                "lastId": lastNotification?.id ?? "none",
+                                "lastBucket": lastNotification?.bucketId ?? "none",
+                                "lastTitle": lastNotification?.title ?? "none"
+                            ],
                             source: "CloudKitSyncManager"
                         )
                         
-                        CloudKitAccess.deleteNotifications(ids: idsToDelete) { deleteResult in
-                            switch deleteResult {
-                            case .success:
-                                self.logger.info(
-                                    tag: "CloudKitSync",
-                                    message: "Successfully deleted obsolete notifications",
-                                    metadata: ["count": String(idsToDelete.count)],
-                                    source: "CloudKitSyncManager"
-                                )
-                            case .failure(let error):
-                                self.logger.warn(
-                                    tag: "CloudKitSync",
-                                    message: "Failed to delete some obsolete notifications (non-critical)",
-                                    metadata: ["error": error.localizedDescription],
-                                    source: "CloudKitSyncManager"
-                                )
-                            }
-                            
-                            // Step 5: Save/update all current local notifications to CloudKit
-                            self.saveNotificationsToCloudKit(notifications: notifications, unreadCount: unreadCount, completion: completion)
-                        }
-                    } else {
-                        // No deletions needed, proceed directly to save
-                        self.logger.debug(
+                        // Step 3: Determine which IDs to delete (exist in CloudKit but not in local DB)
+                        let localNotificationIDs = Set(notifications.map { $0.id })
+                        let idsToDelete = existingNotificationIDs.filter { !localNotificationIDs.contains($0) }
+                        
+                        self.logger.info(
                             tag: "CloudKitSync",
-                            message: "No obsolete notifications to delete",
+                            message: "Calculated sync changes",
+                            metadata: [
+                                "localCount": String(notifications.count),
+                                "cloudCount": String(existingNotificationIDs.count),
+                                "toDelete": String(idsToDelete.count)
+                            ],
                             source: "CloudKitSyncManager"
                         )
-                        self.saveNotificationsToCloudKit(notifications: notifications, unreadCount: unreadCount, completion: completion)
+                        
+                        // Step 4: Delete obsolete records from CloudKit
+                        if !idsToDelete.isEmpty {
+                            self.logger.info(
+                                tag: "CloudKitSync",
+                                message: "Deleting obsolete notifications from CloudKit",
+                                metadata: ["count": String(idsToDelete.count)],
+                                source: "CloudKitSyncManager"
+                            )
+                            
+                            CloudKitAccess.deleteNotifications(ids: idsToDelete) { deleteResult in
+                                switch deleteResult {
+                                case .success:
+                                    self.logger.info(
+                                        tag: "CloudKitSync",
+                                        message: "Successfully deleted obsolete notifications",
+                                        metadata: ["count": String(idsToDelete.count)],
+                                        source: "CloudKitSyncManager"
+                                    )
+                                case .failure(let error):
+                                    self.logger.warn(
+                                        tag: "CloudKitSync",
+                                        message: "Failed to delete some obsolete notifications (non-critical)",
+                                        metadata: ["error": error.localizedDescription],
+                                        source: "CloudKitSyncManager"
+                                    )
+                                }
+                                
+                                // Step 5: Save/update all current local notifications to CloudKit
+                                self.saveNotificationsToCloudKit(notifications: notifications, unreadCount: unreadCount, completion: completion)
+                            }
+                        } else {
+                            // No deletions needed, proceed directly to save
+                            self.logger.debug(
+                                tag: "CloudKitSync",
+                                message: "No obsolete notifications to delete",
+                                source: "CloudKitSyncManager"
+                            )
+                            self.saveNotificationsToCloudKit(notifications: notifications, unreadCount: unreadCount, completion: completion)
+                        }
+                        
+                    } catch {
+                        self.logger.error(
+                            tag: "CloudKitSync",
+                            message: "Error exporting notifications",
+                            metadata: ["error": error.localizedDescription],
+                            source: "CloudKitSyncManager"
+                        )
+                        completion(false, 0)
                     }
-                    
-                } catch {
-                    self.logger.error(
-                        tag: "CloudKitSync",
-                        message: "Error exporting notifications",
-                        metadata: ["error": error.localizedDescription],
-                        source: "CloudKitSyncManager"
-                    )
-                    completion(false, 0)
                 }
             }
         } // End ensureCustomZoneExists
@@ -764,6 +906,162 @@ public class CloudKitSyncManager {
                 )
                 completion(false, 0)
             }
+        }
+    }
+    
+    /**
+     * Helper: Sync ALL notifications in batches (when limit = 0)
+     */
+    private func syncAllNotificationsInBatches(
+        batchSize: Int,
+        existingCloudKitIDs: [String],
+        completion: @escaping (Bool, Int) -> Void
+    ) {
+        var offset = 0
+        var totalSynced = 0
+        var allLocalIDs = Set<String>()
+        var currentBatch = 1
+        var hasMore = true
+        
+        func syncNextBatch() {
+            // Export next batch
+            do {
+                let notifications = try self.exportNotificationsFromDatabaseWithOffset(limit: batchSize, offset: offset)
+                
+                if notifications.isEmpty {
+                    hasMore = false
+                } else {
+                    // Track all local IDs
+                    notifications.forEach { allLocalIDs.insert($0.id) }
+                    
+                    let unreadCount = notifications.filter { $0.readAt == nil }.count
+                    
+                    self.logger.info(
+                        tag: "CloudKitSync",
+                        message: "📦 Syncing batch \(currentBatch)",
+                        metadata: [
+                            "offset": String(offset),
+                            "batchSize": String(batchSize),
+                            "count": String(notifications.count),
+                            "unreadCount": String(unreadCount)
+                        ],
+                        source: "CloudKitSyncManager"
+                    )
+                    
+                    // Save this batch to CloudKit
+                    self.saveNotificationsToCloudKit(notifications: notifications, unreadCount: unreadCount) { success, count in
+                        if success {
+                            totalSynced += count
+                            offset += batchSize
+                            currentBatch += 1
+                            
+                            // Check if we got less than batch size (last batch)
+                            if notifications.count < batchSize {
+                                hasMore = false
+                            }
+                            
+                            // Small delay between batches
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                if hasMore {
+                                    syncNextBatch()
+                                } else {
+                                    // All batches done, now delete obsolete CloudKit records
+                                    self.deleteObsoleteCloudKitNotifications(
+                                        existingCloudKitIDs: existingCloudKitIDs,
+                                        localIDs: allLocalIDs,
+                                        totalSynced: totalSynced,
+                                        completion: completion
+                                    )
+                                }
+                            }
+                        } else {
+                            self.logger.error(
+                                tag: "CloudKitSync",
+                                message: "Failed to sync batch \(currentBatch)",
+                                source: "CloudKitSyncManager"
+                            )
+                            completion(false, totalSynced)
+                        }
+                    }
+                }
+                
+                // If no notifications found (empty result), finalize
+                if !hasMore {
+                    self.deleteObsoleteCloudKitNotifications(
+                        existingCloudKitIDs: existingCloudKitIDs,
+                        localIDs: allLocalIDs,
+                        totalSynced: totalSynced,
+                        completion: completion
+                    )
+                }
+                
+            } catch {
+                self.logger.error(
+                    tag: "CloudKitSync",
+                    message: "Error exporting batch \(currentBatch)",
+                    metadata: ["error": error.localizedDescription],
+                    source: "CloudKitSyncManager"
+                )
+                completion(false, totalSynced)
+            }
+        }
+        
+        // Start syncing from first batch
+        syncNextBatch()
+    }
+    
+    /**
+     * Helper: Delete obsolete CloudKit notifications (exist in cloud but not locally)
+     */
+    private func deleteObsoleteCloudKitNotifications(
+        existingCloudKitIDs: [String],
+        localIDs: Set<String>,
+        totalSynced: Int,
+        completion: @escaping (Bool, Int) -> Void
+    ) {
+        let idsToDelete = existingCloudKitIDs.filter { !localIDs.contains($0) }
+        
+        if !idsToDelete.isEmpty {
+            self.logger.info(
+                tag: "CloudKitSync",
+                message: "Deleting obsolete notifications from CloudKit",
+                metadata: [
+                    "count": String(idsToDelete.count),
+                    "totalSynced": String(totalSynced)
+                ],
+                source: "CloudKitSyncManager"
+            )
+            
+            CloudKitAccess.deleteNotifications(ids: idsToDelete) { deleteResult in
+                switch deleteResult {
+                case .success:
+                    self.logger.info(
+                        tag: "CloudKitSync",
+                        message: "✅ All batches synced and obsolete records deleted",
+                        metadata: [
+                            "totalSynced": String(totalSynced),
+                            "deleted": String(idsToDelete.count)
+                        ],
+                        source: "CloudKitSyncManager"
+                    )
+                case .failure(let error):
+                    self.logger.warn(
+                        tag: "CloudKitSync",
+                        message: "Failed to delete some obsolete notifications (non-critical)",
+                        metadata: ["error": error.localizedDescription],
+                        source: "CloudKitSyncManager"
+                    )
+                }
+                completion(true, totalSynced)
+            }
+        } else {
+            self.logger.info(
+                tag: "CloudKitSync",
+                message: "✅ All batches synced (no obsolete records to delete)",
+                metadata: ["totalSynced": String(totalSynced)],
+                source: "CloudKitSyncManager"
+            )
+            completion(true, totalSynced)
         }
     }
     

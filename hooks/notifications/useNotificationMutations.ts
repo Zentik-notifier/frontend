@@ -645,50 +645,57 @@ export function useBatchMarkAsRead(
             // Update notifications in CloudKit (batch)
             (async () => {
                 try {
-                    const appState = queryClient.getQueryData<{
-                        notifications: NotificationFragment[];
-                    }>(['app-state']);
-                    
-                    const notificationsToUpdate = appState?.notifications.filter(
-                        n => notificationIds.includes(n.id)
-                    ) || [];
-                    
-                    await Promise.all(
-                        notificationsToUpdate.map(notification => {
-                            if (!notification.message?.bucket?.id) return Promise.resolve();
-                            
-                            return IosBridgeService.updateNotificationInCloudKit({
-                                id: notification.id,
-                                title: notification.message.title,
-                                subtitle: notification.message.subtitle || undefined,
-                                body: notification.message.body || undefined,
-                                bucketId: notification.message.bucket.id,
-                                readAt: timestamp || undefined,
-                                createdAt: notification.createdAt,
-                                updatedAt: notification.updatedAt,
-                                attachments: notification.message.attachments?.map(a => ({
-                                    mediaType: a.mediaType,
-                                    url: a.url || undefined,
-                                    name: a.name || undefined,
-                                })),
-                                actions: notification.message.actions?.map(a => ({
-                                    type: a.type,
-                                    value: a.value || undefined,
-                                    title: a.title || undefined,
-                                    icon: a.icon || undefined,
-                                    destructive: a.destructive || undefined,
-                                })),
-                                tapAction: notification.message.tapAction ? {
-                                    type: notification.message.tapAction.type,
-                                    value: notification.message.tapAction.value || undefined,
-                                    title: notification.message.tapAction.title || undefined,
-                                    icon: notification.message.tapAction.icon || undefined,
-                                    destructive: notification.message.tapAction.destructive || undefined,
-                                } : undefined,
-                            });
-                        })
-                    );
-                    console.log(`[useBatchMarkAsRead] Updated ${notificationsToUpdate.length} notifications in CloudKit`);
+                    if (isMarkingAsRead) {
+                        // Use efficient batch method for marking as read
+                        const result = await IosBridgeService.batchMarkNotificationsAsReadInCloudKit(notificationIds);
+                        console.log(`[useBatchMarkAsRead] Batch updated ${result.updatedCount}/${notificationIds.length} notifications as READ in CloudKit`);
+                    } else {
+                        // For marking as unread, update individually (no batch method available)
+                        const appState = queryClient.getQueryData<{
+                            notifications: NotificationFragment[];
+                        }>(['app-state']);
+                        
+                        const notificationsToUpdate = appState?.notifications.filter(
+                            n => notificationIds.includes(n.id)
+                        ) || [];
+                        
+                        await Promise.all(
+                            notificationsToUpdate.map(notification => {
+                                if (!notification.message?.bucket?.id) return Promise.resolve();
+                                
+                                return IosBridgeService.updateNotificationInCloudKit({
+                                    id: notification.id,
+                                    title: notification.message.title,
+                                    subtitle: notification.message.subtitle || undefined,
+                                    body: notification.message.body || undefined,
+                                    bucketId: notification.message.bucket.id,
+                                    readAt: undefined, // Mark as unread
+                                    createdAt: notification.createdAt,
+                                    updatedAt: notification.updatedAt,
+                                    attachments: notification.message.attachments?.map(a => ({
+                                        mediaType: a.mediaType,
+                                        url: a.url || undefined,
+                                        name: a.name || undefined,
+                                    })),
+                                    actions: notification.message.actions?.map(a => ({
+                                        type: a.type,
+                                        value: a.value || undefined,
+                                        title: a.title || undefined,
+                                        icon: a.icon || undefined,
+                                        destructive: a.destructive || undefined,
+                                    })),
+                                    tapAction: notification.message.tapAction ? {
+                                        type: notification.message.tapAction.type,
+                                        value: notification.message.tapAction.value || undefined,
+                                        title: notification.message.tapAction.title || undefined,
+                                        icon: notification.message.tapAction.icon || undefined,
+                                        destructive: notification.message.tapAction.destructive || undefined,
+                                    } : undefined,
+                                });
+                            })
+                        );
+                        console.log(`[useBatchMarkAsRead] Updated ${notificationsToUpdate.length} notifications as UNREAD in CloudKit`);
+                    }
                 } catch (error) {
                     console.error('[useBatchMarkAsRead] Failed to update in CloudKit:', error);
                 }

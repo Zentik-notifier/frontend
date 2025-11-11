@@ -9,6 +9,7 @@ import { useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import { queryNotifications } from '@/db/repositories/notifications-query-repository';
 import { NotificationFragment } from '@/generated/gql-operations-generated';
+import IosBridgeService from '@/services/ios-bridge';
 
 export const cleanExportData = (data: any): any => {
   if (data === null || data === undefined) {
@@ -241,6 +242,25 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
                   });
                   
                   console.log(`[Import] Imported ${sqlNotifications.length} notifications, invalidated React Query cache, and rebuilt app state`);
+
+                  // Push imported notifications to CloudKit (iOS only)
+                  if (Platform.OS === 'ios') {
+                    try {
+                      console.log('[Import] 📤 Syncing imported notifications to CloudKit in batches...');
+                      
+                      // Sync all notifications to CloudKit in batches (no limit needed)
+                      const result = await IosBridgeService.syncAllToCloudKitFull();
+                      
+                      if (result.success) {
+                        console.log(`[Import] ✅ CloudKit sync completed: ${result.bucketsCount} buckets, ${result.notificationsCount} notifications`);
+                      } else {
+                        console.error('[Import] ⚠️ CloudKit sync failed');
+                      }
+                    } catch (cloudKitError) {
+                      console.error('[Import] ⚠️ Failed to sync to CloudKit:', cloudKitError);
+                      // Non-blocking: continua anche se CloudKit fallisce
+                    }
+                  }
 
                   Alert.alert(
                     t('appSettings.gqlCache.importExport.importCompleted'),

@@ -33,9 +33,8 @@ export function useWatchConnectivityEvents() {
     const unsubscribeRefresh = IosBridgeService.onWatchRefresh(async (event) => {
       console.log('[WatchSync] ⌚→📱 Watch requested full refresh');
       try {
-        // Trigger FULL sync to CloudKit (not incremental)
-        const limit = settings.retentionPolicies?.watchNMaxNotifications ?? 150;
-        const result = await IosBridgeService.syncAllToCloudKitFull(limit);
+        // Trigger FULL sync to CloudKit in batches (syncs all notifications)
+        const result = await IosBridgeService.syncAllToCloudKitFull();
         if (result.success) {
           console.log(`[WatchSync] ✅ Full sync completed: ${result.bucketsCount} buckets, ${result.notificationsCount} notifications`);
         } else {

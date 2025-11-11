@@ -1,5 +1,6 @@
 import SwiftUI
 import ImageIO
+import WatchKit
 
 struct ContentView: View {
     @StateObject private var connectivityManager = WatchConnectivityManager.shared
@@ -405,6 +406,35 @@ struct FilteredNotificationListView: View {
                                 notificationData: notificationData,
                                 bucket: notificationBucket
                             )
+                        }
+                        .swipeActions(edge: .leading) {
+                            // Swipe da sinistra: Mark as Read/Unread
+                            if notificationData.notification.isRead {
+                                Button {
+                                    WKInterfaceDevice.current().play(.click)
+                                    connectivityManager.markNotificationAsUnreadFromWatch(id: notificationData.notification.id)
+                                } label: {
+                                    Label("Unread", systemImage: "envelope.badge")
+                                }
+                                .tint(.blue)
+                            } else {
+                                Button {
+                                    WKInterfaceDevice.current().play(.success)
+                                    connectivityManager.markNotificationAsReadFromWatch(id: notificationData.notification.id)
+                                } label: {
+                                    Label("Read", systemImage: "envelope.open")
+                                }
+                                .tint(.green)
+                            }
+                        }
+                        .swipeActions(edge: .trailing) {
+                            // Swipe da destra: Delete
+                            Button(role: .destructive) {
+                                WKInterfaceDevice.current().play(.notification)
+                                connectivityManager.deleteNotificationFromWatch(id: notificationData.notification.id)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
                         }
                     }
                 }
