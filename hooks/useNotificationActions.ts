@@ -47,11 +47,11 @@ export function useNotificationActions() {
   const markAsReadMutation = useMarkAsReadRQ();
 
   const deleteNotification = useCallback(async (notificationId: string) => {
-    await deleteNotificationMutation.mutateAsync(notificationId);
+    await deleteNotificationMutation.mutateAsync({ notificationId });
   }, [deleteNotificationMutation]);
 
   const markAsRead = useCallback(async (notificationId: string) => {
-    await markAsReadMutation.mutateAsync(notificationId);
+    await markAsReadMutation.mutateAsync({ notificationId });
   }, [markAsReadMutation]);
 
   const onNavigate = useCallback(async (destination: string) => {
