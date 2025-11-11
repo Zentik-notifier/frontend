@@ -13,6 +13,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     
     private let dataStore = WatchDataStore.shared
     
+    // Track last local modification to prevent overwriting with stale data
+    private var lastLocalModification: Date?
+    
     // Timer per invio automatico log
     private var logSyncTimer: Timer?
     private let logSyncInterval: TimeInterval = 10.0 // Ogni 10 secondi
@@ -74,14 +77,14 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         self.notifications = cache.notifications.map { cachedNotif in
             // Convert CachedAttachment to WidgetAttachment
             let attachments = cachedNotif.attachments.map { cachedAttachment in
-                DatabaseAccess.WidgetAttachment(
+                WidgetAttachment(
                     mediaType: cachedAttachment.mediaType,
                     url: cachedAttachment.url,
                     name: cachedAttachment.name
                 )
             }
             
-            let notification = DatabaseAccess.WidgetNotification(
+            let notification = WidgetNotification(
                 id: cachedNotif.id,
                 title: cachedNotif.title,
                 body: cachedNotif.body,
@@ -105,22 +108,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             let bucketNotifications = self.notifications.filter { $0.notification.bucketId == cachedBucket.id }
             
             // Parse dates and find the most recent
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            
-            let notificationDates = bucketNotifications.compactMap { notification -> (id: String, date: Date)? in
-                if let date = formatter.date(from: notification.notification.createdAt) {
-                    return (id: notification.notification.id, date: date)
-                } else {
-                    // Try without fractional seconds
-                    formatter.formatOptions = [.withInternetDateTime]
-                    if let date = formatter.date(from: notification.notification.createdAt) {
-                        return (id: notification.notification.id, date: date)
-                    } else {
-                        print("⌚ [WatchConnectivity] ⚠️ Failed to parse date for notification \(notification.notification.id): \(notification.notification.createdAt)")
-                        return nil
-                    }
-                }
+            let notificationDates = bucketNotifications.map { notification in
+                (id: notification.notification.id, date: notification.notification.createdAtDate)
             }
             
             let lastNotificationDate = notificationDates.max(by: { $0.date < $1.date })?.date ?? Date.distantPast
@@ -228,56 +217,101 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     
     /**
      * Mark notification as read from Watch UI
-     * Updates local cache and notifies iPhone
+     * Updates local cache and triggers iPhone to update its SQLite DB
      */
     func markNotificationAsReadFromWatch(id: String) {
         let now = ISO8601DateFormatter().string(from: Date())
         
-        // 1. Update local cache immediately
+        // 1. Update local Watch cache immediately (for instant UI feedback)
         markNotificationAsRead(id: id, readAt: now)
         
-        // 2. Notify iPhone to sync to backend
+        // Track local modification timestamp (race condition protection)
+        lastLocalModification = Date()
+        
+        // 2. Trigger iPhone to update its SQLite DB (iPhone delegate will write to DB)
         sendMessageToiPhone([
             "action": "notificationRead",
             "notificationId": id,
             "readAt": now
         ])
         
-        print("⌚ [Watch] ✅ Marked as read locally and notified iPhone")
+        print("⌚ [Watch] ✅ Marked as read locally and triggered iPhone DB update")
     }
     
     /**
      * Mark notification as unread from Watch UI
-     * Updates local cache and notifies iPhone
+     * Updates local cache and triggers iPhone to update its SQLite DB
      */
     func markNotificationAsUnreadFromWatch(id: String) {
-        // 1. Update local cache immediately
+        // 1. Update local Watch cache immediately (for instant UI feedback)
         markNotificationAsUnread(id: id)
         
-        // 2. Notify iPhone to sync to backend
+        // Track local modification timestamp (race condition protection)
+        lastLocalModification = Date()
+        
+        // 2. Trigger iPhone to update its SQLite DB (iPhone delegate will write to DB)
         sendMessageToiPhone([
             "action": "notificationUnread",
             "notificationId": id
         ])
         
-        print("⌚ [Watch] ✅ Marked as unread locally and notified iPhone")
+        print("⌚ [Watch] ✅ Marked as unread locally and triggered iPhone DB update")
     }
     
     /**
      * Delete notification from Watch UI
-     * Updates local cache and notifies iPhone
+     * Deletes from local cache and triggers iPhone to delete from its SQLite DB
      */
     func deleteNotificationFromWatch(id: String) {
-        // 1. Delete from local cache immediately
+        // 1. Delete from local Watch cache immediately (for instant UI feedback)
         deleteNotificationLocally(id: id)
         
-        // 2. Notify iPhone to delete from backend
+        // Track local modification timestamp (race condition protection)
+        lastLocalModification = Date()
+        
+        // 2. Trigger iPhone to delete from its SQLite DB (iPhone delegate will write to DB)
         sendMessageToiPhone([
             "action": "notificationDeleted",
             "notificationId": id
         ])
         
-        print("⌚ [Watch] ✅ Deleted locally and notified iPhone")
+        print("⌚ [Watch] ✅ Deleted locally and triggered iPhone DB update")
+    }
+    
+    /**
+     * Execute notification action from Watch UI
+     * Sends action execution request to iPhone
+     */
+    func executeNotificationAction(notificationId: String, action: NotificationAction) {
+        print("⌚ [Watch] 🎬 Executing action '\(action.type)' for notification \(notificationId)")
+        
+        // Encode action to dictionary
+        var actionDict: [String: Any] = [
+            "type": action.type,
+            "label": action.label
+        ]
+        
+        if let id = action.id {
+            actionDict["id"] = id
+        }
+        if let url = action.url {
+            actionDict["url"] = url
+        }
+        if let bucketId = action.bucketId {
+            actionDict["bucketId"] = bucketId
+        }
+        if let minutes = action.minutes {
+            actionDict["minutes"] = minutes
+        }
+        
+        // Send to iPhone for execution
+        sendMessageToiPhone([
+            "action": "executeNotificationAction",
+            "notificationId": notificationId,
+            "actionData": actionDict
+        ])
+        
+        print("⌚ [Watch] ✅ Action execution request sent to iPhone")
     }
     
     /**
@@ -393,7 +427,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             let wasUnread = !oldNotification.isRead
             
             // Create new notification with updated isRead flag
-            let updatedNotification = DatabaseAccess.WidgetNotification(
+            let updatedNotification = WidgetNotification(
                 id: oldNotification.id,
                 title: oldNotification.title,
                 body: oldNotification.body,
@@ -419,15 +453,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                     
                     // Recalculate last notification date
                     let bucketNotifications = notifications.filter { $0.notification.bucketId == oldBucket.id }
-                    let lastNotificationDate = bucketNotifications.compactMap { notifData -> Date? in
-                        let isoFormatter = ISO8601DateFormatter()
-                        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                        if let date = isoFormatter.date(from: notifData.notification.createdAt) {
-                            return date
-                        }
-                        isoFormatter.formatOptions = [.withInternetDateTime]
-                        return isoFormatter.date(from: notifData.notification.createdAt)
-                    }.max()
+                    let lastNotificationDate = bucketNotifications.map { $0.notification.createdAtDate }.max()
                     
                     let newBucket = BucketItem(
                         id: oldBucket.id,
@@ -461,7 +487,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             let wasRead = oldNotification.isRead
             
             // Create new notification with updated isRead flag
-            let updatedNotification = DatabaseAccess.WidgetNotification(
+            let updatedNotification = WidgetNotification(
                 id: oldNotification.id,
                 title: oldNotification.title,
                 body: oldNotification.body,
@@ -487,15 +513,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                     
                     // Recalculate last notification date
                     let bucketNotifications = notifications.filter { $0.notification.bucketId == oldBucket.id }
-                    let lastNotificationDate = bucketNotifications.compactMap { notifData -> Date? in
-                        let isoFormatter = ISO8601DateFormatter()
-                        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                        if let date = isoFormatter.date(from: notifData.notification.createdAt) {
-                            return date
-                        }
-                        isoFormatter.formatOptions = [.withInternetDateTime]
-                        return isoFormatter.date(from: notifData.notification.createdAt)
-                    }.max()
+                    let lastNotificationDate = bucketNotifications.map { $0.notification.createdAtDate }.max()
                     
                     let newBucket = BucketItem(
                         id: oldBucket.id,
@@ -539,15 +557,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 
                 // Recalculate last notification date after deletion
                 let remainingBucketNotifications = notifications.filter { $0.notification.bucketId == oldBucket.id }
-                let lastNotificationDate = remainingBucketNotifications.compactMap { notifData -> Date? in
-                    let isoFormatter = ISO8601DateFormatter()
-                    isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                    if let date = isoFormatter.date(from: notifData.notification.createdAt) {
-                        return date
-                    }
-                    isoFormatter.formatOptions = [.withInternetDateTime]
-                    return isoFormatter.date(from: notifData.notification.createdAt)
-                }.max()
+                let lastNotificationDate = remainingBucketNotifications.map { $0.notification.createdAtDate }.max()
                 
                 let newBucket = BucketItem(
                     id: oldBucket.id,
@@ -641,12 +651,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         let isRead = readAt != nil
         
         // Parse attachments
-        var attachments: [DatabaseAccess.WidgetAttachment] = []
+        var attachments: [WidgetAttachment] = []
         if let attachmentsArray = messageObj["attachments"] as? [[String: Any]] {
             for attachmentDict in attachmentsArray {
                 if let mediaType = attachmentDict["mediaType"] as? String,
                    let url = attachmentDict["url"] as? String {
-                    let attachment = DatabaseAccess.WidgetAttachment(
+                    let attachment = WidgetAttachment(
                         mediaType: mediaType,
                         url: url,
                         name: attachmentDict["name"] as? String
@@ -657,7 +667,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
         
         // Create notification object
-        let notification = DatabaseAccess.WidgetNotification(
+        let notification = WidgetNotification(
             id: notificationId,
             title: title,
             body: body,
@@ -681,15 +691,6 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             // Update existing bucket
             let oldBucket = buckets[bucketIndex]
             
-            // Parse notification date
-            let isoFormatter = ISO8601DateFormatter()
-            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            var notificationDate = isoFormatter.date(from: createdAt)
-            if notificationDate == nil {
-                isoFormatter.formatOptions = [.withInternetDateTime]
-                notificationDate = isoFormatter.date(from: createdAt)
-            }
-            
             let newBucket = BucketItem(
                 id: oldBucket.id,
                 name: oldBucket.name,
@@ -697,21 +698,13 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 totalCount: oldBucket.totalCount + 1,
                 color: oldBucket.color,
                 iconUrl: oldBucket.iconUrl,
-                lastNotificationDate: notificationDate ?? oldBucket.lastNotificationDate
+                lastNotificationDate: notificationData.notification.createdAtDate
             )
             buckets[bucketIndex] = newBucket
             
             print("⌚ [WatchConnectivity] ♻️ Updated bucket: \(oldBucket.name) (total: \(newBucket.totalCount), unread: \(newBucket.unreadCount))")
         } else if let bucketName = bucketName {
             // Create new bucket
-            let isoFormatter = ISO8601DateFormatter()
-            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            var notificationDate = isoFormatter.date(from: createdAt)
-            if notificationDate == nil {
-                isoFormatter.formatOptions = [.withInternetDateTime]
-                notificationDate = isoFormatter.date(from: createdAt)
-            }
-            
             let newBucket = BucketItem(
                 id: bucketId,
                 name: bucketName,
@@ -719,7 +712,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 totalCount: 1,
                 color: bucketColor ?? "",
                 iconUrl: bucketIconUrl ?? "",
-                lastNotificationDate: notificationDate
+                lastNotificationDate: notificationData.notification.createdAtDate
             )
             buckets.append(newBucket)
             
@@ -981,12 +974,12 @@ extension WatchConnectivityManager: WCSessionDelegate {
                             }
                             
                             // Parse attachments
-                            var attachments: [DatabaseAccess.WidgetAttachment] = []
+                            var attachments: [WidgetAttachment] = []
                             if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
                                 for attachmentDict in attachmentsArray {
                                     if let mediaType = attachmentDict["mediaType"] as? String,
                                        let url = attachmentDict["url"] as? String {
-                                        let attachment = DatabaseAccess.WidgetAttachment(
+                                        let attachment = WidgetAttachment(
                                             mediaType: mediaType,
                                             url: url,
                                             name: attachmentDict["name"] as? String
@@ -996,7 +989,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
                                 }
                             }
                             
-                            let widgetNotification = DatabaseAccess.WidgetNotification(
+                            let widgetNotification = WidgetNotification(
                                 id: id,
                                 title: title,
                                 body: notifDict["body"] as? String ?? "",
@@ -1153,12 +1146,12 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 }
                 
                 // Parse attachments
-                var attachments: [DatabaseAccess.WidgetAttachment] = []
+                var attachments: [WidgetAttachment] = []
                 if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
                     for attachmentDict in attachmentsArray {
                         if let mediaType = attachmentDict["mediaType"] as? String,
                            let url = attachmentDict["url"] as? String {
-                            let attachment = DatabaseAccess.WidgetAttachment(
+                            let attachment = WidgetAttachment(
                                 mediaType: mediaType,
                                 url: url,
                                 name: attachmentDict["name"] as? String
@@ -1176,7 +1169,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     isRead = notifDict["readAt"] != nil
                 }
                 
-                let widgetNotification = DatabaseAccess.WidgetNotification(
+                let widgetNotification = WidgetNotification(
                     id: id,
                     title: title,
                     body: notifDict["body"] as? String ?? "",
@@ -1204,38 +1197,48 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 }
                 
                 // If read status is the same, sort by createdAt (newest first)
-                // Parse ISO8601 dates and compare
-                let formatter = ISO8601DateFormatter()
-                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                
-                let date1 = formatter.date(from: notif1.notification.createdAt) ?? Date.distantPast
-                let date2 = formatter.date(from: notif2.notification.createdAt) ?? Date.distantPast
-                
-                return date1 > date2 // Newer dates first
+                return notif1.notification.createdAtDate > notif2.notification.createdAtDate
             }
             
             print("⌚ [WatchConnectivity] 🔄 Sorted \(notifications.count) notifications (unread first, then by date)")
             
-            // Recalculate totalCount and unreadCount for each bucket based on actual notifications
+            // Recalculate totalCount, unreadCount, AND lastNotificationDate for each bucket based on actual notifications
+            var bucketsWithDates: [(bucket: BucketItem, lastNotificationDate: Date)] = []
+            
             for i in 0..<buckets.count {
                 let bucketId = buckets[i].id
                 let notificationsInBucket = notifications.filter { $0.notification.bucketId == bucketId }
                 let totalCount = notificationsInBucket.count
                 let unreadCount = notificationsInBucket.filter { !$0.notification.isRead }.count
                 
-                // Update bucket with correct totalCount and unreadCount
-                buckets[i] = BucketItem(
+                // Calculate most recent notification date for this bucket
+                let notificationDates = notificationsInBucket.map { notification in
+                    notification.notification.createdAtDate
+                }
+                let lastNotificationDate = notificationDates.max() ?? Date.distantPast
+                
+                // Update bucket with correct totalCount, unreadCount AND lastNotificationDate
+                let updatedBucket = BucketItem(
                     id: buckets[i].id,
                     name: buckets[i].name,
                     unreadCount: unreadCount,
                     totalCount: totalCount,
                     color: buckets[i].color,
                     iconUrl: buckets[i].iconUrl,
-                    lastNotificationDate: buckets[i].lastNotificationDate
+                    lastNotificationDate: lastNotificationDate
                 )
                 
-                print("⌚ [WatchConnectivity] 🔢 Bucket '\(buckets[i].name)' - Recalculated totalCount: \(totalCount), unreadCount: \(unreadCount)")
+                bucketsWithDates.append((bucket: updatedBucket, lastNotificationDate: lastNotificationDate))
+                
+                print("⌚ [WatchConnectivity] 🔢 Bucket '\(updatedBucket.name)' - Total: \(totalCount), Unread: \(unreadCount), Last: \(lastNotificationDate)")
             }
+            
+            // Sort buckets by last notification date (most recent first)
+            buckets = bucketsWithDates
+                .sorted { $0.lastNotificationDate > $1.lastNotificationDate }
+                .map { $0.bucket }
+            
+            print("⌚ [WatchConnectivity] 🔄 Sorted \(buckets.count) buckets by last notification date")
             
             // Print sample of notifications to verify read status
             print("\n📬 Sample notifications (first 5):")
@@ -1251,6 +1254,22 @@ extension WatchConnectivityManager: WCSessionDelegate {
             let actualUnreadCount = notifications.filter { !$0.notification.isRead }.count
             print("📊 Actual unread count (calculated): \(actualUnreadCount)")
             print("📊 Read count (calculated): \(notifications.count - actualUnreadCount)\n")
+            
+            // Check if we have recent local modifications that might be overwritten
+            let syncTimestamp = Date()
+            if let lastModification = self?.lastLocalModification,
+               syncTimestamp.timeIntervalSince(lastModification) < 5.0 {
+                // Local modification happened less than 5 seconds ago
+                // This sync data might be stale - skip the update to prevent race condition
+                print("⌚ [WatchConnectivity] ⚠️ Skipping full sync - recent local modification detected")
+                print("⌚ [WatchConnectivity] ℹ️ Last modification: \(lastModification)")
+                print("⌚ [WatchConnectivity] ℹ️ Sync would overwrite changes made \(String(format: "%.1f", syncTimestamp.timeIntervalSince(lastModification)))s ago")
+                
+                DispatchQueue.main.async {
+                    self?.isWaitingForResponse = false
+                }
+                return
+            }
             
             // Update on main thread
             DispatchQueue.main.async { [weak self] in
@@ -1362,12 +1381,12 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     }
                     
                     // Parse attachments
-                    var attachments: [DatabaseAccess.WidgetAttachment] = []
+                    var attachments: [WidgetAttachment] = []
                     if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
                         for attachmentDict in attachmentsArray {
                             if let mediaType = attachmentDict["mediaType"] as? String,
                                let url = attachmentDict["url"] as? String {
-                                let attachment = DatabaseAccess.WidgetAttachment(
+                                let attachment = WidgetAttachment(
                                     mediaType: mediaType,
                                     url: url,
                                     name: attachmentDict["name"] as? String
@@ -1377,7 +1396,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
                         }
                     }
                     
-                    let widgetNotification = DatabaseAccess.WidgetNotification(
+                    let widgetNotification = WidgetNotification(
                         id: id,
                         title: title,
                         body: notifDict["body"] as? String ?? "",
@@ -1396,6 +1415,30 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 }
                 
                 print("⌚ [WatchConnectivity] ✅ Parsed \(buckets.count) buckets and \(notifications.count) notifications")
+                
+                // Check if we have recent local modifications that might be overwritten
+                let syncTimestamp = Date()
+                if let lastModification = self?.lastLocalModification,
+                   syncTimestamp.timeIntervalSince(lastModification) < 5.0 {
+                    // Local modification happened less than 5 seconds ago
+                    // This sync data might be stale - skip the update to prevent race condition
+                    print("⌚ [WatchConnectivity] ⚠️ Skipping full sync - recent local modification detected")
+                    print("⌚ [WatchConnectivity] ℹ️ Last modification: \(lastModification)")
+                    print("⌚ [WatchConnectivity] ℹ️ Sync would overwrite changes made \(String(format: "%.1f", syncTimestamp.timeIntervalSince(lastModification)))s ago")
+                    
+                    DispatchQueue.main.async {
+                        self?.isWaitingForResponse = false
+                    }
+                    
+                    // Send success reply but indicate data was not applied
+                    let replyData = try? JSONSerialization.data(withJSONObject: [
+                        "success": true,
+                        "applied": false,
+                        "reason": "recent_local_modification"
+                    ])
+                    replyHandler(replyData ?? Data())
+                    return
+                }
                 
                 // Update data store and UI
                 DispatchQueue.main.async {
@@ -1622,12 +1665,12 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     }
                     
                     // Parse attachments
-                    var attachments: [DatabaseAccess.WidgetAttachment] = []
+                    var attachments: [WidgetAttachment] = []
                     if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
                         for attachmentDict in attachmentsArray {
                             if let mediaType = attachmentDict["mediaType"] as? String,
                                let url = attachmentDict["url"] as? String {
-                                let attachment = DatabaseAccess.WidgetAttachment(
+                                let attachment = WidgetAttachment(
                                     mediaType: mediaType,
                                     url: url,
                                     name: attachmentDict["name"] as? String
@@ -1637,7 +1680,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
                         }
                     }
                     
-                    let widgetNotification = DatabaseAccess.WidgetNotification(
+                    let widgetNotification = WidgetNotification(
                         id: id,
                         title: title,
                         body: notifDict["body"] as? String ?? "",
@@ -1656,6 +1699,22 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 }
                 
                 print("⌚ [WatchConnectivity] ✅ Parsed \(buckets.count) buckets and \(notifications.count) notifications")
+                
+                // Check if we have recent local modifications that might be overwritten
+                let syncTimestamp = Date()
+                if let lastModification = self?.lastLocalModification,
+                   syncTimestamp.timeIntervalSince(lastModification) < 5.0 {
+                    // Local modification happened less than 5 seconds ago
+                    // This sync data might be stale - skip the update to prevent race condition
+                    print("⌚ [WatchConnectivity] ⚠️ Skipping full sync - recent local modification detected")
+                    print("⌚ [WatchConnectivity] ℹ️ Last modification: \(lastModification)")
+                    print("⌚ [WatchConnectivity] ℹ️ Sync would overwrite changes made \(String(format: "%.1f", syncTimestamp.timeIntervalSince(lastModification)))s ago")
+                    
+                    DispatchQueue.main.async {
+                        self?.isWaitingForResponse = false
+                    }
+                    return
+                }
                 
                 // Update data store and UI
                 DispatchQueue.main.async { [weak self] in

@@ -26,12 +26,12 @@ public enum NotificationActionType: String, CaseIterable {
 // MARK: - Notification Action Structure
 
 public struct NotificationAction: Codable {
-    let type: String
-    let label: String
-    let id: String?
-    let url: String?
-    let bucketId: String?
-    let minutes: Int?
+    public let type: String
+    public let label: String
+    public let id: String?
+    public let url: String?
+    public let bucketId: String?
+    public let minutes: Int?
     
     public init(type: String, label: String, id: String? = nil, url: String? = nil, bucketId: String? = nil, minutes: Int? = nil) {
         self.type = type
@@ -45,6 +45,96 @@ public struct NotificationAction: Codable {
     /// Check if action type is allowed
     public var isAllowed: Bool {
         return NotificationActionType.allowedTypes.contains(type)
+    }
+}
+
+// MARK: - Notification Data Structures
+
+/// Attachment entry for notifications
+public struct WidgetAttachment: Codable {
+    public let mediaType: String
+    public let url: String?
+    public let name: String?
+    
+    public init(mediaType: String, url: String?, name: String?) {
+        self.mediaType = mediaType
+        self.url = url
+        self.name = name
+    }
+}
+
+/// Bucket entry for widget/watch display
+public struct WidgetBucket: Codable {
+    public let id: String
+    public let name: String
+    public let unreadCount: Int
+    public let color: String?
+    public let iconUrl: String?
+    
+    public init(id: String, name: String, unreadCount: Int, color: String? = nil, iconUrl: String? = nil) {
+        self.id = id
+        self.name = name
+        self.unreadCount = unreadCount
+        self.color = color
+        self.iconUrl = iconUrl
+    }
+}
+
+/// Notification entry for widget/watch display
+public struct WidgetNotification: Codable {
+    public let id: String
+    public let title: String
+    public let body: String
+    public let subtitle: String?
+    public let createdAt: String
+    public let isRead: Bool
+    public let bucketId: String
+    public let bucketName: String?
+    public let bucketColor: String?
+    public let bucketIconUrl: String?
+    public let attachments: [WidgetAttachment]
+    public let actions: [NotificationAction]
+    
+    /// Parsed Date from createdAt ISO8601 string
+    /// Centralized date parsing to avoid ISO8601DateFormatter state pollution
+    public var createdAtDate: Date {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        // Try with fractional seconds first
+        if let date = formatter.date(from: createdAt) {
+            return date
+        }
+        
+        // Fallback: try without fractional seconds
+        formatter.formatOptions = [.withInternetDateTime]
+        if let date = formatter.date(from: createdAt) {
+            return date
+        }
+        
+        // Last resort: return current date (should never happen)
+        print("⚠️ Failed to parse createdAt: \(createdAt)")
+        return Date()
+    }
+    
+    /// Filter actions to only show allowed types
+    public var allowedActions: [NotificationAction] {
+        return actions.filter { $0.isAllowed }
+    }
+    
+    public init(id: String, title: String, body: String, subtitle: String?, createdAt: String, isRead: Bool, bucketId: String, bucketName: String? = nil, bucketColor: String? = nil, bucketIconUrl: String? = nil, attachments: [WidgetAttachment] = [], actions: [NotificationAction] = []) {
+        self.id = id
+        self.title = title
+        self.body = body
+        self.subtitle = subtitle
+        self.createdAt = createdAt
+        self.isRead = isRead
+        self.bucketId = bucketId
+        self.bucketName = bucketName
+        self.bucketColor = bucketColor
+        self.bucketIconUrl = bucketIconUrl
+        self.attachments = attachments
+        self.actions = actions
     }
 }
 

@@ -677,18 +677,9 @@ class NotificationService: UNNotificationServiceExtension {
       
       // Filter actions to only include allowed types for notification buttons
       // NAVIGATE is excluded from buttons but kept in userInfo for NCE custom UI
-      let allowedActionTypes = [
-        "MARK_AS_READ",
-        "BACKGROUND_CALL",
-        "POSTPONE",
-        "WEBHOOK",
-        "SNOOZE",
-        "DELETE"
-      ]
-      
       let filteredActions = actions.filter { action in
         guard let type = action["type"] as? String else { return false }
-        return allowedActionTypes.contains(type)
+        return NotificationActionType.allowedTypes.contains(type)
       }
       
       print("📱 [NotificationService] 🔍 Original actions: \(actions.count), filtered for buttons: \(filteredActions.count)")

@@ -784,22 +784,8 @@ public class DatabaseAccess {
     
     // MARK: - Widget Bucket Operations
     
-    /// Bucket entry for widget/watch display
-    public struct WidgetBucket {
-        public let id: String
-        public let name: String
-        public let unreadCount: Int
-        public let color: String?
-        public let iconUrl: String?
-        
-        public init(id: String, name: String, unreadCount: Int, color: String? = nil, iconUrl: String? = nil) {
-            self.id = id
-            self.name = name
-            self.unreadCount = unreadCount
-            self.color = color
-            self.iconUrl = iconUrl
-        }
-    }
+    // Note: WidgetBucket, WidgetAttachment, and WidgetNotification are now defined in SharedTypes.swift
+    // They are available globally without any prefix
     
     /// Get all buckets from database
     /// - Parameters:
@@ -883,48 +869,6 @@ public class DatabaseAccess {
     }
     
     // MARK: - Widget Notification Operations
-    
-    /// Attachment entry for notifications
-    public struct WidgetAttachment {
-        public let mediaType: String
-        public let url: String?
-        public let name: String?
-        
-        public init(mediaType: String, url: String?, name: String?) {
-            self.mediaType = mediaType
-            self.url = url
-            self.name = name
-        }
-    }
-    
-    /// Notification entry for widget display
-    public struct WidgetNotification {
-        public let id: String
-        public let title: String
-        public let body: String
-        public let subtitle: String?
-        public let createdAt: String
-        public let isRead: Bool
-        public let bucketId: String
-        public let bucketName: String?
-        public let bucketColor: String?
-        public let bucketIconUrl: String?
-        public let attachments: [WidgetAttachment]
-        
-        public init(id: String, title: String, body: String, subtitle: String?, createdAt: String, isRead: Bool, bucketId: String, bucketName: String? = nil, bucketColor: String? = nil, bucketIconUrl: String? = nil, attachments: [WidgetAttachment] = []) {
-            self.id = id
-            self.title = title
-            self.body = body
-            self.subtitle = subtitle
-            self.createdAt = createdAt
-            self.isRead = isRead
-            self.bucketId = bucketId
-            self.bucketName = bucketName
-            self.bucketColor = bucketColor
-            self.bucketIconUrl = bucketIconUrl
-            self.attachments = attachments
-        }
-    }
     
     /// Get recent notifications for widget display
     /// - Parameters:

@@ -526,19 +526,38 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                 // The native sync is complete and React Query will refresh when user opens the app
                 
             case "notificationRead":
-                // Watch marked notification as read
+                // Watch marked notification as read - update SQLite directly
                 if let notificationId = message["notificationId"] as? String,
                    let readAt = message["readAt"] as? String {
                     self.logger.info(
                         tag: "Watch→iPhone",
-                        message: "Watch marked as read",
+                        message: "Watch marked as read - updating SQLite",
                         metadata: ["id": notificationId],
                         source: "iPhoneWatchManager"
                     )
                     
-                    // Emit event to React Native
-                    if let bridge = WatchConnectivityBridge.shared {
-                        bridge.emitNotificationRead(notificationId: notificationId, readAt: readAt)
+                    // Update SQLite database directly (works even when app is closed)
+                    DatabaseAccess.markNotificationAsRead(notificationId: notificationId, source: "WatchAction") { success in
+                        if success {
+                            self.logger.info(
+                                tag: "Watch→iPhone",
+                                message: "Successfully marked as read in SQLite",
+                                metadata: ["id": notificationId],
+                                source: "iPhoneWatchManager"
+                            )
+                            
+                            // Also emit event to React Native if app is open (for UI update)
+                            if let bridge = WatchConnectivityBridge.shared {
+                                bridge.emitNotificationRead(notificationId: notificationId, readAt: readAt)
+                            }
+                        } else {
+                            self.logger.error(
+                                tag: "Watch→iPhone",
+                                message: "Failed to mark as read in SQLite",
+                                metadata: ["id": notificationId],
+                                source: "iPhoneWatchManager"
+                            )
+                        }
                     }
                     
                     replyHandler(["success": true])
@@ -547,18 +566,37 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                 }
                 
             case "notificationUnread":
-                // Watch marked notification as unread
+                // Watch marked notification as unread - update SQLite directly
                 if let notificationId = message["notificationId"] as? String {
                     self.logger.info(
                         tag: "Watch→iPhone",
-                        message: "Watch marked as unread",
+                        message: "Watch marked as unread - updating SQLite",
                         metadata: ["id": notificationId],
                         source: "iPhoneWatchManager"
                     )
                     
-                    // Emit event to React Native
-                    if let bridge = WatchConnectivityBridge.shared {
-                        bridge.emitNotificationUnread(notificationId: notificationId)
+                    // Update SQLite database directly (works even when app is closed)
+                    DatabaseAccess.markNotificationAsUnread(notificationId: notificationId, source: "WatchAction") { success in
+                        if success {
+                            self.logger.info(
+                                tag: "Watch→iPhone",
+                                message: "Successfully marked as unread in SQLite",
+                                metadata: ["id": notificationId],
+                                source: "iPhoneWatchManager"
+                            )
+                            
+                            // Also emit event to React Native if app is open (for UI update)
+                            if let bridge = WatchConnectivityBridge.shared {
+                                bridge.emitNotificationUnread(notificationId: notificationId)
+                            }
+                        } else {
+                            self.logger.error(
+                                tag: "Watch→iPhone",
+                                message: "Failed to mark as unread in SQLite",
+                                metadata: ["id": notificationId],
+                                source: "iPhoneWatchManager"
+                            )
+                        }
                     }
                     
                     replyHandler(["success": true])
@@ -567,18 +605,37 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                 }
                 
             case "notificationDeleted":
-                // Watch deleted notification
+                // Watch deleted notification - delete from SQLite directly
                 if let notificationId = message["notificationId"] as? String {
                     self.logger.info(
                         tag: "Watch→iPhone",
-                        message: "Watch deleted notification",
+                        message: "Watch deleted notification - updating SQLite",
                         metadata: ["id": notificationId],
                         source: "iPhoneWatchManager"
                     )
                     
-                    // Emit event to React Native
-                    if let bridge = WatchConnectivityBridge.shared {
-                        bridge.emitNotificationDeleted(notificationId: notificationId)
+                    // Delete from SQLite database directly (works even when app is closed)
+                    DatabaseAccess.deleteNotification(notificationId: notificationId, source: "WatchAction") { success in
+                        if success {
+                            self.logger.info(
+                                tag: "Watch→iPhone",
+                                message: "Successfully deleted from SQLite",
+                                metadata: ["id": notificationId],
+                                source: "iPhoneWatchManager"
+                            )
+                            
+                            // Also emit event to React Native if app is open (for UI update)
+                            if let bridge = WatchConnectivityBridge.shared {
+                                bridge.emitNotificationDeleted(notificationId: notificationId)
+                            }
+                        } else {
+                            self.logger.error(
+                                tag: "Watch→iPhone",
+                                message: "Failed to delete from SQLite",
+                                metadata: ["id": notificationId],
+                                source: "iPhoneWatchManager"
+                            )
+                        }
                     }
                     
                     replyHandler(["success": true])
@@ -599,6 +656,57 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                     replyHandler(["success": true])
                 } else {
                     replyHandler(["error": "Invalid logs format"])
+                }
+                
+            case "executeNotificationAction":
+                // Watch requested notification action execution
+                if let notificationId = message["notificationId"] as? String,
+                   let actionData = message["actionData"] as? [String: Any],
+                   let actionType = actionData["type"] as? String {
+                    
+                    self.logger.info(
+                        tag: "Watch→iPhone",
+                        message: "Executing action '\(actionType)' for notification",
+                        metadata: ["id": notificationId, "actionType": actionType],
+                        source: "iPhoneWatchManager"
+                    )
+                    
+                    // Reconstruct NotificationAction
+                    let action = NotificationAction(
+                        type: actionType,
+                        label: actionData["label"] as? String ?? "",
+                        id: actionData["id"] as? String,
+                        url: actionData["url"] as? String,
+                        bucketId: actionData["bucketId"] as? String,
+                        minutes: actionData["minutes"] as? Int
+                    )
+                    
+                    // Execute action via NotificationActionHandler
+                    NotificationActionHandler.executeAction(
+                        action: action,
+                        notificationId: notificationId,
+                        source: "WatchAction"
+                    ) { success, error in
+                        if success {
+                            self.logger.info(
+                                tag: "Watch→iPhone",
+                                message: "Action executed successfully",
+                                metadata: ["id": notificationId, "actionType": actionType],
+                                source: "iPhoneWatchManager"
+                            )
+                        } else {
+                            self.logger.error(
+                                tag: "Watch→iPhone",
+                                message: "Action execution failed: \(error ?? "unknown error")",
+                                metadata: ["id": notificationId, "actionType": actionType],
+                                source: "iPhoneWatchManager"
+                            )
+                        }
+                    }
+                    
+                    replyHandler(["success": true])
+                } else {
+                    replyHandler(["error": "Missing notificationId or actionData"])
                 }
                 
             default:
@@ -683,6 +791,53 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                         message: "Received \(count) logs from Watch (background)",
                         source: "iPhoneWatchManager"
                     )
+                }
+                
+            case "executeNotificationAction":
+                // Watch requested notification action execution (background)
+                if let notificationId = userInfo["notificationId"] as? String,
+                   let actionData = userInfo["actionData"] as? [String: Any],
+                   let actionType = actionData["type"] as? String {
+                    
+                    self.logger.info(
+                        tag: "Watch→iPhone",
+                        message: "Executing action '\(actionType)' for notification (background)",
+                        metadata: ["id": notificationId, "actionType": actionType],
+                        source: "iPhoneWatchManager"
+                    )
+                    
+                    // Reconstruct NotificationAction
+                    let action = NotificationAction(
+                        type: actionType,
+                        label: actionData["label"] as? String ?? "",
+                        id: actionData["id"] as? String,
+                        url: actionData["url"] as? String,
+                        bucketId: actionData["bucketId"] as? String,
+                        minutes: actionData["minutes"] as? Int
+                    )
+                    
+                    // Execute action via NotificationActionHandler
+                    NotificationActionHandler.executeAction(
+                        action: action,
+                        notificationId: notificationId,
+                        source: "WatchAction"
+                    ) { success, error in
+                        if success {
+                            self.logger.info(
+                                tag: "Watch→iPhone",
+                                message: "Action executed successfully (background)",
+                                metadata: ["id": notificationId, "actionType": actionType],
+                                source: "iPhoneWatchManager"
+                            )
+                        } else {
+                            self.logger.error(
+                                tag: "Watch→iPhone",
+                                message: "Action execution failed (background): \(error ?? "unknown error")",
+                                metadata: ["id": notificationId, "actionType": actionType],
+                                source: "iPhoneWatchManager"
+                            )
+                        }
+                    }
                 }
                 
             default:

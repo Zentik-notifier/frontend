@@ -75,7 +75,7 @@ export function useWatchConnectivityEvents() {
       try {
         await deleteNotification.mutateAsync({
           notificationId: event.notificationId,
-          skipLocalDb: true,
+          skipLocalDb: false, // Update local SQLite DB so NSE/NCE/Widget see the deletion
         });
 
         await queryClient.invalidateQueries({ queryKey: ['app-state'] });

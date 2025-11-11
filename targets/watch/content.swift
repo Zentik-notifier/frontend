@@ -64,7 +64,7 @@ struct BucketItem: Identifiable {
 
 struct NotificationData: Identifiable, Equatable {
     var id: String { notification.id }
-    let notification: DatabaseAccess.WidgetNotification
+    let notification: WidgetNotification
     
     static func == (lhs: NotificationData, rhs: NotificationData) -> Bool {
         return lhs.notification.id == rhs.notification.id &&
@@ -238,6 +238,11 @@ struct BucketRowView: View {
     let bucket: BucketItem
     @State private var iconImage: UIImage?
     
+    // Cache for loaded bucket icons (bucketId -> UIImage)
+    private static var iconCache: [String: UIImage] = [:]
+    // Track which buckets have been logged (to avoid duplicate logs)
+    private static var loggedBuckets = Set<String>()
+    
     var body: some View {
         HStack(spacing: 10) {
             // Show icon if available, otherwise show colored rectangle
@@ -257,7 +262,7 @@ struct BucketRowView: View {
                 Text(bucket.name)
                     .font(.headline)
                 HStack(spacing: 4) {
-                    Text("\(bucket.totalCount) notifications")
+                    Text("\(bucket.totalCount)")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     
@@ -293,11 +298,24 @@ struct BucketRowView: View {
     
     private func loadIcon() {
         guard let iconUrl = bucket.iconUrl, !iconUrl.isEmpty else {
-            print("⌚ [BucketRowView] ⚠️ No iconUrl for bucket \(bucket.id) (\(bucket.name))")
+            // Log only once per bucket
+            if !Self.loggedBuckets.contains(bucket.id) {
+                print("⌚ [BucketRowView] ⚠️ No iconUrl for bucket \(bucket.id) (\(bucket.name))")
+                Self.loggedBuckets.insert(bucket.id)
+            }
             return
         }
         
-        print("⌚ [BucketRowView] 🔍 Loading icon for bucket \(bucket.id) (\(bucket.name)), iconUrl: \(iconUrl)")
+        // Check if icon is already in cache
+        if let cachedImage = Self.iconCache[bucket.id] {
+            self.iconImage = cachedImage
+            return
+        }
+        
+        // Log only once per bucket
+        if !Self.loggedBuckets.contains(bucket.id) {
+            print("⌚ [BucketRowView] 🔍 Loading icon for bucket \(bucket.id) (\(bucket.name)), iconUrl: \(iconUrl)")
+        }
         
         // Try to get icon from cache or download
         if let iconData = MediaAccess.getBucketIconFromSharedCache(
@@ -305,11 +323,22 @@ struct BucketRowView: View {
             bucketName: bucket.name,
             bucketColor: bucket.color,
             iconUrl: iconUrl
-        ) {
-            self.iconImage = UIImage(data: iconData)
-            print("⌚ [BucketRowView] ✅ Loaded icon for bucket \(bucket.id) (\(bucket.name))")
+        ), let image = UIImage(data: iconData) {
+            // Store in cache for reuse
+            Self.iconCache[bucket.id] = image
+            self.iconImage = image
+            
+            // Log only once per bucket
+            if !Self.loggedBuckets.contains(bucket.id) {
+                print("⌚ [BucketRowView] ✅ Loaded icon for bucket \(bucket.id) (\(bucket.name))")
+                Self.loggedBuckets.insert(bucket.id)
+            }
         } else {
-            print("⌚ [BucketRowView] ⚠️ Icon not found in cache for bucket \(bucket.id) (\(bucket.name)), iconUrl: \(iconUrl)")
+            // Log only once per bucket
+            if !Self.loggedBuckets.contains(bucket.id) {
+                print("⌚ [BucketRowView] ⚠️ Icon not found in cache for bucket \(bucket.id) (\(bucket.name)), iconUrl: \(iconUrl)")
+                Self.loggedBuckets.insert(bucket.id)
+            }
         }
     }
     
@@ -572,7 +601,7 @@ struct NotificationDetailView: View {
     }
     
     // Filter to only show supported attachments (IMAGE and GIF)
-    private var supportedAttachments: [DatabaseAccess.WidgetAttachment] {
+    private var supportedAttachments: [WidgetAttachment] {
         guard let notificationData = notificationData else { return [] }
         return notificationData.notification.attachments.filter { attachment in
             let type = attachment.mediaType.uppercased()
@@ -663,6 +692,40 @@ struct NotificationDetailView: View {
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+                
+                // Actions section - show allowed actions
+                if !notificationData.notification.allowedActions.isEmpty {
+                    Divider()
+                        .padding(.vertical, 4)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Actions")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        ForEach(notificationData.notification.allowedActions, id: \.label) { action in
+                            Button(action: {
+                                executeAction(action)
+                            }) {
+                                HStack {
+                                    Image(systemName: systemImageForAction(action.type))
+                                        .foregroundColor(.blue)
+                                    Text(action.label)
+                                        .font(.body)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .background(Color.secondary.opacity(0.1))
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(PlainButtonStyle())
                         }
                     }
                 }
@@ -770,6 +833,45 @@ struct NotificationDetailView: View {
         
         return Color(red: r, green: g, blue: b)
     }
+    
+    // MARK: - Action Handling
+    
+    private func executeAction(_ action: NotificationAction) {
+        guard let notificationData = notificationData else { return }
+        
+        print("⌚ [NotificationDetailView] 🎬 Executing action: \(action.type) - \(action.label) for notification \(notificationData.notification.id)")
+        
+        // Send action execution request to iPhone via WCSession
+        connectivityManager.executeNotificationAction(
+            notificationId: notificationData.notification.id,
+            action: action
+        )
+        
+        // Provide haptic feedback
+        WKInterfaceDevice.current().play(.success)
+        
+        // Show confirmation (optional - could add a toast/alert here)
+        print("⌚ [NotificationDetailView] ✅ Action sent to iPhone: \(action.label)")
+    }
+    
+    private func systemImageForAction(_ actionType: String) -> String {
+        switch actionType {
+        case "MARK_AS_READ":
+            return "envelope.open"
+        case "DELETE":
+            return "trash"
+        case "WEBHOOK":
+            return "arrow.up.right.circle"
+        case "BACKGROUND_CALL":
+            return "phone.arrow.up.right"
+        case "POSTPONE":
+            return "calendar.badge.clock"
+        case "SNOOZE":
+            return "bell.slash"
+        default:
+            return "arrow.right.circle"
+        }
+    }
 }
 
 // MARK: - Date Formatting Helper
@@ -822,7 +924,7 @@ private func formatDate(_ date: Date) -> String {
 // MARK: - Attachment Views
 
 struct AttachmentThumbnailView: View {
-    let attachment: DatabaseAccess.WidgetAttachment
+    let attachment: WidgetAttachment
     let notificationId: String
     @State private var thumbnailData: Data?
     
@@ -914,7 +1016,7 @@ struct AttachmentThumbnailView: View {
 }
 
 struct AttachmentFullView: View {
-    let attachment: DatabaseAccess.WidgetAttachment
+    let attachment: WidgetAttachment
     let notificationId: String
     @State private var mediaData: Data?
     
@@ -963,7 +1065,7 @@ struct AttachmentFullView: View {
 }
 
 struct AttachmentFullScreenView: View {
-    let attachment: DatabaseAccess.WidgetAttachment
+    let attachment: WidgetAttachment
     let notificationId: String
     @State private var mediaData: Data?
     
@@ -1014,7 +1116,7 @@ struct AttachmentFullScreenView: View {
 }
 
 struct AttachmentRowView: View {
-    let attachment: DatabaseAccess.WidgetAttachment
+    let attachment: WidgetAttachment
     let notificationId: String
     @State private var thumbnailImage: UIImage?
     
