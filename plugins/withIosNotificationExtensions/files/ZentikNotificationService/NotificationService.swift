@@ -6,91 +6,9 @@ import UIKit
 import UniformTypeIdentifiers
 import UserNotifications
 import WatchConnectivity
-import CloudKit
 
 // SQLite helper for Swift bindings
 private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-
-// CloudKit data container for notifications
-private struct NotificationsDataContainer: Codable {
-  let notifications: [[String: Any]]
-  
-  enum CodingKeys: String, CodingKey {
-    case notifications
-  }
-  
-  init(notifications: [[String: Any]]) {
-    self.notifications = notifications
-  }
-  
-  init(from decoder: Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    // Decode as array of dictionaries
-    let notificationsData = try container.decode([[String: AnyCodable]].self, forKey: .notifications)
-    self.notifications = notificationsData.map { dict in
-      dict.mapValues { $0.value }
-    }
-  }
-  
-  func encode(to encoder: Encoder) throws {
-    var container = encoder.container(keyedBy: CodingKeys.self)
-    // Encode as array of dictionaries
-    let notificationsData = notifications.map { dict in
-      dict.mapValues { AnyCodable($0) }
-    }
-    try container.encode(notificationsData, forKey: .notifications)
-  }
-}
-
-// Helper for encoding/decoding Any types
-private struct AnyCodable: Codable {
-  let value: Any
-  
-  init(_ value: Any) {
-    self.value = value
-  }
-  
-  init(from decoder: Decoder) throws {
-    let container = try decoder.singleValueContainer()
-    
-    if let intValue = try? container.decode(Int.self) {
-      value = intValue
-    } else if let doubleValue = try? container.decode(Double.self) {
-      value = doubleValue
-    } else if let boolValue = try? container.decode(Bool.self) {
-      value = boolValue
-    } else if let stringValue = try? container.decode(String.self) {
-      value = stringValue
-    } else if let arrayValue = try? container.decode([AnyCodable].self) {
-      value = arrayValue.map { $0.value }
-    } else if let dictValue = try? container.decode([String: AnyCodable].self) {
-      value = dictValue.mapValues { $0.value }
-    } else {
-      value = NSNull()
-    }
-  }
-  
-  func encode(to encoder: Encoder) throws {
-    var container = encoder.singleValueContainer()
-    
-    switch value {
-    case let intValue as Int:
-      try container.encode(intValue)
-    case let doubleValue as Double:
-      try container.encode(doubleValue)
-    case let boolValue as Bool:
-      try container.encode(boolValue)
-    case let stringValue as String:
-      try container.encode(stringValue)
-    case let arrayValue as [Any]:
-      try container.encode(arrayValue.map { AnyCodable($0) })
-    case let dictValue as [String: Any]:
-      try container.encode(dictValue.mapValues { AnyCodable($0) })
-    default:
-      try container.encodeNil()
-    }
-  }
-}
 
 class NotificationService: UNNotificationServiceExtension {
 
@@ -1795,19 +1713,10 @@ class NotificationService: UNNotificationServiceExtension {
     if sqlite3_step(stmt) == SQLITE_DONE {
       print("📱 [NotificationService] ✅ Notification saved to database: \(notificationId)")
       
-      // Sync to CloudKit asynchronously (non-blocking)
-      // This happens AFTER notification delivery to avoid delays
-      self.syncNotificationToCloudKitAsync(
+      // Notify Watch via WatchConnectivity (async, non-blocking)
+      self.notifyWatchOfNewNotification(
         notificationId: notificationId,
-        bucketId: bucketId,
-        title: content.title,
-        body: content.body,
-        subtitle: content.subtitle.isEmpty ? nil : content.subtitle,
-        createdAt: now,
-        readAt: nil,
-        attachments: userInfo["attachmentData"] as? [[String: Any]],
-        actions: userInfo["actions"] as? [[String: Any]],
-        tapAction: userInfo["tapAction"] as? [String: Any]
+        userInfo: userInfo
       )
     } else {
       print("📱 [NotificationService] ❌ Failed to save notification to database")
@@ -1828,7 +1737,17 @@ class NotificationService: UNNotificationServiceExtension {
     }
   }
 
-  private func transferNotificationToWatch(userInfo: [String: Any], notificationId: String) {
+  // MARK: - WatchConnectivity Notification
+  
+  /**
+   * Notify Watch of new notification via WatchConnectivity
+   * This method runs in background and does NOT block notification delivery
+   * Sends the complete notification fragment to Watch so it can save it locally
+   */
+  private func notifyWatchOfNewNotification(
+    notificationId: String,
+    userInfo: [String: Any]
+  ) {
     guard WCSession.isSupported() else {
       print("📱 [NotificationService] ⚠️ WatchConnectivity not supported")
       return
@@ -1836,49 +1755,114 @@ class NotificationService: UNNotificationServiceExtension {
     
     let session = WCSession.default
     
-    // Only send reload trigger - Watch will fetch fresh data from CloudKit
-    let message: [String: Any] = ["action": "reload"]
+    // Extract bucket info
+    guard let bucketId = userInfo["bucketId"] as? String else {
+      print("📱 [NotificationService] ⚠️ No bucketId for Watch notification")
+      return
+    }
+    
+    let now = ISO8601DateFormatter().string(from: Date())
+    
+    // Build notification fragment (same structure as stored in SQLite)
+    var notificationFragment: [String: Any] = [
+      "__typename": "Notification",
+      "id": notificationId,
+      "receivedAt": now,
+      "readAt": NSNull(),
+      "sentAt": now,
+      "createdAt": now,
+      "updatedAt": now
+    ]
+    
+    // Build message object
+    var messageObj: [String: Any] = [
+      "__typename": "Message",
+      "id": UUID().uuidString,
+      "title": userInfo["title"] as? String ?? "",
+      "body": userInfo["body"] as? String ?? "",
+      "subtitle": (userInfo["subtitle"] as? String)?.isEmpty == false ? (userInfo["subtitle"] as! String) : NSNull(),
+      "sound": "default",
+      "deliveryType": "PUSH",
+      "locale": NSNull(),
+      "snoozes": NSNull(),
+      "createdAt": now,
+      "updatedAt": now
+    ]
+    
+    // Add attachments if present
+    if let attachmentData = userInfo["attachmentData"] as? [[String: Any]], !attachmentData.isEmpty {
+      let attachments = attachmentData.map { item -> [String: Any] in
+        return [
+          "__typename": "MessageAttachment",
+          "mediaType": (item["mediaType"] as? String)?.uppercased() ?? "IMAGE",
+          "url": (item["url"] as? String) ?? NSNull() as Any,
+          "name": (item["name"] as? String) ?? NSNull() as Any,
+          "attachmentUuid": (item["attachmentUuid"] as? String) ?? NSNull() as Any,
+          "saveOnServer": (item["saveOnServer"] as? Bool) ?? NSNull() as Any
+        ]
+      }
+      messageObj["attachments"] = attachments
+    } else {
+      messageObj["attachments"] = []
+    }
+    
+    // Add tapAction if present
+    if let tapAction = userInfo["tapAction"] as? [String: Any] {
+      messageObj["tapAction"] = [
+        "__typename": "NotificationAction",
+        "type": (tapAction["type"] as? String)?.uppercased() ?? "OPEN_NOTIFICATION",
+        "value": (tapAction["value"] as? String) ?? NSNull() as Any,
+        "title": (tapAction["title"] as? String) ?? NSNull() as Any,
+        "icon": (tapAction["icon"] as? String) ?? NSNull() as Any,
+        "destructive": tapAction["destructive"] as? Bool ?? false
+      ]
+    }
+    
+    // Add actions if present
+    if let actions = userInfo["actions"] as? [[String: Any]], !actions.isEmpty {
+      let actionsArray = actions.map { action -> [String: Any] in
+        return [
+          "__typename": "NotificationAction",
+          "type": (action["type"] as? String)?.uppercased() ?? "CUSTOM",
+          "value": (action["value"] as? String) ?? NSNull() as Any,
+          "title": (action["title"] as? String) ?? NSNull() as Any,
+          "icon": (action["icon"] as? String) ?? NSNull() as Any,
+          "destructive": action["destructive"] as? Bool ?? false
+        ]
+      }
+      messageObj["actions"] = actionsArray
+    } else {
+      messageObj["actions"] = []
+    }
+    
+    // Add bucket info
+    messageObj["bucket"] = [
+      "__typename": "Bucket",
+      "id": bucketId,
+      "name": userInfo["bucketName"] as? String ?? "Unknown",
+      "description": NSNull(),
+      "color": (userInfo["bucketColor"] as? String) ?? NSNull() as Any,
+      "iconUrl": (userInfo["bucketIconUrl"] as? String) ?? NSNull() as Any,
+      "createdAt": now,
+      "updatedAt": now,
+      "isProtected": NSNull(),
+      "isPublic": NSNull()
+    ]
+    
+    notificationFragment["message"] = messageObj
+    
+    // Send complete notification fragment to Watch
+    let message: [String: Any] = [
+      "action": "notificationAdded",
+      "notificationId": notificationId,
+      "fragment": notificationFragment
+    ]
     
     // Use transferUserInfo for guaranteed delivery (even when Watch is asleep)
     session.transferUserInfo(message)
-    print("📱 [NotificationService] ✅ Queued reload trigger to Watch for notification: \(notificationId)")
+    print("📱 [NotificationService] ✅ Queued complete notification fragment to Watch: \(notificationId)")
   }
 
-  // MARK: - CloudKit Sync (Async - Non-Blocking)
-  
-  /**
-   * Sync notification to CloudKit asynchronously
-   * This method runs in background and does NOT block notification delivery
-   */
-  private func syncNotificationToCloudKitAsync(
-    notificationId: String,
-    bucketId: String,
-    title: String,
-    body: String,
-    subtitle: String?,
-    createdAt: String,
-    readAt: String?,
-    attachments: [[String: Any]]?,
-    actions: [[String: Any]]?,
-    tapAction: [String: Any]?
-  ) {
-    // Delegate to CloudKitAccess for all CloudKit logic
-    CloudKitAccess.syncNotificationFromNSE(
-      notificationId: notificationId,
-      bucketId: bucketId,
-      title: title,
-      body: body,
-      subtitle: subtitle,
-      createdAt: createdAt,
-      readAt: readAt,
-      attachments: attachments,
-      actions: actions,
-      tapAction: tapAction,
-      logger: { message in
-        print("📱 [NotificationService] \(message)")
-      }
-    )
-  }
   
   // MARK: - Pending Notifications Storage
   // NOTE: Removed savePendingNotification and storePendingNotification methods.

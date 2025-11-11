@@ -1,6 +1,5 @@
 import Foundation
 import WatchConnectivity
-import CloudKit
 
 class WatchConnectivityManager: NSObject, ObservableObject {
     static let shared = WatchConnectivityManager()
@@ -10,9 +9,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     @Published var buckets: [BucketItem] = []
     @Published var isConnected: Bool = false
     @Published var lastUpdate: Date?
+    @Published var isWaitingForResponse: Bool = false
     
     private let dataStore = WatchDataStore.shared
-    private let cloudKitManager = CloudKitSyncManager.shared
     
     // Timer per invio automatico log
     private var logSyncTimer: Timer?
@@ -24,15 +23,6 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         // Load cached data immediately on init (fast startup)
         loadCachedData()
         
-        // Ensure custom CloudKit zone exists before setting up subscriptions
-        ensureCustomZoneExists()
-        
-        // Setup CloudKit subscriptions for real-time updates
-        // setupCloudKitSubscriptions()
-        
-        // Then fetch from CloudKit to update data
-        fetchFromCloudKit()
-        
         if WCSession.isSupported() {
             let session = WCSession.default
             session.delegate = self
@@ -41,42 +31,6 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         
         // Setup automatic log sync
         setupAutomaticLogSync()
-    }
-    
-    // MARK: - CloudKit Subscriptions
-    
-    /**
-     * Ensure custom CloudKit zone exists before any operations
-     * This is required for subscriptions and incremental sync to work
-     */
-    private func ensureCustomZoneExists() {
-        print("🔧 [Watch] Ensuring custom CloudKit zone exists...")
-        
-        CloudKitAccess.ensureCustomZoneExists { result in
-            switch result {
-            case .success:
-                print("✅ [Watch] Custom CloudKit zone ready - zone: \(CloudKitConfig.customZoneName)")
-            case .failure(let error):
-                print("❌ [Watch] Failed to ensure custom zone exists: \(error.localizedDescription)")
-            }
-        }
-    }
-    
-    /**
-     * Setup CloudKit subscriptions to receive real-time updates when data changes
-     * This allows Watch to update automatically when iOS modifies data
-     */
-    private func setupCloudKitSubscriptions() {
-        print("🔔 [Watch] Setting up CloudKit subscriptions for real-time updates...")
-        
-        CloudKitAccess.setupSubscriptions { result in
-            switch result {
-            case .success:
-                print("✅ [Watch] CloudKit subscriptions setup successfully - will receive updates from iOS")
-            case .failure(let error):
-                print("❌ [Watch] Failed to setup CloudKit subscriptions: \(error.localizedDescription)")
-            }
-        }
     }
     
     // MARK: - Automatic Log Sync
@@ -212,519 +166,39 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     }
     
     /**
-     * Fetch data from CloudKit (primary source)
-     * This method completely overwrites local cache and in-memory data
-     */
-    func fetchFromCloudKit() {
-        cloudKitManager.fetchAll { [weak self] (ckBuckets: [CloudKitBucket], ckNotifications: [CloudKitNotification]) in
-            guard let self = self else { return }
-            
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                
-                // Convert CloudKit data to cache format
-                var bucketsData = ckBuckets.map { bucket -> [String: Any] in
-                    var dict: [String: Any] = [
-                        "id": bucket.id,
-                        "name": bucket.name,
-                        "unreadCount": 0 // Will be calculated from notifications
-                    ]
-                    
-                    if let color = bucket.color, !color.isEmpty {
-                        dict["color"] = color
-                    }
-                    
-                    if let iconUrl = bucket.iconUrl, !iconUrl.isEmpty {
-                        dict["iconUrl"] = iconUrl
-                    }
-                    
-                    return dict
-                }
-                
-                // Calculate unread count per bucket
-                var bucketUnreadCounts: [String: Int] = [:]
-                for notification in ckNotifications {
-                    if notification.readAt == nil {
-                        bucketUnreadCounts[notification.bucketId, default: 0] += 1
-                    }
-                }
-                
-                // Update bucket unread counts
-                for i in 0..<bucketsData.count {
-                    if let bucketId = bucketsData[i]["id"] as? String {
-                        bucketsData[i]["unreadCount"] = bucketUnreadCounts[bucketId] ?? 0
-                    }
-                }
-                
-                // Create a lookup map for buckets by ID (handle duplicates by keeping first occurrence)
-                var bucketMap: [String: CloudKitBucket] = [:]
-                for bucket in ckBuckets {
-                    if bucketMap[bucket.id] == nil {
-                        bucketMap[bucket.id] = bucket
-                    }
-                }
-                
-                let notificationsData = ckNotifications.map { notif -> [String: Any] in
-                    var dict: [String: Any] = [
-                        "id": notif.id,
-                        "title": notif.title,
-                        "body": notif.body ?? "",
-                        "bucketId": notif.bucketId,
-                        "isRead": notif.readAt != nil,
-                        "createdAt": DateConverter.dateToString(notif.createdAt)
-                    ]
-                    
-                    if let subtitle = notif.subtitle, !subtitle.isEmpty {
-                        dict["subtitle"] = subtitle
-                    }
-                    
-                    // Add bucket info from bucket lookup
-                    if let bucket = bucketMap[notif.bucketId] {
-                        dict["bucketName"] = bucket.name
-                        if let color = bucket.color, !color.isEmpty {
-                            dict["bucketColor"] = color
-                        }
-                        if let iconUrl = bucket.iconUrl, !iconUrl.isEmpty {
-                            dict["bucketIconUrl"] = iconUrl
-                        }
-                    }
-                    
-                    // Attachments
-                    if !notif.attachments.isEmpty {
-                        let attachmentsData = notif.attachments.map { attachment -> [String: Any] in
-                            var attachmentDict: [String: Any] = [
-                                "mediaType": attachment.mediaType
-                            ]
-                            
-                            if let url = attachment.url {
-                                attachmentDict["url"] = url
-                            }
-                            
-                            if let name = attachment.name {
-                                attachmentDict["name"] = name
-                            }
-                            
-                            return attachmentDict
-                        }
-                        dict["attachments"] = attachmentsData
-                    }
-                    
-                    return dict
-                }
-                
-                let totalUnreadCount = ckNotifications.filter { $0.readAt == nil }.count
-                
-                // Update cache with CloudKit data (COMPLETE OVERWRITE)
-                self.dataStore.updateFromiPhone(
-                    notifications: notificationsData,
-                    buckets: bucketsData,
-                    unreadCount: totalUnreadCount
-                )
-                
-                // Reload from cache (this resets all in-memory data)
-                self.loadCachedData()
-                
-                print("⌚ [WatchConnectivity] ✅ Synced from CloudKit: \(ckNotifications.count) notifications")
-            }
-        }
-    }
-    
-    /**
-     * Fetch incremental changes from CloudKit using change token
-     * This method applies only the changes (added/modified/deleted) to local cache
-     */
-    func fetchIncrementalChanges() {
-        print("⌚ [WatchConnectivity] 🔄 Starting incremental sync from CloudKit...")
-        
-        // Fetch incremental changes from CloudKit using CloudKitAccess
-        CloudKitAccess.fetchAllChanges { [weak self] result in
-            guard let self = self else { return }
-            
-            switch result {
-            case .success(let changes):
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
-                    
-                    let bucketChanges = changes.buckets
-                    let notificationChanges = changes.notifications
-                    
-                    print("⌚ [WatchConnectivity] 📊 Incremental changes received:")
-                    print("  - Buckets: \(bucketChanges.added.count) added, \(bucketChanges.modified.count) modified, \(bucketChanges.deleted.count) deleted")
-                    print("  - Notifications: \(notificationChanges.added.count) added, \(notificationChanges.modified.count) modified, \(notificationChanges.deleted.count) deleted")
-                    
-                    // Apply bucket changes
-                    self.applyBucketChanges(bucketChanges)
-                    
-                    // Apply notification changes
-                    self.applyNotificationChanges(notificationChanges)
-                    
-                    // Save to cache
-                    self.saveToCache()
-                    
-                    print("⌚ [WatchConnectivity] ✅ Incremental sync completed")
-                }
-                
-            case .failure(let error):
-                print("⌚ [WatchConnectivity] ❌ Failed to fetch incremental changes: \(error.localizedDescription)")
-            }
-        }
-    }
-    
-    /**
-     * Apply bucket changes (add/modify/delete) to in-memory state
-     */
-    private func applyBucketChanges(_ changes: CloudKitAccess.BucketChanges) {
-        // Delete buckets
-        for deletedId in changes.deleted {
-            if let index = buckets.firstIndex(where: { $0.id == deletedId }) {
-                buckets.remove(at: index)
-                print("⌚ [WatchConnectivity] 🗑️ Deleted bucket: \(deletedId)")
-            }
-        }
-        
-        // Add or modify buckets
-        let allBucketChanges = changes.added + changes.modified
-        for bucket in allBucketChanges {
-            // Calculate unread count for this bucket from notifications
-            let unreadCount = notifications.filter { 
-                $0.notification.bucketId == bucket.id && !$0.notification.isRead 
-            }.count
-            
-            let totalCount = notifications.filter { 
-                $0.notification.bucketId == bucket.id 
-            }.count
-            
-            // Calculate last notification date
-            let bucketNotifications = notifications.filter { $0.notification.bucketId == bucket.id }
-            let lastNotificationDate = bucketNotifications.compactMap { notifData -> Date? in
-                let isoFormatter = ISO8601DateFormatter()
-                isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                if let date = isoFormatter.date(from: notifData.notification.createdAt) {
-                    return date
-                }
-                // Try without fractional seconds
-                isoFormatter.formatOptions = [.withInternetDateTime]
-                return isoFormatter.date(from: notifData.notification.createdAt)
-            }.max()
-            
-            let bucketItem = BucketItem(
-                id: bucket.id,
-                name: bucket.name,
-                unreadCount: unreadCount,
-                totalCount: totalCount,
-                color: bucket.color,
-                iconUrl: bucket.iconUrl,
-                lastNotificationDate: lastNotificationDate
-            )
-            
-            if let index = buckets.firstIndex(where: { $0.id == bucket.id }) {
-                // Modify existing bucket
-                buckets[index] = bucketItem
-                print("⌚ [WatchConnectivity] ♻️ Updated bucket: \(bucket.name)")
-            } else {
-                // Add new bucket
-                buckets.append(bucketItem)
-                print("⌚ [WatchConnectivity] ➕ Added bucket: \(bucket.name)")
-            }
-        }
-        
-        // Recalculate unread count
-        unreadCount = notifications.filter { !$0.notification.isRead }.count
-    }
-    
-    /**
-     * Apply notification changes (add/modify/delete) to in-memory state
-     */
-    private func applyNotificationChanges(_ changes: CloudKitAccess.NotificationChanges) {
-        // Create bucket lookup map
-        var bucketMap: [String: BucketItem] = [:]
-        for bucket in buckets {
-            bucketMap[bucket.id] = bucket
-        }
-        
-        // Delete notifications
-        for deletedId in changes.deleted {
-            if let index = notifications.firstIndex(where: { $0.id == deletedId }) {
-                let deletedNotif = notifications[index]
-                notifications.remove(at: index)
-                print("⌚ [WatchConnectivity] 🗑️ Deleted notification: \(deletedId)")
-                
-                // Update bucket counts
-                if let bucket = bucketMap[deletedNotif.notification.bucketId],
-                   let bucketIndex = buckets.firstIndex(where: { $0.id == bucket.id }) {
-                    // Recalculate last notification date after deletion
-                    let remainingBucketNotifications = notifications.filter { $0.notification.bucketId == bucket.id }
-                    let lastNotificationDate = remainingBucketNotifications.compactMap { notifData -> Date? in
-                        let isoFormatter = ISO8601DateFormatter()
-                        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                        if let date = isoFormatter.date(from: notifData.notification.createdAt) {
-                            return date
-                        }
-                        isoFormatter.formatOptions = [.withInternetDateTime]
-                        return isoFormatter.date(from: notifData.notification.createdAt)
-                    }.max()
-                    
-                    let newBucket = BucketItem(
-                        id: bucket.id,
-                        name: bucket.name,
-                        unreadCount: max(0, bucket.unreadCount - (deletedNotif.notification.isRead ? 0 : 1)),
-                        totalCount: max(0, bucket.totalCount - 1),
-                        color: bucket.color,
-                        iconUrl: bucket.iconUrl,
-                        lastNotificationDate: lastNotificationDate
-                    )
-                    buckets[bucketIndex] = newBucket
-                }
-            }
-        }
-        
-        // Add or modify notifications
-        let allNotificationChanges = changes.added + changes.modified
-        for ckNotification in allNotificationChanges {
-            // Get bucket info
-            let bucket = bucketMap[ckNotification.bucketId]
-            
-            // Convert attachments
-            let attachments = ckNotification.attachments.map { attachment in
-                DatabaseAccess.WidgetAttachment(
-                    mediaType: attachment.mediaType,
-                    url: attachment.url,
-                    name: attachment.name
-                )
-            }
-            
-            let notification = DatabaseAccess.WidgetNotification(
-                id: ckNotification.id,
-                title: ckNotification.title,
-                body: ckNotification.body ?? "",
-                subtitle: ckNotification.subtitle,
-                createdAt: DateConverter.dateToString(ckNotification.createdAt),
-                isRead: ckNotification.readAt != nil,
-                bucketId: ckNotification.bucketId,
-                bucketName: bucket?.name,
-                bucketColor: bucket?.color,
-                bucketIconUrl: bucket?.iconUrl,
-                attachments: attachments
-            )
-            
-            let notificationData = NotificationData(notification: notification)
-            
-            if let index = notifications.firstIndex(where: { $0.id == ckNotification.id }) {
-                // Modify existing notification
-                let oldNotification = notifications[index]
-                let wasUnread = !oldNotification.notification.isRead
-                let isUnread = !notification.isRead
-                
-                notifications[index] = notificationData
-                print("⌚ [WatchConnectivity] ♻️ Updated notification: \(ckNotification.title)")
-                
-                // Update bucket unread count if read status changed
-                if wasUnread != isUnread {
-                    if let bucket = bucketMap[ckNotification.bucketId],
-                       let bucketIndex = buckets.firstIndex(where: { $0.id == bucket.id }) {
-                        let delta = isUnread ? 1 : -1
-                        
-                        // Recalculate last notification date
-                        let bucketNotifications = notifications.filter { $0.notification.bucketId == bucket.id }
-                        let lastNotificationDate = bucketNotifications.compactMap { notifData -> Date? in
-                            let isoFormatter = ISO8601DateFormatter()
-                            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                            if let date = isoFormatter.date(from: notifData.notification.createdAt) {
-                                return date
-                            }
-                            isoFormatter.formatOptions = [.withInternetDateTime]
-                            return isoFormatter.date(from: notifData.notification.createdAt)
-                        }.max()
-                        
-                        let newBucket = BucketItem(
-                            id: bucket.id,
-                            name: bucket.name,
-                            unreadCount: max(0, bucket.unreadCount + delta),
-                            totalCount: bucket.totalCount,
-                            color: bucket.color,
-                            iconUrl: bucket.iconUrl,
-                            lastNotificationDate: lastNotificationDate
-                        )
-                        buckets[bucketIndex] = newBucket
-                    }
-                }
-            } else {
-                // Add new notification
-                notifications.append(notificationData)
-                print("⌚ [WatchConnectivity] ➕ Added notification: \(ckNotification.title)")
-                
-                // Update bucket counts
-                if let bucket = bucketMap[ckNotification.bucketId],
-                   let bucketIndex = buckets.firstIndex(where: { $0.id == bucket.id }) {
-                    // Recalculate last notification date including the new notification
-                    let bucketNotifications = notifications.filter { $0.notification.bucketId == bucket.id }
-                    let lastNotificationDate = bucketNotifications.compactMap { notifData -> Date? in
-                        let isoFormatter = ISO8601DateFormatter()
-                        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                        if let date = isoFormatter.date(from: notifData.notification.createdAt) {
-                            return date
-                        }
-                        isoFormatter.formatOptions = [.withInternetDateTime]
-                        return isoFormatter.date(from: notifData.notification.createdAt)
-                    }.max()
-                    
-                    let newBucket = BucketItem(
-                        id: bucket.id,
-                        name: bucket.name,
-                        unreadCount: bucket.unreadCount + (notification.isRead ? 0 : 1),
-                        totalCount: bucket.totalCount + 1,
-                        color: bucket.color,
-                        iconUrl: bucket.iconUrl,
-                        lastNotificationDate: lastNotificationDate
-                    )
-                    buckets[bucketIndex] = newBucket
-                }
-            }
-        }
-        
-        // Recalculate total unread count
-        unreadCount = notifications.filter { !$0.notification.isRead }.count
-    }
-    
-    /**
-     * Request FULL data refresh from iPhone and CloudKit
+     * Request FULL data refresh from iPhone
      * Used ONLY by manual refresh button in Watch UI
-     * 1. Sends refresh request to iPhone (to sync with backend DB)
-     * 2. Then fetches fresh data from CloudKit
      */
     func requestFullRefresh() {
-        print("⌚ [Watch] 🔄 FULL refresh requested (manual button)")
+        print("⌚ [Watch] 🔄 FULL refresh requested (manual button) - using WatchConnectivity only")
         
-        // Clear CloudKit change tokens to force FULL sync (not incremental)
-        cloudKitManager.forceRefresh { [weak self] (ckBuckets: [CloudKitBucket], ckNotifications: [CloudKitNotification]) in
-            guard let self = self else { return }
-            
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                
-                // Convert CloudKit data to cache format
-                var bucketsData = ckBuckets.map { bucket -> [String: Any] in
-                    var dict: [String: Any] = [
-                        "id": bucket.id,
-                        "name": bucket.name,
-                        "unreadCount": 0 // Will be calculated from notifications
-                    ]
-                    
-                    if let color = bucket.color, !color.isEmpty {
-                        dict["color"] = color
-                    }
-                    
-                    if let iconUrl = bucket.iconUrl, !iconUrl.isEmpty {
-                        dict["iconUrl"] = iconUrl
-                    }
-                    
-                    return dict
-                }
-                
-                // Calculate unread count per bucket
-                var bucketUnreadCounts: [String: Int] = [:]
-                for notification in ckNotifications {
-                    if notification.readAt == nil {
-                        bucketUnreadCounts[notification.bucketId, default: 0] += 1
-                    }
-                }
-                
-                // Update bucket unread counts
-                for i in 0..<bucketsData.count {
-                    if let bucketId = bucketsData[i]["id"] as? String {
-                        bucketsData[i]["unreadCount"] = bucketUnreadCounts[bucketId] ?? 0
-                    }
-                }
-                
-                // Create a lookup map for buckets by ID
-                var bucketMap: [String: CloudKitBucket] = [:]
-                for bucket in ckBuckets {
-                    if bucketMap[bucket.id] == nil {
-                        bucketMap[bucket.id] = bucket
-                    }
-                }
-                
-                let notificationsData = ckNotifications.map { notif -> [String: Any] in
-                    var dict: [String: Any] = [
-                        "id": notif.id,
-                        "title": notif.title,
-                        "body": notif.body ?? "",
-                        "bucketId": notif.bucketId,
-                        "isRead": notif.readAt != nil,
-                        "createdAt": DateConverter.dateToString(notif.createdAt)
-                    ]
-                    
-                    if let subtitle = notif.subtitle, !subtitle.isEmpty {
-                        dict["subtitle"] = subtitle
-                    }
-                    
-                    // Add bucket info from bucket lookup
-                    if let bucket = bucketMap[notif.bucketId] {
-                        dict["bucketName"] = bucket.name
-                        if let color = bucket.color, !color.isEmpty {
-                            dict["bucketColor"] = color
-                        }
-                        if let iconUrl = bucket.iconUrl, !iconUrl.isEmpty {
-                            dict["bucketIconUrl"] = iconUrl
-                        }
-                    }
-                    
-                    // Attachments
-                    if !notif.attachments.isEmpty {
-                        let attachmentsData = notif.attachments.map { attachment -> [String: Any] in
-                            var attachmentDict: [String: Any] = [
-                                "mediaType": attachment.mediaType
-                            ]
-                            
-                            if let url = attachment.url {
-                                attachmentDict["url"] = url
-                            }
-                            
-                            if let name = attachment.name {
-                                attachmentDict["name"] = name
-                            }
-                            
-                            return attachmentDict
-                        }
-                        dict["attachments"] = attachmentsData
-                    }
-                    
-                    return dict
-                }
-                
-                let totalUnreadCount = ckNotifications.filter { $0.readAt == nil }.count
-                
-                // Update cache with CloudKit data (COMPLETE OVERWRITE)
-                self.dataStore.updateFromiPhone(
-                    notifications: notificationsData,
-                    buckets: bucketsData,
-                    unreadCount: totalUnreadCount
-                )
-                
-                // Reload from cache (this resets all in-memory data)
-                self.loadCachedData()
-                
-                print("⌚ [Watch] ✅ Full CloudKit refresh completed: \(ckNotifications.count) notifications, \(ckBuckets.count) buckets")
-            }
+        // Set loading state
+        DispatchQueue.main.async {
+            self.isWaitingForResponse = true
         }
         
-        // Also send refresh request to iPhone to sync with backend (only if reachable)
+        // Invia richiesta all'iPhone per full sync via WatchConnectivity
         if WCSession.default.isReachable {
-            print("⌚ [Watch] 📱 iPhone reachable - requesting full iOS sync")
+            print("⌚ [Watch] 📱 iPhone reachable - requesting full data transfer")
             sendMessageToiPhone([
-                "action": "refresh",
+                "action": "requestFullSync",
+                "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
+            ])
+        } else {
+            print("⌚ [Watch] 📱 iPhone not reachable - queueing full sync request")
+            WCSession.default.transferUserInfo([
+                "action": "requestFullSync",
                 "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
             ])
         }
-    }
-    
-    /**
-     * Fetch data from CloudKit only (without requesting iOS sync)
-     * Used when Watch app opens - Watch manages its own data independently
-     */
-    func fetchFromCloudKitOnly() {
-        print("⌚ [Watch] 🔄 Fetching from CloudKit only (app opened)")
-        fetchFromCloudKit()
+        
+        // Safety timeout - stop loading after 30 seconds (file transfer can take time)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
+            if self.isWaitingForResponse {
+                print("⌚ [Watch] ⏱️ Full refresh timeout (30s) - stopping loader")
+                self.isWaitingForResponse = false
+            }
+        }
     }
     
     /**
@@ -742,6 +216,11 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         // Reload from cache (this resets all in-memory data)
         loadCachedData()
         
+        // Stop loading state
+        DispatchQueue.main.async {
+            self.isWaitingForResponse = false
+        }
+        
         print("⌚ [WatchConnectivity] ✅ Updated from iPhone: \(notifications.count) notifications")
     }
     
@@ -749,7 +228,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     
     /**
      * Mark notification as read from Watch UI
-     * Updates local cache and notifies iPhone (iPhone will sync to CloudKit)
+     * Updates local cache and notifies iPhone
      */
     func markNotificationAsReadFromWatch(id: String) {
         let now = ISO8601DateFormatter().string(from: Date())
@@ -757,81 +236,48 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         // 1. Update local cache immediately
         markNotificationAsRead(id: id, readAt: now)
         
-        // 2. Update CloudKit (non-blocking)
-        CloudKitAccess.markNotificationAsRead(id: id) { result in
-            switch result {
-            case .success:
-                print("⌚ [Watch] ✅ CloudKit updated for MARK_AS_READ")
-            case .failure(let error):
-                print("⌚ [Watch] ⚠️ CloudKit update failed (non-critical): \(error.localizedDescription)")
-            }
-        }
-        
-        // 3. Notify iPhone to sync to backend and CloudKit
-        // (Will be buffered automatically if iPhone not reachable)
+        // 2. Notify iPhone to sync to backend
         sendMessageToiPhone([
             "action": "notificationRead",
             "notificationId": id,
             "readAt": now
         ])
         
-        print("⌚ [Watch] ✅ Marked as read locally, notified iPhone")
+        print("⌚ [Watch] ✅ Marked as read locally and notified iPhone")
     }
     
     /**
      * Mark notification as unread from Watch UI
-     * Updates local cache and notifies iPhone (iPhone will sync to CloudKit)
+     * Updates local cache and notifies iPhone
      */
     func markNotificationAsUnreadFromWatch(id: String) {
         // 1. Update local cache immediately
         markNotificationAsUnread(id: id)
         
-        // 2. Update CloudKit (non-blocking)
-        CloudKitAccess.markNotificationAsUnread(id: id) { result in
-            switch result {
-            case .success:
-                print("⌚ [Watch] ✅ CloudKit updated for MARK_AS_UNREAD")
-            case .failure(let error):
-                print("⌚ [Watch] ⚠️ CloudKit update failed (non-critical): \(error.localizedDescription)")
-            }
-        }
-        
-        // 3. Notify iPhone to sync to backend and CloudKit
-        // (Will be buffered automatically if iPhone not reachable)
+        // 2. Notify iPhone to sync to backend
         sendMessageToiPhone([
             "action": "notificationUnread",
             "notificationId": id
         ])
         
-        print("⌚ [Watch] ✅ Marked as unread locally, notified iPhone")
+        print("⌚ [Watch] ✅ Marked as unread locally and notified iPhone")
     }
     
     /**
      * Delete notification from Watch UI
-     * Updates local cache and notifies iPhone (iPhone will handle backend)
+     * Updates local cache and notifies iPhone
      */
     func deleteNotificationFromWatch(id: String) {
         // 1. Delete from local cache immediately
         deleteNotificationLocally(id: id)
         
-        // 2. Delete from CloudKit (non-blocking)
-        CloudKitAccess.deleteNotification(id: id) { result in
-            switch result {
-            case .success:
-                print("⌚ [Watch] ✅ CloudKit updated for DELETE")
-            case .failure(let error):
-                print("⌚ [Watch] ⚠️ CloudKit delete failed (non-critical): \(error.localizedDescription)")
-            }
-        }
-        
-        // 3. Notify iPhone to delete from backend (not CloudKit - Watch already did it)
-        // (Will be buffered automatically if iPhone not reachable)
+        // 2. Notify iPhone to delete from backend
         sendMessageToiPhone([
             "action": "notificationDeleted",
             "notificationId": id
         ])
         
-        print("⌚ [Watch] ✅ Deleted locally and from CloudKit, notified iPhone for backend sync")
+        print("⌚ [Watch] ✅ Deleted locally and notified iPhone")
     }
     
     /**
@@ -847,17 +293,38 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             return
         }
         
+        // Check if this is a full sync request
+        let isFullSyncRequest = message["action"] as? String == "requestFullSync"
+        
         if WCSession.default.isReachable {
             print("⌚ ✅ iPhone is reachable, sending message immediately...")
             // iPhone is reachable, send immediately
             WCSession.default.sendMessage(message, replyHandler: { reply in
                 print("⌚ ✅ Message sent successfully to iPhone: \(message["action"] ?? "")")
-                print("⌚ Reply from iPhone: \(reply)")
+                print("⌚ 📦 Reply from iPhone: \(reply)")
+                
+                // For full sync, iPhone will send data via sendMessageData
+                // Just confirm the request was received, don't stop loading yet
+                if isFullSyncRequest {
+                    if let method = reply["method"] as? String {
+                        print("⌚ [WatchConnectivity] 📲 Full sync acknowledged, waiting for \(method)...")
+                    } else {
+                        print("⌚ [WatchConnectivity] 📲 Full sync acknowledged, waiting for messageData...")
+                    }
+                    // Keep loading state active - will be stopped when file arrives
+                }
             }) { error in
                 print("⌚ ❌ Failed to send message: \(error.localizedDescription)")
                 print("⌚ Falling back to background transfer...")
                 // Fallback to background transfer
                 WCSession.default.transferUserInfo(message)
+                
+                // Stop loading for full sync on error
+                if isFullSyncRequest {
+                    DispatchQueue.main.async {
+                        self.isWaitingForResponse = false
+                    }
+                }
             }
         } else {
             print("⌚ ⚠️ iPhone not reachable, using background transfer...")
@@ -1150,6 +617,126 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         dataStore.saveCache(cache)
     }
     
+    /**
+     * Save notification from GraphQL fragment to local database
+     * Called when receiving notificationAdded event with complete fragment
+     */
+    private func saveNotificationFromFragment(fragment: [String: Any]) {
+        guard let notificationId = fragment["id"] as? String,
+              let messageObj = fragment["message"] as? [String: Any],
+              let title = messageObj["title"] as? String,
+              let body = messageObj["body"] as? String,
+              let bucketObj = messageObj["bucket"] as? [String: Any],
+              let bucketId = bucketObj["id"] as? String else {
+            print("⌚ [WatchConnectivity] ❌ Invalid notification fragment structure")
+            return
+        }
+        
+        let createdAt = fragment["createdAt"] as? String ?? ISO8601DateFormatter().string(from: Date())
+        let subtitle = messageObj["subtitle"] as? String
+        let bucketName = bucketObj["name"] as? String
+        let bucketColor = bucketObj["color"] as? String
+        let bucketIconUrl = bucketObj["iconUrl"] as? String
+        let readAt = fragment["readAt"] as? String
+        let isRead = readAt != nil
+        
+        // Parse attachments
+        var attachments: [DatabaseAccess.WidgetAttachment] = []
+        if let attachmentsArray = messageObj["attachments"] as? [[String: Any]] {
+            for attachmentDict in attachmentsArray {
+                if let mediaType = attachmentDict["mediaType"] as? String,
+                   let url = attachmentDict["url"] as? String {
+                    let attachment = DatabaseAccess.WidgetAttachment(
+                        mediaType: mediaType,
+                        url: url,
+                        name: attachmentDict["name"] as? String
+                    )
+                    attachments.append(attachment)
+                }
+            }
+        }
+        
+        // Create notification object
+        let notification = DatabaseAccess.WidgetNotification(
+            id: notificationId,
+            title: title,
+            body: body,
+            subtitle: subtitle,
+            createdAt: createdAt,
+            isRead: isRead,
+            bucketId: bucketId,
+            bucketName: bucketName,
+            bucketColor: bucketColor,
+            bucketIconUrl: bucketIconUrl,
+            attachments: attachments
+        )
+        
+        let notificationData = NotificationData(notification: notification)
+        
+        // Add to in-memory notifications array (at the beginning for newest first)
+        notifications.insert(notificationData, at: 0)
+        
+        // Update or create bucket
+        if let bucketIndex = buckets.firstIndex(where: { $0.id == bucketId }) {
+            // Update existing bucket
+            let oldBucket = buckets[bucketIndex]
+            
+            // Parse notification date
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            var notificationDate = isoFormatter.date(from: createdAt)
+            if notificationDate == nil {
+                isoFormatter.formatOptions = [.withInternetDateTime]
+                notificationDate = isoFormatter.date(from: createdAt)
+            }
+            
+            let newBucket = BucketItem(
+                id: oldBucket.id,
+                name: oldBucket.name,
+                unreadCount: oldBucket.unreadCount + (isRead ? 0 : 1),
+                totalCount: oldBucket.totalCount + 1,
+                color: oldBucket.color,
+                iconUrl: oldBucket.iconUrl,
+                lastNotificationDate: notificationDate ?? oldBucket.lastNotificationDate
+            )
+            buckets[bucketIndex] = newBucket
+            
+            print("⌚ [WatchConnectivity] ♻️ Updated bucket: \(oldBucket.name) (total: \(newBucket.totalCount), unread: \(newBucket.unreadCount))")
+        } else if let bucketName = bucketName {
+            // Create new bucket
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            var notificationDate = isoFormatter.date(from: createdAt)
+            if notificationDate == nil {
+                isoFormatter.formatOptions = [.withInternetDateTime]
+                notificationDate = isoFormatter.date(from: createdAt)
+            }
+            
+            let newBucket = BucketItem(
+                id: bucketId,
+                name: bucketName,
+                unreadCount: isRead ? 0 : 1,
+                totalCount: 1,
+                color: bucketColor ?? "",
+                iconUrl: bucketIconUrl ?? "",
+                lastNotificationDate: notificationDate
+            )
+            buckets.append(newBucket)
+            
+            print("⌚ [WatchConnectivity] ➕ Created new bucket: \(bucketName)")
+        }
+        
+        // Update unread count
+        if !isRead {
+            unreadCount += 1
+        }
+        
+        // Save to cache
+        saveToCache()
+        
+        print("⌚ [WatchConnectivity] ✅ Saved notification \(notificationId) from fragment (total: \(notifications.count), unread: \(unreadCount))")
+    }
+    
     // MARK: - Read-only mode (operations removed)
     // Watch is now readonly - no delete or mark as read operations
     // All operations must be done from iPhone app
@@ -1199,17 +786,22 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     replyHandler(["error": "Missing notificationId"])
                 }
                 
-            case "notificationsRead":
-                // Mark multiple notifications as read
-                if let notificationIds = message["notificationIds"] as? [String],
-                   let readAt = message["readAt"] as? String {
-                    print("⌚ [WatchConnectivity] 📖 Marking \(notificationIds.count) notifications as read")
+            case "notificationsRead", "notificationsUnread":
+                // Mark multiple notifications as read or unread
+                if let notificationIds = message["notificationIds"] as? [String] {
+                    let readAt = message["readAt"] as? String // nil = unread
+                    let status = readAt != nil ? "read" : "unread"
+                    print("⌚ [WatchConnectivity] 📖 Marking \(notificationIds.count) notifications as \(status)")
                     for id in notificationIds {
-                        self.markNotificationAsRead(id: id, readAt: readAt)
+                        if let readAt = readAt {
+                            self.markNotificationAsRead(id: id, readAt: readAt)
+                        } else {
+                            self.markNotificationAsUnread(id: id)
+                        }
                     }
                     replyHandler(["success": true])
                 } else {
-                    replyHandler(["error": "Missing notificationIds or readAt"])
+                    replyHandler(["error": "Missing notificationIds"])
                 }
                 
             case "notificationDeleted":
@@ -1223,25 +815,26 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 }
                 
             case "notificationAdded":
-                // New notification added - trigger reload from CloudKit
-                if let notificationId = message["notificationId"] as? String {
-                    print("⌚ [WatchConnectivity] ➕ New notification \(notificationId) - fetching from CloudKit")
-                    self.fetchFromCloudKit()
+                // New notification added with complete fragment - save to local database
+                if let notificationId = message["notificationId"] as? String,
+                   let fragment = message["fragment"] as? [String: Any] {
+                    print("⌚ [WatchConnectivity] ➕ New notification \(notificationId) with fragment - saving to local DB")
+                    self.saveNotificationFromFragment(fragment: fragment)
                     replyHandler(["success": true])
                 } else {
-                    replyHandler(["error": "Missing notificationId"])
+                    print("⌚ [WatchConnectivity] ⚠️ notificationAdded missing fragment - fallback to reload")
+                    replyHandler(["error": "Missing fragment"])
                 }
                 
             case "reload":
-                // Full reload - fetch fresh data from CloudKit
-                print("⌚ [WatchConnectivity] 🔄 Received reload trigger from iPhone")
-                self.fetchFromCloudKit()
+                // Full reload - wait for iPhone data
+                print("⌚ [WatchConnectivity] 🔄 Received reload trigger from iPhone - waiting for data")
+                // iPhone invierà i dati via transferFile
                 replyHandler(["success": true])
                 
             case "syncIncremental":
-                // Incremental sync - fetch only changes from CloudKit
-                print("⌚ [WatchConnectivity] 🔄 Received incremental sync trigger from iPhone")
-                self.fetchIncrementalChanges()
+                // Incremental sync - use cache
+                print("⌚ [WatchConnectivity] 🔄 Received incremental sync trigger - using cache")
                 replyHandler(["success": true])
                 
             case "fullUpdate":
@@ -1273,11 +866,20 @@ extension WatchConnectivityManager: WCSessionDelegate {
     }
     
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
-        print("⌚ [WatchConnectivity] 📦 Received background transfer")
+        print("⌚ ========== BACKGROUND TRANSFER RECEIVED ==========")
+        print("⌚ [WatchConnectivity] 📦 UserInfo keys: \(userInfo.keys.joined(separator: ", "))")
+        print("⌚ [WatchConnectivity] 📦 UserInfo count: \(userInfo.count)")
         
         guard let action = userInfo["action"] as? String else {
             print("⌚ [WatchConnectivity] ⚠️ No action in userInfo")
             return
+        }
+        
+        print("⌚ [WatchConnectivity] 🎬 Action: \(action)")
+        
+        // Show loader for background processing (buffered messages)
+        DispatchQueue.main.async {
+            self.isWaitingForResponse = true
         }
         
         DispatchQueue.main.async {
@@ -1295,12 +897,18 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     self.markNotificationAsUnread(id: notificationId)
                 }
                 
-            case "notificationsRead":
-                if let notificationIds = userInfo["notificationIds"] as? [String],
-                   let readAt = userInfo["readAt"] as? String {
-                    print("⌚ [WatchConnectivity] 📖 Marking \(notificationIds.count) notifications as read (background)")
+            case "notificationsRead", "notificationsUnread":
+                // Mark multiple notifications as read or unread
+                if let notificationIds = userInfo["notificationIds"] as? [String] {
+                    let readAt = userInfo["readAt"] as? String // nil = unread
+                    let status = readAt != nil ? "read" : "unread"
+                    print("⌚ [WatchConnectivity] 📖 Marking \(notificationIds.count) notifications as \(status) (background)")
                     for id in notificationIds {
-                        self.markNotificationAsRead(id: id, readAt: readAt)
+                        if let readAt = readAt {
+                            self.markNotificationAsRead(id: id, readAt: readAt)
+                        } else {
+                            self.markNotificationAsUnread(id: id)
+                        }
                     }
                 }
                 
@@ -1311,19 +919,132 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 }
                 
             case "notificationAdded":
-                if let notificationId = userInfo["notificationId"] as? String {
-                    print("⌚ [WatchConnectivity] ➕ New notification \(notificationId) - fetching from CloudKit (background)")
-                    self.fetchFromCloudKit()
+                // New notification added with complete fragment - save to local database
+                if let notificationId = userInfo["notificationId"] as? String,
+                   let fragment = userInfo["fragment"] as? [String: Any] {
+                    print("⌚ [WatchConnectivity] ➕ New notification \(notificationId) with fragment - saving to local DB (background)")
+                    self.saveNotificationFromFragment(fragment: fragment)
+                } else {
+                    print("⌚ [WatchConnectivity] ⚠️ notificationAdded missing fragment (background)")
                 }
                 
             case "reload":
-                print("⌚ [WatchConnectivity] 🔄 Received reload trigger from iPhone (background)")
-                self.fetchFromCloudKit()
+                print("⌚ [WatchConnectivity] 🔄 Received reload trigger from iPhone (background) - waiting for data")
+                // iPhone invierà i dati via transferFile
             
             case "syncIncremental":
-                // Incremental sync - fetch only changes from CloudKit (background)
-                print("⌚ [WatchConnectivity] 🔄 Received incremental sync trigger from iPhone (background)")
-                self.fetchIncrementalChanges()
+                // Incremental sync - use cache
+                print("⌚ [WatchConnectivity] 🔄 Received incremental sync trigger (background)")
+                // Usa cache esistente
+            
+            case "fullSyncData":
+                // Full sync data received via transferUserInfo (large payload, background-compatible)
+                print("⌚ [WatchConnectivity] 📲 ========== FULL SYNC DATA RECEIVED (BACKGROUND) ==========")
+                
+                if let bucketsData = userInfo["buckets"] as? [[String: Any]],
+                   let notificationsData = userInfo["notifications"] as? [[String: Any]],
+                   let syncUnreadCount = userInfo["unreadCount"] as? Int {
+                    
+                    print("⌚ [WatchConnectivity] 📦 Received payload:")
+                    print("  - Buckets: \(bucketsData.count)")
+                    print("  - Notifications: \(notificationsData.count)")
+                    print("  - Unread: \(syncUnreadCount)")
+                    
+                    // Process on background queue to avoid blocking main thread
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        // Parse buckets
+                        var buckets: [BucketItem] = []
+                        for bucketDict in bucketsData {
+                            guard let id = bucketDict["id"] as? String,
+                                  let name = bucketDict["name"] as? String else {
+                                continue
+                            }
+                            
+                            let bucket = BucketItem(
+                                id: id,
+                                name: name,
+                                unreadCount: bucketDict["unreadCount"] as? Int ?? 0,
+                                totalCount: bucketDict["totalCount"] as? Int ?? 0,
+                                color: bucketDict["color"] as? String,
+                                iconUrl: bucketDict["iconUrl"] as? String,
+                                lastNotificationDate: nil
+                            )
+                            buckets.append(bucket)
+                        }
+                        
+                        // Parse notifications
+                        var notifications: [NotificationData] = []
+                        for notifDict in notificationsData {
+                            guard let id = notifDict["id"] as? String,
+                                  let title = notifDict["title"] as? String else {
+                                continue
+                            }
+                            
+                            // Parse attachments
+                            var attachments: [DatabaseAccess.WidgetAttachment] = []
+                            if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
+                                for attachmentDict in attachmentsArray {
+                                    if let mediaType = attachmentDict["mediaType"] as? String,
+                                       let url = attachmentDict["url"] as? String {
+                                        let attachment = DatabaseAccess.WidgetAttachment(
+                                            mediaType: mediaType,
+                                            url: url,
+                                            name: attachmentDict["name"] as? String
+                                        )
+                                        attachments.append(attachment)
+                                    }
+                                }
+                            }
+                            
+                            let widgetNotification = DatabaseAccess.WidgetNotification(
+                                id: id,
+                                title: title,
+                                body: notifDict["body"] as? String ?? "",
+                                subtitle: notifDict["subtitle"] as? String,
+                                createdAt: notifDict["createdAt"] as? String ?? "",
+                                isRead: notifDict["readAt"] != nil,
+                                bucketId: notifDict["bucketId"] as? String ?? "",
+                                bucketName: nil,
+                                bucketColor: nil,
+                                bucketIconUrl: nil,
+                                attachments: attachments
+                            )
+                            
+                            let notification = NotificationData(notification: widgetNotification)
+                            notifications.append(notification)
+                        }
+                        
+                        print("⌚ [WatchConnectivity] ✅ Parsed \(buckets.count) buckets and \(notifications.count) notifications")
+                        
+                        // Update on main thread
+                        DispatchQueue.main.async {
+                            self.dataStore.updateFromiPhone(
+                                notifications: notificationsData,
+                                buckets: bucketsData,
+                                unreadCount: syncUnreadCount
+                            )
+                            
+                            // Update published properties
+                            self.buckets = buckets
+                            self.notifications = notifications
+                            self.unreadCount = syncUnreadCount
+                            self.lastUpdate = Date()
+                            
+                            // Stop loading state
+                            self.isWaitingForResponse = false
+                            
+                            print("⌚ [WatchConnectivity] ✅ Full sync completed successfully via transferUserInfo")
+                            print("  - Updated \(buckets.count) buckets")
+                            print("  - Updated \(notifications.count) notifications")
+                            print("  - Unread count: \(syncUnreadCount)")
+                        }
+                    }
+                } else {
+                    print("⌚ [WatchConnectivity] ❌ Invalid fullSyncData payload - missing required fields")
+                    DispatchQueue.main.async {
+                        self.isWaitingForResponse = false
+                    }
+                }
             
             case "fullUpdate":
                 // Full data update from iPhone - completely overwrite cache
@@ -1336,12 +1057,640 @@ extension WatchConnectivityManager: WCSessionDelegate {
                         buckets: bucketsData,
                         unreadCount: unreadCount
                     )
+                } else {
+                    // Stop loading if fullUpdate failed
+                    self.isWaitingForResponse = false
                 }
                 
             default:
                 print("⌚ [WatchConnectivity] ⚠️ Unknown action: \(action)")
+                // Stop loading for unknown actions
+                self.isWaitingForResponse = false
+            }
+            
+            // Hide loader after processing (except for fullUpdate which handles it in updateFromiPhoneMessage)
+            if action != "fullUpdate" {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.isWaitingForResponse = false
+                }
+            }
+        }
+    }
+    
+    // MARK: - Application Context Reception (for state synchronization)
+    
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
+        print("⌚ ========== APPLICATION CONTEXT RECEIVED ==========")
+        print("⌚ [WatchConnectivity] 📦 Context keys: \(applicationContext.keys.joined(separator: ", "))")
+        print("⌚ [WatchConnectivity] 📦 Context count: \(applicationContext.count)")
+        
+        guard let action = applicationContext["action"] as? String else {
+            print("⌚ [WatchConnectivity] ⚠️ No action in applicationContext")
+            return
+        }
+        
+        print("⌚ [WatchConnectivity] 🎬 Action: \(action)")
+        
+        guard action == "fullSyncData" else {
+            print("⌚ [WatchConnectivity] ⚠️ Unexpected action: \(action)")
+            return
+        }
+        
+        // Start loading state
+        DispatchQueue.main.async {
+            self.isWaitingForResponse = true
+        }
+        
+        print("⌚ [WatchConnectivity] 📲 ========== FULL SYNC DATA RECEIVED (APP CONTEXT) ==========")
+        
+        guard let bucketsData = applicationContext["buckets"] as? [[String: Any]],
+              let notificationsData = applicationContext["notifications"] as? [[String: Any]],
+              let syncUnreadCount = applicationContext["unreadCount"] as? Int else {
+            print("⌚ [WatchConnectivity] ❌ Invalid fullSyncData payload - missing required fields")
+            DispatchQueue.main.async {
+                self.isWaitingForResponse = false
+            }
+            return
+        }
+        
+        print("⌚ [WatchConnectivity] 📦 Received payload:")
+        print("  - Buckets: \(bucketsData.count)")
+        print("  - Notifications: \(notificationsData.count)")
+        print("  - Unread: \(syncUnreadCount)")
+        
+        // Process on background queue to avoid blocking main thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            // Parse buckets
+            var buckets: [BucketItem] = []
+            print("⌚ [WatchConnectivity] 🔄 Parsing \(bucketsData.count) buckets...")
+            for bucketDict in bucketsData {
+                guard let id = bucketDict["id"] as? String,
+                      let name = bucketDict["name"] as? String else {
+                    print("⌚ [WatchConnectivity] ⚠️ Skipping bucket - missing id or name")
+                    continue
+                }
+                
+                let bucket = BucketItem(
+                    id: id,
+                    name: name,
+                    unreadCount: bucketDict["unreadCount"] as? Int ?? 0,
+                    totalCount: bucketDict["totalCount"] as? Int ?? 0,
+                    color: bucketDict["color"] as? String,
+                    iconUrl: bucketDict["iconUrl"] as? String,
+                    lastNotificationDate: nil
+                )
+                buckets.append(bucket)
+                print("⌚ [WatchConnectivity] ✅ Parsed bucket: \(name) (unread: \(bucket.unreadCount), total: \(bucket.totalCount))")
+            }
+            print("⌚ [WatchConnectivity] 📊 Total buckets parsed: \(buckets.count)")
+            
+            // Parse notifications
+            var notifications: [NotificationData] = []
+            for notifDict in notificationsData {
+                guard let id = notifDict["id"] as? String,
+                      let title = notifDict["title"] as? String else {
+                    continue
+                }
+                
+                // Parse attachments
+                var attachments: [DatabaseAccess.WidgetAttachment] = []
+                if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
+                    for attachmentDict in attachmentsArray {
+                        if let mediaType = attachmentDict["mediaType"] as? String,
+                           let url = attachmentDict["url"] as? String {
+                            let attachment = DatabaseAccess.WidgetAttachment(
+                                mediaType: mediaType,
+                                url: url,
+                                name: attachmentDict["name"] as? String
+                            )
+                            attachments.append(attachment)
+                        }
+                    }
+                }
+                
+                // Parse isRead field - prefer 'isRead' if present, otherwise check for 'readAt'
+                let isRead: Bool
+                if let isReadValue = notifDict["isRead"] as? Bool {
+                    isRead = isReadValue
+                } else {
+                    isRead = notifDict["readAt"] != nil
+                }
+                
+                let widgetNotification = DatabaseAccess.WidgetNotification(
+                    id: id,
+                    title: title,
+                    body: notifDict["body"] as? String ?? "",
+                    subtitle: notifDict["subtitle"] as? String,
+                    createdAt: notifDict["createdAt"] as? String ?? "",
+                    isRead: isRead,
+                    bucketId: notifDict["bucketId"] as? String ?? "",
+                    bucketName: nil,
+                    bucketColor: nil,
+                    bucketIconUrl: nil,
+                    attachments: attachments
+                )
+                
+                let notification = NotificationData(notification: widgetNotification)
+                notifications.append(notification)
+            }
+            
+            print("⌚ [WatchConnectivity] ✅ Parsed \(buckets.count) buckets and \(notifications.count) notifications")
+            
+            // Sort notifications: unread first, then by createdAt (newest first)
+            notifications.sort { notif1, notif2 in
+                // If read status differs, unread comes first
+                if notif1.notification.isRead != notif2.notification.isRead {
+                    return !notif1.notification.isRead // true (unread) comes before false (read)
+                }
+                
+                // If read status is the same, sort by createdAt (newest first)
+                // Parse ISO8601 dates and compare
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                
+                let date1 = formatter.date(from: notif1.notification.createdAt) ?? Date.distantPast
+                let date2 = formatter.date(from: notif2.notification.createdAt) ?? Date.distantPast
+                
+                return date1 > date2 // Newer dates first
+            }
+            
+            print("⌚ [WatchConnectivity] 🔄 Sorted \(notifications.count) notifications (unread first, then by date)")
+            
+            // Recalculate totalCount and unreadCount for each bucket based on actual notifications
+            for i in 0..<buckets.count {
+                let bucketId = buckets[i].id
+                let notificationsInBucket = notifications.filter { $0.notification.bucketId == bucketId }
+                let totalCount = notificationsInBucket.count
+                let unreadCount = notificationsInBucket.filter { !$0.notification.isRead }.count
+                
+                // Update bucket with correct totalCount and unreadCount
+                buckets[i] = BucketItem(
+                    id: buckets[i].id,
+                    name: buckets[i].name,
+                    unreadCount: unreadCount,
+                    totalCount: totalCount,
+                    color: buckets[i].color,
+                    iconUrl: buckets[i].iconUrl,
+                    lastNotificationDate: buckets[i].lastNotificationDate
+                )
+                
+                print("⌚ [WatchConnectivity] 🔢 Bucket '\(buckets[i].name)' - Recalculated totalCount: \(totalCount), unreadCount: \(unreadCount)")
+            }
+            
+            // Print sample of notifications to verify read status
+            print("\n📬 Sample notifications (first 5):")
+            for (index, notification) in notifications.prefix(5).enumerated() {
+                print("  [\(index + 1)] ID: \(notification.id)")
+                print("      Title: \(notification.notification.title)")
+                print("      Read: \(notification.notification.isRead ? "✅ YES" : "❌ NO")")
+                print("      ReadAt: \(notification.notification.isRead ? "YES" : "NO")")
+                print("      Bucket: \(notification.notification.bucketId)")
+            }
+            print("📊 Total notifications: \(notifications.count)")
+            print("📊 Unread count from payload: \(syncUnreadCount)")
+            let actualUnreadCount = notifications.filter { !$0.notification.isRead }.count
+            print("📊 Actual unread count (calculated): \(actualUnreadCount)")
+            print("📊 Read count (calculated): \(notifications.count - actualUnreadCount)\n")
+            
+            // Update on main thread
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                
+                print("⌚ [WatchConnectivity] 🔄 Updating UI on main thread...")
+                print("  - Current buckets count: \(self.buckets.count)")
+                print("  - New buckets count: \(buckets.count)")
+                
+                self.dataStore.updateFromiPhone(
+                    notifications: notificationsData,
+                    buckets: bucketsData,
+                    unreadCount: actualUnreadCount  // ← Use calculated value instead of payload
+                )
+                
+                // Update published properties
+                self.buckets = buckets
+                self.notifications = notifications
+                self.unreadCount = actualUnreadCount  // ← Use calculated value instead of payload
+                self.lastUpdate = Date()
+                
+                print("⌚ [WatchConnectivity] 🎯 Published properties updated:")
+                print("  - self.buckets.count = \(self.buckets.count)")
+                print("  - self.notifications.count = \(self.notifications.count)")
+                print("  - self.unreadCount = \(self.unreadCount)")
+                
+                // Stop loading state
+                self.isWaitingForResponse = false
+                
+                print("⌚ [WatchConnectivity] ✅ Full sync completed successfully via ApplicationContext")
+                print("  - Updated \(buckets.count) buckets")
+                print("  - Updated \(notifications.count) notifications")
+                print("  - Unread count: \(actualUnreadCount) (recalculated from notifications)")
+            }
+        }
+    }
+    
+    // MARK: - Message Data Reception (for large payloads)
+    
+    func session(_ session: WCSession, didReceiveMessageData messageData: Data, replyHandler: @escaping (Data) -> Void) {
+        print("⌚ ========== MESSAGE DATA RECEIVED FROM IPHONE ==========")
+        print("⌚ Data size: \(messageData.count) bytes")
+        
+        // Start loading state
+        DispatchQueue.main.async { [weak self] in
+            self?.isWaitingForResponse = true
+        }
+        
+        // Process on background queue
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                print("⌚ [WatchConnectivity] 🔄 Parsing JSON data...")
+                guard let json = try JSONSerialization.jsonObject(with: messageData) as? [String: Any] else {
+                    print("⌚ [WatchConnectivity] ❌ Failed to parse JSON - not a dictionary")
+                    DispatchQueue.main.async {
+                        self?.isWaitingForResponse = false
+                    }
+                    // Send error reply
+                    let errorReply = try? JSONSerialization.data(withJSONObject: ["success": false, "error": "Invalid JSON"])
+                    replyHandler(errorReply ?? Data())
+                    return
+                }
+                
+                guard let bucketsData = json["buckets"] as? [[String: Any]],
+                      let notificationsData = json["notifications"] as? [[String: Any]],
+                      let syncUnreadCount = json["unreadCount"] as? Int else {
+                    print("⌚ [WatchConnectivity] ❌ Missing required fields in JSON")
+                    print("⌚ [WatchConnectivity] 🔍 JSON keys: \(json.keys)")
+                    DispatchQueue.main.async {
+                        self?.isWaitingForResponse = false
+                    }
+                    // Send error reply
+                    let errorReply = try? JSONSerialization.data(withJSONObject: ["success": false, "error": "Missing fields"])
+                    replyHandler(errorReply ?? Data())
+                    return
+                }
+                
+                print("⌚ [WatchConnectivity] 📦 Parsed JSON:")
+                print("  - Buckets: \(bucketsData.count)")
+                print("  - Notifications: \(notificationsData.count)")
+                print("  - Unread count: \(syncUnreadCount)")
+                
+                // Parse buckets
+                var buckets: [BucketItem] = []
+                for bucketDict in bucketsData {
+                    guard let id = bucketDict["id"] as? String,
+                          let name = bucketDict["name"] as? String else {
+                        continue
+                    }
+                    
+                    let bucket = BucketItem(
+                        id: id,
+                        name: name,
+                        unreadCount: bucketDict["unreadCount"] as? Int ?? 0,
+                        totalCount: bucketDict["totalCount"] as? Int ?? 0,
+                        color: bucketDict["color"] as? String,
+                        iconUrl: bucketDict["iconUrl"] as? String,
+                        lastNotificationDate: nil
+                    )
+                    buckets.append(bucket)
+                }
+                
+                // Parse notifications
+                var notifications: [NotificationData] = []
+                for notifDict in notificationsData {
+                    guard let id = notifDict["id"] as? String,
+                          let title = notifDict["title"] as? String else {
+                        continue
+                    }
+                    
+                    // Parse attachments
+                    var attachments: [DatabaseAccess.WidgetAttachment] = []
+                    if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
+                        for attachmentDict in attachmentsArray {
+                            if let mediaType = attachmentDict["mediaType"] as? String,
+                               let url = attachmentDict["url"] as? String {
+                                let attachment = DatabaseAccess.WidgetAttachment(
+                                    mediaType: mediaType,
+                                    url: url,
+                                    name: attachmentDict["name"] as? String
+                                )
+                                attachments.append(attachment)
+                            }
+                        }
+                    }
+                    
+                    let widgetNotification = DatabaseAccess.WidgetNotification(
+                        id: id,
+                        title: title,
+                        body: notifDict["body"] as? String ?? "",
+                        subtitle: notifDict["subtitle"] as? String,
+                        createdAt: notifDict["createdAt"] as? String ?? "",
+                        isRead: notifDict["readAt"] != nil,
+                        bucketId: notifDict["bucketId"] as? String ?? "",
+                        bucketName: nil,
+                        bucketColor: nil,
+                        bucketIconUrl: nil,
+                        attachments: attachments
+                    )
+                    
+                    let notification = NotificationData(notification: widgetNotification)
+                    notifications.append(notification)
+                }
+                
+                print("⌚ [WatchConnectivity] ✅ Parsed \(buckets.count) buckets and \(notifications.count) notifications")
+                
+                // Update data store and UI
+                DispatchQueue.main.async {
+                    self?.dataStore.updateFromiPhone(
+                        notifications: notificationsData,
+                        buckets: bucketsData,
+                        unreadCount: syncUnreadCount
+                    )
+                    
+                    // Update published properties
+                    self?.buckets = buckets
+                    self?.notifications = notifications
+                    self?.unreadCount = syncUnreadCount
+                    self?.lastUpdate = Date()
+                    
+                    // Stop loading state
+                    self?.isWaitingForResponse = false
+                    
+                    print("⌚ [WatchConnectivity] ✅ Full sync completed successfully via messageData")
+                    print("  - Updated \(buckets.count) buckets")
+                    print("  - Updated \(notifications.count) notifications")
+                    print("  - Unread count: \(syncUnreadCount)")
+                }
+                
+                // Send success reply
+                let successReply = try? JSONSerialization.data(withJSONObject: ["success": true, "received": notificationsData.count])
+                replyHandler(successReply ?? Data())
+                
+            } catch {
+                print("⌚ [WatchConnectivity] ❌ Failed to process message data: \(error)")
+                print("⌚ [WatchConnectivity] 🔍 Error details: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self?.isWaitingForResponse = false
+                }
+                // Send error reply
+                let errorReply = try? JSONSerialization.data(withJSONObject: ["success": false, "error": error.localizedDescription])
+                replyHandler(errorReply ?? Data())
+            }
+        }
+    }
+    
+    // MARK: - File Transfer Reception (FALLBACK - kept for compatibility)
+    
+    func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        print("⌚ ========== FILE RECEIVED FROM IPHONE (FALLBACK) ==========")
+        print("⌚ File URL: \(file.fileURL.absoluteString)")
+        print("⌚ [WatchConnectivity] ⚠️ WARNING: Using legacy file transfer - should use messageData instead")
+        
+        // Start loading state
+        DispatchQueue.main.async { [weak self] in
+            self?.isWaitingForResponse = true
+        }
+        
+        guard let metadata = file.metadata else {
+            print("⌚ [WatchConnectivity] ❌ File transfer without metadata, ignoring")
+            DispatchQueue.main.async { [weak self] in
+                self?.isWaitingForResponse = false
+            }
+            return
+        }
+        
+        guard let action = metadata["action"] as? String else {
+            print("⌚ [WatchConnectivity] ❌ File metadata without action field, ignoring")
+            DispatchQueue.main.async { [weak self] in
+                self?.isWaitingForResponse = false
+            }
+            return
+        }
+        
+        guard action == "fullSync" else {
+            print("⌚ [WatchConnectivity] ⚠️ File transfer with action '\(action)' (expected 'fullSync'), ignoring")
+            DispatchQueue.main.async { [weak self] in
+                self?.isWaitingForResponse = false
+            }
+            return
+        }
+        
+        let bucketsCount = metadata["bucketsCount"] as? Int ?? 0
+        let notificationsCount = metadata["notificationsCount"] as? Int ?? 0
+        let unreadCount = metadata["unreadCount"] as? Int ?? 0
+        let timestamp = metadata["timestamp"] as? Double ?? 0
+        
+        print("⌚ [WatchConnectivity] 📊 Full sync file metadata:")
+        print("  - Buckets: \(bucketsCount)")
+        print("  - Notifications: \(notificationsCount)")
+        print("  - Unread: \(unreadCount)")
+        print("  - Timestamp: \(timestamp)")
+        
+        // IMPORTANT: Copy file to permanent location before processing
+        // The file.fileURL is temporary and will be deleted by the system
+        let fileName = file.fileURL.lastPathComponent
+        let destinationURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(fileName)
+        
+        print("⌚ [WatchConnectivity] 📂 Copying file to permanent location:")
+        print("  - From: \(file.fileURL.path)")
+        print("  - To: \(destinationURL.path)")
+        
+        // Read and parse JSON file
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            print("⌚ [WatchConnectivity] 🔄 Starting to process file on background queue...")
+            
+            do {
+                // VALIDATE FILE BEFORE COPYING
+                print("⌚ [WatchConnectivity] 🔍 VALIDATING TEMPORARY FILE BEFORE COPY:")
+                print("  - File URL: \(file.fileURL)")
+                print("  - File path: \(file.fileURL.path)")
+                
+                let tempFileExists = FileManager.default.fileExists(atPath: file.fileURL.path)
+                print("  - File exists: \(tempFileExists)")
+                
+                if tempFileExists {
+                    do {
+                        let attributes = try FileManager.default.attributesOfItem(atPath: file.fileURL.path)
+                        let fileSize = attributes[.size] as? Int64 ?? 0
+                        print("  - File size: \(fileSize) bytes")
+                        
+                        // Try to read the file content
+                        print("  - Attempting to read file data...")
+                        let tempData = try Data(contentsOf: file.fileURL)
+                        print("  ✅ Successfully read \(tempData.count) bytes from temporary file")
+                        
+                        // Try to parse as JSON
+                        print("  - Attempting to parse JSON...")
+                        if let tempJSON = try JSONSerialization.jsonObject(with: tempData) as? [String: Any] {
+                            print("  ✅ Valid JSON object with keys: \(tempJSON.keys.joined(separator: ", "))")
+                            
+                            if let buckets = tempJSON["buckets"] as? [[String: Any]] {
+                                print("  ✅ Found \(buckets.count) buckets")
+                            } else {
+                                print("  ⚠️ 'buckets' field is missing or not an array")
+                            }
+                            
+                            if let notifications = tempJSON["notifications"] as? [[String: Any]] {
+                                print("  ✅ Found \(notifications.count) notifications")
+                            } else {
+                                print("  ⚠️ 'notifications' field is missing or not an array")
+                            }
+                            
+                            if let unreadCount = tempJSON["unreadCount"] as? Int {
+                                print("  ✅ Unread count: \(unreadCount)")
+                            } else {
+                                print("  ⚠️ 'unreadCount' field is missing or not an integer")
+                            }
+                        } else {
+                            print("  ❌ JSON is not a dictionary")
+                        }
+                    } catch {
+                        print("  ❌ Error during validation: \(error.localizedDescription)")
+                    }
+                } else {
+                    print("  ❌ TEMPORARY FILE DOES NOT EXIST!")
+                }
+                
+                print("⌚ [WatchConnectivity] 🔍 VALIDATION COMPLETE - Proceeding with copy...")
+                
+                // First, copy the file to a permanent location
+                if FileManager.default.fileExists(atPath: destinationURL.path) {
+                    try FileManager.default.removeItem(at: destinationURL)
+                    print("⌚ [WatchConnectivity] �️ Removed existing file at destination")
+                }
+                
+                try FileManager.default.copyItem(at: file.fileURL, to: destinationURL)
+                print("⌚ [WatchConnectivity] ✅ File copied to permanent location")
+                
+                // Now read from the permanent location
+                print("⌚ [WatchConnectivity] 📖 Reading file data from: \(destinationURL.path)")
+                let data = try Data(contentsOf: destinationURL)
+                print("⌚ [WatchConnectivity] ✅ Read file data: \(data.count) bytes")
+                
+                print("⌚ [WatchConnectivity] 🔄 Parsing JSON...")
+                guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    print("⌚ [WatchConnectivity] ❌ Failed to parse JSON - not a dictionary")
+                    DispatchQueue.main.async { [weak self] in
+                        self?.isWaitingForResponse = false
+                    }
+                    return
+                }
+                
+                guard let bucketsData = json["buckets"] as? [[String: Any]],
+                      let notificationsData = json["notifications"] as? [[String: Any]],
+                      let syncUnreadCount = json["unreadCount"] as? Int else {
+                    print("⌚ [WatchConnectivity] ❌ Missing required fields in JSON")
+                    print("⌚ [WatchConnectivity] 🔍 JSON keys: \(json.keys)")
+                    print("⌚ [WatchConnectivity] 🔍 buckets type: \(type(of: json["buckets"]))")
+                    print("⌚ [WatchConnectivity] 🔍 notifications type: \(type(of: json["notifications"]))")
+                    print("⌚ [WatchConnectivity] 🔍 unreadCount type: \(type(of: json["unreadCount"]))")
+                    DispatchQueue.main.async { [weak self] in
+                        self?.isWaitingForResponse = false
+                    }
+                    return
+                }
+                
+                print("⌚ [WatchConnectivity] 📦 Parsed JSON:")
+                print("  - Buckets: \(bucketsData.count)")
+                print("  - Notifications: \(notificationsData.count)")
+                print("  - Unread count: \(syncUnreadCount)")
+                
+                // Parse buckets
+                var buckets: [BucketItem] = []
+                for bucketDict in bucketsData {
+                    guard let id = bucketDict["id"] as? String,
+                          let name = bucketDict["name"] as? String else {
+                        continue
+                    }
+                    
+                    let bucket = BucketItem(
+                        id: id,
+                        name: name,
+                        unreadCount: bucketDict["unreadCount"] as? Int ?? 0,
+                        totalCount: bucketDict["totalCount"] as? Int ?? 0,
+                        color: bucketDict["color"] as? String,
+                        iconUrl: bucketDict["iconUrl"] as? String,
+                        lastNotificationDate: nil
+                    )
+                    buckets.append(bucket)
+                }
+                
+                // Parse notifications
+                var notifications: [NotificationData] = []
+                for notifDict in notificationsData {
+                    guard let id = notifDict["id"] as? String,
+                          let title = notifDict["title"] as? String else {
+                        continue
+                    }
+                    
+                    // Parse attachments
+                    var attachments: [DatabaseAccess.WidgetAttachment] = []
+                    if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
+                        for attachmentDict in attachmentsArray {
+                            if let mediaType = attachmentDict["mediaType"] as? String,
+                               let url = attachmentDict["url"] as? String {
+                                let attachment = DatabaseAccess.WidgetAttachment(
+                                    mediaType: mediaType,
+                                    url: url,
+                                    name: attachmentDict["name"] as? String
+                                )
+                                attachments.append(attachment)
+                            }
+                        }
+                    }
+                    
+                    let widgetNotification = DatabaseAccess.WidgetNotification(
+                        id: id,
+                        title: title,
+                        body: notifDict["body"] as? String ?? "",
+                        subtitle: notifDict["subtitle"] as? String,
+                        createdAt: notifDict["createdAt"] as? String ?? "",
+                        isRead: notifDict["readAt"] != nil,
+                        bucketId: notifDict["bucketId"] as? String ?? "",
+                        bucketName: nil,
+                        bucketColor: nil,
+                        bucketIconUrl: nil,
+                        attachments: attachments
+                    )
+                    
+                    let notification = NotificationData(notification: widgetNotification)
+                    notifications.append(notification)
+                }
+                
+                print("⌚ [WatchConnectivity] ✅ Parsed \(buckets.count) buckets and \(notifications.count) notifications")
+                
+                // Update data store and UI
+                DispatchQueue.main.async { [weak self] in
+                    self?.dataStore.updateFromiPhone(
+                        notifications: notificationsData,
+                        buckets: bucketsData,
+                        unreadCount: syncUnreadCount
+                    )
+                    
+                    // Update published properties
+                    self?.buckets = buckets
+                    self?.notifications = notifications
+                    self?.unreadCount = syncUnreadCount
+                    self?.lastUpdate = Date()
+                    
+                    // Stop loading state
+                    self?.isWaitingForResponse = false
+                    
+                    print("⌚ [WatchConnectivity] ✅ Full sync completed successfully")
+                    print("  - Updated \(buckets.count) buckets")
+                    print("  - Updated \(notifications.count) notifications")
+                    print("  - Unread count: \(syncUnreadCount)")
+                }
+                
+                // Clean up the copied file after processing
+                try? FileManager.default.removeItem(at: destinationURL)
+                print("⌚ [WatchConnectivity] 🧹 Cleaned up temporary file")
+                
+            } catch {
+                print("⌚ [WatchConnectivity] ❌ Failed to read/parse file: \(error)")
+                print("⌚ [WatchConnectivity] 🔍 Error details: \(error.localizedDescription)")
+                DispatchQueue.main.async { [weak self] in
+                    self?.isWaitingForResponse = false
+                }
             }
         }
     }
 }
-

@@ -507,7 +507,6 @@ public class DatabaseAccess {
                 }
                 
                 // Ensure buckets table exists (create if missing)
-                // This is critical for CloudKit sync operations
                 let createBucketsTableSQL = """
                     CREATE TABLE IF NOT EXISTS buckets (
                         id TEXT PRIMARY KEY,

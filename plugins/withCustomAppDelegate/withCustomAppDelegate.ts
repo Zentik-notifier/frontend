@@ -20,11 +20,6 @@ function getSharedSwiftFiles(sharedFilesSource: string): string[] {
     .filter(entry => entry.isFile() && entry.name.endsWith('.swift'))
     .map(entry => entry.name);
 }
-const cloudKitFiles = [
-  'CloudKitSyncManager_iOS.swift',
-  'CloudKitSyncBridge.swift',
-  'CloudKitSyncBridge.m',
-];
 
 function copySharedFilesToAppDelegate(
   pluginDir: string,
@@ -53,23 +48,6 @@ function copySharedFilesToAppDelegate(
 
     fs.copyFileSync(sourcePath, destPath);
     console.log(`[AppDelegate] ✓ Copied shared file: ${file}`);
-  }
-
-  // Copy CloudKit files from plugin files directory
-  const pluginFilesDir = path.join(pluginDir, 'files');
-
-  console.log(`[AppDelegate] 📦 Copying ${cloudKitFiles.length} CloudKit files`);
-
-  for (const file of cloudKitFiles) {
-    const sourcePath = path.join(pluginFilesDir, file);
-    const destPath = path.join(appDelegateDir, file);
-
-    if (fs.existsSync(sourcePath)) {
-      fs.copyFileSync(sourcePath, destPath);
-      console.log(`[AppDelegate] ✓ Copied CloudKit file: ${file}`);
-    } else {
-      console.warn(`[AppDelegate] ⚠️ CloudKit file not found: ${file}`);
-    }
   }
 }
 
@@ -123,13 +101,10 @@ const withCustomAppDelegate: ConfigPlugin = (config) => {
     const sharedFilesSource = path.join(projectRoot, 'plugins', 'ZentikShared');
     const sharedFiles = getSharedSwiftFiles(sharedFilesSource);
 
-    // Combine shared files and CloudKit files
-    const allFiles = [...sharedFiles, ...cloudKitFiles];
-
     // Add all files to the project
     const pbxGroupKey = pbxProject.findPBXGroupKey({ name: appDirName });
 
-    for (const file of allFiles) {
+    for (const file of sharedFiles) {
       // Use path relative to the app directory (e.g., "ZentikDev/filename.swift")
       const relativeFilePath = `${appDirName}/${file}`;
 

@@ -5,11 +5,10 @@ import { notificationKeys } from '@/hooks/notifications';
 import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { queryNotifications } from '@/db/repositories/notifications-query-repository';
 import { NotificationFragment } from '@/generated/gql-operations-generated';
-import IosBridgeService from '@/services/ios-bridge';
 
 export const cleanExportData = (data: any): any => {
   if (data === null || data === undefined) {
@@ -87,23 +86,23 @@ export const cleanExportData = (data: any): any => {
  */
 const convertGraphQLToSQL = (gqlNotification: any): any => {
   const now = new Date().toISOString();
-  
+
   // Estrai le date e normalizzale
   const createdAt = gqlNotification.createdAt || gqlNotification.sentAt || now;
   const readAt = gqlNotification.readAt || null;
-  
+
   // Estrai informazioni dal bucket
   const bucketId = gqlNotification.message?.bucket?.id || null;
   const bucketIconUrl = gqlNotification.message?.bucket?.iconUrl || null;
-  
+
   // Determina se ha allegati
   const hasAttachments = gqlNotification.message?.attachments?.length > 0 ? 1 : 0;
-  
+
   // Il fragment rimane l'intera notifica GraphQL per preservare tutti i dati
-  const fragment = typeof gqlNotification === 'string' 
-    ? gqlNotification 
+  const fragment = typeof gqlNotification === 'string'
+    ? gqlNotification
     : JSON.stringify(gqlNotification);
-  
+
   return {
     id: gqlNotification.id,
     created_at: createdAt,
@@ -118,6 +117,8 @@ const convertGraphQLToSQL = (gqlNotification: any): any => {
 export function useNotificationExportImport(onImportSuccess?: (notifications: any[]) => void) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   const exportAllNotifications = async () => {
     try {
@@ -139,7 +140,7 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
           allNotifications = [...allNotifications, ...result.notifications];
           console.log(`[Export] Fetched ${result.notifications.length} notifications (offset: ${offset}, total: ${allNotifications.length})`);
           offset += limit;
-          
+
           // Se abbiamo ricevuto meno notifiche del limite, abbiamo finito
           if (result.notifications.length < limit) {
             hasMore = false;
@@ -231,8 +232,8 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
                   await importRawNotificationsToDB(sqlNotifications);
 
                   // Invalidate all React Query notification queries to refresh from DB
-                  await queryClient.invalidateQueries({ 
-                    queryKey: notificationKeys.all 
+                  await queryClient.invalidateQueries({
+                    queryKey: notificationKeys.all
                   });
 
                   // Rebuild the complete app state cache to reflect imported data
@@ -240,27 +241,8 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
                     queryKey: ['app-state'],
                     type: 'active', // Only refetch if query is mounted
                   });
-                  
-                  console.log(`[Import] Imported ${sqlNotifications.length} notifications, invalidated React Query cache, and rebuilt app state`);
 
-                  // Push imported notifications to CloudKit (iOS only)
-                  if (Platform.OS === 'ios') {
-                    try {
-                      console.log('[Import] 📤 Syncing imported notifications to CloudKit in batches...');
-                      
-                      // Sync all notifications to CloudKit in batches (no limit needed)
-                      const result = await IosBridgeService.syncAllToCloudKitFull();
-                      
-                      if (result.success) {
-                        console.log(`[Import] ✅ CloudKit sync completed: ${result.bucketsCount} buckets, ${result.notificationsCount} notifications`);
-                      } else {
-                        console.error('[Import] ⚠️ CloudKit sync failed');
-                      }
-                    } catch (cloudKitError) {
-                      console.error('[Import] ⚠️ Failed to sync to CloudKit:', cloudKitError);
-                      // Non-blocking: continua anche se CloudKit fallisce
-                    }
-                  }
+                  console.log(`[Import] Imported ${sqlNotifications.length} notifications, invalidated React Query cache, and rebuilt app state`);
 
                   Alert.alert(
                     t('appSettings.gqlCache.importExport.importCompleted'),
@@ -390,15 +372,19 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
 
 
   const handleExportNotifications = useCallback(async () => {
+    setIsExporting(true);
     try {
       return await exportAllNotifications();
     } catch (error) {
       console.error("Export failed:", error);
       return false;
+    } finally {
+      setIsExporting(false);
     }
   }, [exportAllNotifications]);
 
   const handleImportNotifications = useCallback(async () => {
+    setIsImporting(true);
     try {
       const success = await importAllNotifications();
       if (success && onImportSuccess) {
@@ -409,12 +395,16 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
     } catch (error) {
       console.error("Import failed:", error);
       return false;
+    } finally {
+      setIsImporting(false);
     }
   }, [importAllNotifications, onImportSuccess]);
 
   return {
     handleExportNotifications,
     handleImportNotifications,
+    isExporting,
+    isImporting,
   };
 }
 

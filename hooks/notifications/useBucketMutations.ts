@@ -187,14 +187,10 @@ export function useDeleteBucketWithNotifications(options?: {
         console.error('[useDeleteBucketWithNotifications] Error recalculating stats:', error);
       }
 
-      // Step 6: Sync to CloudKit and notify Watch/Widget
-      try {
-        // Delete bucket from CloudKit
-        await IosBridgeService.deleteBucketFromCloudKit(bucketId);
-        console.log('[useDeleteBucketWithNotifications] Deleted bucket from CloudKit');
-      } catch (error) {
-        console.error('[useDeleteBucketWithNotifications] Failed to sync:', error);
-      }
+            console.log('[useDeleteBucketWithNotifications] AppState updated with recalculated stats');
+
+      // Trigger WatchConnectivity event: data updated
+      IosBridgeService.notifyWatchOfUpdate();
 
       if (options?.onSuccess) {
         options.onSuccess();
@@ -386,6 +382,9 @@ export function useSetBucketSnooze(options?: {
 
       console.log('[useSetBucketSnooze] appState invalidated - all components will update');
 
+      // Trigger WatchConnectivity event: data updated
+      IosBridgeService.notifyWatchOfUpdate();
+
       if (options?.onSuccess) {
         options.onSuccess(data.snoozeUntil);
       }
@@ -510,27 +509,8 @@ export function useUpdateBucketSnoozes(options?: {
 
       console.log('[useUpdateBucketSnoozes] Queries invalidated');
 
-      // Update bucket in CloudKit
-      try {
-        const bucket = queryClient.getQueryData<BucketDetailData>(
-          bucketKeys.detail(variables.bucketId)
-        );
-        
-        if (bucket) {
-          await IosBridgeService.updateBucketInCloudKit({
-            id: bucket.id,
-            name: bucket.name,
-            description: bucket.description || undefined,
-            color: bucket.color || undefined,
-            iconUrl: bucket.iconUrl || undefined,
-            createdAt: bucket.createdAt,
-            updatedAt: bucket.updatedAt,
-          });
-          console.log('[useUpdateBucketSnoozes] Bucket updated in CloudKit');
-        }
-      } catch (error) {
-        console.error('[useUpdateBucketSnoozes] Failed to update in CloudKit:', error);
-      }
+      // Trigger WatchConnectivity event: data updated
+      IosBridgeService.notifyWatchOfUpdate();
 
       if (options?.onSuccess) {
         options.onSuccess();
@@ -744,27 +724,8 @@ export function useShareBucket(options?: {
       });
       console.log('[useShareBucket] AppState updated with new permission');
 
-      // Update bucket in CloudKit
-      try {
-        const bucket = queryClient.getQueryData<BucketDetailData>(
-          bucketKeys.detail(bucketId)
-        );
-        
-        if (bucket) {
-          await IosBridgeService.updateBucketInCloudKit({
-            id: bucket.id,
-            name: bucket.name,
-            description: bucket.description || undefined,
-            color: bucket.color || undefined,
-            iconUrl: bucket.iconUrl || undefined,
-            createdAt: bucket.createdAt,
-            updatedAt: bucket.updatedAt,
-          });
-          console.log('[useShareBucket] Bucket updated in CloudKit');
-        }
-      } catch (error) {
-        console.error('[useShareBucket] Failed to update in CloudKit:', error);
-      }
+      // Trigger WatchConnectivity event: data updated
+      IosBridgeService.notifyWatchOfUpdate();
 
       if (options?.onSuccess) {
         options.onSuccess();
@@ -907,27 +868,8 @@ export function useUnshareBucket(options?: {
       // No need to update cache again, optimistic update is already correct
       console.log('[useUnshareBucket] Optimistic update confirmed');
 
-      // Update bucket in CloudKit
-      try {
-        const bucket = queryClient.getQueryData<BucketDetailData>(
-          bucketKeys.detail(context.bucketId)
-        );
-        
-        if (bucket) {
-          await IosBridgeService.updateBucketInCloudKit({
-            id: bucket.id,
-            name: bucket.name,
-            description: bucket.description || undefined,
-            color: bucket.color || undefined,
-            iconUrl: bucket.iconUrl || undefined,
-            createdAt: bucket.createdAt,
-            updatedAt: bucket.updatedAt,
-          });
-          console.log('[useUnshareBucket] Bucket updated in CloudKit');
-        }
-      } catch (error) {
-        console.error('[useUnshareBucket] Failed to update in CloudKit:', error);
-      }
+      // Trigger WatchConnectivity event: data updated
+      IosBridgeService.notifyWatchOfUpdate();
 
       if (options?.onSuccess) {
         options.onSuccess();
@@ -1109,22 +1051,8 @@ export function useCreateBucket(options?: {
       });
       console.log('[useCreateBucket] Related queries invalidated');
 
-      // Step 4: Sync new bucket to CloudKit and notify Watch/Widget
-      try {
-        // Add new bucket to CloudKit
-        await IosBridgeService.addBucketToCloudKit({
-          id: bucket.id,
-          name: bucket.name,
-          description: bucket.description || undefined,
-          color: bucket.color || undefined,
-          iconUrl: bucket.iconUrl || undefined,
-          createdAt: bucket.createdAt,
-          updatedAt: bucket.updatedAt,
-        });
-        console.log('[useCreateBucket] New bucket added to CloudKit');
-      } catch (error) {
-        console.error('[useCreateBucket] Failed to sync:', error);
-      }
+      // Trigger WatchConnectivity event: data updated
+      IosBridgeService.notifyWatchOfUpdate();
 
       if (options?.onSuccess) {
         options.onSuccess(bucket);
@@ -1147,7 +1075,7 @@ export function useCreateBucket(options?: {
 }
 
 /**
- * Hook for updating an existing bucket with CloudKit sync
+ * Hook for updating an existing bucket with WatchConnection sync
  * 
  * @example
  * ```typescript
@@ -1284,21 +1212,8 @@ export function useUpdateBucket(options?: {
       });
       console.log('[useUpdateBucket] Related queries invalidated');
 
-      // Step 5: Update bucket in CloudKit
-      try {
-        await IosBridgeService.updateBucketInCloudKit({
-          id: bucket.id,
-          name: bucket.name,
-          description: bucket.description || undefined,
-          color: bucket.color || undefined,
-          iconUrl: bucket.iconUrl || undefined,
-          createdAt: bucket.createdAt,
-          updatedAt: bucket.updatedAt,
-        });
-        console.log('[useUpdateBucket] Bucket updated in CloudKit');
-      } catch (error) {
-        console.error('[useUpdateBucket] Failed to update in CloudKit:', error);
-      }
+      // Trigger WatchConnectivity event: data updated
+      IosBridgeService.notifyWatchOfUpdate();
 
       if (options?.onSuccess) {
         options.onSuccess(bucket.id);

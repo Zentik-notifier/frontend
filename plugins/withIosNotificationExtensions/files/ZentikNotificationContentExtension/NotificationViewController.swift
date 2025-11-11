@@ -3199,6 +3199,9 @@ extension NotificationViewController {
             onComplete: { [weak self] result in
                 switch result {
                 case .success:
+                    // Note: NCE cannot use WatchConnectivity (extension limitation)
+                    // Watch will sync when app opens or via background refresh
+                    
                     // For navigation actions, open the app after storing the intent
                     if isNavigationAction {
                         print("📱 [ContentExtension] 🚀 Opening app for navigation action: \(type)")
@@ -3243,6 +3246,9 @@ extension NotificationViewController {
                 switch result {
                 case .success:
                     print("📱 [ContentExtension] ✅ Action completed successfully in background: \(type)")
+                    // Note: NCE cannot use WatchConnectivity (extension limitation)
+                    // Watch will sync when app opens or via background refresh
+                    
                 case .failure(let error):
                     print("📱 [ContentExtension] ❌ Action failed in background: \(error)")
                 }

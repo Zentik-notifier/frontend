@@ -43,8 +43,6 @@ export default function UnifiedCacheSettings() {
     setWatchNMaxNotifications,
   } = useSettings();
   const [showResetModal, setShowResetModal] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
   const [isExportingMetadata, setIsExportingMetadata] = useState(false);
 
   // Dialog states
@@ -152,7 +150,7 @@ export default function UnifiedCacheSettings() {
     },
   } = useAppContext();
 
-  const { handleExportNotifications, handleImportNotifications } =
+  const { handleExportNotifications, handleImportNotifications, isExporting, isImporting } =
     useNotificationExportImport();
 
   // Calculate total cache size

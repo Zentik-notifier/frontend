@@ -8,7 +8,7 @@ import * as path from 'path';
  */
 
 const watchConnectivityFiles = [
-  'WatchConnectivityManager.swift',
+  'iPhoneWatchConnectivityManager.swift',
   'WatchConnectivityBridge.swift',
   'WatchConnectivityBridge.m',
 ];
@@ -58,6 +58,14 @@ const withWatchConnectivity: ConfigPlugin = (config) => {
       console.warn(`⌚ [withWatchConnectivity] ⚠️ Main target not found: ${appDirName}`);
       return newConfig;
     }
+
+    // Add WatchConnectivity.framework
+    pbxProject.addFramework('WatchConnectivity.framework', {
+      target: mainTargetKey,
+      link: true,
+      weak: true, // Optional to prevent crashes on devices without Watch support
+    });
+    console.log('⌚ [withWatchConnectivity] ✓ Added WatchConnectivity.framework');
 
     // Add files to the project
     const pbxGroupKey = pbxProject.findPBXGroupKey({ name: appDirName });

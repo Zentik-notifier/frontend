@@ -178,7 +178,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
   const handleDelete = async () => {
     try {
-      await deleteNotificationMutation.mutateAsync(notification.id);
+      await deleteNotificationMutation.mutateAsync({ notificationId: notification.id });
     } catch (error) {
       console.error("❌ Failed to delete notification:", error);
       Alert.alert(t("common.error"), t("swipeActions.delete.error"));
@@ -216,13 +216,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   // Swipe actions
   const handleMarkAsRead = async () => {
     try {
-      await markAsReadMutation.mutateAsync(notification.id);
+      await markAsReadMutation.mutateAsync({ notificationId: notification.id });
     } catch {}
   };
 
   const handleMarkAsUnread = async () => {
     try {
-      await markAsUnreadMutation.mutateAsync(notification.id);
+      await markAsUnreadMutation.mutateAsync({ notificationId: notification.id });
     } catch {}
   };
 

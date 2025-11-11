@@ -44,8 +44,6 @@ export {
 // Bucket Stats Utilities
 export { getBucketStats } from './bucketStatsUtils';
 
-// CloudKit Sync Hook
-
 // Mutation Hooks
 export {
   useMarkAsRead,

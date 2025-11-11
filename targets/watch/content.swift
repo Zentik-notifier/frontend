@@ -4,7 +4,6 @@ import WatchKit
 
 struct ContentView: View {
     @StateObject private var connectivityManager = WatchConnectivityManager.shared
-    @State private var isRefreshing: Bool = false
     @State private var isInitialLoad: Bool = true
     @State private var lastFetchTime: Date?
     @Environment(\.scenePhase) private var scenePhase
@@ -14,7 +13,7 @@ struct ContentView: View {
             buckets: connectivityManager.buckets,
             totalUnreadCount: connectivityManager.unreadCount,
             totalNotificationsCount: connectivityManager.notifications.count,
-            isLoading: isRefreshing,
+            isLoading: connectivityManager.isWaitingForResponse,
             isInitialLoad: isInitialLoad,
             isConnected: connectivityManager.isConnected,
             lastUpdate: connectivityManager.lastUpdate,
@@ -23,71 +22,33 @@ struct ContentView: View {
         )
         .environmentObject(connectivityManager)
         .onAppear {
-            // Fetch from CloudKit when app opens, but avoid too frequent fetches
-            // Only fetch if:
-            // 1. No cached data (initial load), OR
-            // 2. Last fetch was more than 30 seconds ago
-            let shouldFetch = connectivityManager.notifications.isEmpty || 
-                              lastFetchTime == nil || 
-                              Date().timeIntervalSince(lastFetchTime!) > 30
-            
-            if shouldFetch {
-                print("⌚ [ContentView] 🔄 App opened - fetching from CloudKit ONLY (no iOS refresh)")
-                fetchFromCloudKitOnly()
-            } else {
-                print("⌚ [ContentView] ⏭️ Skipping fetch (last fetch was \(Int(Date().timeIntervalSince(lastFetchTime!)))s ago)")
-                isInitialLoad = false
-            }
+            // Data is already loaded from cache in WatchConnectivityManager init
+            // No need to fetch - just mark as loaded
+            print("⌚ [ContentView] � App opened - data loaded from cache")
+            isInitialLoad = false
+            lastFetchTime = Date()
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             // Detect when app transitions from background to active (foreground)
             if oldPhase == .background && newPhase == .active {
-                print("⌚ [ContentView] 📱→⌚ App returned to foreground from background")
-                
-                // Fetch from CloudKit if last fetch was more than 30 seconds ago
-                let shouldFetch = lastFetchTime == nil || 
-                                  Date().timeIntervalSince(lastFetchTime!) > 30
-                
-                if shouldFetch {
-                    print("⌚ [ContentView] 🔄 Fetching fresh data from CloudKit (background→foreground)")
-                    fetchFromCloudKitOnly()
-                } else {
-                    print("⌚ [ContentView] ⏭️ Skipping fetch (last fetch was \(Int(Date().timeIntervalSince(lastFetchTime!)))s ago)")
-                }
+                print("⌚ [ContentView] 📱→⌚ App returned to foreground from background - requesting fresh data")
+                requestFullRefresh()
+            } else if newPhase == .active && oldPhase != .background {
+                // App opened for the first time or from inactive state
+                print("⌚ [ContentView] 📱→⌚ App became active - requesting fresh data")
+                requestFullRefresh()
             }
         }
     }
     
     /**
-     * Fetch from CloudKit only when app opens
-     * Does NOT request full iOS refresh
-     */
-    private func fetchFromCloudKitOnly() {
-        isRefreshing = true
-        lastFetchTime = Date()
-        connectivityManager.fetchFromCloudKitOnly()
-        
-        // Stop loading after a timeout
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-            isRefreshing = false
-            isInitialLoad = false
-        }
-    }
-    
-    /**
-     * Request FULL refresh (iOS + CloudKit) when user taps refresh button
-     * If iOS not reachable, falls back to CloudKit only
+     * Request FULL refresh from iPhone when user taps refresh button
+     * Uses WatchConnectivity to request data from iPhone app
      */
     private func requestFullRefresh() {
-        isRefreshing = true
         lastFetchTime = Date()
         connectivityManager.requestFullRefresh()
-        
-        // Stop loading after a timeout
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-            isRefreshing = false
-            isInitialLoad = false
-        }
+        isInitialLoad = false
     }
 }
 
@@ -143,7 +104,7 @@ struct BucketMenuView: View {
                         Text("No data available")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text("Pull down to refresh from CloudKit")
+                        Text("Pull down to refresh from iPhone")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
@@ -450,7 +411,7 @@ struct FilteredNotificationListView: View {
                 } else {
                     Button(action: {
                         isLoading = true
-                        // Request FULL refresh (iOS + CloudKit) when user taps button
+                        // Request FULL refresh from iPhone via WatchConnectivity
                         connectivityManager.requestFullRefresh()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                             isLoading = false
@@ -471,6 +432,10 @@ struct FilteredNotificationListView: View {
     }
     
     private func filterNotifications() {
+        // Notifications are already sorted globally in WatchConnectivityManager:
+        // 1. Unread first
+        // 2. Then by createdAt (newest first)
+        // We just need to filter them, keeping the original order
         var notifications = connectivityManager.notifications
         
         // Filter by bucket if specified
@@ -483,24 +448,7 @@ struct FilteredNotificationListView: View {
             notifications = notifications.filter { !$0.notification.isRead }
         }
         
-        // Sort by creation date (most recent first)
-        notifications.sort { lhs, rhs in
-            let isoFormatter = ISO8601DateFormatter()
-            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            
-            let lhsDate = isoFormatter.date(from: lhs.notification.createdAt) ?? {
-                isoFormatter.formatOptions = [.withInternetDateTime]
-                return isoFormatter.date(from: lhs.notification.createdAt) ?? Date.distantPast
-            }()
-            
-            let rhsDate = isoFormatter.date(from: rhs.notification.createdAt) ?? {
-                isoFormatter.formatOptions = [.withInternetDateTime]
-                return isoFormatter.date(from: rhs.notification.createdAt) ?? Date.distantPast
-            }()
-            
-            return lhsDate > rhsDate  // Most recent first
-        }
-        
+        // No sorting needed - notifications are already sorted globally
         filteredNotifications = notifications
     }
 }

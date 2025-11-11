@@ -1985,10 +1985,6 @@ export interface Translation {
     loadError: string;
     cached: string;
     storageInfo: string;
-    cloudKitTitle: string;
-    cloudKitDescription: string;
-    fetchCloudKit: string;
-    cloudKitError: string;
     viewAllRecords: string;
     viewRecord: string;
     deleteRecord: string;
@@ -2030,30 +2026,12 @@ export interface Translation {
       errorMessage: string;
       successMessage: string;
     };
-    cloudKit: {
-      confirmDeleteTitle: string;
-      confirmDeleteMessage: string;
-      deleteSuccess: string;
-      deleteError: string;
-    };
     bucketsList: {
       description: string;
       emptyText: string;
     };
     notificationsList: {
       description: string;
-      emptyText: string;
-    };
-    cloudKitBuckets: {
-      title: string;
-      description: string;
-      emptyDescription: string;
-      emptyText: string;
-    };
-    cloudKitNotifications: {
-      title: string;
-      description: string;
-      emptyDescription: string;
       emptyText: string;
     };
     recordDetails: {

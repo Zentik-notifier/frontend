@@ -94,11 +94,11 @@ if (fs.existsSync(sharedFilesDir)) {
   }
   
   const iosTargets = [
-    { path: path.join(iosDir, 'ZentikDev'), name: 'iOS App (ZentikDev)' },
-    { path: path.join(iosDir, 'ZentikNotificationService'), name: 'Notification Service Extension' },
-    { path: path.join(iosDir, 'ZentikNotificationContentExtension'), name: 'Notification Content Extension' },
-    { path: watchTargetDir, name: 'Watch Target' },
-    { path: path.join(__dirname, '..', 'targets', 'widget'), name: 'Widget Target' }
+    { path: path.join(iosDir, 'ZentikDev'), name: 'iOS App (ZentikDev)', exclude: [] },
+    { path: path.join(iosDir, 'ZentikNotificationService'), name: 'Notification Service Extension', exclude: [] },
+    { path: path.join(iosDir, 'ZentikNotificationContentExtension'), name: 'Notification Content Extension', exclude: [] },
+    { path: watchTargetDir, name: 'Watch Target', exclude: ['NotificationActionHandler.swift'] },
+    { path: path.join(__dirname, '..', 'targets', 'widget'), name: 'Widget Target', exclude: ['NotificationActionHandler.swift'] }
   ];
   
   let totalCopied = 0;
@@ -111,8 +111,16 @@ if (fs.existsSync(sharedFilesDir)) {
     
     console.log(`\n  📁 ${target.name}:`);
     let copiedFiles = 0;
+    let skippedFiles = 0;
     
     for (const fileName of sharedFiles) {
+      // Skip files in the exclude list for this target
+      if (target.exclude && target.exclude.includes(fileName)) {
+        console.log(`    ⏭️  ${fileName} (skipped - not needed for ${target.name})`);
+        skippedFiles++;
+        continue;
+      }
+      
       const sourcePath = path.join(sharedFilesDir, fileName);
       const targetPath = path.join(target.path, fileName);
       
@@ -130,7 +138,11 @@ if (fs.existsSync(sharedFilesDir)) {
       }
     }
     
-    console.log(`    Total: ${copiedFiles}/${sharedFiles.length} files`);
+    if (skippedFiles > 0) {
+      console.log(`    Total: ${copiedFiles}/${sharedFiles.length} files copied (${skippedFiles} skipped)`);
+    } else {
+      console.log(`    Total: ${copiedFiles}/${sharedFiles.length} files`);
+    }
   }
   
   console.log(`\n✅ Successfully copied ${totalCopied} files across all targets!`);

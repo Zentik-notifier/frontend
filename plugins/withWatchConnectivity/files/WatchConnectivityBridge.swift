@@ -150,11 +150,12 @@ class WatchConnectivityBridge: RCTEventEmitter {
   }
   
   @objc
-  func notifyWatchNotificationsRead(_ notificationIds: [String], readAt: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+  func notifyWatchNotificationsRead(_ notificationIds: [String], readAt: String?, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let status = readAt != nil ? "read" : "unread"
     logger.info(
       tag: "ReactNative→Watch",
-      message: "React Native requested batch mark as read",
-      metadata: ["count": String(notificationIds.count), "readAt": readAt, "action": "batchRead"],
+      message: "React Native requested batch mark as \(status)",
+      metadata: ["count": String(notificationIds.count), "readAt": readAt ?? "null", "action": "batchStatusChange"],
       source: "WatchBridge"
     )
     
@@ -173,6 +174,55 @@ class WatchConnectivityBridge: RCTEventEmitter {
     
     iPhoneWatchConnectivityManager.shared.notifyWatchNotificationDeleted(notificationId: notificationId)
     resolve(["success": true])
+  }
+  
+  @objc
+  func notifyWatchNotificationAdded(_ notificationId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    logger.info(
+      tag: "ReactNative→Watch",
+      message: "React Native requested add notification",
+      metadata: ["notificationId": notificationId, "action": "add"],
+      source: "WatchBridge"
+    )
+    
+    iPhoneWatchConnectivityManager.shared.notifyWatchNotificationAdded(notificationId: notificationId)
+    resolve(["success": true])
+  }
+  
+  @objc
+  func sendFullSyncToWatch(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    logger.info(
+      tag: "ReactNative→Watch",
+      message: "React Native requested full sync via transferFile",
+      metadata: ["action": "fullSync"],
+      source: "WatchBridge"
+    )
+    
+    iPhoneWatchConnectivityManager.shared.sendFullSyncToWatch { success, notificationsCount, bucketsCount in
+      if success {
+        self.logger.info(
+          tag: "ReactNative→Watch",
+          message: "Full sync sent successfully",
+          metadata: [
+            "notificationsCount": String(notificationsCount),
+            "bucketsCount": String(bucketsCount)
+          ],
+          source: "WatchBridge"
+        )
+        resolve([
+          "success": true,
+          "notificationsCount": notificationsCount,
+          "bucketsCount": bucketsCount
+        ])
+      } else {
+        self.logger.error(
+          tag: "ReactNative→Watch",
+          message: "Failed to send full sync",
+          source: "WatchBridge"
+        )
+        reject("FULL_SYNC_ERROR", "Failed to send full sync to Watch", nil)
+      }
+    }
   }
   
 }

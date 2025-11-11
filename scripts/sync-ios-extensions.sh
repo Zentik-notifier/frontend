@@ -160,14 +160,11 @@ else
     print_warning "Cartella Content Extension non trovata: $CONTENT_SOURCE"
 fi
 
-# 3. AppDelegate e CloudKitSyncManager
-print_status "Sincronizzazione AppDelegate e CloudKitSyncManager..."
+# 3. AppDelegate
+print_status "Sincronizzazione AppDelegate..."
 
 APPDELEGATE_SOURCE="plugins/withCustomAppDelegate/files/AppDelegate.swift"
 APPDELEGATE_DEST="$IOS_DIR/ZentikDev/AppDelegate.swift"
-
-CLOUDKIT_SYNC_SOURCE="plugins/withCustomAppDelegate/files/CloudKitSyncManager_iOS.swift"
-CLOUDKIT_SYNC_DEST="$IOS_DIR/ZentikDev/CloudKitSyncManager_iOS.swift"
 
 if [ -f "$APPDELEGATE_SOURCE" ]; then
     # Copia AppDelegate
@@ -182,19 +179,6 @@ else
     print_warning "AppDelegate non trovato: $APPDELEGATE_SOURCE"
 fi
 
-if [ -f "$CLOUDKIT_SYNC_SOURCE" ]; then
-    # Copia CloudKitSyncManager_iOS
-    cp -f "$CLOUDKIT_SYNC_SOURCE" "$CLOUDKIT_SYNC_DEST"
-    
-    # Sostituisci placeholder
-    replace_placeholders "$CLOUDKIT_SYNC_DEST" "$BUNDLE_ID"
-    
-    print_success "CloudKitSyncManager_iOS sincronizzato"
-    print_status "  ✅ CloudKitSyncManager_iOS.swift copiato"
-else
-    print_warning "CloudKitSyncManager_iOS non trovato: $CLOUDKIT_SYNC_SOURCE"
-fi
-
 # 3.5 WatchConnectivity (per app iOS principale)
 print_status "Sincronizzazione WatchConnectivity files..."
 
@@ -205,6 +189,7 @@ WATCH_CONNECTIVITY_FILES=(
     "WatchConnectivityManager.swift"
     "WatchConnectivityBridge.swift"
     "WatchConnectivityBridge.m"
+    "iPhoneWatchConnectivityManager.swift"
 )
 
 watch_conn_copied=0
@@ -215,7 +200,7 @@ for file in "${WATCH_CONNECTIVITY_FILES[@]}"; do
     if [ -f "$source_file" ]; then
         cp -f "$source_file" "$dest_file"
         replace_placeholders "$dest_file" "$BUNDLE_ID"
-        print_status "  ✅ $file copiato"
+        print_status "  ✅ $file copiato in iOS App"
         ((watch_conn_copied++))
     else
         print_warning "  ⚠️  $file non trovato in $WATCH_CONNECTIVITY_SOURCE"
@@ -241,10 +226,12 @@ else
 fi
 
 # Funzione per copiare i file condivisi in una destinazione
+# Uso: copy_shared_files <dest_dir> <target_name> <exclude_pattern> <files...>
 copy_shared_files() {
     local dest_dir="$1"
     local target_name="$2"
-    local files_array=("${@:3}")  # Tutti gli argomenti dal terzo in poi
+    local exclude_pattern="$3"  # Pattern di file da escludere (es. "NotificationActionHandler.swift")
+    local files_array=("${@:4}")  # Tutti gli argomenti dal quarto in poi
     
     if [ ! -d "$dest_dir" ]; then
         print_warning "Cartella destinazione non trovata: $dest_dir"
@@ -254,7 +241,15 @@ copy_shared_files() {
     print_status "  Copiando file condivisi in $target_name..."
     
     local copied_count=0
+    local skipped_count=0
     for file in "${files_array[@]}"; do
+        # Salta i file che matchano il pattern di esclusione
+        if [ -n "$exclude_pattern" ] && [[ "$file" == $exclude_pattern ]]; then
+            print_status "    ⏭️  $file saltato (non necessario per $target_name)"
+            ((skipped_count++))
+            continue
+        fi
+        
         local source_file="$SHARED_SOURCE/$file"
         local dest_file="$dest_dir/$file"
         
@@ -268,42 +263,43 @@ copy_shared_files() {
         fi
     done
     
-    print_success "  $target_name: $copied_count/${#files_array[@]} file copiati"
+    if [ $skipped_count -gt 0 ]; then
+        print_success "  $target_name: $copied_count/${#files_array[@]} file copiati ($skipped_count saltati)"
+    else
+        print_success "  $target_name: $copied_count/${#files_array[@]} file copiati"
+    fi
 }
 
 if [ -d "$SHARED_SOURCE" ]; then
     # Copia file condivisi in iOS App principale
-    copy_shared_files "$IOS_DIR/ZentikDev" "iOS App" "${SHARED_FILES[@]}"
+    copy_shared_files "$IOS_DIR/ZentikDev" "iOS App" "" "${SHARED_FILES[@]}"
     
     # Copia file condivisi in Notification Service Extension
-    copy_shared_files "$SERVICE_DEST" "NSE" "${SHARED_FILES[@]}"
+    copy_shared_files "$SERVICE_DEST" "NSE" "" "${SHARED_FILES[@]}"
     
     # Copia file condivisi in Content Extension
-    copy_shared_files "$CONTENT_DEST" "NCE" "${SHARED_FILES[@]}"
+    copy_shared_files "$CONTENT_DEST" "NCE" "" "${SHARED_FILES[@]}"
     
-    # 5. Watch Extension
+    # 5. Watch Extension (escludi NotificationActionHandler)
     print_status "Sincronizzazione Watch Extension..."
     
     WATCH_DIR="targets/watch"
     
     if [ -d "$WATCH_DIR" ]; then
-        copy_shared_files "$WATCH_DIR" "Watch" "${SHARED_FILES[@]}"
-        
-        # Note: Watch ha il suo CloudKitSyncManager_Watch.swift separato, non lo copiamo dal plugin
-        print_status "  Watch usa CloudKitSyncManager_Watch.swift separato (non copiato dal plugin)"
+        copy_shared_files "$WATCH_DIR" "Watch" "NotificationActionHandler.swift" "${SHARED_FILES[@]}"
         
         print_success "Watch Extension sincronizzata"
     else
         print_warning "Cartella Watch Extension non trovata: $WATCH_DIR"
     fi
     
-    # 6. Widget Extension
+    # 6. Widget Extension (escludi NotificationActionHandler)
     print_status "Sincronizzazione Widget Extension..."
     
     WIDGET_DIR="targets/widget"
     
     if [ -d "$WIDGET_DIR" ]; then
-        copy_shared_files "$WIDGET_DIR" "Widget" "${SHARED_FILES[@]}"
+        copy_shared_files "$WIDGET_DIR" "Widget" "NotificationActionHandler.swift" "${SHARED_FILES[@]}"
         
         print_success "Widget Extension sincronizzata"
     else
@@ -333,9 +329,6 @@ print_status "  📱 Notification Service Extension: $SERVICE_FILES file"
 print_status "  🎨 Content Extension: $CONTENT_FILES file"
 if [ -f "$APPDELEGATE_DEST" ]; then
     print_status "  🎯 AppDelegate: copiato + file condivisi"
-fi
-if [ -f "$CLOUDKIT_SYNC_DEST" ]; then
-    print_status "  ☁️  CloudKitSyncManager_iOS: copiato"
 fi
 if [ $watch_conn_copied -gt 0 ]; then
     print_status "  📡 WatchConnectivity: $watch_conn_copied file copiati in iOS App"

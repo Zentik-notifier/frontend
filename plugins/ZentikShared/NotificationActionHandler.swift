@@ -334,29 +334,6 @@ public class NotificationActionHandler {
                     try await markNotificationAsRead(notificationId: notificationId, userInfo: userInfo)
                     DatabaseAccess.markNotificationAsRead(notificationId: notificationId, source: source)
                     
-                    // Update CloudKit (non-blocking)
-                    CloudKitAccess.markNotificationAsRead(id: notificationId) { result in
-                        switch result {
-                        case .success:
-                            LoggingSystem.shared.info(
-                                tag: source,
-                                message: "CloudKit updated for MARK_AS_READ",
-                                metadata: ["notificationId": notificationId],
-                                source: source
-                            )
-                        case .failure(let error):
-                            LoggingSystem.shared.warn(
-                                tag: source,
-                                message: "CloudKit update failed (non-critical)",
-                                metadata: [
-                                    "notificationId": notificationId,
-                                    "error": error.localizedDescription
-                                ],
-                                source: source
-                            )
-                        }
-                    }
-                    
                     // Decrement badge count for both NCE and AppDelegate
                     KeychainAccess.decrementBadgeCount(source: source)
                     
@@ -370,29 +347,6 @@ public class NotificationActionHandler {
                 case "DELETE":
                     try await deleteNotificationFromServer(notificationId: notificationId, userInfo: userInfo)
                     DatabaseAccess.deleteNotification(notificationId: notificationId, source: source)
-                    
-                    // Delete from CloudKit (non-blocking)
-                    CloudKitAccess.deleteNotification(id: notificationId) { result in
-                        switch result {
-                        case .success:
-                            LoggingSystem.shared.info(
-                                tag: source,
-                                message: "CloudKit updated for DELETE",
-                                metadata: ["notificationId": notificationId],
-                                source: source
-                            )
-                        case .failure(let error):
-                            LoggingSystem.shared.warn(
-                                tag: source,
-                                message: "CloudKit delete failed (non-critical)",
-                                metadata: [
-                                    "notificationId": notificationId,
-                                    "error": error.localizedDescription
-                                ],
-                                source: source
-                            )
-                        }
-                    }
                     
                     // Decrement badge count for both NCE and AppDelegate
                     KeychainAccess.decrementBadgeCount(source: source)

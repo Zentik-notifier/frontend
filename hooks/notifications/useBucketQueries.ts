@@ -109,6 +109,8 @@ export function useBucket(
             return data?.bucket ?? null;
         },
         enabled: autoFetch && !!bucketId && !appStateLoading && !bucketFromGlobal?.isOrphan && !bucketFromGlobal,
+        refetchOnWindowFocus: false, // ✅ Disable auto-refetch on focus to prevent conflicts with Watch sync
+        refetchOnMount: false, // ✅ Only fetch on initial mount
         staleTime: Infinity,
         gcTime: Infinity,
     });

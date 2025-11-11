@@ -87,7 +87,7 @@ export default function NotificationDetail({
 
   useEffect(() => {
     if (notification && !notification.readAt) {
-      markAsReadMutation.mutate(notification.id);
+      markAsReadMutation.mutate({ notificationId: notification.id });
     }
   }, [notification, markAsReadMutation]);
 
@@ -264,7 +264,7 @@ export default function NotificationDetail({
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteNotificationMutation.mutateAsync(notification.id);
+              await deleteNotificationMutation.mutateAsync({ notificationId: notification.id });
               Alert.alert(
                 t("common.success"),
                 t("notificationDetail.deleteSuccess"),

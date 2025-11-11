@@ -2204,10 +2204,6 @@
     "loadError": "Errore durante il caricamento dei dati in cache",
     "cached": "in cache",
     "storageInfo": "Informazioni Archiviazione",
-    "cloudKitTitle": "Record CloudKit",
-    "cloudKitDescription": "Record sincronizzati su iCloud",
-    "fetchCloudKit": "Aggiorna CloudKit",
-    "cloudKitError": "Errore durante il recupero dei record CloudKit",
     "viewAllRecords": "Visualizza Tutti i Record",
     "viewRecord": "Visualizza Record",
     "deleteRecord": "Elimina Record",
@@ -2249,12 +2245,6 @@
       "errorMessage": "Errore nell'esportazione del database: {{error}}",
       "successMessage": "Database esportato in: {{path}}"
     },
-    "cloudKit": {
-      "confirmDeleteTitle": "Conferma Eliminazione",
-      "confirmDeleteMessage": "Sei sicuro di voler eliminare questo record da CloudKit?",
-      "deleteSuccess": "Record eliminato con successo",
-      "deleteError": "Errore nell'eliminazione del record"
-    },
     "bucketsList": {
       "description": "Bucket di notifiche memorizzati localmente per l'accesso offline",
       "emptyText": "Nessun bucket in cache"
@@ -2262,18 +2252,6 @@
     "notificationsList": {
       "description": "{{count}} notifiche memorizzate localmente",
       "emptyText": "Nessuna notifica in cache"
-    },
-    "cloudKitBuckets": {
-      "title": "Bucket CloudKit",
-      "description": "{{count}} bucket su iCloud",
-      "emptyDescription": "Bucket CloudKit memorizzati nel tuo database privato",
-      "emptyText": "Nessun bucket su CloudKit"
-    },
-    "cloudKitNotifications": {
-      "title": "Notifiche CloudKit",
-      "description": "{{count}} notifiche su iCloud",
-      "emptyDescription": "Notifiche CloudKit memorizzate nel tuo database privato",
-      "emptyText": "Nessuna notifica su CloudKit"
     },
     "recordDetails": {
       "bucketTitle": "Dettagli Bucket",

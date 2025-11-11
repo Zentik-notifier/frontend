@@ -118,6 +118,8 @@ export function useInfiniteNotifications(
             return allPages.length;
         },
         refetchInterval: realtime ? (refetchInterval || 5000) : refetchInterval,
+        refetchOnWindowFocus: false, // ✅ Disable auto-refetch on focus to prevent conflicts with Watch sync
+        refetchOnMount: false, // ✅ Only fetch on initial mount
         staleTime: 10000, // 10 seconds
         gcTime: 10 * 60 * 1000, // 10 minutes
         ...options,
@@ -513,6 +515,8 @@ export function useNotificationsState(
         },
         enabled: true, // ✅ Always enabled - data is essential for the app
         refetchInterval: realtime ? (refetchInterval || 5000) : refetchInterval,
+        refetchOnWindowFocus: false, // ✅ Disable auto-refetch on focus to prevent conflicts with Watch sync
+        refetchOnMount: false, // ✅ Only fetch on initial mount
         staleTime: forceFullDetails ? 0 : 30000, // ✅ 30 seconds stale time for normal use
         gcTime: Infinity, // ✅ Keep in cache forever (until app restart)
     });
@@ -580,6 +584,8 @@ export function useAllNotificationIds(
             }
         },
         refetchInterval: realtime ? (refetchInterval || 5000) : refetchInterval,
+        refetchOnWindowFocus: false, // ✅ Disable auto-refetch on focus to prevent conflicts with Watch sync
+        refetchOnMount: false, // ✅ Only fetch on initial mount
         staleTime: 10000, // 10 seconds
         gcTime: 2 * 60 * 1000, // 2 minutes
     });

@@ -1,6 +1,5 @@
 import Foundation
 import Security
-import CloudKit
 
 /**
  * KeychainAccess - Shared keychain utilities
@@ -39,12 +38,6 @@ public class KeychainAccess {
         let mainBundleId = getMainBundleIdentifier()
         let teamId = "C3F24V5NS5"
         return "\(teamId).\(mainBundleId).keychain"
-    }
-    
-    /// Get CloudKit container identifier
-    public static func getCloudKitContainerIdentifier() -> String {
-        let mainBundleId = getMainBundleIdentifier()
-        return "iCloud.\(mainBundleId)"
     }
     
     // MARK: - Keychain Operations

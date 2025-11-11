@@ -21,7 +21,6 @@ const requestIdleCallbackPolyfill = (callback: () => void) => {
 
 interface CleanupProps {
     immediate?: boolean,
-    syncCloud?: boolean,
     force?: boolean,
 }
 
@@ -30,7 +29,7 @@ export const useCleanup = () => {
     const { refreshAll } = useNotificationsState();
     const { settings } = useSettings();
 
-    const cleanup = useCallback(async ({ immediate, syncCloud, force }: CleanupProps) => {
+    const cleanup = useCallback(async ({ immediate, force }: CleanupProps) => {
         const shouldCleanup = !settingsService.shouldRunCleanup() ? false : true;
 
         const executeWithRAF = <T>(fn: () => Promise<T>, label: string): Promise<T> => {
@@ -121,39 +120,6 @@ export const useCleanup = () => {
         ).catch((e) => {
             console.error('[Cleanup] Error reloading media cache metadata', e);
         });
-
-
-        if (syncCloud) {
-            await waitRAF();
-
-            await executeWithRAF(
-                async () => {
-                    console.log('[Cleanup] 🔄 Starting CloudKit incremental sync...');
-
-                    // Step 1: Fetch incremental changes from CloudKit (using saved tokens)
-                    const changes = await IosBridgeService.fetchIncrementalChanges();
-
-                    console.log(`[Cleanup] ✅ Fetched ${changes.bucketChanges} bucket changes, ${changes.notificationChanges} notification changes`);
-
-                    // Step 2: Native code already updated SQLite DB with changes
-                    // Invalidate React Query cache to reload from updated DB
-                    if (changes.bucketChanges > 0 || changes.notificationChanges > 0) {
-                        console.log('[Cleanup] 🔄 Invalidating cache after CloudKit changes...');
-                        await queryClient.invalidateQueries({ queryKey: ['app-state'] });
-                        await queryClient.invalidateQueries({ queryKey: ['notifications', 'lists'] });
-                    }
-
-                    // Step 3: Upload local changes to CloudKit (if any new notifications)
-                    const limit = settings.retentionPolicies?.watchNMaxNotifications ?? 150;
-                    const uploadResult = await IosBridgeService.syncAllToCloudKit(limit);
-                    console.log(`[Cleanup] ✅ Uploaded ${uploadResult.bucketsCount} buckets, ${uploadResult.notificationsCount} notifications`);
-                },
-                'CloudKit sync'
-            ).catch((e) => {
-                console.error('[Cleanup] Error during CloudKit sync', e);
-            });
-
-        }
 
         console.log('[Cleanup] Cleanup completed');
     }, [queryClient, refreshAll]);

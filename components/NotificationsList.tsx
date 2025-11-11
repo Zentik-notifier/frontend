@@ -414,18 +414,6 @@ export default function NotificationsList({
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      // Trigger full CloudKit sync on iOS
-      if (Platform.OS === 'ios') {
-        console.log('[NotificationsList] Starting full CloudKit sync on pull-to-refresh...');
-        IosBridgeService.syncAllToCloudKitFull()
-          .then(result => {
-            console.log('[NotificationsList] CloudKit full sync completed:', result);
-          })
-          .catch(error => {
-            console.error('[NotificationsList] CloudKit full sync failed:', error);
-          });
-      }
-      
       await refreshNotificationQueries(queryClient);
       await refetch();
     } catch (error) {

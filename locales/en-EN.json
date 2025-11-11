@@ -1983,10 +1983,6 @@
     "loadError": "Failed to load cached data",
     "cached": "cached",
     "storageInfo": "Storage Information",
-    "cloudKitTitle": "CloudKit Records",
-    "cloudKitDescription": "Records synced to iCloud",
-    "fetchCloudKit": "Refresh CloudKit",
-    "cloudKitError": "Failed to fetch CloudKit records",
     "viewAllRecords": "View All Records",
     "viewRecord": "View Record",
     "deleteRecord": "Delete Record",
@@ -2028,12 +2024,6 @@
       "errorMessage": "Failed to export database: {{error}}",
       "successMessage": "Database exported to: {{path}}"
     },
-    "cloudKit": {
-      "confirmDeleteTitle": "Confirm Deletion",
-      "confirmDeleteMessage": "Are you sure you want to delete this record from CloudKit?",
-      "deleteSuccess": "Record deleted successfully",
-      "deleteError": "Failed to delete record"
-    },
     "bucketsList": {
       "description": "Notification buckets stored locally for offline access",
       "emptyText": "No buckets cached"
@@ -2041,18 +2031,6 @@
     "notificationsList": {
       "description": "{{count}} notifications cached locally",
       "emptyText": "No notifications cached"
-    },
-    "cloudKitBuckets": {
-      "title": "CloudKit Buckets",
-      "description": "{{count}} buckets in iCloud",
-      "emptyDescription": "CloudKit buckets stored in your private database",
-      "emptyText": "No buckets in CloudKit"
-    },
-    "cloudKitNotifications": {
-      "title": "CloudKit Notifications",
-      "description": "{{count}} notifications in iCloud",
-      "emptyDescription": "CloudKit notifications stored in your private database",
-      "emptyText": "No notifications in CloudKit"
     },
     "recordDetails": {
       "bucketTitle": "Bucket Details",

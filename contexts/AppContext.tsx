@@ -261,7 +261,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await push.initialize();
 
       setIsInitializing(false);
-      cleanup({ immediate: true, syncCloud: true }).catch((e) => {
+      cleanup({ immediate: true }).catch((e) => {
         console.error(
           "Error during cleanup after completeAuth:",
           JSON.stringify(e)
@@ -433,8 +433,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await processPendingNavigationIntent();
         await openSharedCacheDb();
 
-        // Force refresh from backend and sync to CloudKit
-        await cleanup({ immediate: true, syncCloud: true });
+        await cleanup({ immediate: true });
 
         await connectionStatus.checkForUpdates();
       } else if (

@@ -7,8 +7,6 @@ import {
   IconButton,
   List,
   Button,
-  Portal,
-  Dialog,
 } from "react-native-paper";
 import { useI18n } from "@/hooks/useI18n";
 import { deleteBucket } from "@/db/repositories/buckets-repository";
@@ -25,14 +23,6 @@ import {
   importSQLiteDatabaseFromFile 
 } from "@/services/db-setup";
 
-type CloudKitRecord = {
-  recordName: string;
-  recordType?: string;
-  createdAt: number;
-  modifiedAt: number;
-  [key: string]: any;
-};
-
 type LocalRecord = {
   type: 'bucket' | 'notification';
   data: any;
@@ -43,129 +33,12 @@ export default function CachedData() {
   const { t } = useI18n();
   const { data: appState, isLoading, refetch } = useAppState();
   const deleteMutation = useDeleteNotification();
-  const [cloudKitData, setCloudKitData] = useState<{
-    bucketsCount: number;
-    notificationsCount: number;
-  } | null>(null);
-  const [cloudKitBuckets, setCloudKitBuckets] = useState<CloudKitRecord[]>([]);
-  const [cloudKitNotifications, setCloudKitNotifications] = useState<CloudKitRecord[]>([]);
-  const [loadingCloudKit, setLoadingCloudKit] = useState(false);
-  const [loadingCloudKitRecords, setLoadingCloudKitRecords] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<CloudKitRecord | null>(null);
-  const [showRecordDialog, setShowRecordDialog] = useState(false);
   const [selectedLocalRecord, setSelectedLocalRecord] = useState<LocalRecord | null>(null);
   const [showLocalRecordModal, setShowLocalRecordModal] = useState(false);
 
   const refreshData = useCallback(async () => {
     await refetch();
   }, [refetch]);
-
-  const fetchCloudKitData = useCallback(async () => {
-    if (Platform.OS !== 'ios') return;
-    
-    setLoadingCloudKit(true);
-    try {
-      const { default: IosBridgeService } = await import('@/services/ios-bridge');
-      const result = await IosBridgeService.fetchCloudKitRecordsCount();
-      
-      if (result.success) {
-        setCloudKitData({
-          bucketsCount: result.bucketsCount,
-          notificationsCount: result.notificationsCount,
-        });
-      } else {
-        Alert.alert(t("common.error"), t("cachedData.cloudKitError"));
-      }
-    } catch (error) {
-      console.error("Failed to fetch CloudKit data:", error);
-      Alert.alert(t("common.error"), t("cachedData.cloudKitError"));
-    } finally {
-      setLoadingCloudKit(false);
-    }
-  }, [t]);
-
-  const fetchAllCloudKitRecords = useCallback(async () => {
-    if (Platform.OS !== 'ios') return;
-    
-    setLoadingCloudKitRecords(true);
-    try {
-      const { default: IosBridgeService } = await import('@/services/ios-bridge');
-      
-      const [bucketsResult, notificationsResult] = await Promise.all([
-        IosBridgeService.fetchAllBucketsFromCloudKit(),
-        IosBridgeService.fetchAllNotificationsFromCloudKit(),
-      ]);
-      
-      if (bucketsResult.success) {
-        setCloudKitBuckets(bucketsResult.buckets as CloudKitRecord[]);
-      }
-      
-      if (notificationsResult.success) {
-        setCloudKitNotifications(notificationsResult.notifications as CloudKitRecord[]);
-      }
-      
-      // Update counts too
-      setCloudKitData({
-        bucketsCount: bucketsResult.buckets.length,
-        notificationsCount: notificationsResult.notifications.length,
-      });
-    } catch (error) {
-      console.error("Failed to fetch CloudKit records:", error);
-      Alert.alert(t("common.error"), t("cachedData.cloudKitError"));
-    } finally {
-      setLoadingCloudKitRecords(false);
-    }
-  }, [t]);
-
-  const handleViewRecord = useCallback((record: CloudKitRecord) => {
-    setSelectedRecord(record);
-    setShowRecordDialog(true);
-  }, []);
-
-  const handleDeleteRecord = useCallback(async (recordName: string) => {
-    if (Platform.OS !== 'ios') return;
-    
-    Alert.alert(
-      t("cachedData.cloudKit.confirmDeleteTitle"),
-      t("cachedData.cloudKit.confirmDeleteMessage"),
-      [
-        {
-          text: t("common.cancel"),
-          style: "cancel",
-        },
-        {
-          text: t("common.delete"),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const { default: IosBridgeService } = await import('@/services/ios-bridge');
-              const result = await IosBridgeService.deleteRecordFromCloudKit(recordName);
-              
-              if (result.success) {
-                // Refresh records after deletion
-                await fetchAllCloudKitRecords();
-                Alert.alert(
-                  t("common.success"), 
-                  t("cachedData.cloudKit.deleteSuccess")
-                );
-              } else {
-                Alert.alert(
-                  t("common.error"), 
-                  t("cachedData.cloudKit.deleteError")
-                );
-              }
-            } catch (error) {
-              console.error("Failed to delete record:", error);
-              Alert.alert(
-                t("common.error"), 
-                t("cachedData.cloudKit.deleteError")
-              );
-            }
-          },
-        },
-      ]
-    );
-  }, [t, fetchAllCloudKitRecords]);
 
   const handleViewLocalBucket = useCallback((bucket: any) => {
     setSelectedLocalRecord({ type: 'bucket', data: bucket });
@@ -290,7 +163,7 @@ export default function CachedData() {
             style: "destructive",
             onPress: async () => {
               try {
-                await deleteMutation.mutateAsync(notificationId);
+                await deleteMutation.mutateAsync({ notificationId });
                 Alert.alert(t("common.success"), t("cachedData.deleteSuccess"));
               } catch (error) {
                 console.error("Failed to delete notification:", error);
@@ -458,13 +331,6 @@ export default function CachedData() {
     }
   }, [t, refetch]);
 
-  // Fetch CloudKit data on mount (iOS only)
-  useEffect(() => {
-    if (Platform.OS === 'ios') {
-      fetchAllCloudKitRecords();
-    }
-  }, [fetchAllCloudKitRecords]);
-
   return (
     <PaperScrollView onRefresh={refreshData} loading={isLoading}>
       {/* Overview Description */}
@@ -629,107 +495,6 @@ export default function CachedData() {
         maxHeight={400}
       />
 
-      {/* CloudKit Records Card - iOS Only */}
-      {Platform.OS === 'ios' && (
-        <>
-          {/* CloudKit Buckets Detail */}
-          <DetailSectionCard
-            title={t("cachedData.cloudKitBuckets.title")}
-            description={cloudKitBuckets.length > 0 
-              ? t("cachedData.cloudKitBuckets.description", { count: cloudKitBuckets.length })
-              : t("cachedData.cloudKitBuckets.emptyDescription")
-            }
-            actionButtons={[
-              {
-                icon: "refresh",
-                onPress: fetchAllCloudKitRecords,
-                disabled: loadingCloudKitRecords,
-              },
-            ]}
-            loading={loadingCloudKitRecords}
-            emptyState={{
-              icon: "folder-cloud-outline",
-              text: t("cachedData.cloudKitBuckets.emptyText"),
-            }}
-            items={cloudKitBuckets}
-            renderItem={(bucket) => (
-              <List.Item
-                title={bucket.name || bucket.recordName}
-                description={`ID: ${bucket.id || bucket.recordName.substring(0, 30)}...`}
-                left={(props) => (
-                  <List.Icon {...props} icon="folder-cloud" color={theme.colors.primary} />
-                )}
-                right={(props) => (
-                  <View style={{ flexDirection: 'row' }}>
-                    <IconButton
-                      icon="eye"
-                      iconColor={theme.colors.primary}
-                      size={20}
-                      onPress={() => handleViewRecord(bucket)}
-                    />
-                    <IconButton
-                      icon="delete"
-                      iconColor={theme.colors.error}
-                      size={20}
-                      onPress={() => handleDeleteRecord(bucket.recordName)}
-                    />
-                  </View>
-                )}
-              />
-            )}
-            maxHeight={400}
-          />
-
-          {/* CloudKit Notifications Detail */}
-          <DetailSectionCard
-            title={t("cachedData.cloudKitNotifications.title")}
-            description={cloudKitNotifications.length > 0 
-              ? t("cachedData.cloudKitNotifications.description", { count: cloudKitNotifications.length })
-              : t("cachedData.cloudKitNotifications.emptyDescription")
-            }
-            actionButtons={[
-              {
-                icon: "refresh",
-                onPress: fetchAllCloudKitRecords,
-                disabled: loadingCloudKitRecords,
-              },
-            ]}
-            loading={loadingCloudKitRecords}
-            emptyState={{
-              icon: "bell-badge-outline",
-              text: t("cachedData.cloudKitNotifications.emptyText"),
-            }}
-            items={cloudKitNotifications}
-            renderItem={(notification) => (
-              <List.Item
-                title={notification.title || notification.recordName}
-                description={`Bucket: ${notification.bucketId ? notification.bucketId.substring(0, 30) : 'Unknown'}...`}
-                left={(props) => (
-                  <List.Icon {...props} icon="bell-badge" color={theme.colors.secondary} />
-                )}
-                right={(props) => (
-                  <View style={{ flexDirection: 'row' }}>
-                    <IconButton
-                      icon="eye"
-                      iconColor={theme.colors.primary}
-                      size={20}
-                      onPress={() => handleViewRecord(notification)}
-                    />
-                    <IconButton
-                      icon="delete"
-                      iconColor={theme.colors.error}
-                      size={20}
-                      onPress={() => handleDeleteRecord(notification.recordName)}
-                    />
-                  </View>
-                )}
-              />
-            )}
-            maxHeight={400}
-          />
-        </>
-      )}
-
       {/* Local Record Detail Modal */}
       <DetailModal
         visible={showLocalRecordModal}
@@ -758,35 +523,6 @@ export default function CachedData() {
           </Text>
         )}
       </DetailModal>
-
-      {/* CloudKit Record Detail Dialog */}
-      <Portal>
-        <Dialog visible={showRecordDialog} onDismiss={() => setShowRecordDialog(false)}>
-          <Dialog.Title>{t("cachedData.recordDetailsTitle")}</Dialog.Title>
-          <Dialog.ScrollArea style={{ maxHeight: 400 }}>
-            <ScrollView>
-              <Card.Content>
-                {selectedRecord && (
-                  <Text
-                    variant="bodySmall"
-                    style={{
-                      fontFamily: 'monospace',
-                      color: theme.colors.onSurface,
-                    }}
-                  >
-                    {JSON.stringify(selectedRecord, null, 2)}
-                  </Text>
-                )}
-              </Card.Content>
-            </ScrollView>
-          </Dialog.ScrollArea>
-          <Dialog.Actions>
-            <Button onPress={() => setShowRecordDialog(false)}>
-              {t("common.close")}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
 
       {/* Storage Info Card
       <Card style={styles.card}>

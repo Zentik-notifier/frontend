@@ -838,16 +838,6 @@ export function parseNotificationFromDB(dbRecord: any, db?: any): NotificationFr
       notification.createdAt = dbRecord.created_at;
     }
 
-    // FALLBACK: If bucket is missing in message.bucket but bucketId exists at root level (CloudKit format),
-    // reconstruct the bucket object from the root bucketId field
-    if (notification.bucketId && (!notification.message?.bucket || !notification.message.bucket.id)) {
-      if (!notification.message) {
-        notification.message = {};
-      }
-      notification.message.bucket = { id: notification.bucketId };
-      console.log('[parseNotificationFromDB] Reconstructed bucket from root bucketId:', notification.bucketId);
-    }
-
     // Validate the notification
     if (!isValidNotification(notification)) {
       console.error('[parseNotificationFromDB] Corrupted notification detected:', {
