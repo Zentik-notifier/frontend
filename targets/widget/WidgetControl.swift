@@ -2,69 +2,69 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
-struct widgetControl: ControlWidget {
-    static let kind: String = "com.developer.example.widget"
+/// Control Widget that shows unread notification count
+/// Tapping opens the app (Watch app on watchOS, iOS app on iOS)
+struct NotificationCountControl: ControlWidget {
+    static let kind: String = "com.apocaliss92.zentik.notificationCount"
 
     var body: some ControlWidgetConfiguration {
-        AppIntentControlConfiguration(
-            kind: Self.kind,
-            provider: Provider()
-        ) { value in
-            ControlWidgetToggle(
-                "Start Timer",
-                isOn: value.isRunning,
-                action: StartTimerIntent(value.name)
-            ) { isRunning in
-                Label(isRunning ? "On" : "Off", systemImage: "timer")
+        StaticControlConfiguration(
+            kind: Self.kind
+        ) {
+            ControlWidgetButton(action: OpenAppIntent()) {
+                Label {
+                    Text("\(NotificationCountProvider.shared.unreadCount)")
+                        .font(.system(size: 16, weight: .bold))
+                } icon: {
+                    Image(systemName: "bell.badge.fill")
+                        .foregroundColor(.red)
+                }
             }
         }
-        .displayName("Timer")
-        .description("A an example control that runs a timer.")
+        .displayName("Unread Notifications")
+        .description("Shows unread notification count. Tap to open app.")
     }
 }
 
-extension widgetControl {
-    struct Value {
-        var isRunning: Bool
-        var name: String
-    }
-
-    struct Provider: AppIntentControlValueProvider {
-        func previewValue(configuration: TimerConfiguration) -> Value {
-            widgetControl.Value(isRunning: false, name: configuration.timerName)
-        }
-
-        func currentValue(configuration: TimerConfiguration) async throws -> Value {
-            let isRunning = true // Check if the timer is running
-            return widgetControl.Value(isRunning: isRunning, name: configuration.timerName)
-        }
-    }
-}
-
-struct TimerConfiguration: ControlConfigurationIntent {
-    static let title: LocalizedStringResource = "Timer Name Configuration"
-
-    @Parameter(title: "Timer Name", default: "Timer")
-    var timerName: String
-}
-
-struct StartTimerIntent: SetValueIntent {
-    static let title: LocalizedStringResource = "Start a timer"
-
-    @Parameter(title: "Timer Name")
-    var name: String
-
-    @Parameter(title: "Timer is running")
-    var value: Bool
-
-    init() {}
-
-    init(_ name: String) {
-        self.name = name
-    }
-
+/// Intent to open the main app
+struct OpenAppIntent: AppIntent {
+    static let title: LocalizedStringResource = "Open Zentik"
+    static let description = IntentDescription("Opens the Zentik app")
+    
+    static var openAppWhenRun: Bool = true
+    
     func perform() async throws -> some IntentResult {
-        // Start the timer…
         return .result()
+    }
+}
+
+/// Shared provider for notification count
+/// This should be updated by the app when notifications change
+class NotificationCountProvider {
+    static let shared = NotificationCountProvider()
+    
+    private init() {
+        // Load initial count from UserDefaults
+        loadCount()
+    }
+    
+    private(set) var unreadCount: Int = 0 {
+        didSet {
+            saveCount()
+            // Reload all timelines when count changes
+            ControlCenter.shared.reloadControls(ofKind: NotificationCountControl.kind)
+        }
+    }
+    
+    func updateCount(_ count: Int) {
+        unreadCount = count
+    }
+    
+    private func saveCount() {
+        UserDefaults(suiteName: "group.com.apocaliss92.zentik.dev")?.set(unreadCount, forKey: "unreadNotificationCount")
+    }
+    
+    private func loadCount() {
+        unreadCount = UserDefaults(suiteName: "group.com.apocaliss92.zentik.dev")?.integer(forKey: "unreadNotificationCount") ?? 0
     }
 }

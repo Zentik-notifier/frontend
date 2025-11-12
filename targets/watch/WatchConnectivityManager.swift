@@ -165,6 +165,21 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         self.lastUpdate = cache.lastUpdate
         
         print("⌚ [WatchConnectivity] ✅ Loaded \(notifications.count) notifications from cache")
+        
+        // Update control widget after loading cache
+        updateControlWidget()
+    }
+    
+    // MARK: - Control Widget Integration
+    
+    /**
+     * Update the Control Widget with current unread count
+     * Called after any notification state change
+     */
+    private func updateControlWidget() {
+        let unreadCount = notifications.filter { !$0.notification.isRead }.count
+        NotificationCountProvider.shared.updateCount(unreadCount)
+        print("⌚ [WatchConnectivity] 🔔 Widget updated: \(unreadCount) unread notifications")
     }
     
     /**
@@ -488,6 +503,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             // Save to cache
             saveToCache()
             
+            // Update control widget
+            updateControlWidget()
+            
             print("⌚ [WatchConnectivity] ✅ Marked notification \(id) as read locally")
         }
     }
@@ -549,6 +567,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             // Save to cache
             saveToCache()
             
+            // Update control widget
+            updateControlWidget()
+            
             print("⌚ [WatchConnectivity] ✅ Marked notification \(id) as unread locally")
         }
     }
@@ -591,6 +612,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             
             // Save to cache
             saveToCache()
+            
+            // Update control widget
+            updateControlWidget()
             
             print("⌚ [WatchConnectivity] ✅ Deleted notification \(id) locally")
         }
