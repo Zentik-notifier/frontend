@@ -46,7 +46,10 @@ export function useWatchConnectivityEvents() {
 
         await queryClient.invalidateQueries({ queryKey: ['app-state'] });
 
-        console.log('[WatchSync] ✅ Synced to backend + updated React Query cache');
+        // Reload iOS widgets to reflect changes
+        await IosBridgeService.reloadAllWidgets();
+
+        console.log('[WatchSync] ✅ Synced to backend + updated React Query cache + reloaded widgets');
       } catch (error) {
         console.error('[WatchSync] ❌ Failed to sync read status:', error);
       }
@@ -63,7 +66,10 @@ export function useWatchConnectivityEvents() {
 
         await queryClient.invalidateQueries({ queryKey: ['app-state'] });
 
-        console.log('[WatchSync] ✅ Synced to backend + updated React Query cache');
+        // Reload iOS widgets to reflect changes
+        await IosBridgeService.reloadAllWidgets();
+
+        console.log('[WatchSync] ✅ Synced to backend + updated React Query cache + reloaded widgets');
       } catch (error) {
         console.error('[WatchSync] ❌ Failed to sync unread status:', error);
       }
@@ -80,7 +86,10 @@ export function useWatchConnectivityEvents() {
 
         await queryClient.invalidateQueries({ queryKey: ['app-state'] });
 
-        console.log('[WatchSync] ✅ Synced deletion to backend + updated React Query cache');
+        // Reload iOS widgets to reflect changes
+        await IosBridgeService.reloadAllWidgets();
+
+        console.log('[WatchSync] ✅ Synced deletion to backend + updated React Query cache + reloaded widgets');
       } catch (error) {
         console.error('[WatchSync] ❌ Failed to sync deletion:', error);
       }

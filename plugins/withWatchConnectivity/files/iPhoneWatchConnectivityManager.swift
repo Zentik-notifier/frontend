@@ -543,6 +543,14 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                                 source: "iPhoneWatchManager"
                             )
                             
+                            // Reload all widgets to reflect changes
+                            WidgetCenter.shared.reloadAllTimelines()
+                            self.logger.info(
+                                tag: "Watch→iPhone",
+                                message: "Widgets reloaded after marking as read",
+                                source: "iPhoneWatchManager"
+                            )
+                            
                             // Also emit event to React Native if app is open (for UI update)
                             if let bridge = WatchConnectivityBridge.shared {
                                 bridge.emitNotificationRead(notificationId: notificationId, readAt: readAt)
@@ -582,6 +590,14 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                                 source: "iPhoneWatchManager"
                             )
                             
+                            // Reload all widgets to reflect changes
+                            WidgetCenter.shared.reloadAllTimelines()
+                            self.logger.info(
+                                tag: "Watch→iPhone",
+                                message: "Widgets reloaded after marking as unread",
+                                source: "iPhoneWatchManager"
+                            )
+                            
                             // Also emit event to React Native if app is open (for UI update)
                             if let bridge = WatchConnectivityBridge.shared {
                                 bridge.emitNotificationUnread(notificationId: notificationId)
@@ -618,6 +634,14 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                                 tag: "Watch→iPhone",
                                 message: "Successfully deleted from SQLite",
                                 metadata: ["id": notificationId],
+                                source: "iPhoneWatchManager"
+                            )
+                            
+                            // Reload all widgets to reflect changes
+                            WidgetCenter.shared.reloadAllTimelines()
+                            self.logger.info(
+                                tag: "Watch→iPhone",
+                                message: "Widgets reloaded after deletion",
                                 source: "iPhoneWatchManager"
                             )
                             

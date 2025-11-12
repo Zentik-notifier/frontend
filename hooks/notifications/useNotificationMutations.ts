@@ -324,6 +324,9 @@ export function useMarkAsRead(
 
             // Trigger evento WatchConnectivity: notification read
             IosBridgeService.notifyWatchNotificationRead(notificationId, now);
+            
+            // Reload iOS widgets to reflect changes
+            IosBridgeService.reloadAllWidgets();
         },
         ...mutationOptions,
     });
@@ -428,6 +431,9 @@ export function useMarkAsUnread(
 
             // Trigger evento WatchConnectivity: notification unread
             IosBridgeService.notifyWatchNotificationUnread(notificationId);
+            
+            // Reload iOS widgets to reflect changes
+            IosBridgeService.reloadAllWidgets();
         },
         ...mutationOptions,
     });
@@ -565,6 +571,9 @@ export function useBatchMarkAsRead(
 
             // 5. Trigger evento WatchConnectivity
             IosBridgeService.notifyWatchNotificationsRead(notificationIds, timestamp);
+            
+            // 6. Reload iOS widgets to reflect changes
+            IosBridgeService.reloadAllWidgets();
         },
         ...mutationOptions,
     });
@@ -690,6 +699,9 @@ export function useMarkAllAsRead(
             if (allNotificationIds.length > 0) {
                 IosBridgeService.notifyWatchNotificationsRead(allNotificationIds, timestamp ?? new Date().toISOString());
             }
+            
+            // 5. Reload iOS widgets to reflect changes
+            IosBridgeService.reloadAllWidgets();
         },
         ...mutationOptions,
     });
@@ -797,6 +809,9 @@ export function useDeleteNotification(
 
             // Trigger evento WatchConnectivity: notification deleted
             IosBridgeService.notifyWatchNotificationDeleted(notificationId);
+            
+            // Reload iOS widgets to reflect changes
+            IosBridgeService.reloadAllWidgets();
         },
         ...mutationOptions,
     });
@@ -889,6 +904,9 @@ export function useBatchDeleteNotifications(
 
             // Trigger evento WatchConnectivity: batch notifications deleted
             deletedIds.forEach(id => IosBridgeService.notifyWatchNotificationDeleted(id));
+            
+            // Reload iOS widgets to reflect changes
+            IosBridgeService.reloadAllWidgets();
         },
         ...mutationOptions,
     });
