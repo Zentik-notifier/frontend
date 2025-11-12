@@ -29,7 +29,9 @@ export default function BucketsSettings() {
     refreshAll,
   } = useAppState({ forceFullDetails: true });
   const { buckets, orphanedBuckets } = useMemo(() => {
-    const buckets = appState?.buckets || [];
+    const buckets = (appState?.buckets || []).filter(
+      (bucket) => !bucket.isAdmin && !bucket.isPublic
+    );
     return {
       buckets: buckets.filter((bucket) => !bucket.isOrphan),
       orphanedBuckets: buckets.filter((bucket) => bucket.isOrphan),

@@ -479,6 +479,91 @@ export function useBatchMarkAsRead(
         },
         onSuccess: (notificationIds, variables) => {
             const timestamp = variables.readAt; // null = unread, string = read
+            const isMarkingAsRead = timestamp !== null;
+
+            // Track bucket changes: Map<bucketId, { unreadDelta: number }>
+            const bucketChanges = new Map<string, number>();
+
+            // 1. Update notifications in query cache
+            queryClient.setQueriesData<InfiniteData<NotificationQueryResult>>(
+                { queryKey: notificationKeys.lists() },
+                (oldData) => {
+                    if (!oldData) return oldData;
+
+                    return {
+                        ...oldData,
+                        pages: oldData.pages.map(page => ({
+                            ...page,
+                            notifications: page.notifications.map(n => {
+                                if (notificationIds.includes(n.id)) {
+                                    const bucketId = n.message?.bucket?.id;
+                                    
+                                    // Track changes for bucket stats
+                                    if (bucketId) {
+                                        // If marking as read and was unread -> decrease unread count
+                                        // If marking as unread and was read -> increase unread count
+                                        if (isMarkingAsRead && !n.readAt) {
+                                            const current = bucketChanges.get(bucketId) || 0;
+                                            bucketChanges.set(bucketId, current - 1);
+                                        } else if (!isMarkingAsRead && n.readAt) {
+                                            const current = bucketChanges.get(bucketId) || 0;
+                                            bucketChanges.set(bucketId, current + 1);
+                                        }
+                                    }
+
+                                    return { ...n, readAt: timestamp };
+                                }
+                                return n;
+                            }),
+                        })),
+                    };
+                }
+            );
+
+            // 2. Update bucket stats for affected buckets
+            bucketChanges.forEach((unreadDelta, bucketId) => {
+                updateAppStateBucketStats(queryClient, bucketId, 0, unreadDelta);
+            });
+
+            // 3. Update notifications in appState
+            queryClient.setQueryData<{
+                buckets: BucketWithStats[];
+                notifications: NotificationFragment[];
+                stats: any;
+                lastSync: string;
+            }>(
+                ['app-state'],
+                (oldAppState) => {
+                    if (!oldAppState) return oldAppState;
+
+                    const updatedNotifications = oldAppState.notifications.map(notification => {
+                        if (notificationIds.includes(notification.id)) {
+                            return { ...notification, readAt: timestamp };
+                        }
+                        return notification;
+                    });
+
+                    return {
+                        ...oldAppState,
+                        notifications: updatedNotifications,
+                    };
+                }
+            );
+
+            // 4. Update detail caches for affected notifications
+            notificationIds.forEach(id => {
+                const cachedNotification = queryClient.getQueryData<NotificationFragment>(
+                    notificationKeys.detail(id)
+                );
+                if (cachedNotification) {
+                    queryClient.setQueryData(
+                        notificationKeys.detail(id),
+                        { ...cachedNotification, readAt: timestamp }
+                    );
+                }
+            });
+
+            // 5. Trigger evento WatchConnectivity
             IosBridgeService.notifyWatchNotificationsRead(notificationIds, timestamp);
         },
         ...mutationOptions,
@@ -530,12 +615,81 @@ export function useMarkAllAsRead(
             return now;
         },
         onSuccess: (timestamp) => {
-            // Trigger evento WatchConnectivity: tutte le notifiche lette
+            // 1. Update all notifications in query cache
+            queryClient.setQueriesData<InfiniteData<NotificationQueryResult>>(
+                { queryKey: notificationKeys.lists() },
+                (oldData) => {
+                    if (!oldData) return oldData;
+
+                    return {
+                        ...oldData,
+                        pages: oldData.pages.map(page => ({
+                            ...page,
+                            notifications: page.notifications.map(n => ({
+                                ...n,
+                                readAt: n.readAt || timestamp, // Only update if not already read
+                            })),
+                        })),
+                    };
+                }
+            );
+
+            // 2. Update all notifications in appState and reset bucket stats
+            queryClient.setQueryData<{
+                buckets: BucketWithStats[];
+                notifications: NotificationFragment[];
+                stats: any;
+                lastSync: string;
+            }>(
+                ['app-state'],
+                (oldAppState) => {
+                    if (!oldAppState) return oldAppState;
+
+                    // Update all notifications to be read
+                    const updatedNotifications = oldAppState.notifications.map(notification => ({
+                        ...notification,
+                        readAt: notification.readAt || timestamp,
+                    }));
+
+                    // Reset all bucket unread counts to 0
+                    const updatedBuckets = oldAppState.buckets.map(bucket => ({
+                        ...bucket,
+                        unreadCount: 0,
+                    }));
+
+                    // Reset overall unread count to 0
+                    const updatedStats = {
+                        ...oldAppState.stats,
+                        unreadCount: 0,
+                    };
+
+                    return {
+                        ...oldAppState,
+                        notifications: updatedNotifications,
+                        buckets: updatedBuckets,
+                        stats: updatedStats,
+                    };
+                }
+            );
+
+            // 3. Update all detail caches
             const allNotificationIds = queryClient.getQueryData<{ notifications: NotificationFragment[]; }>(['app-state'])?.notifications.map(n => n.id) || [];
+            allNotificationIds.forEach(id => {
+                const cachedNotification = queryClient.getQueryData<NotificationFragment>(
+                    notificationKeys.detail(id)
+                );
+                if (cachedNotification && !cachedNotification.readAt) {
+                    queryClient.setQueryData(
+                        notificationKeys.detail(id),
+                        { ...cachedNotification, readAt: timestamp }
+                    );
+                }
+            });
+
+            // 4. Trigger evento WatchConnectivity: tutte le notifiche lette
             if (allNotificationIds.length > 0) {
                 IosBridgeService.notifyWatchNotificationsRead(allNotificationIds, timestamp ?? new Date().toISOString());
             }
-            // ...resto della logica onSuccess...
         },
         ...mutationOptions,
     });
