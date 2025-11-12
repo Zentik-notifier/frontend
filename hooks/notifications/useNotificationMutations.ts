@@ -592,8 +592,8 @@ export function useBatchMarkAsRead(
  * ```
  */
 export function useMarkAllAsRead(
-    mutationOptions?: Omit<UseMutationOptions<string, Error, void>, 'mutationFn'>
-): UseMutationResult<string, Error, void> {
+    mutationOptions?: Omit<UseMutationOptions<{ timestamp: string; unreadNotificationIds: string[] }, Error, void>, 'mutationFn'>
+): UseMutationResult<{ timestamp: string; unreadNotificationIds: string[] }, Error, void> {
     const queryClient = useQueryClient();
     const [markAllAsReadGQL] = useMarkAllNotificationsAsReadMutation();
 
@@ -620,10 +620,12 @@ export function useMarkAllAsRead(
                 await updateNotificationsReadStatus(unreadNotificationIds, now);
             }
 
-            // Return timestamp to use in onSuccess
-            return now;
+            // Return both timestamp and unread IDs to use in onSuccess
+            return { timestamp: now, unreadNotificationIds };
         },
-        onSuccess: (timestamp) => {
+        onSuccess: (result) => {
+            const { timestamp, unreadNotificationIds } = result;
+            
             // 1. Update all notifications in query cache
             queryClient.setQueriesData<InfiniteData<NotificationQueryResult>>(
                 { queryKey: notificationKeys.lists() },
@@ -695,9 +697,14 @@ export function useMarkAllAsRead(
                 }
             });
 
-            // 4. Trigger evento WatchConnectivity: tutte le notifiche lette
-            if (allNotificationIds.length > 0) {
-                IosBridgeService.notifyWatchNotificationsRead(allNotificationIds, timestamp ?? new Date().toISOString());
+            // 4. Trigger evento WatchConnectivity: solo le notifiche che erano unread e sono state marcate come lette
+            if (unreadNotificationIds.length > 0) {
+                // Se ci sono troppi IDs, suddividiamo in batch per evitare payload troppo grandi
+                const BATCH_SIZE = 100; // Invia max 100 IDs per volta
+                for (let i = 0; i < unreadNotificationIds.length; i += BATCH_SIZE) {
+                    const batch = unreadNotificationIds.slice(i, i + BATCH_SIZE);
+                    IosBridgeService.notifyWatchNotificationsRead(batch, timestamp);
+                }
             }
             
             // 5. Reload iOS widgets to reflect changes

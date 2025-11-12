@@ -159,6 +159,72 @@ public class DatabaseAccess {
         }
     }
     
+    /// Mark multiple notifications as read in local database (bulk operation)
+    /// Uses a single SQL query with IN clause for optimal performance
+    /// - Parameters:
+    ///   - notificationIds: Array of notification IDs to mark as read
+    ///   - source: Source identifier for logging (default: "DatabaseAccess")
+    ///   - completion: Completion handler with success status
+    public static func markMultipleNotificationsAsRead(
+        notificationIds: [String],
+        source: String = "DatabaseAccess",
+        completion: @escaping (Bool) -> Void = { _ in }
+    ) {
+        guard !notificationIds.isEmpty else {
+            print("📱 [DatabaseAccess] ⚠️ [BulkMarkAsRead] Empty ID list - skipping")
+            completion(true)
+            return
+        }
+        
+        let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+        
+        performDatabaseOperation(
+            type: .write,
+            name: "BulkMarkAsRead",
+            source: source,
+            operation: { db in
+                // Build SQL with IN clause: UPDATE notifications SET read_at = ? WHERE id IN (?, ?, ...)
+                let placeholders = Array(repeating: "?", count: notificationIds.count).joined(separator: ", ")
+                let sql = "UPDATE notifications SET read_at = ? WHERE id IN (\(placeholders))"
+                var stmt: OpaquePointer?
+                
+                let prepareResult = sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+                guard prepareResult == SQLITE_OK else {
+                    let errorMsg = String(cString: sqlite3_errmsg(db))
+                    return .failure("Failed to prepare statement: \(errorMsg) (code: \(prepareResult))")
+                }
+                
+                defer { sqlite3_finalize(stmt) }
+                
+                // Bind timestamp as first parameter
+                sqlite3_bind_int64(stmt, 1, timestamp)
+                
+                // Bind all notification IDs (starting from index 2)
+                for (index, notificationId) in notificationIds.enumerated() {
+                    sqlite3_bind_text(stmt, Int32(index + 2), (notificationId as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                }
+                
+                let result = sqlite3_step(stmt)
+                let changes = sqlite3_changes(db)
+                print("📱 [DatabaseAccess] 🔍 [BulkMarkAsRead] Updated \(changes) notifications out of \(notificationIds.count) requested")
+                
+                if result == SQLITE_DONE {
+                    return .success
+                } else {
+                    let errorMsg = String(cString: sqlite3_errmsg(db))
+                    return .failure("Step failed: \(result) - \(errorMsg)")
+                }
+            }
+        ) { (dbResult: DatabaseOperationResult) in
+            switch dbResult {
+            case .success:
+                completion(true)
+            default:
+                completion(false)
+            }
+        }
+    }
+    
     /// Mark notification as unread in local database
     /// - Parameters:
     ///   - notificationId: The notification ID to mark as unread

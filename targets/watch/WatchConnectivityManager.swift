@@ -252,6 +252,39 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     }
     
     /**
+     * Mark multiple notifications as read from Watch UI (bulk operation)
+     * Updates local cache and triggers iPhone to update its SQLite DB
+     */
+    func markMultipleNotificationsAsReadFromWatch(ids: [String]) {
+        guard !ids.isEmpty else {
+            print("⌚ [Watch] ⚠️ No notification IDs provided for bulk mark as read")
+            return
+        }
+        
+        let now = ISO8601DateFormatter().string(from: Date())
+        
+        print("⌚ [Watch] 🔄 Marking \(ids.count) notifications as read...")
+        
+        // 1. Update local Watch cache immediately (for instant UI feedback)
+        for id in ids {
+            markNotificationAsRead(id: id, readAt: now)
+        }
+        
+        // Track local modification timestamp (race condition protection)
+        lastLocalModification = Date()
+        
+        // 2. Trigger iPhone to update its SQLite DB (iPhone delegate will write to DB)
+        // Send as batch to reduce WCSession messages
+        sendMessageToiPhone([
+            "action": "notificationsRead",
+            "notificationIds": ids,
+            "readAt": now
+        ])
+        
+        print("⌚ [Watch] ✅ Marked \(ids.count) notifications as read locally and triggered iPhone DB update")
+    }
+    
+    /**
      * Mark notification as unread from Watch UI
      * Updates local cache and triggers iPhone to update its SQLite DB
      */
@@ -885,12 +918,44 @@ extension WatchConnectivityManager: WCSessionDelegate {
         print("⌚ [WatchConnectivity] 📦 UserInfo keys: \(userInfo.keys.joined(separator: ", "))")
         print("⌚ [WatchConnectivity] 📦 UserInfo count: \(userInfo.count)")
         
+        // Log to remote logging system
+        LoggingSystem.shared.log(
+            level: "INFO",
+            tag: "WatchConnectivity",
+            message: "📦 Received buffered message from iPhone",
+            metadata: [
+                "keys": userInfo.keys.joined(separator: ", "),
+                "count": "\(userInfo.count)",
+                "action": userInfo["action"] as? String ?? "unknown",
+                "timestamp": "\(Date().timeIntervalSince1970)"
+            ],
+            source: "Watch"
+        )
+        
         guard let action = userInfo["action"] as? String else {
             print("⌚ [WatchConnectivity] ⚠️ No action in userInfo")
+            LoggingSystem.shared.log(
+                level: "WARN",
+                tag: "WatchConnectivity",
+                message: "⚠️ Buffered message without action field",
+                metadata: ["keys": userInfo.keys.joined(separator: ", ")],
+                source: "Watch"
+            )
             return
         }
         
         print("⌚ [WatchConnectivity] 🎬 Action: \(action)")
+        
+        LoggingSystem.shared.log(
+            level: "INFO",
+            tag: "WatchConnectivity",
+            message: "🎬 Processing buffered action: \(action)",
+            metadata: [
+                "action": action,
+                "dataSize": "\(userInfo.count) fields"
+            ],
+            source: "Watch"
+        )
         
         // Show loader for background processing (buffered messages)
         DispatchQueue.main.async {
@@ -903,12 +968,26 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 if let notificationId = userInfo["notificationId"] as? String,
                    let readAt = userInfo["readAt"] as? String {
                     print("⌚ [WatchConnectivity] 📖 Marking notification \(notificationId) as read (background)")
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "WatchConnectivity",
+                        message: "📖 Buffered: Mark notification as read",
+                        metadata: ["notificationId": notificationId, "readAt": readAt],
+                        source: "Watch"
+                    )
                     self.markNotificationAsRead(id: notificationId, readAt: readAt)
                 }
                 
             case "notificationUnread":
                 if let notificationId = userInfo["notificationId"] as? String {
                     print("⌚ [WatchConnectivity] 📭 Marking notification \(notificationId) as unread (background)")
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "WatchConnectivity",
+                        message: "📭 Buffered: Mark notification as unread",
+                        metadata: ["notificationId": notificationId],
+                        source: "Watch"
+                    )
                     self.markNotificationAsUnread(id: notificationId)
                 }
                 
@@ -918,6 +997,13 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     let readAt = userInfo["readAt"] as? String // nil = unread
                     let status = readAt != nil ? "read" : "unread"
                     print("⌚ [WatchConnectivity] 📖 Marking \(notificationIds.count) notifications as \(status) (background)")
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "WatchConnectivity",
+                        message: "📖 Buffered: Mark \(notificationIds.count) notifications as \(status)",
+                        metadata: ["count": "\(notificationIds.count)", "status": status],
+                        source: "Watch"
+                    )
                     for id in notificationIds {
                         if let readAt = readAt {
                             self.markNotificationAsRead(id: id, readAt: readAt)
@@ -930,6 +1016,13 @@ extension WatchConnectivityManager: WCSessionDelegate {
             case "notificationDeleted":
                 if let notificationId = userInfo["notificationId"] as? String {
                     print("⌚ [WatchConnectivity] 🗑️ Deleting notification \(notificationId) (background)")
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "WatchConnectivity",
+                        message: "🗑️ Buffered: Delete notification",
+                        metadata: ["notificationId": notificationId],
+                        source: "Watch"
+                    )
                     self.deleteNotificationLocally(id: notificationId)
                 }
                 
@@ -938,23 +1031,59 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 if let notificationId = userInfo["notificationId"] as? String,
                    let fragment = userInfo["fragment"] as? [String: Any] {
                     print("⌚ [WatchConnectivity] ➕ New notification \(notificationId) with fragment - saving to local DB (background)")
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "WatchConnectivity",
+                        message: "➕ Buffered: New notification with fragment",
+                        metadata: ["notificationId": notificationId],
+                        source: "Watch"
+                    )
                     self.saveNotificationFromFragment(fragment: fragment)
                 } else {
                     print("⌚ [WatchConnectivity] ⚠️ notificationAdded missing fragment (background)")
+                    LoggingSystem.shared.log(
+                        level: "WARN",
+                        tag: "WatchConnectivity",
+                        message: "⚠️ Buffered: notificationAdded missing fragment",
+                        metadata: [:],
+                        source: "Watch"
+                    )
                 }
                 
             case "reload":
                 print("⌚ [WatchConnectivity] 🔄 Received reload trigger from iPhone (background) - waiting for data")
+                LoggingSystem.shared.log(
+                    level: "INFO",
+                    tag: "WatchConnectivity",
+                    message: "🔄 Buffered: Reload trigger received",
+                    metadata: [:],
+                    source: "Watch"
+                )
                 // iPhone invierà i dati via transferFile
             
             case "syncIncremental":
                 // Incremental sync - use cache
                 print("⌚ [WatchConnectivity] 🔄 Received incremental sync trigger (background)")
+                LoggingSystem.shared.log(
+                    level: "INFO",
+                    tag: "WatchConnectivity",
+                    message: "🔄 Buffered: Incremental sync trigger",
+                    metadata: [:],
+                    source: "Watch"
+                )
                 // Usa cache esistente
             
             case "fullSyncData":
                 // Full sync data received via transferUserInfo (large payload, background-compatible)
                 print("⌚ [WatchConnectivity] 📲 ========== FULL SYNC DATA RECEIVED (BACKGROUND) ==========")
+                
+                LoggingSystem.shared.log(
+                    level: "INFO",
+                    tag: "WatchConnectivity",
+                    message: "📲 Buffered: Full sync data received",
+                    metadata: [:],
+                    source: "Watch"
+                )
                 
                 if let bucketsData = userInfo["buckets"] as? [[String: Any]],
                    let notificationsData = userInfo["notifications"] as? [[String: Any]],
@@ -1022,6 +1151,18 @@ extension WatchConnectivityManager: WCSessionDelegate {
                         
                         print("⌚ [WatchConnectivity] ✅ Parsed \(buckets.count) buckets and \(notifications.count) notifications")
                         
+                        LoggingSystem.shared.log(
+                            level: "INFO",
+                            tag: "WatchConnectivity",
+                            message: "✅ Buffered: Parsed full sync data",
+                            metadata: [
+                                "bucketsCount": "\(buckets.count)",
+                                "notificationsCount": "\(notifications.count)",
+                                "unreadCount": "\(syncUnreadCount)"
+                            ],
+                            source: "Watch"
+                        )
+                        
                         // Update on main thread
                         DispatchQueue.main.async {
                             self.dataStore.updateFromiPhone(
@@ -1043,10 +1184,29 @@ extension WatchConnectivityManager: WCSessionDelegate {
                             print("  - Updated \(buckets.count) buckets")
                             print("  - Updated \(notifications.count) notifications")
                             print("  - Unread count: \(syncUnreadCount)")
+                            
+                            LoggingSystem.shared.log(
+                                level: "INFO",
+                                tag: "WatchConnectivity",
+                                message: "✅ Buffered: Full sync completed successfully",
+                                metadata: [
+                                    "bucketsUpdated": "\(buckets.count)",
+                                    "notificationsUpdated": "\(notifications.count)",
+                                    "unreadCount": "\(syncUnreadCount)"
+                                ],
+                                source: "Watch"
+                            )
                         }
                     }
                 } else {
                     print("⌚ [WatchConnectivity] ❌ Invalid fullSyncData payload - missing required fields")
+                    LoggingSystem.shared.log(
+                        level: "ERROR",
+                        tag: "WatchConnectivity",
+                        message: "❌ Buffered: Invalid fullSyncData payload",
+                        metadata: ["keys": userInfo.keys.joined(separator: ", ")],
+                        source: "Watch"
+                    )
                     DispatchQueue.main.async {
                         self.isWaitingForResponse = false
                     }
@@ -1058,18 +1218,43 @@ extension WatchConnectivityManager: WCSessionDelegate {
                    let bucketsData = userInfo["buckets"] as? [[String: Any]],
                    let unreadCount = userInfo["unreadCount"] as? Int {
                     print("⌚ [WatchConnectivity] 📲 Received full data update from iPhone (background)")
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "WatchConnectivity",
+                        message: "📲 Buffered: Full update received",
+                        metadata: [
+                            "bucketsCount": "\(bucketsData.count)",
+                            "notificationsCount": "\(notificationsData.count)",
+                            "unreadCount": "\(unreadCount)"
+                        ],
+                        source: "Watch"
+                    )
                     self.updateFromiPhoneMessage(
                         notifications: notificationsData,
                         buckets: bucketsData,
                         unreadCount: unreadCount
                     )
                 } else {
+                    LoggingSystem.shared.log(
+                        level: "ERROR",
+                        tag: "WatchConnectivity",
+                        message: "❌ Buffered: Invalid fullUpdate payload",
+                        metadata: [:],
+                        source: "Watch"
+                    )
                     // Stop loading if fullUpdate failed
                     self.isWaitingForResponse = false
                 }
                 
             default:
                 print("⌚ [WatchConnectivity] ⚠️ Unknown action: \(action)")
+                LoggingSystem.shared.log(
+                    level: "WARN",
+                    tag: "WatchConnectivity",
+                    message: "⚠️ Buffered: Unknown action received",
+                    metadata: ["action": action],
+                    source: "Watch"
+                )
                 // Stop loading for unknown actions
                 self.isWaitingForResponse = false
             }

@@ -87,29 +87,12 @@ export class MediaCacheRepository {
       return;
     }
 
-    // On mobile, check if database is still accessible
-    // If not, reinitialize (database may have been closed in background)
-    if (!this.isWeb() && this.db) {
-      try {
-        const sqliteDb = this.db as any;
-        // Try a simple operation to verify database is still open
-        // If this fails, the database was closed and needs reopening
-        if (sqliteDb.prepareAsync) {
-          // Test if database is accessible
-          const stmt = await sqliteDb.prepareAsync('SELECT 1');
-          await stmt.finalizeAsync();
-        }
-      } catch (error: any) {
-        // Database is closed or inaccessible, reinitialize
-        if (error?.message?.includes('closed resource')) {
-          console.log('[MediaCacheRepository] Database was closed, reopening...');
-          this.initialized = false;
-          this.db = null;
-          await this.initialize();
-        } else {
-          throw error;
-        }
-      }
+    // On mobile, if database reference is null, reinitialize
+    // We don't run test queries because they can race with database close operations
+    if (!this.isWeb() && !this.db) {
+      console.log('[MediaCacheRepository] Database reference is null, reopening...');
+      this.initialized = false;
+      await this.initialize();
     }
   }
 

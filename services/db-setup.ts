@@ -382,18 +382,32 @@ export async function closeSharedCacheDb(): Promise<void> {
     isClosing = true;
     console.log('[DB] Closing database: waiting for pending operations...');
 
-    // Wait for all pending operations in the queue to complete
+    // Wait for all pending operations in the queue to complete with timeout
     // This prevents the crash when closeAsync is called while queries are running
-    await dbOperationQueue.catch(() => {
-      // Ignore errors from pending operations
-      console.warn('[DB] Some pending operations failed during close');
-    });
+    const queueFlushTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Queue flush timeout')), 5000)
+    );
 
-    // Small delay to ensure all operations have truly completed
-    await new Promise(resolve => setTimeout(resolve, 100));
+    try {
+      await Promise.race([
+        dbOperationQueue.catch(() => {
+          // Ignore errors from pending operations
+          console.warn('[DB] Some pending operations failed during close');
+        }),
+        queueFlushTimeout
+      ]);
+      console.log('[DB] Operation queue flushed successfully');
+    } catch (error) {
+      console.warn('[DB] Queue flush timed out, forcing close');
+    }
+
+    // Longer delay to ensure all Expo SQLite statements are finalized
+    // The crash logs show that statements can still be alive after queue flush
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     // Now safe to close the database
     if (dbInstance) {
+      console.log('[DB] Calling closeAsync...');
       await dbInstance.closeAsync();
       console.log('[DB] Database closed successfully');
     }

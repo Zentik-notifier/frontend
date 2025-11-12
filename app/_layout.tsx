@@ -86,20 +86,16 @@ function DeepLinkHandler() {
   return null;
 }
 
-function WatchConnectivityHandler() {
-  // Initialize Watch connectivity event listeners
-  useWatchConnectivityEvents();
-  return null;
-}
-
 function AppContent() {
   const { isMobile } = useDeviceType();
+
+  // Initialize Watch connectivity event listeners (iOS only)
+  useWatchConnectivityEvents();
 
   return (
     <AppProvider>
       <MenuProvider>
         <DeepLinkHandler />
-        <WatchConnectivityHandler />
         <RequireAuth>
           {isMobile ? <MobileLayout /> : <TabletLayout />}
           {Platform.OS === "web" && <AlertDialog />}

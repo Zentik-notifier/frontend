@@ -23,6 +23,7 @@ class WatchConnectivityBridge: RCTEventEmitter {
     return [
       "onWatchRefresh",
       "onWatchNotificationRead",
+      "onWatchNotificationsRead",
       "onWatchNotificationUnread",
       "onWatchNotificationDeleted"
     ]
@@ -69,6 +70,21 @@ class WatchConnectivityBridge: RCTEventEmitter {
       "readAt": readAt
     ])
     logger.debug(tag: "EmitEvent", message: "Event emitted successfully", source: "WatchBridge")
+  }
+  
+  func emitNotificationsRead(notificationIds: [String], readAt: String) {
+    logger.info(
+      tag: "EmitEvent",
+      message: "Emitting onWatchNotificationsRead to React Native (bulk)",
+      metadata: ["count": String(notificationIds.count), "readAt": readAt],
+      source: "WatchBridge"
+    )
+    sendEvent(withName: "onWatchNotificationsRead", body: [
+      "notificationIds": notificationIds,
+      "readAt": readAt,
+      "count": notificationIds.count
+    ])
+    logger.debug(tag: "EmitEvent", message: "Bulk event emitted successfully", source: "WatchBridge")
   }
   
   func emitNotificationUnread(notificationId: String) {

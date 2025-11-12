@@ -26,6 +26,12 @@ export type WatchNotificationReadEvent = {
   readAt: string;
 };
 
+export type WatchNotificationsReadEvent = {
+  notificationIds: string[];
+  readAt: string;
+  count: number;
+};
+
 export type WatchNotificationUnreadEvent = {
   notificationId: string;
 };
@@ -38,6 +44,16 @@ export type WatchNotificationDeletedEvent = {
 
 class IosBridgeService {
   private watchListeners: EmitterSubscription[] = [];
+
+  // ========== Watch Connectivity Availability ==========
+
+  /**
+   * Check if WatchConnectivity is available on this platform
+   * Returns true only on iOS when WatchConnectivityBridge native module is available
+   */
+  isWatchConnectivityAvailable(): boolean {
+    return isIOS && !!WatchConnectivityBridge && !!watchEventEmitter;
+  }
 
   // ========== WatchConnectivity Event Listeners ==========
 
@@ -74,6 +90,24 @@ class IosBridgeService {
       subscription.remove();
       this.watchListeners = this.watchListeners.filter(s => s !== subscription);
       console.log('[WatchEvents] Unsubscribed from Watch notification read events');
+    };
+  }
+
+  /**
+   * Listen to Watch notifications read events (bulk)
+   */
+  onWatchNotificationsRead(callback: (event: WatchNotificationsReadEvent) => void): () => void {
+    if (!watchEventEmitter) {
+      return () => {};
+    }
+
+    const subscription = watchEventEmitter.addListener('onWatchNotificationsRead', callback);
+    this.watchListeners.push(subscription);
+    
+    return () => {
+      subscription.remove();
+      this.watchListeners = this.watchListeners.filter(s => s !== subscription);
+      console.log('[WatchEvents] Unsubscribed from Watch notifications read events (bulk)');
     };
   }
 

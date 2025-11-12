@@ -1773,6 +1773,27 @@ class NotificationService: UNNotificationServiceExtension {
     
     let session = WCSession.default
     
+    // CRITICAL: Activate session if not already activated
+    // NSE needs to activate WCSession to send messages
+    if session.activationState != .activated {
+      print("📱 [NotificationService] 🔄 Activating WCSession for NSE...")
+      session.delegate = self
+      session.activate()
+      
+      // Wait a short time for activation (max 1 second to not delay notification)
+      let deadline = Date().addingTimeInterval(1.0)
+      while session.activationState != .activated && Date() < deadline {
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+      }
+      
+      if session.activationState != .activated {
+        print("📱 [NotificationService] ⚠️ WCSession activation timeout - queuing anyway")
+        // Continue anyway - transferUserInfo will queue the message
+      } else {
+        print("📱 [NotificationService] ✅ WCSession activated successfully")
+      }
+    }
+    
     // Extract bucket info
     guard let bucketId = userInfo["bucketId"] as? String else {
       print("📱 [NotificationService] ⚠️ No bucketId for Watch notification")
@@ -1879,6 +1900,13 @@ class NotificationService: UNNotificationServiceExtension {
     // Use transferUserInfo for guaranteed delivery (even when Watch is asleep)
     session.transferUserInfo(message)
     print("📱 [NotificationService] ✅ Queued complete notification fragment to Watch: \(notificationId)")
+    print("📱 [NotificationService] 📊 WCSession state: activated=\(session.activationState == .activated), reachable=\(session.isReachable), paired=\(session.isPaired)")
+    
+    // Log the number of pending transfers
+    if #available(iOS 9.3, *) {
+      let pendingTransfers = session.outstandingUserInfoTransfers.count
+      print("📱 [NotificationService] 📤 Pending transfers in queue: \(pendingTransfers)")
+    }
   }
 
   
@@ -1972,4 +2000,26 @@ class NotificationService: UNNotificationServiceExtension {
     UNUserNotificationCenter.current().setNotificationCategories([category])
     print("📱 [NotificationService] ✅ Registered category 'DYNAMIC' with \(notificationActions.count) actions")
   }
+}
+
+// MARK: - WCSessionDelegate
+
+extension NotificationService: WCSessionDelegate {
+  func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+    if let error = error {
+      print("📱 [NotificationService] ❌ WCSession activation failed: \(error.localizedDescription)")
+    } else {
+      print("📱 [NotificationService] ✅ WCSession activated with state: \(activationState.rawValue)")
+    }
+  }
+  
+  #if os(iOS)
+  func sessionDidBecomeInactive(_ session: WCSession) {
+    print("📱 [NotificationService] WCSession became inactive")
+  }
+  
+  func sessionDidDeactivate(_ session: WCSession) {
+    print("📱 [NotificationService] WCSession deactivated")
+  }
+  #endif
 }

@@ -124,6 +124,14 @@ public struct WidgetNotification: Codable {
         return actions.filter { $0.isAllowed }
     }
     
+    /// Filter actions for Watch display (excludes DELETE and MARK_AS_READ since Watch has dedicated buttons)
+    public var watchDisplayActions: [NotificationAction] {
+        return allowedActions.filter { action in
+            action.type != NotificationActionType.delete.rawValue && 
+            action.type != NotificationActionType.markAsRead.rawValue
+        }
+    }
+    
     public init(id: String, title: String, body: String, subtitle: String?, createdAt: String, isRead: Bool, bucketId: String, bucketName: String? = nil, bucketColor: String? = nil, bucketIconUrl: String? = nil, attachments: [WidgetAttachment] = [], actions: [NotificationAction] = []) {
         self.id = id
         self.title = title

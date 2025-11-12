@@ -1,13 +1,18 @@
 import IosBridgeService from '@/services/ios-bridge';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { useDeleteNotification, useMarkAsRead, useMarkAsUnread } from './notifications';
+
+const isIOS = Platform.OS === 'ios';
 
 /**
  * Hook to handle events from Apple Watch via WatchConnectivity
  * 
  * Watch events are already processed natively (SQLite updated in iPhoneWatchConnectivityManager.swift)
  * React Native only needs to sync with backend GraphQL API and update React Query cache
+ * 
+ * Only initializes on iOS when WatchConnectivityBridge is available
  */
 export function useWatchConnectivityEvents() {
   const queryClient = useQueryClient();
@@ -18,6 +23,12 @@ export function useWatchConnectivityEvents() {
   const deleteNotification = useDeleteNotification();
 
   useEffect(() => {
+    // Only initialize on iOS when WatchConnectivityBridge is available
+    if (!isIOS || !IosBridgeService.isWatchConnectivityAvailable()) {
+      console.log('[WatchSync] Watch connectivity not available - skipping initialization');
+      return;
+    }
+
     console.log('[WatchSync] Initializing Watch event listeners...');
 
     // Listen for Watch refresh requests (Watch requests full sync)
@@ -52,6 +63,32 @@ export function useWatchConnectivityEvents() {
         console.log('[WatchSync] ✅ Synced to backend + updated React Query cache + reloaded widgets');
       } catch (error) {
         console.error('[WatchSync] ❌ Failed to sync read status:', error);
+      }
+    });
+
+    // Listen for Watch notifications read events (bulk)
+    // NOTE: iOS native code already updated SQLite in background (iPhoneWatchConnectivityManager.swift)
+    const unsubscribeWatchBulkRead = IosBridgeService.onWatchNotificationsRead(async (event) => {
+      console.log(`[WatchSync] ⌚→📱 Watch marked ${event.count} notifications as read (bulk)`);
+      console.log('[WatchSync] Notification IDs:', event.notificationIds);
+      try {
+        // Mark all notifications as read with the same readAt timestamp
+        for (const notificationId of event.notificationIds) {
+          await markAsRead.mutateAsync({
+            notificationId,
+            skipLocalDb: false,
+            readAt: event.readAt,
+          });
+        }
+
+        await queryClient.invalidateQueries({ queryKey: ['app-state'] });
+
+        // Reload iOS widgets to reflect changes
+        await IosBridgeService.reloadAllWidgets();
+
+        console.log(`[WatchSync] ✅ Synced ${event.count} notifications to backend + updated React Query cache + reloaded widgets`);
+      } catch (error) {
+        console.error('[WatchSync] ❌ Failed to sync bulk read status:', error);
       }
     });
 
@@ -101,6 +138,7 @@ export function useWatchConnectivityEvents() {
       console.log('[WatchSync] Removing Watch event listeners...');
       unsubscribeRefresh();
       unsubscribeWatchRead();
+      unsubscribeWatchBulkRead();
       unsubscribeWatchUnread();
       unsubscribeWatchDeleted();
     };

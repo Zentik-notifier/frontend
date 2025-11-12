@@ -187,37 +187,6 @@ struct BucketMenuView: View {
                     .padding()
                 } else {
                     List {
-                        // Unread notifications item - only show if there are unread notifications
-                        if totalUnreadCount > 0 {
-                            NavigationLink(destination: FilteredNotificationListView(bucketId: nil, bucketName: nil, bucket: nil, allBuckets: buckets, showOnlyUnread: true)) {
-                                HStack(spacing: 10) {
-                                    Image(systemName: "envelope.badge.fill")
-                                        .font(.system(size: 20))
-                                        .foregroundColor(.red)
-                                        .frame(width: 32, height: 32)
-                                    
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("Unread")
-                                            .font(.headline)
-                                        Text("\(totalUnreadCount) unread")
-                                            .font(.caption2)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Text("\(totalUnreadCount)")
-                                        .font(.caption2)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.red)
-                                        .clipShape(Capsule())
-                                }
-                            }
-                        }
-                        
                         // All notifications item
                         NavigationLink(destination: FilteredNotificationListView(bucketId: nil, bucketName: nil, bucket: nil, allBuckets: buckets)) {
                             HStack(spacing: 10) {
@@ -248,6 +217,22 @@ struct BucketMenuView: View {
                                 }
                             }
                         }
+                        .swipeActions(edge: .leading) {
+                            // Swipe left: Mark all unread as read
+                            if totalUnreadCount > 0 {
+                                Button {
+                                    WKInterfaceDevice.current().play(.success)
+                                    // Mark all unread notifications as read (bulk operation)
+                                    let unreadIds = connectivityManager.notifications
+                                        .filter { !$0.notification.isRead }
+                                        .map { $0.notification.id }
+                                    connectivityManager.markMultipleNotificationsAsReadFromWatch(ids: unreadIds)
+                                } label: {
+                                    Label("Read All", systemImage: "envelope.open.fill")
+                                }
+                                .tint(.green)
+                            }
+                        }
                         
                         // Buckets section - only show buckets with notifications
                         let bucketsWithNotifications = buckets.filter { $0.unreadCount > 0 || $0.totalCount > 0 }
@@ -256,6 +241,22 @@ struct BucketMenuView: View {
                                 ForEach(bucketsWithNotifications) { bucket in
                                     NavigationLink(destination: FilteredNotificationListView(bucketId: bucket.id, bucketName: bucket.name, bucket: bucket, allBuckets: buckets)) {
                                         BucketRowView(bucket: bucket, iconImage: iconCache.getIcon(bucketId: bucket.id))
+                                    }
+                                    .swipeActions(edge: .leading) {
+                                        // Swipe left: Mark all unread in bucket as read
+                                        if bucket.unreadCount > 0 {
+                                            Button {
+                                                WKInterfaceDevice.current().play(.success)
+                                                // Mark all unread notifications in this bucket as read (bulk operation)
+                                                let unreadIds = connectivityManager.notifications
+                                                    .filter { $0.notification.bucketId == bucket.id && !$0.notification.isRead }
+                                                    .map { $0.notification.id }
+                                                connectivityManager.markMultipleNotificationsAsReadFromWatch(ids: unreadIds)
+                                            } label: {
+                                                Label("Read All", systemImage: "envelope.open.fill")
+                                            }
+                                            .tint(.green)
+                                        }
                                     }
                                 }
                             }
@@ -669,7 +670,7 @@ struct NotificationDetailView: View {
                         attachmentsView(for: notificationData)
                     }
                     
-                    if !notificationData.notification.allowedActions.isEmpty {
+                    if !notificationData.notification.watchDisplayActions.isEmpty {
                         actionsView(for: notificationData)
                     }
                 }
@@ -784,7 +785,7 @@ struct NotificationDetailView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             
-            ForEach(notificationData.notification.allowedActions, id: \.label) { action in
+            ForEach(notificationData.notification.watchDisplayActions, id: \.label) { action in
                 Button(action: {
                     executeAction(action)
                 }) {
@@ -848,19 +849,26 @@ struct NotificationDetailView: View {
         if let notificationData = notificationData {
             print("⌚ [NotificationDetailView] 📄 Entered detail view for notification: \(notificationData.notification.id)")
             print("⌚ [NotificationDetailView] 📝 Title: \(notificationData.notification.title)")
-            print("⌚ [NotificationDetailView] 🎬 Allowed actions count: \(notificationData.notification.allowedActions.count)")
+            print("⌚ [NotificationDetailView] 📖 Read status: \(notificationData.notification.isRead ? "read" : "unread")")
+            print("⌚ [NotificationDetailView] 🎬 Watch display actions count: \(notificationData.notification.watchDisplayActions.count)")
             
-            if notificationData.notification.allowedActions.isEmpty {
+            if notificationData.notification.watchDisplayActions.isEmpty {
                 print("⌚ [NotificationDetailView] ⚠️ No actions available for this notification")
             } else {
                 print("⌚ [NotificationDetailView] ✅ Actions available:")
-                for (index, action) in notificationData.notification.allowedActions.enumerated() {
+                for (index, action) in notificationData.notification.watchDisplayActions.enumerated() {
                     print("⌚ [NotificationDetailView]   \(index + 1). \(action.label) (type: \(action.type))")
                 }
             }
             
             print("⌚ [NotificationDetailView] 📎 Attachments: \(notificationData.notification.attachments.count)")
             print("⌚ [NotificationDetailView] 📎 Supported attachments (IMAGE/GIF): \(supportedAttachments.count)")
+            
+            // Auto-mark as read when opening an unread notification
+            if !notificationData.notification.isRead {
+                print("⌚ [NotificationDetailView] 🔄 Auto-marking unread notification as read")
+                connectivityManager.markNotificationAsReadFromWatch(id: notificationData.notification.id)
+            }
         } else {
             print("⌚ [NotificationDetailView] ⚠️ Entered detail view but notificationData is nil")
         }

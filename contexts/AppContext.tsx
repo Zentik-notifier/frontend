@@ -454,12 +454,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           await logger.flush();
           // console.log("[AppContext] Logs flushed successfully");
 
+          // Close database connection
           await closeSharedCacheDb();
           console.log("[AppContext] Database closed successfully");
 
-          // Notify media cache service that database is closed
-          // This allows automatic reopening on next operation
+          // Notify all repositories that database is closed
+          // This prevents race conditions and allows automatic reopening on next operation
           mediaCache.notifyDatabaseClosed();
+          settingsRepository.notifyDatabaseClosed();
         } catch (error) {
           console.error("[AppContext] Error during background cleanup:", error);
         }

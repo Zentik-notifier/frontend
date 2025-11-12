@@ -74,17 +74,12 @@ export class SettingsRepository {
       return;
     }
 
-    if (!this.isWeb() && this.db) {
-      try {
-        const sqliteDb = this.db as SQLiteDatabase;
-        const stmt = await sqliteDb.prepareAsync('SELECT 1');
-        await stmt.finalizeAsync();
-      } catch (error) {
-        console.log('[SettingsRepository] Database was closed, reinitializing...');
-        this.initialized = false;
-        this.db = null;
-        await this.initialize();
-      }
+    // On mobile, if database reference is null, reinitialize
+    // We don't run test queries because they can race with database close operations
+    if (!this.isWeb() && !this.db) {
+      console.log('[SettingsRepository] Database reference is null, reopening...');
+      this.initialized = false;
+      await this.initialize();
     }
   }
 

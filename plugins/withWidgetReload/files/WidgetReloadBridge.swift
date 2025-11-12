@@ -20,23 +20,32 @@ class WidgetReloadBridge: NSObject {
             source: "WidgetReloadBridge"
         )
         
+        // Use reloadAllTimelines() first for comprehensive reload
+        WidgetCenter.shared.reloadAllTimelines()
+        logger.debug(
+            tag: "WidgetReload",
+            message: "Called reloadAllTimelines() for all widgets",
+            source: "WidgetReloadBridge"
+        )
+        
+        // Then explicitly reload each widget kind for extra reliability
         WidgetCenter.shared.reloadTimelines(ofKind: "zentik-notifications-all")
         logger.debug(
             tag: "WidgetReload",
-            message: "Reloaded zentik-notifications-all widget",
+            message: "Explicitly reloaded zentik-notifications-all widget",
             source: "WidgetReloadBridge"
         )
         
         WidgetCenter.shared.reloadTimelines(ofKind: "zentik-notifications-unread")
         logger.debug(
             tag: "WidgetReload",
-            message: "Reloaded zentik-notifications-unread widget",
+            message: "Explicitly reloaded zentik-notifications-unread widget",
             source: "WidgetReloadBridge"
         )
         
         logger.info(
             tag: "WidgetReload",
-            message: "All widgets reload completed",
+            message: "All widgets reload completed (reloadAllTimelines + specific kinds)",
             source: "WidgetReloadBridge"
         )
     }

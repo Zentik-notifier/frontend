@@ -543,13 +543,16 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                                 source: "iPhoneWatchManager"
                             )
                             
-                            // Reload all widgets to reflect changes
-                            WidgetCenter.shared.reloadAllTimelines()
-                            self.logger.info(
-                                tag: "Watch→iPhone",
-                                message: "Widgets reloaded after marking as read",
-                                source: "iPhoneWatchManager"
-                            )
+                            // Add small delay to ensure database writes are flushed to disk
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                // Reload all widgets to reflect changes
+                                WidgetCenter.shared.reloadAllTimelines()
+                                self.logger.info(
+                                    tag: "Watch→iPhone",
+                                    message: "Widgets reloaded after marking as read (with delay for DB sync)",
+                                    source: "iPhoneWatchManager"
+                                )
+                            }
                             
                             // Also emit event to React Native if app is open (for UI update)
                             if let bridge = WatchConnectivityBridge.shared {
@@ -568,6 +571,57 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                     replyHandler(["success": true])
                 } else {
                     replyHandler(["error": "Missing notificationId or readAt"])
+                }
+                
+            case "notificationsRead":
+                // Watch marked multiple notifications as read - update SQLite directly (bulk operation)
+                if let notificationIds = message["notificationIds"] as? [String],
+                   let readAt = message["readAt"] as? String {
+                    self.logger.info(
+                        tag: "Watch→iPhone",
+                        message: "Watch marked \(notificationIds.count) notifications as read (bulk) - updating SQLite",
+                        metadata: ["count": "\(notificationIds.count)"],
+                        source: "iPhoneWatchManager"
+                    )
+                    
+                    // Update SQLite database with single optimized query
+                    DatabaseAccess.markMultipleNotificationsAsRead(notificationIds: notificationIds, source: "WatchBulkAction") { success in
+                        if success {
+                            self.logger.info(
+                                tag: "Watch→iPhone",
+                                message: "Successfully marked \(notificationIds.count) notifications as read in SQLite (bulk)",
+                                metadata: ["count": "\(notificationIds.count)"],
+                                source: "iPhoneWatchManager"
+                            )
+                            
+                            // Add small delay to ensure database writes are flushed to disk
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                // Reload all widgets to reflect changes
+                                WidgetCenter.shared.reloadAllTimelines()
+                                self.logger.info(
+                                    tag: "Watch→iPhone",
+                                    message: "Widgets reloaded after bulk mark as read (with delay for DB sync)",
+                                    source: "iPhoneWatchManager"
+                                )
+                            }
+                            
+                            // Emit bulk event to React Native if app is open (for UI update)
+                            if let bridge = WatchConnectivityBridge.shared {
+                                bridge.emitNotificationsRead(notificationIds: notificationIds, readAt: readAt)
+                            }
+                        } else {
+                            self.logger.error(
+                                tag: "Watch→iPhone",
+                                message: "Failed to mark notifications as read in SQLite (bulk)",
+                                metadata: ["count": "\(notificationIds.count)"],
+                                source: "iPhoneWatchManager"
+                            )
+                        }
+                    }
+                    
+                    replyHandler(["success": true, "count": notificationIds.count])
+                } else {
+                    replyHandler(["error": "Missing notificationIds or readAt"])
                 }
                 
             case "notificationUnread":
@@ -590,13 +644,16 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                                 source: "iPhoneWatchManager"
                             )
                             
-                            // Reload all widgets to reflect changes
-                            WidgetCenter.shared.reloadAllTimelines()
-                            self.logger.info(
-                                tag: "Watch→iPhone",
-                                message: "Widgets reloaded after marking as unread",
-                                source: "iPhoneWatchManager"
-                            )
+                            // Add small delay to ensure database writes are flushed to disk
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                // Reload all widgets to reflect changes
+                                WidgetCenter.shared.reloadAllTimelines()
+                                self.logger.info(
+                                    tag: "Watch→iPhone",
+                                    message: "Widgets reloaded after marking as unread (with delay for DB sync)",
+                                    source: "iPhoneWatchManager"
+                                )
+                            }
                             
                             // Also emit event to React Native if app is open (for UI update)
                             if let bridge = WatchConnectivityBridge.shared {
@@ -637,13 +694,16 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                                 source: "iPhoneWatchManager"
                             )
                             
-                            // Reload all widgets to reflect changes
-                            WidgetCenter.shared.reloadAllTimelines()
-                            self.logger.info(
-                                tag: "Watch→iPhone",
-                                message: "Widgets reloaded after deletion",
-                                source: "iPhoneWatchManager"
-                            )
+                            // Add small delay to ensure database writes are flushed to disk
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                // Reload all widgets to reflect changes
+                                WidgetCenter.shared.reloadAllTimelines()
+                                self.logger.info(
+                                    tag: "Watch→iPhone",
+                                    message: "Widgets reloaded after deletion (with delay for DB sync)",
+                                    source: "iPhoneWatchManager"
+                                )
+                            }
                             
                             // Also emit event to React Native if app is open (for UI update)
                             if let bridge = WatchConnectivityBridge.shared {
@@ -726,13 +786,16 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                                 source: "iPhoneWatchManager"
                             )
                             
-                            // Reload all widgets after action execution
-                            WidgetCenter.shared.reloadAllTimelines()
-                            self.logger.info(
-                                tag: "Watch→iPhone",
-                                message: "Widgets reloaded after action execution",
-                                source: "iPhoneWatchManager"
-                            )
+                            // Add small delay to ensure database writes are flushed to disk
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                // Reload all widgets after action execution
+                                WidgetCenter.shared.reloadAllTimelines()
+                                self.logger.info(
+                                    tag: "Watch→iPhone",
+                                    message: "Widgets reloaded after action execution (with delay for DB sync)",
+                                    source: "iPhoneWatchManager"
+                                )
+                            }
                         case .failure(let error):
                             self.logger.error(
                                 tag: "Watch→iPhone",
@@ -809,6 +872,22 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                     }
                 }
                 
+            case "notificationsRead":
+                // Bulk mark as read (background transfer)
+                if let notificationIds = userInfo["notificationIds"] as? [String],
+                   let readAt = userInfo["readAt"] as? String {
+                    self.logger.info(
+                        tag: "Watch→iPhone",
+                        message: "Received bulk mark as read (\(notificationIds.count) notifications) (background)",
+                        source: "iPhoneWatchManager"
+                    )
+                    
+                    // Emit bulk event to React Native if app is open
+                    if let bridge = WatchConnectivityBridge.shared {
+                        bridge.emitNotificationsRead(notificationIds: notificationIds, readAt: readAt)
+                    }
+                }
+                
             case "notificationUnread":
                 if let notificationId = userInfo["notificationId"] as? String {
                     if let bridge = WatchConnectivityBridge.shared {
@@ -879,13 +958,16 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                                 source: "iPhoneWatchManager"
                             )
                             
-                            // Reload all widgets after action execution
-                            WidgetCenter.shared.reloadAllTimelines()
-                            self.logger.info(
-                                tag: "Watch→iPhone",
-                                message: "Widgets reloaded after action execution (background)",
-                                source: "iPhoneWatchManager"
-                            )
+                            // Add small delay to ensure database writes are flushed to disk
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                // Reload all widgets after action execution
+                                WidgetCenter.shared.reloadAllTimelines()
+                                self.logger.info(
+                                    tag: "Watch→iPhone",
+                                    message: "Widgets reloaded after action execution (background, with delay for DB sync)",
+                                    source: "iPhoneWatchManager"
+                                )
+                            }
                         case .failure(let error):
                             self.logger.error(
                                 tag: "Watch→iPhone",
