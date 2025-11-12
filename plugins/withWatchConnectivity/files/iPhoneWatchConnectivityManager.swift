@@ -1,5 +1,6 @@
 import Foundation
 import WatchConnectivity
+import WidgetKit
 
 /**
  * iPhone-side WatchConnectivity Manager
@@ -294,19 +295,15 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
                 }
                 
                 // Add attachments
-                var attachmentsArray: [[String: Any]] = []
-                for attachment in notif.attachments {
-                    var attachmentDict: [String: Any] = [
-                        "mediaType": attachment.mediaType,
-                        "url": attachment.url
-                    ]
-                    if let name = attachment.name {
-                        attachmentDict["name"] = name
-                    }
-                    attachmentsArray.append(attachmentDict)
-                }
+                let attachmentsArray = NotificationParser.serializeAttachments(notif.attachments)
                 if !attachmentsArray.isEmpty {
                     notifDict["attachments"] = attachmentsArray
+                }
+                
+                // Add actions
+                let actionsArray = NotificationParser.serializeActions(notif.actions)
+                if !actionsArray.isEmpty {
+                    notifDict["actions"] = actionsArray
                 }
                 
                 allNotifications.append(notifDict)
@@ -675,29 +672,47 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                     let action = NotificationAction(
                         type: actionType,
                         label: actionData["label"] as? String ?? "",
+                        value: actionData["value"] as? String,
                         id: actionData["id"] as? String,
                         url: actionData["url"] as? String,
                         bucketId: actionData["bucketId"] as? String,
                         minutes: actionData["minutes"] as? Int
                     )
                     
+                    // Build userInfo for actions that need it
+                    var userInfo: [AnyHashable: Any] = [:]
+                    if action.type.uppercased() == "SNOOZE", let bucketId = action.bucketId {
+                        userInfo["bucketId"] = bucketId
+                    }
+                    
                     // Execute action via NotificationActionHandler
                     NotificationActionHandler.executeAction(
-                        action: action,
+                        type: action.type,
+                        value: action.value ?? "",
                         notificationId: notificationId,
+                        userInfo: userInfo,
                         source: "WatchAction"
-                    ) { success, error in
-                        if success {
+                    ) { result in
+                        switch result {
+                        case .success:
                             self.logger.info(
                                 tag: "Watch→iPhone",
                                 message: "Action executed successfully",
                                 metadata: ["id": notificationId, "actionType": actionType],
                                 source: "iPhoneWatchManager"
                             )
-                        } else {
+                            
+                            // Reload all widgets after action execution
+                            WidgetCenter.shared.reloadAllTimelines()
+                            self.logger.info(
+                                tag: "Watch→iPhone",
+                                message: "Widgets reloaded after action execution",
+                                source: "iPhoneWatchManager"
+                            )
+                        case .failure(let error):
                             self.logger.error(
                                 tag: "Watch→iPhone",
-                                message: "Action execution failed: \(error ?? "unknown error")",
+                                message: "Action execution failed: \(error.localizedDescription)",
                                 metadata: ["id": notificationId, "actionType": actionType],
                                 source: "iPhoneWatchManager"
                             )
@@ -810,29 +825,47 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                     let action = NotificationAction(
                         type: actionType,
                         label: actionData["label"] as? String ?? "",
+                        value: actionData["value"] as? String,
                         id: actionData["id"] as? String,
                         url: actionData["url"] as? String,
                         bucketId: actionData["bucketId"] as? String,
                         minutes: actionData["minutes"] as? Int
                     )
                     
+                    // Build userInfo for actions that need it
+                    var userInfo: [AnyHashable: Any] = [:]
+                    if action.type.uppercased() == "SNOOZE", let bucketId = action.bucketId {
+                        userInfo["bucketId"] = bucketId
+                    }
+                    
                     // Execute action via NotificationActionHandler
                     NotificationActionHandler.executeAction(
-                        action: action,
+                        type: action.type,
+                        value: action.value ?? "",
                         notificationId: notificationId,
+                        userInfo: userInfo,
                         source: "WatchAction"
-                    ) { success, error in
-                        if success {
+                    ) { result in
+                        switch result {
+                        case .success:
                             self.logger.info(
                                 tag: "Watch→iPhone",
                                 message: "Action executed successfully (background)",
                                 metadata: ["id": notificationId, "actionType": actionType],
                                 source: "iPhoneWatchManager"
                             )
-                        } else {
+                            
+                            // Reload all widgets after action execution
+                            WidgetCenter.shared.reloadAllTimelines()
+                            self.logger.info(
+                                tag: "Watch→iPhone",
+                                message: "Widgets reloaded after action execution (background)",
+                                source: "iPhoneWatchManager"
+                            )
+                        case .failure(let error):
                             self.logger.error(
                                 tag: "Watch→iPhone",
-                                message: "Action execution failed (background): \(error ?? "unknown error")",
+                                message: "Action execution failed (background): \(error.localizedDescription)",
                                 metadata: ["id": notificationId, "actionType": actionType],
                                 source: "iPhoneWatchManager"
                             )

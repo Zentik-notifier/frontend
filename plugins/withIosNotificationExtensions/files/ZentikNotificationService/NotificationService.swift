@@ -124,6 +124,33 @@ class NotificationService: UNNotificationServiceExtension {
 
     print("📱 [NotificationService] 🎭 UserInfo keys: \(userInfo.keys.sorted())")
 
+    // Check if skipSendMessageIntent is true
+    if let skipSendMessageIntent = userInfo["skipSendMessageIntent"] as? Bool, skipSendMessageIntent {
+      print("📱 [NotificationService] 🎭 skipSendMessageIntent=true, skipping Communication Style")
+      
+      // Log skipped communication style
+      if let notificationId = userInfo["notificationId"] as? String {
+        logToDatabase(
+          level: "info",
+          tag: "Communication",
+          message: "Communication style skipped due to skipSendMessageIntent flag",
+          metadata: [
+            "notificationId": notificationId,
+            "skipSendMessageIntent": true
+          ]
+        )
+      }
+      
+      // Deliver notification without communication style
+      contentHandler(content)
+      
+      // Flush logs immediately before extension terminates
+      print("📱 [NotificationService] 🎯 Processing complete, flushing logs before exit")
+      LoggingSystem.shared.flushLogs()
+      
+      return
+    }
+
     // Extract bucket/sender fields
     let senderId = userInfo["bucketId"] as? String
     let chatRoomName = userInfo["bucketName"] as? String

@@ -46,6 +46,26 @@ class WatchDataStore {
         }
     }
     
+    public struct CachedAction: Codable, Equatable {
+        let type: String
+        let label: String
+        let value: String?
+        let id: String?
+        let url: String?
+        let bucketId: String?
+        let minutes: Int?
+        
+        public init(type: String, label: String, value: String?, id: String?, url: String?, bucketId: String?, minutes: Int?) {
+            self.type = type
+            self.label = label
+            self.value = value
+            self.id = id
+            self.url = url
+            self.bucketId = bucketId
+            self.minutes = minutes
+        }
+    }
+    
     public struct CachedNotification: Codable, Identifiable {
         public let id: String
         let title: String
@@ -58,8 +78,9 @@ class WatchDataStore {
         let bucketColor: String?
         let bucketIconUrl: String?
         let attachments: [CachedAttachment]
+        let actions: [CachedAction]
         
-        public init(id: String, title: String, body: String, subtitle: String?, createdAt: String, isRead: Bool, bucketId: String, bucketName: String?, bucketColor: String?, bucketIconUrl: String?, attachments: [CachedAttachment]) {
+        public init(id: String, title: String, body: String, subtitle: String?, createdAt: String, isRead: Bool, bucketId: String, bucketName: String?, bucketColor: String?, bucketIconUrl: String?, attachments: [CachedAttachment], actions: [CachedAction]) {
             self.id = id
             self.title = title
             self.body = body
@@ -71,6 +92,7 @@ class WatchDataStore {
             self.bucketColor = bucketColor
             self.bucketIconUrl = bucketIconUrl
             self.attachments = attachments
+            self.actions = actions
         }
     }
     
@@ -194,6 +216,25 @@ class WatchDataStore {
                 }
             }
             
+            // Extract actions
+            var actions: [CachedAction] = []
+            if let actionsArray = notifDict["actions"] as? [[String: Any]] {
+                actions = actionsArray.compactMap { actionDict in
+                    guard let type = actionDict["type"] as? String else {
+                        return nil
+                    }
+                    return CachedAction(
+                        type: type,
+                        label: actionDict["label"] as? String ?? "",
+                        value: actionDict["value"] as? String,
+                        id: actionDict["id"] as? String,
+                        url: actionDict["url"] as? String,
+                        bucketId: actionDict["bucketId"] as? String,
+                        minutes: actionDict["minutes"] as? Int
+                    )
+                }
+            }
+            
             return CachedNotification(
                 id: id,
                 title: title,
@@ -205,7 +246,8 @@ class WatchDataStore {
                 bucketName: notifDict["bucketName"] as? String,
                 bucketColor: notifDict["bucketColor"] as? String,
                 bucketIconUrl: notifDict["bucketIconUrl"] as? String,
-                attachments: attachments
+                attachments: attachments,
+                actions: actions
             )
         }
         

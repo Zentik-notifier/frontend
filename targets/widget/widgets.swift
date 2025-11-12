@@ -16,7 +16,7 @@ struct NotificationEntry: TimelineEntry {
 }
 
 struct WidgetNotificationData {
-    let notification: DatabaseAccess.WidgetNotification
+    let notification: WidgetNotification
     let bucketIconData: Data?
 }
 
@@ -457,14 +457,19 @@ struct UnreadNotificationsWidget: Widget {
         date: .now,
         notifications: [
             WidgetNotificationData(
-                notification: DatabaseAccess.WidgetNotification(
+                notification: WidgetNotification(
                     id: "1",
                     title: "Sample Notification",
                     body: "This is a sample notification",
                     subtitle: "Subtitle",
                     createdAt: "",
                     isRead: false,
-                    bucketId: ""
+                    bucketId: "",
+                    bucketName: "",
+                    bucketColor: nil,
+                    bucketIconUrl: nil,
+                    attachments: [],
+                    actions: []
                 ),
                 bucketIconData: nil
             )

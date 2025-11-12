@@ -28,14 +28,16 @@ public enum NotificationActionType: String, CaseIterable {
 public struct NotificationAction: Codable {
     public let type: String
     public let label: String
+    public let value: String?
     public let id: String?
     public let url: String?
     public let bucketId: String?
     public let minutes: Int?
     
-    public init(type: String, label: String, id: String? = nil, url: String? = nil, bucketId: String? = nil, minutes: Int? = nil) {
+    public init(type: String, label: String, value: String? = nil, id: String? = nil, url: String? = nil, bucketId: String? = nil, minutes: Int? = nil) {
         self.type = type
         self.label = label
+        self.value = value
         self.id = id
         self.url = url
         self.bucketId = bucketId
@@ -233,5 +235,94 @@ public extension Dictionary where Key == String, Value == Any {
     /// Safely get array value
     func getArray(_ key: String) -> [[String: Any]]? {
         return self[key] as? [[String: Any]]
+    }
+}
+
+// MARK: - Parsing Utilities
+
+public struct NotificationParser {
+    
+    /// Parse attachments from dictionary array
+    public static func parseAttachments(from dictArray: [[String: Any]]?) -> [WidgetAttachment] {
+        guard let dictArray = dictArray else { return [] }
+        
+        var attachments: [WidgetAttachment] = []
+        for attachmentDict in dictArray {
+            if let mediaType = attachmentDict.getString("mediaType") {
+                let attachment = WidgetAttachment(
+                    mediaType: mediaType,
+                    url: attachmentDict.getString("url"),
+                    name: attachmentDict.getString("name")
+                )
+                attachments.append(attachment)
+            }
+        }
+        return attachments
+    }
+    
+    /// Parse actions from dictionary array
+    public static func parseActions(from dictArray: [[String: Any]]?) -> [NotificationAction] {
+        guard let dictArray = dictArray else { return [] }
+        
+        var actions: [NotificationAction] = []
+        for actionDict in dictArray {
+            if let type = actionDict.getString("type") {
+                let action = NotificationAction(
+                    type: type,
+                    label: actionDict.getString("label") ?? actionDict.getString("title") ?? "",
+                    value: actionDict.getString("value"),
+                    id: actionDict.getString("id"),
+                    url: actionDict.getString("url"),
+                    bucketId: actionDict.getString("bucketId"),
+                    minutes: actionDict.getInt("minutes")
+                )
+                actions.append(action)
+            }
+        }
+        return actions
+    }
+    
+    /// Serialize attachments to dictionary array
+    public static func serializeAttachments(_ attachments: [WidgetAttachment]) -> [[String: Any]] {
+        var result: [[String: Any]] = []
+        for attachment in attachments {
+            var dict: [String: Any] = ["mediaType": attachment.mediaType]
+            if let url = attachment.url {
+                dict["url"] = url
+            }
+            if let name = attachment.name {
+                dict["name"] = name
+            }
+            result.append(dict)
+        }
+        return result
+    }
+    
+    /// Serialize actions to dictionary array
+    public static func serializeActions(_ actions: [NotificationAction]) -> [[String: Any]] {
+        var result: [[String: Any]] = []
+        for action in actions {
+            var dict: [String: Any] = [
+                "type": action.type,
+                "label": action.label
+            ]
+            if let value = action.value {
+                dict["value"] = value
+            }
+            if let id = action.id {
+                dict["id"] = id
+            }
+            if let url = action.url {
+                dict["url"] = url
+            }
+            if let bucketId = action.bucketId {
+                dict["bucketId"] = bucketId
+            }
+            if let minutes = action.minutes {
+                dict["minutes"] = minutes
+            }
+            result.append(dict)
+        }
+        return result
     }
 }

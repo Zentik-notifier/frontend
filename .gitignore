@@ -31,3 +31,14 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+# ZentikShared files copied to targets (source is in plugins/ZentikShared)
+targets/watch/KeychainAccess.swift
+targets/watch/SharedTypes.swift
+targets/watch/LoggingSystem.swift
+targets/watch/DatabaseAccess.swift
+targets/watch/MediaAccess.swift
+targets/widget/KeychainAccess.swift
+targets/widget/SharedTypes.swift
+targets/widget/LoggingSystem.swift
+targets/widget/DatabaseAccess.swift
+targets/widget/MediaAccess.swift

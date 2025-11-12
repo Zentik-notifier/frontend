@@ -945,16 +945,10 @@ public class DatabaseAccess {
                     }
                     
                     // Extract attachments from fragment
-                    var attachments: [WidgetAttachment] = []
-                    if let attachmentsArray = message["attachments"] as? [[String: Any]] {
-                        for attachmentDict in attachmentsArray {
-                            if let mediaType = attachmentDict["mediaType"] as? String {
-                                let url = attachmentDict["url"] as? String
-                                let name = attachmentDict["name"] as? String
-                                attachments.append(WidgetAttachment(mediaType: mediaType, url: url, name: name))
-                            }
-                        }
-                    }
+                    let attachments = NotificationParser.parseAttachments(from: message["attachments"] as? [[String: Any]])
+                    
+                    // Extract actions from fragment
+                    let actions = NotificationParser.parseActions(from: message["actions"] as? [[String: Any]])
                     
                     let notification = WidgetNotification(
                         id: id,
@@ -967,7 +961,8 @@ public class DatabaseAccess {
                         bucketName: bucketName,
                         bucketColor: bucketColor,
                         bucketIconUrl: bucketIconUrl,
-                        attachments: attachments
+                        attachments: attachments,
+                        actions: actions
                     )
                     
                     notifications.append(notification)

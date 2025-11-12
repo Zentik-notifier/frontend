@@ -454,6 +454,14 @@ public class MediaAccess {
             let task = URLSession.shared.dataTask(with: url) { data, response, error in
                 defer { semaphore.signal() }
                 
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("📱 [MediaAccess] 🌐 HTTP Status: \(httpResponse.statusCode) for \(iconUrlString)")
+                    if httpResponse.statusCode != 200 {
+                        print("📱 [MediaAccess] ❌ HTTP Error \(httpResponse.statusCode): Failed to download bucket icon")
+                        return
+                    }
+                }
+                
                 if let error = error {
                     print("📱 [MediaAccess] ❌ Failed to download bucket icon: \(error.localizedDescription)")
                     return
@@ -491,37 +499,85 @@ public class MediaAccess {
             return nil
         }
         
-        print("📱 [MediaAccess] 🎭 Generating temporary placeholder for \(bucketName)")
-        return generateColorOnlyPlaceholder(hexColor: bucketColor)
+        print("📱 [MediaAccess] 🎭 Generating placeholder for \(bucketName)")
+        return generatePlaceholderWithInitials(bucketName: bucketName, hexColor: bucketColor)
     }
     
     // MARK: - Placeholder Generation
     
-    /// Generate temporary placeholder with bucket color only (no initials)
-    /// This is NOT cached, just generated on-the-fly for NSE/NCE
-    private static func generateColorOnlyPlaceholder(hexColor: String?) -> Data? {
+    /// Generate placeholder with bucket initials and color (square with rounded corners)
+    /// This matches the style used in bucket rows
+    private static func generatePlaceholderWithInitials(bucketName: String, hexColor: String?) -> Data? {
         let size = CGSize(width: 200, height: 200)
         UIGraphicsBeginImageContextWithOptions(size, false, 0)
         defer { UIGraphicsEndImageContext() }
         
-        let context = UIGraphicsGetCurrentContext()
+        guard let context = UIGraphicsGetCurrentContext() else {
+            print("📱 [MediaAccess] ❌ Failed to get graphics context")
+            return nil
+        }
+        
         #if os(watchOS)
         let color = parseHexColor(hexColor) ?? UIColor(red: 0.0, green: 0.478, blue: 1.0, alpha: 1.0)
         #else
         let color = parseHexColor(hexColor) ?? UIColor.systemBlue
         #endif
         
-        // Draw circular background with bucket color (no initials)
-        context?.setFillColor(color.cgColor)
-        context?.fillEllipse(in: CGRect(origin: .zero, size: size))
+        // Draw rounded square background with bucket color
+        let cornerRadius: CGFloat = 20
+        let path = UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: cornerRadius)
+        context.setFillColor(color.cgColor)
+        context.addPath(path.cgPath)
+        context.fillPath()
+        
+        // Extract initials from bucket name (max 2 characters)
+        let initials = extractInitials(from: bucketName)
+        
+        // Draw initials in white
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
+        
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 80, weight: .semibold),
+            .foregroundColor: UIColor.white,
+            .paragraphStyle: paragraphStyle
+        ]
+        
+        let text = initials as NSString
+        let textSize = text.size(withAttributes: attributes)
+        let textRect = CGRect(
+            x: (size.width - textSize.width) / 2,
+            y: (size.height - textSize.height) / 2,
+            width: textSize.width,
+            height: textSize.height
+        )
+        
+        text.draw(in: textRect, withAttributes: attributes)
         
         guard let imageData = UIGraphicsGetImageFromCurrentImageContext()?.pngData() else {
             print("📱 [MediaAccess] ❌ Failed to generate placeholder image data")
             return nil
         }
         
-        print("📱 [MediaAccess] ✅ Generated temporary placeholder with bucket color")
+        print("📱 [MediaAccess] ✅ Generated placeholder with initials '\(initials)'")
         return imageData
+    }
+    
+    /// Extract initials from bucket name (max 2 characters)
+    private static func extractInitials(from name: String) -> String {
+        let words = name.split(separator: " ").map(String.init)
+        
+        if words.count >= 2 {
+            // Take first letter of first two words
+            let first = words[0].prefix(1).uppercased()
+            let second = words[1].prefix(1).uppercased()
+            return first + second
+        } else if let word = words.first {
+            // Take first two letters of single word
+            return String(word.prefix(2).uppercased())
+        } else {
+            return "?"
+        }
     }
     
     /// Parse hex color string to UIColor
@@ -649,6 +705,14 @@ public class MediaAccess {
         let task = URLSession.shared.dataTask(with: downloadUrl) { data, response, error in
             defer { semaphore.signal() }
             
+            if let httpResponse = response as? HTTPURLResponse {
+                print("⌚️ [MediaAccess] 🌐 HTTP Status: \(httpResponse.statusCode) for \(url)")
+                if httpResponse.statusCode != 200 {
+                    print("⌚️ [MediaAccess] ❌ HTTP Error \(httpResponse.statusCode): Download failed")
+                    return
+                }
+            }
+            
             if let error = error {
                 print("⌚️ [MediaAccess] ❌ Download failed: \(error.localizedDescription)")
                 return
@@ -676,10 +740,10 @@ public class MediaAccess {
         
         task.resume()
         
-        // Wait for download (max 10 seconds for watchOS)
-        let timeout = DispatchTime.now() + .seconds(10)
+        // Wait for download (max 30 seconds for watchOS - GIFs can be large)
+        let timeout = DispatchTime.now() + .seconds(30)
         if semaphore.wait(timeout: timeout) == .timedOut {
-            print("⌚️ [MediaAccess] ⚠️ Download timeout after 10 seconds")
+            print("⌚️ [MediaAccess] ⚠️ Download timeout after 30 seconds")
             task.cancel()
             return nil
         }
@@ -705,5 +769,206 @@ public class MediaAccess {
         
         return nil
         #endif
+    }
+    
+    // MARK: - watchOS Optimized Media Operations
+    
+    /// Get temporary directory for watchOS media cache
+    /// This directory is automatically cleaned by the system when space is needed
+    private static func getWatchTempDirectory() -> URL {
+        return FileManager.default.temporaryDirectory.appendingPathComponent("watch_media_cache")
+    }
+    
+    /// Resize image to fit Watch screen dimensions
+    /// - Parameters:
+    ///   - data: Original image data
+    ///   - maxDimension: Maximum dimension (width or height) for the resized image
+    /// - Returns: Resized image data or original if resize fails
+    private static func resizeImageForWatch(data: Data, maxDimension: CGFloat = 300) -> Data {
+        guard let image = UIImage(data: data) else {
+            print("⌚️ [MediaAccess] ⚠️ Failed to create UIImage from data, returning original")
+            return data
+        }
+        
+        let size = image.size
+        
+        // If image is already smaller than max dimension, return original
+        if size.width <= maxDimension && size.height <= maxDimension {
+            print("⌚️ [MediaAccess] ℹ️ Image already small enough (\(Int(size.width))x\(Int(size.height))), no resize needed")
+            return data
+        }
+        
+        // Calculate new size maintaining aspect ratio
+        let aspectRatio = size.width / size.height
+        var newSize: CGSize
+        
+        if size.width > size.height {
+            newSize = CGSize(width: maxDimension, height: maxDimension / aspectRatio)
+        } else {
+            newSize = CGSize(width: maxDimension * aspectRatio, height: maxDimension)
+        }
+        
+        print("⌚️ [MediaAccess] 🔄 Resizing image from \(Int(size.width))x\(Int(size.height)) to \(Int(newSize.width))x\(Int(newSize.height))")
+        
+        // Resize image
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+        defer { UIGraphicsEndImageContext() }
+        
+        image.draw(in: CGRect(origin: .zero, size: newSize))
+        
+        guard let resizedImage = UIGraphicsGetImageFromCurrentImageContext() else {
+            print("⌚️ [MediaAccess] ⚠️ Failed to resize image, returning original")
+            return data
+        }
+        
+        // Convert back to data (use JPEG for better compression on static images)
+        if let resizedData = resizedImage.jpegData(compressionQuality: 0.8) {
+            let originalSize = data.count
+            let resizedSize = resizedData.count
+            let reduction = 100 - (resizedSize * 100 / originalSize)
+            print("⌚️ [MediaAccess] ✅ Image resized: \(originalSize/1024)KB → \(resizedSize/1024)KB (saved \(reduction)%)")
+            return resizedData
+        }
+        
+        // Fallback to PNG if JPEG fails
+        if let resizedData = resizedImage.pngData() {
+            print("⌚️ [MediaAccess] ✅ Image resized (PNG)")
+            return resizedData
+        }
+        
+        print("⌚️ [MediaAccess] ⚠️ Failed to convert resized image to data, returning original")
+        return data
+    }
+    
+    /// Get optimized notification media for watchOS
+    /// - Saves to temporary directory (auto-cleaned by system)
+    /// - Resizes images to fit Watch screen
+    /// - Downloads if not in cache
+    /// - Parameters:
+    ///   - url: Media URL
+    ///   - mediaType: Media type (IMAGE, GIF, VIDEO, AUDIO)
+    ///   - notificationId: Notification ID for cache lookup
+    /// - Returns: Optimized media data if found/downloaded, or nil
+    public static func getOptimizedNotificationMediaForWatch(url: String, mediaType: String, notificationId: String) -> Data? {
+        print("⌚️ [MediaAccess] 🎯 Getting optimized media: \(mediaType) - \(url)")
+        
+        let tmpDirectory = getWatchTempDirectory()
+        let mediaTypeDirectory = tmpDirectory.appendingPathComponent(mediaType.uppercased())
+        
+        // Generate filename using same algorithm as iOS (hash-based)
+        let generatedFilename = generateSafeFileName(url: url, mediaType: mediaType, originalFileName: nil)
+        let optimizedFile = mediaTypeDirectory.appendingPathComponent("opt_\(generatedFilename)")
+        
+        print("⌚️ [MediaAccess] 📂 Temp dir: \(tmpDirectory.path)")
+        print("⌚️ [MediaAccess] 📄 Looking for optimized file: opt_\(generatedFilename)")
+        
+        // Check if optimized file exists in temp cache
+        if FileManager.default.fileExists(atPath: optimizedFile.path) {
+            do {
+                let data = try Data(contentsOf: optimizedFile)
+                print("⌚️ [MediaAccess] ✅ Found optimized file in temp cache! Size: \(data.count) bytes")
+                return data
+            } catch {
+                print("⌚️ [MediaAccess] ❌ Failed to read optimized file: \(error)")
+            }
+        }
+        
+        // First try to get from shared cache (iPhone downloaded it)
+        let cacheDirectory = getSharedMediaCacheDirectory()
+        let sharedMediaTypeDirectory = cacheDirectory.appendingPathComponent(mediaType.uppercased())
+        let sharedMediaFile = sharedMediaTypeDirectory.appendingPathComponent(generatedFilename)
+        
+        var originalData: Data?
+        
+        if FileManager.default.fileExists(atPath: sharedMediaFile.path) {
+            do {
+                originalData = try Data(contentsOf: sharedMediaFile)
+                print("⌚️ [MediaAccess] ✅ Found file in shared cache! Size: \(originalData!.count) bytes")
+            } catch {
+                print("⌚️ [MediaAccess] ❌ Failed to read shared cache file: \(error)")
+            }
+        }
+        
+        // If not in shared cache, download from URL (watchOS only)
+        #if os(watchOS)
+        if originalData == nil {
+            print("⌚️ [MediaAccess] 🌐 File not in cache, downloading from URL...")
+            
+            guard let downloadUrl = URL(string: url) else {
+                print("⌚️ [MediaAccess] ❌ Invalid URL: \(url)")
+                return nil
+            }
+            
+            // Use semaphore for synchronous download
+            let semaphore = DispatchSemaphore(value: 0)
+            
+            let task = URLSession.shared.dataTask(with: downloadUrl) { data, response, error in
+                defer { semaphore.signal() }
+                
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("⌚️ [MediaAccess] 🌐 HTTP Status: \(httpResponse.statusCode) for \(url)")
+                    if httpResponse.statusCode != 200 {
+                        print("⌚️ [MediaAccess] ❌ HTTP Error \(httpResponse.statusCode): Download failed")
+                        return
+                    }
+                }
+                
+                if let error = error {
+                    print("⌚️ [MediaAccess] ❌ Download failed: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let data = data, !data.isEmpty else {
+                    print("⌚️ [MediaAccess] ❌ Downloaded data is empty")
+                    return
+                }
+                
+                print("⌚️ [MediaAccess] ✅ Downloaded \(data.count) bytes")
+                originalData = data
+            }
+            
+            task.resume()
+            
+            // Wait for download (max 30 seconds for watchOS - GIFs can be large)
+            let timeout = DispatchTime.now() + .seconds(30)
+            if semaphore.wait(timeout: timeout) == .timedOut {
+                print("⌚️ [MediaAccess] ⚠️ Download timeout after 30 seconds")
+                task.cancel()
+                return nil
+            }
+        }
+        #endif
+        
+        guard let data = originalData else {
+            print("⌚️ [MediaAccess] ❌ No data available")
+            return nil
+        }
+        
+        // Optimize based on media type
+        var optimizedData = data
+        
+        if mediaType.uppercased() == "IMAGE" || mediaType.uppercased() == "GIF" {
+            // For GIFs, we only resize if it's a static image
+            // For animated GIFs, we keep original (resizing would lose animation)
+            if mediaType.uppercased() == "IMAGE" {
+                optimizedData = resizeImageForWatch(data: data, maxDimension: 300)
+            } else {
+                // For GIF, check if animated - if not, resize as image
+                // For now, keep original GIFs (TODO: implement GIF frame extraction)
+                print("⌚️ [MediaAccess] ℹ️ Keeping original GIF (animation support)")
+            }
+        }
+        
+        // Save optimized version to temp directory
+        do {
+            try FileManager.default.createDirectory(at: mediaTypeDirectory, withIntermediateDirectories: true, attributes: nil)
+            try optimizedData.write(to: optimizedFile, options: .atomic)
+            print("⌚️ [MediaAccess] ✅ Saved optimized file to temp cache: opt_\(generatedFilename)")
+        } catch {
+            print("⌚️ [MediaAccess] ⚠️ Failed to save optimized file: \(error)")
+            // Continue anyway with optimized data
+        }
+        
+        return optimizedData
     }
 }

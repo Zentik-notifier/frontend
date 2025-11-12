@@ -84,6 +84,18 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 )
             }
             
+            let actions = cachedNotif.actions.map { cachedAction in
+                NotificationAction(
+                    type: cachedAction.type,
+                    label: cachedAction.label,
+                    value: cachedAction.value,
+                    id: cachedAction.id,
+                    url: cachedAction.url,
+                    bucketId: cachedAction.bucketId,
+                    minutes: cachedAction.minutes
+                )
+            }
+            
             let notification = WidgetNotification(
                 id: cachedNotif.id,
                 title: cachedNotif.title,
@@ -95,7 +107,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 bucketName: cachedNotif.bucketName,
                 bucketColor: cachedNotif.bucketColor,
                 bucketIconUrl: cachedNotif.bucketIconUrl,
-                attachments: attachments
+                attachments: attachments,
+                actions: actions
             )
             return NotificationData(notification: notification)
         }
@@ -291,6 +304,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             "label": action.label
         ]
         
+        if let value = action.value {
+            actionDict["value"] = value
+        }
         if let id = action.id {
             actionDict["id"] = id
         }
@@ -438,7 +454,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 bucketName: oldNotification.bucketName,
                 bucketColor: oldNotification.bucketColor,
                 bucketIconUrl: oldNotification.bucketIconUrl,
-                attachments: oldNotification.attachments
+                attachments: oldNotification.attachments,
+                actions: oldNotification.actions
             )
             
             notifications[index] = NotificationData(notification: updatedNotification)
@@ -498,7 +515,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 bucketName: oldNotification.bucketName,
                 bucketColor: oldNotification.bucketColor,
                 bucketIconUrl: oldNotification.bucketIconUrl,
-                attachments: oldNotification.attachments
+                attachments: oldNotification.attachments,
+                actions: oldNotification.actions
             )
             
             notifications[index] = NotificationData(notification: updatedNotification)
@@ -592,6 +610,18 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 )
             }
             
+            let cachedActions = notifData.notification.actions.map { action in
+                WatchDataStore.CachedAction(
+                    type: action.type,
+                    label: action.label,
+                    value: action.value,
+                    id: action.id,
+                    url: action.url,
+                    bucketId: action.bucketId,
+                    minutes: action.minutes
+                )
+            }
+            
             return WatchDataStore.CachedNotification(
                 id: notifData.notification.id,
                 title: notifData.notification.title,
@@ -603,7 +633,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 bucketName: notifData.notification.bucketName,
                 bucketColor: notifData.notification.bucketColor,
                 bucketIconUrl: notifData.notification.bucketIconUrl,
-                attachments: cachedAttachments
+                attachments: cachedAttachments,
+                actions: cachedActions
             )
         }
         
@@ -651,20 +682,10 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         let isRead = readAt != nil
         
         // Parse attachments
-        var attachments: [WidgetAttachment] = []
-        if let attachmentsArray = messageObj["attachments"] as? [[String: Any]] {
-            for attachmentDict in attachmentsArray {
-                if let mediaType = attachmentDict["mediaType"] as? String,
-                   let url = attachmentDict["url"] as? String {
-                    let attachment = WidgetAttachment(
-                        mediaType: mediaType,
-                        url: url,
-                        name: attachmentDict["name"] as? String
-                    )
-                    attachments.append(attachment)
-                }
-            }
-        }
+        let attachments = NotificationParser.parseAttachments(from: messageObj["attachments"] as? [[String: Any]])
+        
+        // Parse actions
+        let actions = NotificationParser.parseActions(from: messageObj["actions"] as? [[String: Any]])
         
         // Create notification object
         let notification = WidgetNotification(
@@ -678,7 +699,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             bucketName: bucketName,
             bucketColor: bucketColor,
             bucketIconUrl: bucketIconUrl,
-            attachments: attachments
+            attachments: attachments,
+            actions: actions
         )
         
         let notificationData = NotificationData(notification: notification)
@@ -974,20 +996,10 @@ extension WatchConnectivityManager: WCSessionDelegate {
                             }
                             
                             // Parse attachments
-                            var attachments: [WidgetAttachment] = []
-                            if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
-                                for attachmentDict in attachmentsArray {
-                                    if let mediaType = attachmentDict["mediaType"] as? String,
-                                       let url = attachmentDict["url"] as? String {
-                                        let attachment = WidgetAttachment(
-                                            mediaType: mediaType,
-                                            url: url,
-                                            name: attachmentDict["name"] as? String
-                                        )
-                                        attachments.append(attachment)
-                                    }
-                                }
-                            }
+                            let attachments = NotificationParser.parseAttachments(from: notifDict["attachments"] as? [[String: Any]])
+                            
+                            // Parse actions
+                            let actions = NotificationParser.parseActions(from: notifDict["actions"] as? [[String: Any]])
                             
                             let widgetNotification = WidgetNotification(
                                 id: id,
@@ -1000,7 +1012,8 @@ extension WatchConnectivityManager: WCSessionDelegate {
                                 bucketName: nil,
                                 bucketColor: nil,
                                 bucketIconUrl: nil,
-                                attachments: attachments
+                                attachments: attachments,
+                                actions: actions
                             )
                             
                             let notification = NotificationData(notification: widgetNotification)
@@ -1146,20 +1159,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 }
                 
                 // Parse attachments
-                var attachments: [WidgetAttachment] = []
-                if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
-                    for attachmentDict in attachmentsArray {
-                        if let mediaType = attachmentDict["mediaType"] as? String,
-                           let url = attachmentDict["url"] as? String {
-                            let attachment = WidgetAttachment(
-                                mediaType: mediaType,
-                                url: url,
-                                name: attachmentDict["name"] as? String
-                            )
-                            attachments.append(attachment)
-                        }
-                    }
-                }
+                let attachments = NotificationParser.parseAttachments(from: notifDict["attachments"] as? [[String: Any]])
                 
                 // Parse isRead field - prefer 'isRead' if present, otherwise check for 'readAt'
                 let isRead: Bool
@@ -1168,6 +1168,9 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 } else {
                     isRead = notifDict["readAt"] != nil
                 }
+                
+                // Parse actions
+                let actions = NotificationParser.parseActions(from: notifDict["actions"] as? [[String: Any]])
                 
                 let widgetNotification = WidgetNotification(
                     id: id,
@@ -1180,7 +1183,8 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     bucketName: nil,
                     bucketColor: nil,
                     bucketIconUrl: nil,
-                    attachments: attachments
+                    attachments: attachments,
+                    actions: actions
                 )
                 
                 let notification = NotificationData(notification: widgetNotification)
@@ -1381,20 +1385,10 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     }
                     
                     // Parse attachments
-                    var attachments: [WidgetAttachment] = []
-                    if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
-                        for attachmentDict in attachmentsArray {
-                            if let mediaType = attachmentDict["mediaType"] as? String,
-                               let url = attachmentDict["url"] as? String {
-                                let attachment = WidgetAttachment(
-                                    mediaType: mediaType,
-                                    url: url,
-                                    name: attachmentDict["name"] as? String
-                                )
-                                attachments.append(attachment)
-                            }
-                        }
-                    }
+                    let attachments = NotificationParser.parseAttachments(from: notifDict["attachments"] as? [[String: Any]])
+                    
+                    // Parse actions
+                    let actions = NotificationParser.parseActions(from: notifDict["actions"] as? [[String: Any]])
                     
                     let widgetNotification = WidgetNotification(
                         id: id,
@@ -1407,7 +1401,8 @@ extension WatchConnectivityManager: WCSessionDelegate {
                         bucketName: nil,
                         bucketColor: nil,
                         bucketIconUrl: nil,
-                        attachments: attachments
+                        attachments: attachments,
+                        actions: actions
                     )
                     
                     let notification = NotificationData(notification: widgetNotification)
@@ -1665,20 +1660,10 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     }
                     
                     // Parse attachments
-                    var attachments: [WidgetAttachment] = []
-                    if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
-                        for attachmentDict in attachmentsArray {
-                            if let mediaType = attachmentDict["mediaType"] as? String,
-                               let url = attachmentDict["url"] as? String {
-                                let attachment = WidgetAttachment(
-                                    mediaType: mediaType,
-                                    url: url,
-                                    name: attachmentDict["name"] as? String
-                                )
-                                attachments.append(attachment)
-                            }
-                        }
-                    }
+                    let attachments = NotificationParser.parseAttachments(from: notifDict["attachments"] as? [[String: Any]])
+                    
+                    // Parse actions
+                    let actions = NotificationParser.parseActions(from: notifDict["actions"] as? [[String: Any]])
                     
                     let widgetNotification = WidgetNotification(
                         id: id,
@@ -1691,7 +1676,8 @@ extension WatchConnectivityManager: WCSessionDelegate {
                         bucketName: nil,
                         bucketColor: nil,
                         bucketIconUrl: nil,
-                        attachments: attachments
+                        attachments: attachments,
+                        actions: actions
                     )
                     
                     let notification = NotificationData(notification: widgetNotification)

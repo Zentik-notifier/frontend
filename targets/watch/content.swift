@@ -2,8 +2,67 @@ import SwiftUI
 import ImageIO
 import WatchKit
 
+// MARK: - Global Bucket Icon Cache
+
+/// Global cache for loaded bucket icons shared across all views
+/// This cache is managed ONLY by BucketMenuView (root component)
+/// Child components MUST NOT load icons directly - they receive icons from parent
+class BucketIconCache: ObservableObject {
+    static let shared = BucketIconCache()
+    
+    /// Cache for loaded bucket icons (bucketId -> UIImage)
+    /// Icons are loaded once by root component and reused everywhere
+    @Published private(set) var bucketIcons: [String: UIImage] = [:]
+    
+    /// Track which buckets have been logged (to avoid duplicate logs)
+    private var loggedBuckets = Set<String>()
+    
+    private init() {}
+    
+    /// Get icon for bucket ID
+    func getIcon(bucketId: String) -> UIImage? {
+        return bucketIcons[bucketId]
+    }
+    
+    /// Load and cache icon for bucket (ONLY called by root component)
+    func loadIcon(bucketId: String, bucketName: String, bucketColor: String?, iconUrl: String?) {
+        // Skip if already loaded
+        if bucketIcons[bucketId] != nil {
+            return
+        }
+        
+        // Try to get icon from MediaAccess
+        if let iconData = MediaAccess.getBucketIconFromSharedCache(
+            bucketId: bucketId,
+            bucketName: bucketName,
+            bucketColor: bucketColor,
+            iconUrl: iconUrl
+        ), let image = UIImage(data: iconData) {
+            bucketIcons[bucketId] = image
+            print("⌚ [BucketIconCache] ✅ Loaded icon for bucket \(bucketId) (\(bucketName))")
+        }
+    }
+    
+    /// Check if bucket has been logged
+    func hasBeenLogged(_ bucketId: String) -> Bool {
+        return loggedBuckets.contains(bucketId)
+    }
+    
+    /// Mark bucket as logged
+    func markAsLogged(_ bucketId: String) {
+        loggedBuckets.insert(bucketId)
+    }
+    
+    /// Clear cache (useful for memory pressure or debugging)
+    func clearCache() {
+        bucketIcons.removeAll()
+        loggedBuckets.removeAll()
+    }
+}
+
 struct ContentView: View {
     @StateObject private var connectivityManager = WatchConnectivityManager.shared
+    @StateObject private var iconCache = BucketIconCache.shared
     @State private var isInitialLoad: Bool = true
     @State private var lastFetchTime: Date?
     @Environment(\.scenePhase) private var scenePhase
@@ -21,10 +80,14 @@ struct ContentView: View {
             onRefresh: requestFullRefresh
         )
         .environmentObject(connectivityManager)
+        .environmentObject(iconCache)
         .onAppear {
-            // Data is already loaded from cache in WatchConnectivityManager init
+            // Clear icon cache on app open to ensure fresh icons
+            iconCache.clearCache()
+            
+            // Data is alreadmy loaded from cache in WatchConnectivityManager init
             // No need to fetch - just mark as loaded
-            print("⌚ [ContentView] � App opened - data loaded from cache")
+            print("⌚ [ContentView] 📱 App opened - data loaded from cache")
             isInitialLoad = false
             lastFetchTime = Date()
         }
@@ -52,7 +115,7 @@ struct ContentView: View {
     }
 }
 
-struct BucketItem: Identifiable {
+struct BucketItem: Identifiable, Equatable {
     let id: String
     let name: String
     let unreadCount: Int
@@ -60,6 +123,15 @@ struct BucketItem: Identifiable {
     let color: String?
     let iconUrl: String?
     let lastNotificationDate: Date?
+    
+    static func == (lhs: BucketItem, rhs: BucketItem) -> Bool {
+        return lhs.id == rhs.id &&
+               lhs.name == rhs.name &&
+               lhs.unreadCount == rhs.unreadCount &&
+               lhs.totalCount == rhs.totalCount &&
+               lhs.color == rhs.color &&
+               lhs.iconUrl == rhs.iconUrl
+    }
 }
 
 struct NotificationData: Identifiable, Equatable {
@@ -82,6 +154,9 @@ struct BucketMenuView: View {
     let lastUpdate: Date?
     let hasCache: Bool
     let onRefresh: () -> Void
+    
+    @EnvironmentObject var iconCache: BucketIconCache
+    @EnvironmentObject var connectivityManager: WatchConnectivityManager
     
     var body: some View {
         NavigationView {
@@ -180,7 +255,7 @@ struct BucketMenuView: View {
                             Section(header: Text("Buckets")) {
                                 ForEach(bucketsWithNotifications) { bucket in
                                     NavigationLink(destination: FilteredNotificationListView(bucketId: bucket.id, bucketName: bucket.name, bucket: bucket, allBuckets: buckets)) {
-                                        BucketRowView(bucket: bucket)
+                                        BucketRowView(bucket: bucket, iconImage: iconCache.getIcon(bucketId: bucket.id))
                                     }
                                 }
                             }
@@ -190,6 +265,15 @@ struct BucketMenuView: View {
             }
             .navigationTitle("Zentik")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                loadAllIcons()
+            }
+            .onChange(of: buckets) { _ in
+                loadAllIcons()
+            }
+            .onChange(of: connectivityManager.notifications) { _ in
+                loadAllIcons()
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if let lastUpdate = lastUpdate {
@@ -232,16 +316,41 @@ struct BucketMenuView: View {
             return "\(days)d"
         }
     }
+    
+    /// Load ALL icons needed for UI (buckets + notifications)
+    /// This is the ONLY place where icons are loaded - child components never load icons
+    private func loadAllIcons() {
+        print("⌚ [BucketMenuView] 🔄 Loading all icons...")
+        
+        // 1. Load bucket icons for buckets with notifications
+        let bucketsWithNotifications = buckets.filter { $0.unreadCount > 0 || $0.totalCount > 0 }
+        for bucket in bucketsWithNotifications {
+            iconCache.loadIcon(
+                bucketId: bucket.id,
+                bucketName: bucket.name,
+                bucketColor: bucket.color,
+                iconUrl: bucket.iconUrl
+            )
+        }
+        
+        // 2. Load icons for all notifications (some notifications may have buckets not in bucket list)
+        for notificationData in connectivityManager.notifications {
+            let notification = notificationData.notification
+            iconCache.loadIcon(
+                bucketId: notification.bucketId,
+                bucketName: notification.bucketName ?? "Notification",
+                bucketColor: notification.bucketColor,
+                iconUrl: notification.bucketIconUrl
+            )
+        }
+        
+        print("⌚ [BucketMenuView] ✅ Loaded \(iconCache.bucketIcons.count) icons")
+    }
 }
 
 struct BucketRowView: View {
     let bucket: BucketItem
-    @State private var iconImage: UIImage?
-    
-    // Cache for loaded bucket icons (bucketId -> UIImage)
-    private static var iconCache: [String: UIImage] = [:]
-    // Track which buckets have been logged (to avoid duplicate logs)
-    private static var loggedBuckets = Set<String>()
+    let iconImage: UIImage?
     
     var body: some View {
         HStack(spacing: 10) {
@@ -289,55 +398,6 @@ struct BucketRowView: View {
                     .padding(.vertical, 2)
                     .background(Color.red)
                     .clipShape(Capsule())
-            }
-        }
-        .onAppear {
-            loadIcon()
-        }
-    }
-    
-    private func loadIcon() {
-        guard let iconUrl = bucket.iconUrl, !iconUrl.isEmpty else {
-            // Log only once per bucket
-            if !Self.loggedBuckets.contains(bucket.id) {
-                print("⌚ [BucketRowView] ⚠️ No iconUrl for bucket \(bucket.id) (\(bucket.name))")
-                Self.loggedBuckets.insert(bucket.id)
-            }
-            return
-        }
-        
-        // Check if icon is already in cache
-        if let cachedImage = Self.iconCache[bucket.id] {
-            self.iconImage = cachedImage
-            return
-        }
-        
-        // Log only once per bucket
-        if !Self.loggedBuckets.contains(bucket.id) {
-            print("⌚ [BucketRowView] 🔍 Loading icon for bucket \(bucket.id) (\(bucket.name)), iconUrl: \(iconUrl)")
-        }
-        
-        // Try to get icon from cache or download
-        if let iconData = MediaAccess.getBucketIconFromSharedCache(
-            bucketId: bucket.id,
-            bucketName: bucket.name,
-            bucketColor: bucket.color,
-            iconUrl: iconUrl
-        ), let image = UIImage(data: iconData) {
-            // Store in cache for reuse
-            Self.iconCache[bucket.id] = image
-            self.iconImage = image
-            
-            // Log only once per bucket
-            if !Self.loggedBuckets.contains(bucket.id) {
-                print("⌚ [BucketRowView] ✅ Loaded icon for bucket \(bucket.id) (\(bucket.name))")
-                Self.loggedBuckets.insert(bucket.id)
-            }
-        } else {
-            // Log only once per bucket
-            if !Self.loggedBuckets.contains(bucket.id) {
-                print("⌚ [BucketRowView] ⚠️ Icon not found in cache for bucket \(bucket.id) (\(bucket.name)), iconUrl: \(iconUrl)")
-                Self.loggedBuckets.insert(bucket.id)
             }
         }
     }
@@ -485,21 +545,23 @@ struct FilteredNotificationListView: View {
 struct NotificationRowView: View {
     let notificationData: NotificationData
     let bucket: BucketItem?
-    @State private var iconImage: UIImage?
+    
+    @EnvironmentObject var iconCache: BucketIconCache
     
     var body: some View {
         HStack(spacing: 8) {
-            // Show bucket icon if available, otherwise show colored rectangle
-            if let iconImage = iconImage {
+            // Show bucket icon from cache - NEVER load directly
+            let bucketId = bucket?.id ?? notificationData.notification.bucketId
+            if let iconImage = iconCache.getIcon(bucketId: bucketId) {
                 Image(uiImage: iconImage)
                     .resizable()
                     .scaledToFill()
                     .frame(width: 24, height: 24)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             } else {
-            RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: 4)
                     .fill(hexColor(bucket?.color ?? notificationData.notification.bucketColor) ?? Color.blue)
-                .frame(width: 24, height: 24)
+                    .frame(width: 24, height: 24)
             }
             
             VStack(alignment: .leading, spacing: 2) {
@@ -543,29 +605,6 @@ struct NotificationRowView: View {
             }
         }
         .padding(.vertical, 4)
-        .onAppear {
-            loadIcon()
-        }
-    }
-    
-    private func loadIcon() {
-        // Use bucket data if available (from main page), otherwise fallback to notification data
-        let iconUrl = bucket?.iconUrl ?? notificationData.notification.bucketIconUrl
-        let bucketId = bucket?.id ?? notificationData.notification.bucketId
-        let bucketName = bucket?.name ?? notificationData.notification.bucketName ?? ""
-        let bucketColor = bucket?.color ?? notificationData.notification.bucketColor
-        
-        guard let iconUrl = iconUrl else { return }
-        
-        // Try to get icon from cache or download
-        if let iconData = MediaAccess.getBucketIconFromSharedCache(
-            bucketId: bucketId,
-            bucketName: bucketName,
-            bucketColor: bucketColor,
-            iconUrl: iconUrl
-        ) {
-            self.iconImage = UIImage(data: iconData)
-        }
     }
     
     private func hexColor(_ hex: String?) -> Color? {
@@ -590,9 +629,9 @@ struct NotificationDetailView: View {
     let notificationId: String
     let bucket: BucketItem?
     
-    @State private var iconImage: UIImage?
     @State private var isDeleted = false
     @EnvironmentObject var connectivityManager: WatchConnectivityManager
+    @EnvironmentObject var iconCache: BucketIconCache
     @Environment(\.dismiss) var dismiss
     
     // Computed property to get the latest notification data from manager
@@ -609,166 +648,225 @@ struct NotificationDetailView: View {
         }
     }
     
+    // Computed property for bucket icon background color
+    private var bucketIconColor: Color {
+        guard let notificationData = notificationData else { return Color.blue }
+        let colorHex = bucket?.color ?? notificationData.notification.bucketColor
+        return hexColor(colorHex) ?? Color.blue
+    }
+    
     var body: some View {
         if let notificationData = notificationData {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    // Header with bucket icon
-                    HStack(spacing: 10) {
-                        // Show bucket icon if available, otherwise show colored rectangle
-                        if let iconImage = iconImage {
-                            Image(uiImage: iconImage)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 40, height: 40)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                        } else {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(hexColor(bucket?.color ?? notificationData.notification.bucketColor) ?? Color.blue)
-                                .frame(width: 40, height: 40)
-                        }
-                        
-                    VStack(alignment: .leading, spacing: 2) {
-                            Text(notificationData.notification.title)
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                        
-                        if !notificationData.notification.isRead {
-                            Text("Unread")
-                                .font(.caption2)
-                                .foregroundColor(.blue)
-                            }
-                        }
-                    }
-                    .padding(.bottom, 4)
-                    .onAppear {
-                        loadIcon()
-                    }
-                
-                Divider()
-                
-                // Subtitle (if exists)
-                if let subtitle = notificationData.notification.subtitle, !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                // Body
-                Text(notificationData.notification.body)
-                    .font(.body)
-                
-                // Attachments - only show supported types (IMAGE and GIF)
-                if !supportedAttachments.isEmpty {
-                    Divider()
-                        .padding(.vertical, 4)
+                    headerView(for: notificationData)
                     
-                    if supportedAttachments.count == 1 {
-                        // Single attachment - show full size immediately
-                        AttachmentFullView(
-                            attachment: supportedAttachments[0],
-                            notificationId: notificationData.notification.id
-                        )
-                    } else {
-                        // Multiple attachments - show grid of thumbnails
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Attachments (\(supportedAttachments.count))")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            LazyVGrid(columns: [
-                                GridItem(.flexible(), spacing: 8),
-                                GridItem(.flexible(), spacing: 8)
-                            ], spacing: 8) {
-                                ForEach(Array(supportedAttachments.enumerated()), id: \.offset) { index, attachment in
-                                    NavigationLink(destination: AttachmentFullScreenView(
-                                        attachment: attachment,
-                                        notificationId: notificationData.notification.id
-                                    )) {
-                                        AttachmentThumbnailView(
-                                            attachment: attachment,
-                                            notificationId: notificationData.notification.id
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Actions section - show allowed actions
-                if !notificationData.notification.allowedActions.isEmpty {
                     Divider()
-                        .padding(.vertical, 4)
                     
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Actions")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        ForEach(notificationData.notification.allowedActions, id: \.label) { action in
-                            Button(action: {
-                                executeAction(action)
-                            }) {
-                                HStack {
-                                    Image(systemName: systemImageForAction(action.type))
-                                        .foregroundColor(.blue)
-                                    Text(action.label)
-                                        .font(.body)
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 12)
-                                .background(Color.secondary.opacity(0.1))
-                                .cornerRadius(8)
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                        }
+                    contentView(for: notificationData)
+                    
+                    if !supportedAttachments.isEmpty {
+                        attachmentsView(for: notificationData)
+                    }
+                    
+                    if !notificationData.notification.allowedActions.isEmpty {
+                        actionsView(for: notificationData)
                     }
                 }
+                .padding()
             }
-            .padding()
-        }
-        .navigationTitle(bucket?.name ?? notificationData.notification.bucketName ?? "Notification")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItemGroup(placement: .bottomBar) {
-                // Mark as read/unread button
-                Button(action: toggleReadStatus) {
-                    Label(notificationData.notification.isRead ? "Mark Unread" : "Mark Read",
-                          systemImage: notificationData.notification.isRead ? "envelope.badge" : "envelope.open")
-                }
-                .disabled(isDeleted)
-                
-                Spacer()
-                
-                // Delete button
-                Button(role: .destructive, action: deleteNotification) {
-                    Label("Delete", systemImage: "trash")
-                }
-                .disabled(isDeleted)
-            }
-        }
-        } else {
-            // Notification not found (deleted or not loaded yet)
-            VStack {
-                Text("Notification not available")
-                    .foregroundColor(.secondary)
-            }
-            .navigationTitle("Notification")
+            .navigationTitle(bucket?.name ?? notificationData.notification.bucketName ?? "Notification")
+            .navigationBarTitleDisplayMode(.inline)
             .onAppear {
-                // If notification is gone, go back
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    if notificationData == nil {
-                        dismiss()
+                logDetailViewEntry()
+            }
+            .toolbar {
+                toolbarContent(for: notificationData)
+            }
+        } else {
+            notificationNotFoundView
+        }
+    }
+    
+    // MARK: - View Builders
+    
+    @ViewBuilder
+    private func headerView(for notificationData: NotificationData) -> some View {
+        HStack(spacing: 10) {
+            // Show bucket icon from cache - NEVER load directly
+            let bucketId = bucket?.id ?? notificationData.notification.bucketId
+            if let iconImage = iconCache.getIcon(bucketId: bucketId) {
+                Image(uiImage: iconImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 40, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(bucketIconColor)
+                    .frame(width: 40, height: 40)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(notificationData.notification.title)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                if !notificationData.notification.isRead {
+                    Text("Unread")
+                        .font(.caption2)
+                        .foregroundColor(.blue)
+                }
+            }
+        }
+        .padding(.bottom, 4)
+    }
+    
+    @ViewBuilder
+    private func contentView(for notificationData: NotificationData) -> some View {
+        // Subtitle (if exists)
+        if let subtitle = notificationData.notification.subtitle, !subtitle.isEmpty {
+            Text(subtitle)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        
+        // Body
+        Text(notificationData.notification.body)
+            .font(.body)
+    }
+    
+    @ViewBuilder
+    private func attachmentsView(for notificationData: NotificationData) -> some View {
+        Divider()
+            .padding(.vertical, 4)
+        
+        if supportedAttachments.count == 1 {
+            // Single attachment - show full size immediately
+            AttachmentFullView(
+                attachment: supportedAttachments[0],
+                notificationId: notificationData.notification.id
+            )
+        } else {
+            // Multiple attachments - show grid of thumbnails
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Attachments (\(supportedAttachments.count))")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 8),
+                    GridItem(.flexible(), spacing: 8)
+                ], spacing: 8) {
+                    ForEach(Array(supportedAttachments.enumerated()), id: \.offset) { index, attachment in
+                        NavigationLink(destination: AttachmentFullScreenView(
+                            attachment: attachment,
+                            notificationId: notificationData.notification.id
+                        )) {
+                            AttachmentThumbnailView(
+                                attachment: attachment,
+                                notificationId: notificationData.notification.id
+                            )
+                        }
                     }
                 }
             }
         }
     }
+    
+    @ViewBuilder
+    private func actionsView(for notificationData: NotificationData) -> some View {
+        Divider()
+            .padding(.vertical, 4)
+        
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Actions")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            ForEach(notificationData.notification.allowedActions, id: \.label) { action in
+                Button(action: {
+                    executeAction(action)
+                }) {
+                    HStack {
+                        Image(systemName: systemImageForAction(action.type))
+                            .foregroundColor(.blue)
+                        Text(action.label)
+                            .font(.body)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(Color.secondary.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+    }
+    
+    @ToolbarContentBuilder
+    private func toolbarContent(for notificationData: NotificationData) -> some ToolbarContent {
+        ToolbarItemGroup(placement: .bottomBar) {
+            // Mark as read/unread button
+            Button(action: toggleReadStatus) {
+                Label(notificationData.notification.isRead ? "Mark Unread" : "Mark Read",
+                      systemImage: notificationData.notification.isRead ? "envelope.badge" : "envelope.open")
+            }
+            .disabled(isDeleted)
+            
+            Spacer()
+            
+            // Delete button
+            Button(role: .destructive, action: deleteNotification) {
+                Label("Delete", systemImage: "trash")
+            }
+            .disabled(isDeleted)
+        }
+    }
+    
+    private var notificationNotFoundView: some View {
+        VStack {
+            Text("Notification not available")
+                .foregroundColor(.secondary)
+        }
+        .navigationTitle("Notification")
+        .onAppear {
+            // If notification is gone, go back
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                if notificationData == nil {
+                    dismiss()
+                }
+            }
+        }
+    }
+    
+    private func logDetailViewEntry() {
+        if let notificationData = notificationData {
+            print("⌚ [NotificationDetailView] 📄 Entered detail view for notification: \(notificationData.notification.id)")
+            print("⌚ [NotificationDetailView] 📝 Title: \(notificationData.notification.title)")
+            print("⌚ [NotificationDetailView] 🎬 Allowed actions count: \(notificationData.notification.allowedActions.count)")
+            
+            if notificationData.notification.allowedActions.isEmpty {
+                print("⌚ [NotificationDetailView] ⚠️ No actions available for this notification")
+            } else {
+                print("⌚ [NotificationDetailView] ✅ Actions available:")
+                for (index, action) in notificationData.notification.allowedActions.enumerated() {
+                    print("⌚ [NotificationDetailView]   \(index + 1). \(action.label) (type: \(action.type))")
+                }
+            }
+            
+            print("⌚ [NotificationDetailView] 📎 Attachments: \(notificationData.notification.attachments.count)")
+            print("⌚ [NotificationDetailView] 📎 Supported attachments (IMAGE/GIF): \(supportedAttachments.count)")
+        } else {
+            print("⌚ [NotificationDetailView] ⚠️ Entered detail view but notificationData is nil")
+        }
+    }
+    
+    // MARK: - Actions
     
     private func toggleReadStatus() {
         guard let notificationData = notificationData else { return }
@@ -793,28 +891,6 @@ struct NotificationDetailView: View {
         // Mark as deleted and dismiss
         isDeleted = true
         dismiss()
-    }
-    
-    private func loadIcon() {
-        guard let notificationData = notificationData else { return }
-        
-        // Use bucket data if available (from main page), otherwise fallback to notification data
-        let iconUrl = bucket?.iconUrl ?? notificationData.notification.bucketIconUrl
-        let bucketId = bucket?.id ?? notificationData.notification.bucketId
-        let bucketName = bucket?.name ?? notificationData.notification.bucketName ?? ""
-        let bucketColor = bucket?.color ?? notificationData.notification.bucketColor
-        
-        guard let iconUrl = iconUrl else { return }
-        
-        // Try to get icon from cache or download
-        if let iconData = MediaAccess.getBucketIconFromSharedCache(
-            bucketId: bucketId,
-            bucketName: bucketName,
-            bucketColor: bucketColor,
-            iconUrl: iconUrl
-        ) {
-            self.iconImage = UIImage(data: iconData)
-        }
     }
     
     private func hexColor(_ hex: String?) -> Color? {
@@ -927,10 +1003,20 @@ struct AttachmentThumbnailView: View {
     let attachment: WidgetAttachment
     let notificationId: String
     @State private var thumbnailData: Data?
+    @State private var isLoading: Bool = true
     
     var body: some View {
         ZStack {
-            if let thumbnailData = thumbnailData {
+            if isLoading {
+                // Show loading indicator while downloading
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(maxWidth: .infinity, maxHeight: 60)
+                    .overlay(
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    )
+            } else if let thumbnailData = thumbnailData {
                 // For GIFs, use AnimatedImageView to show animation
                 if attachment.mediaType.uppercased() == "GIF" {
                     AnimatedImageView(imageData: thumbnailData)
@@ -946,6 +1032,7 @@ struct AttachmentThumbnailView: View {
                         .cornerRadius(8)
                 }
             } else {
+                // Failed to load - show icon
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.gray.opacity(0.3))
                     .frame(maxWidth: .infinity, maxHeight: 60)
@@ -963,6 +1050,9 @@ struct AttachmentThumbnailView: View {
     private func loadThumbnail() {
         guard let url = attachment.url else {
             print("⌚️ [AttachmentThumbnail] ❌ No URL for attachment")
+            DispatchQueue.main.async {
+                self.isLoading = false
+            }
             return
         }
         
@@ -989,7 +1079,7 @@ struct AttachmentThumbnailView: View {
                 print("⌚️ [AttachmentThumbnail] ⚠️ Notif dir missing: \(notifDir.path)")
             }
             
-            if let data = MediaAccess.getNotificationMediaForWatch(
+            if let data = MediaAccess.getOptimizedNotificationMediaForWatch(
                 url: url,
                 mediaType: attachment.mediaType,
                 notificationId: notificationId
@@ -997,9 +1087,13 @@ struct AttachmentThumbnailView: View {
                 print("⌚️ [AttachmentThumbnail] ✅ Got \(data.count) bytes")
                 DispatchQueue.main.async {
                     self.thumbnailData = data
+                    self.isLoading = false
                 }
             } else {
                 print("⌚️ [AttachmentThumbnail] ❌ No cache data")
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                }
             }
         }
     }
@@ -1049,16 +1143,27 @@ struct AttachmentFullView: View {
     }
     
     private func loadMedia() {
-        guard let url = attachment.url else { return }
+        guard let url = attachment.url else {
+            print("⌚️ [AttachmentFullView] ❌ No URL for attachment")
+            return
+        }
+        
+        print("⌚️ [AttachmentFullView] 🔍 Loading media for: \(url)")
+        print("⌚️ [AttachmentFullView] 📝 Type: \(attachment.mediaType), NotificationID: \(notificationId)")
+        
         DispatchQueue.global(qos: .userInitiated).async {
-            if let data = MediaAccess.getNotificationMediaForWatch(
+            if let data = MediaAccess.getOptimizedNotificationMediaForWatch(
                 url: url,
                 mediaType: attachment.mediaType,
                 notificationId: notificationId
             ) {
+                print("⌚️ [AttachmentFullView] ✅ Successfully loaded \(data.count) bytes")
                 DispatchQueue.main.async {
                     self.mediaData = data
                 }
+            } else {
+                print("⌚️ [AttachmentFullView] ❌ Failed to load media from cache for URL: \(url)")
+                print("⌚️ [AttachmentFullView] ❌ NotificationID: \(notificationId), Type: \(attachment.mediaType)")
             }
         }
     }
@@ -1100,16 +1205,27 @@ struct AttachmentFullScreenView: View {
     }
     
     private func loadMedia() {
-        guard let url = attachment.url else { return }
+        guard let url = attachment.url else {
+            print("⌚️ [AttachmentFullScreenView] ❌ No URL for attachment")
+            return
+        }
+        
+        print("⌚️ [AttachmentFullScreenView] 🔍 Loading media for: \(url)")
+        print("⌚️ [AttachmentFullScreenView] 📝 Type: \(attachment.mediaType), NotificationID: \(notificationId)")
+        
         DispatchQueue.global(qos: .userInitiated).async {
-            if let data = MediaAccess.getNotificationMediaForWatch(
+            if let data = MediaAccess.getOptimizedNotificationMediaForWatch(
                 url: url,
                 mediaType: attachment.mediaType,
                 notificationId: notificationId
             ) {
+                print("⌚️ [AttachmentFullScreenView] ✅ Successfully loaded \(data.count) bytes")
                 DispatchQueue.main.async {
                     self.mediaData = data
                 }
+            } else {
+                print("⌚️ [AttachmentFullScreenView] ❌ Failed to load media from cache for URL: \(url)")
+                print("⌚️ [AttachmentFullScreenView] ❌ NotificationID: \(notificationId), Type: \(attachment.mediaType)")
             }
         }
     }
@@ -1173,7 +1289,7 @@ struct AttachmentRowView: View {
             print("⌚️ [AttachmentRow] 📂 Cache: \(cacheDir.path)")
             
             // Try to get from cache
-            if let cachedData = MediaAccess.getNotificationMediaForWatch(
+            if let cachedData = MediaAccess.getOptimizedNotificationMediaForWatch(
                 url: url,
                 mediaType: attachment.mediaType,
                 notificationId: notificationId
