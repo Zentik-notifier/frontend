@@ -297,3 +297,46 @@ export async function getBucketsCount(): Promise<number> {
     }
   }, 'getBucketsCount');
 }
+
+/**
+ * Get updatedAt timestamps for multiple buckets
+ * Returns a map of bucketId -> updatedAt
+ * This is used to check which buckets need updating before saving
+ */
+export async function getBucketsUpdatedAt(bucketIds: string[]): Promise<Map<string, string>> {
+  if (!bucketIds || bucketIds.length === 0) {
+    return new Map();
+  }
+
+  return await executeQuery(async (db) => {
+    const updatedAtMap = new Map<string, string>();
+
+    if (Platform.OS === 'web') {
+      // IndexedDB - get each bucket's updated_at
+      const tx = db.transaction('buckets', 'readonly');
+      const store = tx.objectStore('buckets');
+
+      for (const bucketId of bucketIds) {
+        const record = await store.get(bucketId);
+        if (record && record.updated_at) {
+          updatedAtMap.set(bucketId, record.updated_at);
+        }
+      }
+
+      await tx.done;
+    } else {
+      // SQLite - use IN query for efficiency
+      const placeholders = bucketIds.map(() => '?').join(',');
+      const results = await db.getAllAsync(
+        `SELECT id, updated_at FROM buckets WHERE id IN (${placeholders})`,
+        bucketIds
+      ) as Array<{ id: string; updated_at: string }>;
+
+      for (const record of results) {
+        updatedAtMap.set(record.id, record.updated_at);
+      }
+    }
+
+    return updatedAtMap;
+  }, 'getBucketsUpdatedAt');
+}

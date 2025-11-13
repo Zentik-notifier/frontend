@@ -6,6 +6,7 @@
 import {
     BucketData,
     getAllBuckets,
+    getBucketsUpdatedAt,
     saveBuckets
 } from '@/db/repositories/buckets-repository';
 import {
@@ -455,8 +456,30 @@ export function useNotificationsState(
                         }))
                     ];
 
-                    await saveBuckets(bucketsToSave);
-                    console.log(`[useNotificationsState] Saved ${bucketsToSave.length} buckets to cache (${apiBuckets.length} API + ${orphanedBuckets.length} orphans)`);
+                    // Get existing buckets' updatedAt timestamps to avoid unnecessary writes
+                    const bucketIds = bucketsToSave.map(b => b.id);
+                    const existingUpdatedAt = await getBucketsUpdatedAt(bucketIds);
+
+                    // Filter buckets that actually need updating (new or changed)
+                    const bucketsNeedingUpdate = bucketsToSave.filter(bucket => {
+                        const existingDate = existingUpdatedAt.get(bucket.id);
+                        if (!existingDate) {
+                            // New bucket, needs to be saved
+                            return true;
+                        }
+                        // Compare updatedAt dates - only save if remote is newer
+                        const remoteDate = new Date(bucket.updatedAt).getTime();
+                        const localDate = new Date(existingDate).getTime();
+                        return remoteDate > localDate;
+                    });
+
+                    if (bucketsNeedingUpdate.length > 0) {
+                        await saveBuckets(bucketsNeedingUpdate);
+                        console.log(`[useNotificationsState] Saved ${bucketsNeedingUpdate.length}/${bucketsToSave.length} buckets to cache (${bucketsNeedingUpdate.length} new/updated, ${bucketsToSave.length - bucketsNeedingUpdate.length} unchanged)`);
+                    } else {
+                        console.log(`[useNotificationsState] No bucket changes detected - skipping DB write for ${bucketsToSave.length} buckets`);
+                    }
+
 
                     // Combine all buckets
                     finalBuckets = [...apiBucketsWithStats, ...orphanedBuckets];
