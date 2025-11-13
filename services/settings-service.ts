@@ -77,7 +77,6 @@ export interface RetentionPolicies {
   maxCachedNotificationsDay?: number;
   maxCacheSizeMB?: number;
   maxCageAgeDays?: number;
-  watchNMaxNotifications?: number;
 }
 
 export interface DownloadSettings {
@@ -161,7 +160,6 @@ const DEFAULT_SETTINGS: UserSettings = {
     maxCachedNotificationsDay: 14,
     maxCacheSizeMB: undefined,
     maxCageAgeDays: 120,
-    watchNMaxNotifications: 9999,
   },
   downloadSettings: {
     autoDownloadEnabled: true,
@@ -679,16 +677,6 @@ class SettingsService {
       retentionPolicies: {
         ...current.retentionPolicies,
         maxCachedNotificationsDay: days,
-      },
-    });
-  }
-
-  public async setWatchNMaxNotifications(max: number | undefined): Promise<void> {
-    const current = this.settingsSubject.value;
-    await this.updateSettings({
-      retentionPolicies: {
-        ...current.retentionPolicies,
-        watchNMaxNotifications: max,
       },
     });
   }
@@ -1466,10 +1454,6 @@ class SettingsService {
 
   public getMaxCachedNotificationsDay(): number | undefined {
     return this.settingsSubject.value.retentionPolicies.maxCachedNotificationsDay;
-  }
-
-  public getWatchNMaxNotifications(): number {
-    return this.settingsSubject.value.retentionPolicies.watchNMaxNotifications ?? 150;
   }
 
   public getRetentionPolicies(): RetentionPolicies {

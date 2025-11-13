@@ -40,7 +40,6 @@ export default function UnifiedCacheSettings() {
     setAutoAddOpenNotificationAction,
     setDefaultPostpones,
     setDefaultSnoozes,
-    setWatchNMaxNotifications,
   } = useSettings();
   const [showResetModal, setShowResetModal] = useState(false);
   const [isExportingMetadata, setIsExportingMetadata] = useState(false);
@@ -70,14 +69,6 @@ export default function UnifiedCacheSettings() {
   const [isEditingMaxNotifications, setIsEditingMaxNotifications] =
     useState(false);
   const [isEditingMaxNotificationsDays, setIsEditingMaxNotificationsDays] =
-    useState(false);
-  const [localWatchNMaxNotifications, setLocalWatchNMaxNotifications] =
-    useState<string>(
-      settings.retentionPolicies.watchNMaxNotifications !== undefined
-        ? String(settings.retentionPolicies.watchNMaxNotifications)
-        : ""
-    );
-  const [isEditingWatchNMaxNotifications, setIsEditingWatchNMaxNotifications] =
     useState(false);
 
   // Default postpones and snoozes
@@ -113,27 +104,22 @@ export default function UnifiedCacheSettings() {
           : ""
       );
     }
-    if (!isEditingWatchNMaxNotifications) {
-      setLocalWatchNMaxNotifications(
-        settings.retentionPolicies.watchNMaxNotifications !== undefined
-          ? String(settings.retentionPolicies.watchNMaxNotifications)
-          : ""
-      );
-    }
     // Sync default snoozes and postpones
-    setLocalDefaultPostpones(settings.notificationsPreferences?.defaultPostpones || []);
-    setLocalDefaultSnoozes(settings.notificationsPreferences?.defaultSnoozes || []);
+    setLocalDefaultPostpones(
+      settings.notificationsPreferences?.defaultPostpones || []
+    );
+    setLocalDefaultSnoozes(
+      settings.notificationsPreferences?.defaultSnoozes || []
+    );
   }, [
     settings.retentionPolicies?.maxCacheSizeMB,
     settings.retentionPolicies?.maxCageAgeDays,
     settings.retentionPolicies.maxCachedNotifications,
     settings.retentionPolicies.maxCachedNotificationsDay,
-    settings.retentionPolicies.watchNMaxNotifications,
     settings.notificationsPreferences?.defaultPostpones,
     settings.notificationsPreferences?.defaultSnoozes,
     isEditingMaxNotifications,
     isEditingMaxNotificationsDays,
-    isEditingWatchNMaxNotifications,
   ]);
 
   const { cacheStats } = useGetCacheStats();
@@ -143,15 +129,16 @@ export default function UnifiedCacheSettings() {
       updateMediaCacheRetentionPolicies,
       setMaxCachedNotifications,
       setMaxCachedNotificationsDay,
-      settings: {
-        downloadSettings,
-        notificationsPreferences,
-      },
+      settings: { downloadSettings, notificationsPreferences },
     },
   } = useAppContext();
 
-  const { handleExportNotifications, handleImportNotifications, isExporting, isImporting } =
-    useNotificationExportImport();
+  const {
+    handleExportNotifications,
+    handleImportNotifications,
+    isExporting,
+    isImporting,
+  } = useNotificationExportImport();
 
   // Calculate total cache size
   const totalCacheSize = useMemo(() => {
@@ -173,7 +160,7 @@ export default function UnifiedCacheSettings() {
       setLocalDefaultPostpones(values);
       await setDefaultPostpones(values);
     } catch (error) {
-      console.error('Error saving default postpones:', error);
+      console.error("Error saving default postpones:", error);
     }
   };
 
@@ -182,7 +169,7 @@ export default function UnifiedCacheSettings() {
       setLocalDefaultSnoozes(values);
       await setDefaultSnoozes(values);
     } catch (error) {
-      console.error('Error saving default snoozes:', error);
+      console.error("Error saving default snoozes:", error);
     }
   };
 
@@ -692,60 +679,6 @@ export default function UnifiedCacheSettings() {
             </View>
           </Card.Content>
         </Card>
-
-        {/* Max Watch Notifications - iOS only */}
-        {/* {Platform.OS === 'ios' && (
-          <Card style={styles.settingCard} elevation={0}>
-            <Card.Content>
-              <View style={styles.settingRow}>
-                <View style={styles.settingInfo}>
-                  <View style={styles.settingTextContainer}>
-                    <Text variant="titleMedium" style={styles.settingTitle}>
-                      {t("appSettings.gqlCache.watchNMaxNotificationsTitle")}
-                    </Text>
-                    <Text
-                      variant="bodyMedium"
-                      style={[
-                        styles.settingDescription,
-                        { color: theme.colors.onSurfaceVariant },
-                      ]}
-                    >
-                      {t("appSettings.gqlCache.watchNMaxNotificationsDescription")}
-                    </Text>
-                  </View>
-                </View>
-                <TextInput
-                  mode="outlined"
-                  value={localWatchNMaxNotifications}
-                  onFocus={() => setIsEditingWatchNMaxNotifications(true)}
-                  onBlur={async () => {
-                    const text = localWatchNMaxNotifications;
-                    if (text.trim() === "") {
-                      await setWatchNMaxNotifications(undefined);
-                    } else {
-                      const parsed = parseInt(text, 10);
-                      if (
-                        !Number.isNaN(parsed) &&
-                        parsed >= 0 &&
-                        parsed <= 1000
-                      ) {
-                        await setWatchNMaxNotifications(parsed);
-                      }
-                    }
-                    setIsEditingWatchNMaxNotifications(false);
-                  }}
-                  onChangeText={(text) => {
-                    setLocalWatchNMaxNotifications(text);
-                  }}
-                  keyboardType="numeric"
-                  maxLength={4}
-                  style={styles.compactInput}
-                  dense
-                />
-              </View>
-            </Card.Content>
-          </Card>
-        )} */}
       </Surface>
 
       {/* GraphQL Cache Settings */}
@@ -784,14 +717,31 @@ export default function UnifiedCacheSettings() {
             </View>
             <Selector
               label={t("appSettings.notifications.markAsReadModeLabel")}
-              placeholder={t("appSettings.notifications.markAsReadModePlaceholder")}
+              placeholder={t(
+                "appSettings.notifications.markAsReadModePlaceholder"
+              )}
               options={[
-                { id: 'on-tap', name: t('appSettings.notifications.markAsReadMode.onTap') },
-                { id: 'on-view', name: t('appSettings.notifications.markAsReadMode.onView') },
-                { id: 'on-app-close', name: t('appSettings.notifications.markAsReadMode.onAppClose') },
+                {
+                  id: "on-tap",
+                  name: t("appSettings.notifications.markAsReadMode.onTap"),
+                },
+                {
+                  id: "on-view",
+                  name: t("appSettings.notifications.markAsReadMode.onView"),
+                },
+                {
+                  id: "on-app-close",
+                  name: t(
+                    "appSettings.notifications.markAsReadMode.onAppClose"
+                  ),
+                },
               ]}
-              selectedValue={settings.notificationsPreferences?.markAsReadMode || 'on-view'}
-              onValueChange={(value) => setMarkAsReadMode(value as MarkAsReadMode)}
+              selectedValue={
+                settings.notificationsPreferences?.markAsReadMode || "on-view"
+              }
+              onValueChange={(value) =>
+                setMarkAsReadMode(value as MarkAsReadMode)
+              }
               isSearchable={false}
               disabled={false}
               mode="inline"
@@ -888,9 +838,7 @@ export default function UnifiedCacheSettings() {
                 </View>
               </View>
               <Switch
-                value={
-                  notificationsPreferences?.autoAddDeleteAction ?? true
-                }
+                value={notificationsPreferences?.autoAddDeleteAction ?? true}
                 onValueChange={setAutoAddDeleteAction}
               />
             </View>
@@ -971,7 +919,9 @@ export default function UnifiedCacheSettings() {
               label={t("appSettings.notifications.defaultPostpones")}
               values={localDefaultPostpones}
               onValuesChange={handleDefaultPostponesChange}
-              placeholder={t("appSettings.notifications.defaultPostponesDescription")}
+              placeholder={t(
+                "appSettings.notifications.defaultPostponesDescription"
+              )}
               unit="m"
               min={1}
               max={9999}
@@ -987,7 +937,9 @@ export default function UnifiedCacheSettings() {
               label={t("appSettings.notifications.defaultSnoozes")}
               values={localDefaultSnoozes}
               onValuesChange={handleDefaultSnoozesChange}
-              placeholder={t("appSettings.notifications.defaultSnoozesDescription")}
+              placeholder={t(
+                "appSettings.notifications.defaultSnoozesDescription"
+              )}
               unit="m"
               min={1}
               max={9999}

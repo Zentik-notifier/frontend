@@ -85,8 +85,6 @@
       "maxStoredDescription": "Mantieni al massimo questo numero di notifiche nella cache locale",
       "maxStoredDaysTitle": "Giorni massimi da conservare",
       "maxStoredDaysDescription": "Elimina le notifiche in cache più vecchie di questo numero di giorni",
-      "watchNMaxNotificationsTitle": "Notifiche massime su Watch",
-      "watchNMaxNotificationsDescription": "Numero massimo di notifiche da sincronizzare con Apple Watch (default: 150)",
       "importExport": {
         "title": "Avanzate",
         "description": "Strumenti avanzati e utilità",
