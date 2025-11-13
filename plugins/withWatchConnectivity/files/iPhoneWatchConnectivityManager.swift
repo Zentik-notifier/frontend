@@ -911,6 +911,31 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                     )
                 }
                 
+            case "transferMediaToWatch":
+                // NSE requested media transfer to Watch (background)
+                if let url = userInfo["url"] as? String,
+                   let mediaType = userInfo["mediaType"] as? String,
+                   let localPath = userInfo["localPath"] as? String {
+                    
+                    self.logger.info(
+                        tag: "NSE→iPhone→Watch",
+                        message: "Received media transfer request from NSE",
+                        metadata: [
+                            "url": url,
+                            "mediaType": mediaType,
+                            "localPath": localPath
+                        ],
+                        source: "iPhoneWatchManager"
+                    )
+                    
+                    self.transferMediaFileToWatch(
+                        url: url,
+                        mediaType: mediaType,
+                        localPath: localPath,
+                        notificationId: userInfo["notificationId"] as? String
+                    )
+                }
+                
             case "executeNotificationAction":
                 // Watch requested notification action execution (background)
                 if let notificationId = userInfo["notificationId"] as? String,
@@ -991,4 +1016,108 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
     
     // MARK: - File Transfer Delegates
     
+    // MARK: - Media Transfer to Watch
+    
+    /**
+     * Transfer media file from iPhone to Watch
+     * Called when NSE downloads an attachment and wants to share it with Watch
+     */
+    func transferMediaFileToWatch(url: String, mediaType: String, localPath: String, notificationId: String?) {
+        guard WCSession.isSupported() else {
+            logger.error(tag: "iPhone→Watch", message: "WatchConnectivity not supported", source: "iPhoneWatchManager")
+            return
+        }
+        
+        let session = WCSession.default
+        guard session.isPaired && session.isWatchAppInstalled else {
+            logger.error(tag: "iPhone→Watch", message: "Watch not paired or app not installed", source: "iPhoneWatchManager")
+            return
+        }
+        
+        let fileURL = URL(fileURLWithPath: localPath)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            logger.error(
+                tag: "iPhone→Watch",
+                message: "Media file not found at path: \(localPath)",
+                source: "iPhoneWatchManager"
+            )
+            return
+        }
+        
+        // Get file size for logging
+        var fileSize: Int64 = 0
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+            fileSize = (attributes[.size] as? NSNumber)?.int64Value ?? 0
+        } catch {
+            logger.error(tag: "iPhone→Watch", message: "Failed to get file size: \(error)", source: "iPhoneWatchManager")
+        }
+        
+        // Log to centralized logging system
+        logger.info(
+            tag: "MEDIA_TRANSFER",
+            message: "iPhone sending media to Watch",
+            metadata: [
+                "event": "iphone_sending_media",
+                "url": url,
+                "mediaType": mediaType,
+                "fileSize": fileSize,
+                "localPath": localPath,
+                "notificationId": notificationId ?? "",
+                "watchPaired": session.isPaired,
+                "watchAppInstalled": session.isWatchAppInstalled,
+                "sessionActivated": session.activationState == .activated
+            ],
+            source: "iPhoneWatchManager"
+        )
+        
+        logger.info(
+            tag: "iPhone→Watch",
+            message: "Transferring media file to Watch",
+            metadata: [
+                "url": url,
+                "mediaType": mediaType,
+                "size": "\(fileSize) bytes",
+                "notificationId": notificationId ?? "none"
+            ],
+            source: "iPhoneWatchManager"
+        )
+        
+        // Metadata for the file transfer
+        let metadata: [String: Any] = [
+            "url": url,
+            "mediaType": mediaType,
+            "notificationId": notificationId ?? ""
+        ]
+        
+        // Transfer file to Watch
+        // WatchConnectivity will handle the transfer even when Watch is asleep
+        let transfer = session.transferFile(fileURL, metadata: metadata)
+        
+        // Log transfer queued to centralized logging system
+        logger.info(
+            tag: "MEDIA_TRANSFER",
+            message: "iPhone transfer queued",
+            metadata: [
+                "event": "iphone_transfer_queued",
+                "url": url,
+                "mediaType": mediaType,
+                "isTransferring": transfer.isTransferring,
+                "progress": transfer.progress.fractionCompleted,
+                "notificationId": notificationId ?? ""
+            ],
+            source: "iPhoneWatchManager"
+        )
+        
+        logger.info(
+            tag: "iPhone→Watch",
+            message: "Media file transfer queued",
+            metadata: [
+                "url": url,
+                "transferring": String(transfer.isTransferring),
+                "progress": String(format: "%.1f%%", transfer.progress.fractionCompleted * 100)
+            ],
+            source: "iPhoneWatchManager"
+        )
+    }
 }

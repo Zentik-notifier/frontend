@@ -810,14 +810,15 @@ class NotificationService: UNNotificationServiceExtension {
     print("📱 [NotificationService] 🎯 Selected for NSE attachment: \(selectedItem.mediaType)")
 
     // Download only the selected media
-    downloadMediaAttachment(mediaItem: selectedItem) { attachment in
+    let notificationId = userInfo["notificationId"] as? String
+    downloadMediaAttachment(mediaItem: selectedItem, notificationId: notificationId) { attachment in
       if let attachment = attachment {
         content.attachments = [attachment]
         print(
           "📱 [NotificationService] ✅ Media downloaded for compact view: \(selectedItem.mediaType)")
 
         // Log successful media download
-        if let notificationId = userInfo["notificationId"] as? String {
+        if let notificationId = notificationId {
           self.logToDatabase(
             level: "info",
             tag: "Media",
@@ -921,7 +922,9 @@ class NotificationService: UNNotificationServiceExtension {
   }
 
   private func downloadMediaAttachment(
-    mediaItem: MediaAttachment, completion: @escaping (UNNotificationAttachment?) -> Void
+    mediaItem: MediaAttachment, 
+    notificationId: String?,
+    completion: @escaping (UNNotificationAttachment?) -> Void
   ) {
     guard let url = URL(string: mediaItem.url) else {
       print("📱 [NotificationService] Invalid URL: \(mediaItem.url)")
@@ -1323,6 +1326,15 @@ class NotificationService: UNNotificationServiceExtension {
           "📱 [NotificationService] ✅ Created \(identifier) attachment and saved to cache: \(cacheFileUrl.path)"
         )
         print("📱 [NotificationService] 📁 File saved with name: \(filename)")
+        
+        // Notify iPhone to transfer media to Watch
+        self.notifyMediaDownloaded(
+          url: mediaItem.url,
+          mediaType: mediaItem.mediaType,
+          localPath: cacheFileUrl.path,
+          notificationId: notificationId
+        )
+        
         // Mark as completed in shared metadata (set isDownloading=false and update size)
         self.markMediaAsCompleted(mediaItem, success: true, isNewDownload: true)
         completion(attachment)
@@ -1999,6 +2011,59 @@ class NotificationService: UNNotificationServiceExtension {
     
     UNUserNotificationCenter.current().setNotificationCategories([category])
     print("📱 [NotificationService] ✅ Registered category 'DYNAMIC' with \(notificationActions.count) actions")
+  }
+  
+  // MARK: - Watch Media Transfer
+  
+  /// Notify iPhone to transfer downloaded media to Watch
+  private func notifyMediaDownloaded(url: String, mediaType: String, localPath: String, notificationId: String?) {
+    guard WCSession.isSupported() else {
+      print("📱 [NotificationService] ⚠️ WatchConnectivity not supported, skipping media transfer")
+      return
+    }
+    
+    let session = WCSession.default
+    guard session.isPaired && session.isWatchAppInstalled else {
+      print("📱 [NotificationService] ⚠️ Watch not paired or app not installed, skipping media transfer")
+      return
+    }
+    
+    // Get file size for logging
+    var fileSize: Int64 = 0
+    if let attributes = try? FileManager.default.attributesOfItem(atPath: localPath) {
+      fileSize = (attributes[.size] as? NSNumber)?.int64Value ?? 0
+    }
+    
+    // Log to centralized logging system
+    LoggingSystem.shared.log(
+      level: "INFO",
+      tag: "MEDIA_TRANSFER",
+      message: "NSE media downloaded, queuing for Watch transfer",
+      metadata: [
+        "event": "nse_media_downloaded",
+        "url": url,
+        "mediaType": mediaType,
+        "localPath": localPath,
+        "fileSize": fileSize,
+        "notificationId": notificationId ?? "",
+        "watchPaired": session.isPaired,
+        "watchAppInstalled": session.isWatchAppInstalled
+      ],
+      source: "NSE"
+    )
+    
+    // Send message to iPhone's WatchConnectivityManager to trigger file transfer
+    let message: [String: Any] = [
+      "action": "transferMediaToWatch",
+      "url": url,
+      "mediaType": mediaType,
+      "localPath": localPath,
+      "notificationId": notificationId ?? ""
+    ]
+    
+    // Use transferUserInfo for guaranteed delivery (works even when iPhone/Watch is asleep)
+    session.transferUserInfo(message)
+    print("📱 [NotificationService] ✅ Queued media transfer request to iPhone")
   }
 }
 

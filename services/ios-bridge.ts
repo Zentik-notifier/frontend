@@ -1,11 +1,12 @@
 import { NativeModules, Platform, NativeEventEmitter, EmitterSubscription } from 'react-native';
 
-const { WidgetReloadBridge, WatchConnectivityBridge } = NativeModules;
+const { WidgetReloadBridge, WatchConnectivityBridge, DatabaseAccessBridge } = NativeModules;
 
 // Debug: log available bridges
 console.log('[IosBridge] Available bridges:', {
   WidgetReloadBridge: !!WidgetReloadBridge,
   WatchConnectivityBridge: !!WatchConnectivityBridge,
+  DatabaseAccessBridge: !!DatabaseAccessBridge,
 });
 
 const isIOS = Platform.OS === 'ios';
@@ -290,6 +291,338 @@ class IosBridgeService {
     } catch (error) {
       console.error('[WatchSync] Failed to notify Watch about update:', error);
       return false;
+    }
+  }
+
+  // ========== Database Access Methods (iOS only) ==========
+
+  /**
+   * Mark a single notification as read using native DatabaseAccess library
+   * This directly accesses the shared SQLite database
+   */
+  async dbMarkNotificationAsRead(notificationId: string): Promise<{
+    success: boolean;
+    notificationId: string;
+    readAt?: string;
+  }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    try {
+      const result = await DatabaseAccessBridge.markNotificationAsRead(notificationId);
+      console.log('[DatabaseAccess] Marked notification as read:', notificationId);
+      return result;
+    } catch (error) {
+      console.error('[DatabaseAccess] Failed to mark notification as read:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark multiple notifications as read in bulk using native DatabaseAccess library
+   */
+  async dbMarkMultipleNotificationsAsRead(notificationIds: string[]): Promise<{
+    success: boolean;
+    count: number;
+    readAt?: string;
+  }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    if (notificationIds.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    try {
+      const result = await DatabaseAccessBridge.markMultipleNotificationsAsRead(notificationIds);
+      console.log('[DatabaseAccess] Marked notifications as read:', notificationIds.length);
+      return result;
+    } catch (error) {
+      console.error('[DatabaseAccess] Failed to mark notifications as read:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark a single notification as unread using native DatabaseAccess library
+   */
+  async dbMarkNotificationAsUnread(notificationId: string): Promise<{
+    success: boolean;
+    notificationId: string;
+  }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    try {
+      const result = await DatabaseAccessBridge.markNotificationAsUnread(notificationId);
+      console.log('[DatabaseAccess] Marked notification as unread:', notificationId);
+      return result;
+    } catch (error) {
+      console.error('[DatabaseAccess] Failed to mark notification as unread:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a single notification using native DatabaseAccess library
+   */
+  async dbDeleteNotification(notificationId: string): Promise<{
+    success: boolean;
+    notificationId: string;
+  }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    try {
+      const result = await DatabaseAccessBridge.deleteNotification(notificationId);
+      console.log('[DatabaseAccess] Deleted notification:', notificationId);
+      return result;
+    } catch (error) {
+      console.error('[DatabaseAccess] Failed to delete notification:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get unread notification count using native DatabaseAccess library
+   */
+  async dbGetNotificationCount(): Promise<{ count: number }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    try {
+      const result = await DatabaseAccessBridge.getNotificationCount();
+      console.log('[DatabaseAccess] Notification count:', result.count);
+      return result;
+    } catch (error) {
+      console.error('[DatabaseAccess] Failed to get notification count:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if notification exists using native DatabaseAccess library
+   */
+  async dbNotificationExists(notificationId: string): Promise<{
+    exists: boolean;
+    notificationId: string;
+  }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    try {
+      const result = await DatabaseAccessBridge.notificationExists(notificationId);
+      console.log('[DatabaseAccess] Notification exists:', notificationId, result.exists);
+      return result;
+    } catch (error) {
+      console.error('[DatabaseAccess] Failed to check notification existence:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all buckets using native DatabaseAccess library
+   */
+  async dbGetAllBuckets(): Promise<{
+    buckets: Array<{
+      id: string;
+      name: string;
+      unreadCount: number;
+      color?: string;
+      iconUrl?: string;
+    }>;
+    count: number;
+  }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    try {
+      const result = await DatabaseAccessBridge.getAllBuckets();
+      console.log('[DatabaseAccess] Retrieved buckets:', result.count);
+      return result;
+    } catch (error) {
+      console.error('[DatabaseAccess] Failed to get buckets:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get recent notifications using native DatabaseAccess library
+   */
+  async dbGetRecentNotifications(
+    limit: number = 5,
+    unreadOnly: boolean = false
+  ): Promise<{
+    notifications: Array<{
+      id: string;
+      title: string;
+      body: string;
+      subtitle?: string;
+      createdAt: string;
+      isRead: boolean;
+      bucketId: string;
+      bucketName?: string;
+      bucketColor?: string;
+      bucketIconUrl?: string;
+      attachments?: Array<{
+        mediaType: string;
+        url?: string;
+        name?: string;
+      }>;
+      actions?: Array<{
+        type: string;
+        label: string;
+        value?: string;
+        id?: string;
+        url?: string;
+        bucketId?: string;
+        minutes?: number;
+      }>;
+    }>;
+    count: number;
+  }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    try {
+      const result = await DatabaseAccessBridge.getRecentNotifications(limit, unreadOnly);
+      console.log('[DatabaseAccess] Retrieved recent notifications:', result.count);
+      return result;
+    } catch (error) {
+      console.error('[DatabaseAccess] Failed to get recent notifications:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get a setting value using native DatabaseAccess library
+   */
+  async dbGetSettingValue(key: string): Promise<{
+    key: string;
+    value: string | null;
+  }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    try {
+      const result = await DatabaseAccessBridge.getSettingValue(key);
+      console.log('[DatabaseAccess] Retrieved setting:', key, result.value !== null);
+      return result;
+    } catch (error) {
+      console.error('[DatabaseAccess] Failed to get setting value:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set a setting value using native DatabaseAccess library
+   */
+  async dbSetSettingValue(key: string, value: string): Promise<{
+    success: boolean;
+    key: string;
+  }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    try {
+      const result = await DatabaseAccessBridge.setSettingValue(key, value);
+      console.log('[DatabaseAccess] Set setting:', key);
+      return result;
+    } catch (error) {
+      console.error('[DatabaseAccess] Failed to set setting value:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Remove a setting value using native DatabaseAccess library
+   */
+  async dbRemoveSettingValue(key: string): Promise<{
+    success: boolean;
+    key: string;
+  }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    try {
+      const result = await DatabaseAccessBridge.removeSettingValue(key);
+      console.log('[DatabaseAccess] Removed setting:', key);
+      return result;
+    } catch (error) {
+      console.error('[DatabaseAccess] Failed to remove setting value:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get database path (for debugging)
+   */
+  async dbGetDbPath(): Promise<{ path: string }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    try {
+      const result = await DatabaseAccessBridge.getDbPath();
+      console.log('[DatabaseAccess] Database path:', result.path);
+      return result;
+    } catch (error) {
+      console.error('[DatabaseAccess] Failed to get database path:', error);
+      throw error;
+    }
+  }
+
+  // ========== Generic SQL Operations ==========
+
+  /**
+   * Execute a generic SQL query (SELECT)
+   * Returns an array of rows as objects
+   */
+  async dbExecuteQuery(sql: string, params: any[] = []): Promise<any[]> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    try {
+      const results = await DatabaseAccessBridge.executeQuery(sql, params);
+      console.log('[DatabaseAccess] Query executed, rows:', results.length);
+      return results;
+    } catch (error) {
+      console.error('[DatabaseAccess] Failed to execute query:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Execute a generic SQL statement (INSERT, UPDATE, DELETE)
+   * Returns the number of affected rows
+   */
+  async dbExecuteUpdate(sql: string, params: any[] = []): Promise<{
+    success: boolean;
+    changes: number;
+  }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    try {
+      const result = await DatabaseAccessBridge.executeUpdate(sql, params);
+      console.log('[DatabaseAccess] Update executed, changes:', result.changes);
+      return result;
+    } catch (error) {
+      console.error('[DatabaseAccess] Failed to execute update:', error);
+      throw error;
     }
   }
 

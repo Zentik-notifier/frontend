@@ -211,6 +211,36 @@ if [ $watch_conn_copied -gt 0 ]; then
     print_success "WatchConnectivity: $watch_conn_copied file copiati in iOS App"
 fi
 
+# 3.6 DatabaseAccessBridge (per app iOS principale)
+print_status "Sincronizzazione DatabaseAccessBridge files..."
+
+DATABASE_ACCESS_BRIDGE_SOURCE="plugins/withDatabaseAccessBridge/files"
+DATABASE_ACCESS_BRIDGE_DEST="$IOS_DIR/ZentikDev"
+
+DATABASE_ACCESS_BRIDGE_FILES=(
+    "DatabaseAccessBridge.swift"
+    "DatabaseAccessBridge.m"
+)
+
+db_bridge_copied=0
+for file in "${DATABASE_ACCESS_BRIDGE_FILES[@]}"; do
+    source_file="$DATABASE_ACCESS_BRIDGE_SOURCE/$file"
+    dest_file="$DATABASE_ACCESS_BRIDGE_DEST/$file"
+    
+    if [ -f "$source_file" ]; then
+        cp -f "$source_file" "$dest_file"
+        replace_placeholders "$dest_file" "$BUNDLE_ID"
+        print_status "  ✅ $file copiato in iOS App"
+        ((db_bridge_copied++))
+    else
+        print_warning "  ⚠️  $file non trovato in $DATABASE_ACCESS_BRIDGE_SOURCE"
+    fi
+done
+
+if [ $db_bridge_copied -gt 0 ]; then
+    print_success "DatabaseAccessBridge: $db_bridge_copied file copiati in iOS App"
+fi
+
 # 4. Shared Files (copiati in ogni target: AppDelegate, NSE, NCE)
 print_status "Sincronizzazione file condivisi in tutti i target..."
 
@@ -332,6 +362,9 @@ if [ -f "$APPDELEGATE_DEST" ]; then
 fi
 if [ $watch_conn_copied -gt 0 ]; then
     print_status "  📡 WatchConnectivity: $watch_conn_copied file copiati in iOS App"
+fi
+if [ $db_bridge_copied -gt 0 ]; then
+    print_status "  💾 DatabaseAccessBridge: $db_bridge_copied file copiati in iOS App"
 fi
 if [ -d "$WATCH_DIR" ]; then
     print_status "  ⌚ Watch Extension: $WATCH_FILES file"

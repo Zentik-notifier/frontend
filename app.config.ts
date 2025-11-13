@@ -243,7 +243,8 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             ["./plugins/withAndroidManifestFix/withAndroidManifestFix.ts"],
             ["./plugins/withCustomAppDelegate/withCustomAppDelegate.ts"],
             ["./plugins/withWatchConnectivity/withWatchConnectivity.ts"],
-            ["./plugins/withWidgetReload/withWidgetReload.ts"]
+            ["./plugins/withWidgetReload/withWidgetReload.ts"],
+            ["./plugins/withDatabaseAccessBridge/withDatabaseAccessBridge.ts"]
         ],
 
         experiments: {

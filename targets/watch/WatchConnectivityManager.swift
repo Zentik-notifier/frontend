@@ -1663,38 +1663,68 @@ extension WatchConnectivityManager: WCSessionDelegate {
     // MARK: - File Transfer Reception (FALLBACK - kept for compatibility)
     
     func session(_ session: WCSession, didReceive file: WCSessionFile) {
-        print("⌚ ========== FILE RECEIVED FROM IPHONE (FALLBACK) ==========")
+        print("⌚ ========== FILE RECEIVED FROM IPHONE ==========")
         print("⌚ File URL: \(file.fileURL.absoluteString)")
-        print("⌚ [WatchConnectivity] ⚠️ WARNING: Using legacy file transfer - should use messageData instead")
+        
+        guard let metadata = file.metadata else {
+            print("⌚ [WatchConnectivity] ❌ File transfer without metadata, ignoring")
+            return
+        }
+        
+        // Check if this is a media file transfer (new)
+        if let url = metadata["url"] as? String,
+           let mediaType = metadata["mediaType"] as? String {
+            
+            // Get file size for logging
+            var fileSize: Int64 = 0
+            if let attributes = try? FileManager.default.attributesOfItem(atPath: file.fileURL.path) {
+                fileSize = (attributes[.size] as? NSNumber)?.int64Value ?? 0
+            }
+            
+            // Log to centralized logging system
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "MEDIA_TRANSFER",
+                message: "Watch received media from iPhone",
+                metadata: [
+                    "event": "watch_received_media",
+                    "url": url,
+                    "mediaType": mediaType,
+                    "fileSize": fileSize,
+                    "temporaryPath": file.fileURL.path,
+                    "notificationId": metadata["notificationId"] as? String ?? ""
+                ],
+                source: "Watch"
+            )
+            
+            print("⌚ [WatchConnectivity] 📥 Received media file transfer")
+            print("  - URL: \(url)")
+            print("  - Type: \(mediaType)")
+            print("  - Size: \(fileSize) bytes")
+            print("  - Notification ID: \(metadata["notificationId"] as? String ?? "none")")
+            
+            // Save media file to Watch's local cache
+            saveMediaFileToCache(fileURL: file.fileURL, url: url, mediaType: mediaType)
+            return
+        }
+        
+        guard let action = metadata["action"] as? String else {
+            print("⌚ [WatchConnectivity] ❌ File metadata without action field, ignoring")
+            return
+        }
+        
+        // Legacy full sync file transfer
+        if action != "fullSync" {
+            print("⌚ [WatchConnectivity] ⚠️ File transfer with action '\(action)' (expected 'fullSync'), ignoring")
+            return
+        }
         
         // Start loading state
         DispatchQueue.main.async { [weak self] in
             self?.isWaitingForResponse = true
         }
         
-        guard let metadata = file.metadata else {
-            print("⌚ [WatchConnectivity] ❌ File transfer without metadata, ignoring")
-            DispatchQueue.main.async { [weak self] in
-                self?.isWaitingForResponse = false
-            }
-            return
-        }
-        
-        guard let action = metadata["action"] as? String else {
-            print("⌚ [WatchConnectivity] ❌ File metadata without action field, ignoring")
-            DispatchQueue.main.async { [weak self] in
-                self?.isWaitingForResponse = false
-            }
-            return
-        }
-        
-        guard action == "fullSync" else {
-            print("⌚ [WatchConnectivity] ⚠️ File transfer with action '\(action)' (expected 'fullSync'), ignoring")
-            DispatchQueue.main.async { [weak self] in
-                self?.isWaitingForResponse = false
-            }
-            return
-        }
+        print("⌚ [WatchConnectivity] ⚠️ WARNING: Using legacy file transfer - should use messageData instead")
         
         let bucketsCount = metadata["bucketsCount"] as? Int ?? 0
         let notificationsCount = metadata["notificationsCount"] as? Int ?? 0
@@ -1777,7 +1807,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 // First, copy the file to a permanent location
                 if FileManager.default.fileExists(atPath: destinationURL.path) {
                     try FileManager.default.removeItem(at: destinationURL)
-                    print("⌚ [WatchConnectivity] �️ Removed existing file at destination")
+                    print("⌚ [WatchConnectivity] 🗑️ Removed existing file at destination")
                 }
                 
                 try FileManager.default.copyItem(at: file.fileURL, to: destinationURL)
@@ -1921,6 +1951,118 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     self?.isWaitingForResponse = false
                 }
             }
+        }
+    }
+    
+    // MARK: - Media File Reception
+    
+    /// Save media file received from iPhone to Watch's local cache
+    private func saveMediaFileToCache(fileURL: URL, url: String, mediaType: String) {
+        print("⌚ [WatchConnectivity] 💾 Saving media file to Watch cache")
+        print("  - Source: \(fileURL.path)")
+        print("  - URL: \(url)")
+        print("  - Type: \(mediaType)")
+        
+        // Get Watch's media cache directory (same structure as iOS)
+        let cacheDirectory = MediaAccess.getSharedMediaCacheDirectory()
+        let mediaTypeDirectory = cacheDirectory.appendingPathComponent(mediaType.uppercased())
+        
+        // Generate filename using same algorithm as iOS
+        let filename = MediaAccess.generateSafeFileName(
+            url: url,
+            mediaType: mediaType,
+            originalFileName: nil
+        )
+        
+        let destinationURL = mediaTypeDirectory.appendingPathComponent(filename)
+        
+        print("⌚ [WatchConnectivity] 📂 Destination:")
+        print("  - Directory: \(mediaTypeDirectory.path)")
+        print("  - Filename: \(filename)")
+        print("  - Full path: \(destinationURL.path)")
+        
+        do {
+            // Create directory if needed
+            try FileManager.default.createDirectory(
+                at: mediaTypeDirectory,
+                withIntermediateDirectories: true,
+                attributes: nil
+            )
+            
+            // Remove existing file if present
+            if FileManager.default.fileExists(atPath: destinationURL.path) {
+                try FileManager.default.removeItem(at: destinationURL)
+                print("⌚ [WatchConnectivity] 🗑️ Removed existing cached file")
+            }
+            
+            // Copy file to cache
+            // IMPORTANT: Use copy instead of move because fileURL is temporary
+            try FileManager.default.copyItem(at: fileURL, to: destinationURL)
+            
+            // Get file size for logging
+            let attributes = try FileManager.default.attributesOfItem(atPath: destinationURL.path)
+            let fileSize = (attributes[.size] as? NSNumber)?.int64Value ?? 0
+            
+            // Log successful cache save to centralized logging system
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "MEDIA_TRANSFER",
+                message: "Watch media cached successfully",
+                metadata: [
+                    "event": "watch_media_cached",
+                    "url": url,
+                    "mediaType": mediaType,
+                    "fileSize": fileSize,
+                    "filename": filename,
+                    "destinationPath": destinationURL.path,
+                    "success": true
+                ],
+                source: "Watch"
+            )
+            
+            print("⌚ [WatchConnectivity] ✅ Media file saved successfully")
+            print("  - Size: \(fileSize) bytes (\(fileSize / 1024)KB)")
+            print("  - Path: \(destinationURL.path)")
+            
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "WatchConnectivity",
+                message: "📥 Media file cached from iPhone",
+                metadata: [
+                    "url": url,
+                    "mediaType": mediaType,
+                    "size": "\(fileSize) bytes",
+                    "filename": filename
+                ],
+                source: "Watch"
+            )
+            
+        } catch {
+            // Log error to centralized logging system
+            LoggingSystem.shared.log(
+                level: "ERROR",
+                tag: "MEDIA_TRANSFER",
+                message: "Watch media cache error",
+                metadata: [
+                    "event": "watch_media_cache_error",
+                    "url": url,
+                    "mediaType": mediaType,
+                    "error": error.localizedDescription,
+                    "sourcePath": fileURL.path,
+                    "destinationPath": destinationURL.path,
+                    "success": false
+                ],
+                source: "Watch"
+            )
+            
+            print("⌚ [WatchConnectivity] ❌ Failed to save media file: \(error.localizedDescription)")
+            LoggingSystem.shared.log(
+                level: "ERROR",
+                tag: "WatchConnectivity",
+                message: "❌ Failed to cache media file: \(error.localizedDescription)",
+                metadata: ["url": url, "mediaType": mediaType],
+                source: "Watch"
+            )
         }
     }
 }
