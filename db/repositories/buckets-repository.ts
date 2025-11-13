@@ -36,7 +36,7 @@ interface BucketRecord {
  * Execute a query on the appropriate database with error handling
  * Uses the safe executeQuery from db-setup that handles race conditions
  */
-async function executeQuery<T>(queryFn: (db: any) => Promise<T>, operationName: string = 'bucket-operation'): Promise<T> {
+async function executeQuery<T>(queryFn: (db: any) => Promise<T>, operationName: string): Promise<T> {
   return await executeQuerySafe(queryFn, operationName);
 }
 
@@ -115,7 +115,7 @@ export async function saveBucket(bucket: BucketData): Promise<void> {
         ]
       );
     }
-  });
+  }, 'saveBucket');
 }
 
 /**
@@ -163,7 +163,7 @@ export async function saveBuckets(buckets: BucketData[]): Promise<void> {
         }
       });
     }
-  });
+  }, 'saveBuckets');
 }
 
 /**
@@ -188,7 +188,7 @@ export async function getBucket(bucketId: string): Promise<BucketData | null> {
 
       return result ? parseBucketFromDB(result) : null;
     }
-  });
+  }, 'getBucket');
 }
 
 /**
@@ -209,7 +209,7 @@ export async function getAllBuckets(): Promise<BucketData[]> {
       const results = await db.getAllAsync('SELECT * FROM buckets ORDER BY name ASC');
       return results.map((record: any) => parseBucketFromDB(record));
     }
-  });
+  }, 'getAllBuckets');
 }
 
 /**
@@ -227,7 +227,7 @@ export async function deleteBucket(bucketId: string): Promise<void> {
       // SQLite
       await db.runAsync('DELETE FROM buckets WHERE id = ?', [bucketId]);
     }
-  });
+  }, 'deleteBucket');
 }
 
 /**
@@ -245,7 +245,7 @@ export async function deleteAllBuckets(): Promise<void> {
       // SQLite
       await db.runAsync('DELETE FROM buckets');
     }
-  });
+  }, 'deleteAllBuckets');
 }
 
 /**
@@ -273,7 +273,7 @@ export async function getLastBucketSyncTime(): Promise<number> {
 
       return result?.max_synced || 0;
     }
-  });
+  }, 'getLastBucketSyncTime');
 }
 
 /**
@@ -295,5 +295,5 @@ export async function getBucketsCount(): Promise<number> {
       );
       return result?.count || 0;
     }
-  });
+  }, 'getBucketsCount');
 }

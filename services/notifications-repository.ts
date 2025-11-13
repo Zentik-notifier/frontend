@@ -25,7 +25,7 @@ import { settingsService } from './settings-service';
  * Execute a query on the appropriate database with error handling
  * Uses the safe executeQuery from db-setup that handles race conditions
  */
-async function executeQuery<T>(queryFn: (db: any) => Promise<T>, operationName: string = 'notification-repo-operation'): Promise<T> {
+async function executeQuery<T>(queryFn: (db: any) => Promise<T>, operationName: string): Promise<T> {
   return await executeQuerySafe(queryFn, operationName);
 }
 
@@ -113,7 +113,7 @@ export async function saveNotificationToCache(notificationData: NotificationFrag
         ]
       );
     }
-  });
+  }, 'saveNotificationToCache');
 }
 
 /**
@@ -137,7 +137,7 @@ export async function getNotificationFromCache(notificationId: string): Promise<
     } catch {
       return null;
     }
-  });
+  }, 'getNotificationFromCache');
 }
 
 /**
@@ -170,7 +170,7 @@ export async function getAllNotificationsFromCache(): Promise<NotificationFragme
     } catch {
       return [];
     }
-  });
+  }, 'getAllNotificationsFromCache');
 }
 
 /**
@@ -189,7 +189,7 @@ export async function getAllRawNotificationsFromDB(): Promise<any[]> {
     } catch {
       return [];
     }
-  });
+  }, 'getAllRawNotificationsFromDB');
 }
 
 /**
@@ -243,7 +243,7 @@ export async function importRawNotificationsToDB(rawNotifications: any[]): Promi
       console.error('[importRawNotificationsToDB] Failed to import raw notifications to DB:', error);
       throw error;
     }
-  });
+  }, 'importRawNotificationsToDB');
 }
 
 /**
@@ -262,7 +262,7 @@ export async function removeNotificationFromCache(notificationId: string): Promi
     } catch {
       // Ignore errors
     }
-  });
+  }, 'removeNotificationFromCache');
 }
 
 /**
@@ -332,7 +332,7 @@ export async function clearAllNotificationsFromCache(): Promise<void> {
       console.error('[clearAllNotificationsFromCache] Failed to clear notifications cache:', error);
       throw error;
     }
-  });
+  }, 'clearAllNotificationsFromCache');
 }
 
 // ====================
@@ -435,7 +435,7 @@ export async function upsertNotificationsBatch(notifications: NotificationFragme
     } catch (error) {
       console.error('[upsertNotificationsBatch] Failed to upsert notifications batch:', error);
     }
-  });
+  }, 'upsertNotificationsBatch');
 }
 
 // ====================
@@ -536,7 +536,7 @@ export async function updateNotificationReadStatus(notificationId: string, readA
       console.error('[updateNotificationReadStatus] Failed to update notification read status:', error);
       throw error;
     }
-  });
+  }, 'updateNotificationReadStatus');
 }
 
 /**
@@ -655,7 +655,7 @@ export async function updateNotificationsReadStatus(notificationIds: string[], r
       console.error('[updateNotificationsReadStatus] Failed to update notifications read status:', error);
       throw error;
     }
-  });
+  }, 'updateNotificationsReadStatus');
 }
 
 /**
@@ -702,7 +702,7 @@ export async function deleteNotificationFromCache(notificationId: string): Promi
       console.error('[deleteNotificationFromCache] Failed to delete notification from cache:', error);
       throw error;
     }
-  });
+  }, 'deleteNotificationFromCache');
 }
 
 /**
@@ -763,7 +763,7 @@ export async function deleteNotificationsFromCache(notificationIds: string[]): P
       console.error('[deleteNotificationsFromCache] Failed to delete notifications from cache:', error);
       throw error;
     }
-  });
+  }, 'deleteNotificationsFromCache');
 }
 
 /**
@@ -806,7 +806,7 @@ export async function deleteNotificationsByBucketId(bucketId: string): Promise<n
       console.error('[deleteNotificationsByBucketId] Failed to delete notifications by bucket ID from cache:', error);
       throw error;
     }
-  });
+  }, 'deleteNotificationsByBucketId');
 }
 
 /**
@@ -848,7 +848,7 @@ export async function deleteBucketNotificationsCompletely(
       console.error('[deleteBucketNotificationsCompletely] Failed to get notification IDs:', error);
       return [];
     }
-  });
+  }, 'deleteBucketNotificationsCompletely');
 
   console.log(`[deleteBucketNotificationsCompletely] Found ${notificationIds.length} notifications to delete`);
 
@@ -1043,7 +1043,7 @@ export async function markNotificationAsDeleted(notificationId: string): Promise
     }
     
     console.log(`[markNotificationAsDeleted] Marked notification ${notificationId} as deleted`);
-  });
+  }, 'markNotificationAsDeleted');
 }
 
 /**
@@ -1078,7 +1078,7 @@ export async function markNotificationsAsDeleted(notificationIds: string[]): Pro
     }
     
     console.log(`[markNotificationsAsDeleted] Marked ${notificationIds.length} notifications as deleted`);
-  });
+  }, 'markNotificationsAsDeleted');
 }
 
 /**
@@ -1098,7 +1098,7 @@ export async function isNotificationDeleted(notificationId: string): Promise<boo
       );
       return !!result;
     }
-  });
+  }, 'isNotificationDeleted');
 }
 
 /**
@@ -1119,7 +1119,7 @@ export async function getAllDeletedNotificationIds(): Promise<Set<string>> {
     }
     
     return deletedIds;
-  });
+  }, 'getAllDeletedNotificationIds');
 }
 
 /**
@@ -1139,7 +1139,7 @@ export async function removeDeletedNotificationTombstone(notificationId: string)
     }
     
     console.log(`[removeDeletedNotificationTombstone] Removed tombstone for ${notificationId}`);
-  });
+  }, 'removeDeletedNotificationTombstone');
 }
 
 /**
@@ -1168,7 +1168,7 @@ export async function incrementDeleteTombstoneRetry(notificationId: string): Pro
         [now, notificationId]
       );
     }
-  });
+  }, 'incrementDeleteTombstoneRetry');
 }
 
 /**
@@ -1205,5 +1205,5 @@ export async function cleanupOldDeletedTombstones(): Promise<number> {
       console.log(`[cleanupOldDeletedTombstones] Cleaned up ${count} old tombstones`);
       return count;
     }
-  });
+  }, 'cleanupOldDeletedTombstones');
 }

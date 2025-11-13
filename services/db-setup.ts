@@ -107,13 +107,25 @@ export function queueDbOperation<T>(operation: () => Promise<T>): Promise<T> {
     return Promise.reject(new Error('Database is closing, operation rejected'));
   }
 
+  // Add timeout to prevent infinite queue waiting
+  const operationWithTimeout = async () => {
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Database operation timeout after 30s')), 30000)
+    );
+    
+    return Promise.race([
+      operation(),
+      timeoutPromise
+    ]);
+  };
+
   const queued = dbOperationQueue
     .then(() => {
       // Double-check if database is still open
       if (isClosing) {
         throw new Error('Database closed during operation');
       }
-      return operation();
+      return operationWithTimeout();
     })
     .catch((error) => {
       // Log error but don't crash
@@ -131,13 +143,13 @@ export function queueDbOperation<T>(operation: () => Promise<T>): Promise<T> {
  * 
  * @param operation - The database operation to execute
  * @param operationName - Name for logging purposes
- * @param retryCount - Number of retries on failure (default: 1)
+ * @param retryCount - Number of retries on failure (default: 5)
  * @returns Promise with the operation result or throws a safe error
  */
 export async function executeQuery<T>(
   operation: (db: any) => Promise<T>,
   operationName: string = 'query',
-  retryCount: number = 1
+  retryCount: number = 5
 ): Promise<T> {
   let lastError: any = null;
 
@@ -153,10 +165,12 @@ export async function executeQuery<T>(
     } catch (error: any) {
       lastError = error;
       const errorMessage = error?.message || String(error);
+      const errorCode = error?.code;
 
       // Log error with context
       console.warn(
         `[executeQuery] ${operationName} failed (attempt ${attempt + 1}/${retryCount + 1}):`,
+        `code=${errorCode || 'unknown'}`,
         errorMessage
       );
 
@@ -170,9 +184,26 @@ export async function executeQuery<T>(
         break;
       }
 
-      // Wait before retry
+      // Special handling for SQLITE_BUSY (code 5) - table locked errors
+      // These are temporary and should always be retried with longer delays
+      const isBusyError = errorCode === 5 || 
+                          errorMessage.includes('SQLITE_BUSY') || 
+                          errorMessage.includes('database is locked') ||
+                          errorMessage.includes('table is locked');
+
+      if (isBusyError && attempt < retryCount) {
+        // For busy errors, use longer exponential backoff
+        const busyDelay = 200 * Math.pow(2, attempt);
+        console.warn(
+          `[executeQuery] ${operationName} - table locked, retrying in ${busyDelay}ms...`
+        );
+        await new Promise(resolve => setTimeout(resolve, busyDelay));
+        continue;
+      }
+
+      // Wait before retry with exponential backoff (100ms, 200ms, 400ms, 800ms, 1600ms)
       if (attempt < retryCount) {
-        await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1)));
+        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt)));
       }
     }
   }
@@ -213,6 +244,7 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
       PRAGMA foreign_keys=ON;
       PRAGMA cache_size=-2000;
       PRAGMA temp_store=MEMORY;
+      PRAGMA busy_timeout=5000;
       PRAGMA wal_autocheckpoint=1000;
       PRAGMA wal_checkpoint(TRUNCATE);
     `);

@@ -24,7 +24,7 @@ import { executeQuery as executeQuerySafe, parseNotificationFromDB } from '../..
  * Execute a query on the appropriate database with error handling
  * Uses the safe executeQuery from db-setup that handles race conditions
  */
-async function executeQuery<T>(queryFn: (db: any) => Promise<T>, operationName: string = 'notification-operation'): Promise<T> {
+async function executeQuery<T>(queryFn: (db: any) => Promise<T>, operationName: string): Promise<T> {
   return await executeQuerySafe(queryFn, operationName);
 }
 
@@ -388,7 +388,7 @@ export async function queryNotifications(
         sort,
       };
     }
-  });
+  }, 'queryNotifications');
 }
 
 /**
@@ -430,7 +430,7 @@ export async function getNotificationById(
     } catch {
       return null;
     }
-  });
+  }, 'getNotificationById');
 }
 
 // ====================
@@ -559,7 +559,7 @@ export async function getBucketStats(bucketId: string): Promise<BucketStats> {
         withAttachmentsCount: 0,
       };
     }
-  });
+  }, 'getBucketStats');
 }
 
 /**
@@ -742,44 +742,59 @@ export async function getNotificationStats(
           throw error;
         }
 
-        // Get bucket names
+        // Get bucket names with a single optimized query using GROUP BY
+        // This is much better than multiple parallel queries which can cause locks
         console.log('[getNotificationStats] Fetching bucket names...');
-        const byBucket: BucketStats[] = await Promise.all(
-          bucketStatsResults.map(async (stats: any, index: number) => {
-            let firstNotification;
-            try {
-              firstNotification = await db.getFirstAsync(
-                'SELECT fragment FROM notifications WHERE bucket_id = ? LIMIT 1',
-                [stats.bucket_id]
-              );
-            } catch (error) {
-              console.error(`[getNotificationStats] Failed to fetch notification for bucket ${stats.bucket_id}:`, error);
-              throw error;
-            }
-
-            let bucketName: string | undefined;
-            if (firstNotification) {
+        const resultBucketIds = bucketStatsResults.map((stats: any) => stats.bucket_id);
+        const bucketNamesMap = new Map<string, string>();
+        
+        if (resultBucketIds.length > 0) {
+          try {
+            // Single query to get first notification per bucket using window functions
+            // This avoids N parallel queries that can cause table locks
+            const bucketNamesQuery = `
+              WITH first_notifications AS (
+                SELECT 
+                  bucket_id,
+                  fragment,
+                  ROW_NUMBER() OVER (PARTITION BY bucket_id ORDER BY created_at ASC) as rn
+                FROM notifications
+                WHERE bucket_id IN (${resultBucketIds.map(() => '?').join(',')})
+              )
+              SELECT bucket_id, fragment
+              FROM first_notifications
+              WHERE rn = 1
+            `;
+            
+            const bucketNameResults = await db.getAllAsync(bucketNamesQuery, resultBucketIds);
+            
+            bucketNameResults.forEach((row: any) => {
               try {
-                const parsed = parseNotificationFromDB(firstNotification, db);
-                bucketName = parsed?.message?.bucket?.name;
+                const parsed = parseNotificationFromDB(row, db);
+                if (parsed?.message?.bucket?.name) {
+                  bucketNamesMap.set(row.bucket_id, parsed.message.bucket.name);
+                }
               } catch (error) {
-                console.error(`[getNotificationStats] Failed to parse notification for bucket ${stats.bucket_id}:`, error);
-                // Don't throw, just log - we can continue without bucket name
+                console.warn(`[getNotificationStats] Failed to parse notification for bucket ${row.bucket_id}:`, error);
+                // Continue without bucket name
               }
-            }
+            });
+          } catch (error) {
+            console.error('[getNotificationStats] Failed to fetch bucket names:', error);
+            // Continue without bucket names - not critical
+          }
+        }
 
-            return {
-              bucketId: stats.bucket_id,
-              bucketName,
-              totalCount: stats.total_count || 0,
-              unreadCount: stats.unread_count || 0,
-              readCount: stats.read_count || 0,
-              withAttachmentsCount: stats.with_attachments_count || 0,
-              lastNotificationDate: stats.last_notification_date,
-              firstNotificationDate: stats.first_notification_date,
-            };
-          })
-        );
+        const byBucket: BucketStats[] = bucketStatsResults.map((stats: any) => ({
+          bucketId: stats.bucket_id,
+          bucketName: bucketNamesMap.get(stats.bucket_id),
+          totalCount: stats.total_count || 0,
+          unreadCount: stats.unread_count || 0,
+          readCount: stats.read_count || 0,
+          withAttachmentsCount: stats.with_attachments_count || 0,
+          lastNotificationDate: stats.last_notification_date,
+          firstNotificationDate: stats.first_notification_date,
+        }));
 
         console.log('[getNotificationStats] Successfully processed all bucket stats');
 
@@ -803,7 +818,7 @@ export async function getNotificationStats(
         byBucket: [],
       };
     }
-  });
+  }, 'getNotificationStats');
 }
 
 /**
@@ -838,7 +853,7 @@ export async function getAllNotificationIds(filters?: NotificationFilters): Prom
       console.error('[getAllNotificationIds] Error:', error);
       return [];
     }
-  });
+  }, 'getAllNotificationIds');
 }
 
 /**
@@ -889,5 +904,5 @@ export async function getUnreadCountsByBucket(): Promise<Map<string, number>> {
       console.error('[getUnreadCountsByBucket] Error:', error);
       return new Map();
     }
-  });
+  }, 'getUnreadCountsByBucket');
 }
