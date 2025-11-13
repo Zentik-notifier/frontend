@@ -104,6 +104,9 @@ class MediaCacheService {
         timestamp: number;
     }>();
 
+    // In-memory cache for bucket icon URIs (for instant synchronous access)
+    private bucketIconUriCache = new Map<string, string>();
+
     // Modern reactive queue management with RxJS
     private queueAction$ = new Subject<QueueAction>();
     private queueItem$ = new Subject<DownloadQueueItem>();
@@ -1305,6 +1308,8 @@ class MediaCacheService {
             // Use the same method for both web and mobile
             const cachedUri = await this.repo.getBucketIconFromSharedCache(bucketId, bucketName, timestamp);
             if (cachedUri) {
+                // Store in memory cache for instant access
+                this.bucketIconUriCache.set(bucketId, cachedUri);
                 return cachedUri;
             }
 
@@ -1319,6 +1324,15 @@ class MediaCacheService {
             console.error('[MediaCache] Failed to get bucket icon:', error);
             return null;
         }
+    }
+
+    /**
+     * Get bucket icon URI synchronously from in-memory cache
+     * Returns null if not yet loaded
+     * Use this for instant access during initial render
+     */
+    getCachedBucketIconUri(bucketId: string): string | null {
+        return this.bucketIconUriCache.get(bucketId) ?? null;
     }
 
     /**
@@ -1450,7 +1464,14 @@ class MediaCacheService {
                 }
 
                 // Add fragment to force expo-image cache invalidation
-                return savedDataUrl ? `${savedDataUrl}#t=${downloadTimestamp}` : savedDataUrl;
+                const finalUri = savedDataUrl ? `${savedDataUrl}#t=${downloadTimestamp}` : savedDataUrl;
+                
+                // Store in memory cache for instant access
+                if (finalUri) {
+                    this.bucketIconUriCache.set(bucketId, finalUri);
+                }
+                
+                return finalUri;
 
             } else {
                 // ===== MOBILE: Use filesystem with File.downloadAsync =====
@@ -1481,7 +1502,12 @@ class MediaCacheService {
                 }
 
                 // Add timestamp to force expo-image cache invalidation
-                return `${finalUri}?t=${downloadTimestamp}`;
+                const finalUriWithTimestamp = `${finalUri}?t=${downloadTimestamp}`;
+                
+                // Store in memory cache for instant access
+                this.bucketIconUriCache.set(bucketId, finalUriWithTimestamp);
+                
+                return finalUriWithTimestamp;
             }
         } catch (error) {
             console.error('[MediaCache] ❌ Error downloading/caching bucket icon:', error);

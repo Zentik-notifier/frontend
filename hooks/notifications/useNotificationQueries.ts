@@ -221,24 +221,37 @@ export function useNotificationsState(
                 const cachedNotifications = await getAllNotificationsFromCache();
                 const cachedBuckets = await getAllBuckets();
 
-                // Preload icons immediately from cache (non-blocking)
-                Promise.all(
+                // Preload bucket icons SYNCHRONOUSLY from cache BEFORE rendering
+                // This ensures icons are ready when BucketIcon components mount  
+                console.log(`[useNotificationsState] 🎨 Pre-loading ${cachedBuckets.length} bucket icons from cache...`);
+                const iconLoadStart = Date.now();
+                
+                // Load icons and trigger immediate cache population
+                const iconLoadResults = await Promise.all(
                     cachedBuckets.map(async (bucket) => {
                         try {
-                            await mediaCache.getBucketIcon(
+                            // This will check cache and return URI if found
+                            const iconUri = await mediaCache.getBucketIcon(
                                 bucket.id,
                                 bucket.name,
                                 bucket.iconUrl ?? undefined
                             );
+                            
+                            return { 
+                                bucket: bucket.name, 
+                                uri: iconUri, 
+                                found: !!iconUri 
+                            };
                         } catch (error) {
                             console.debug(`[useNotificationsState] Failed to preload icon for ${bucket.name}:`, error);
+                            return { bucket: bucket.name, uri: null, found: false };
                         }
                     })
-                ).then(() => {
-                    console.log(`[useNotificationsState] Preloaded ${cachedBuckets.length} bucket icons`);
-                }).catch((error) => {
-                    console.error('[useNotificationsState] Error preloading bucket icons:', error);
-                });
+                );
+                
+                const cachedCount = iconLoadResults.filter(r => r.found).length;
+                const iconLoadDuration = Date.now() - iconLoadStart;
+                console.log(`[useNotificationsState] ✨ Preloaded ${cachedCount}/${cachedBuckets.length} bucket icons from cache in ${iconLoadDuration}ms`);
 
                 // Calculate stats from cache
                 const cachedStats = await getNotificationStats([]);

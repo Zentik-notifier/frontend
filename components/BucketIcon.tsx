@@ -48,9 +48,16 @@ export default function BucketIcon({
     useNavigationUtils();
 
   const [sharedCacheIconUri, setSharedCacheIconUri] = useState<string | null>(
-    null
+    () => {
+      // Initialize with cached value if available (instant access, no async delay)
+      if (bucketId && uploadEnabled) {
+        return mediaCache.getCachedBucketIconUri(bucketId);
+      }
+      return null;
+    }
   );
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Load bucket icon and subscribe to updates
   // Subscribe FIRST to avoid race condition where icon downloads before subscription
@@ -85,23 +92,25 @@ export default function BucketIcon({
           iconUrl ?? undefined
         );
 
-        // await mediaCache.invalidateBucketIcon(bucketId, bucketName, bucketColor);
-        // if (bucket?.id === "a1f61182-afd4-4cd2-9077-ac0b42b64bce") {
-        //   console.log("BUCKET", iconUrlToUse, iconUri);
-        // }
-
         if (iconUri) {
           // Found in cache, use immediately
-          // console.log(`[BucketIcon] Found in cache for ${bucketName}: ${iconUri}`);
           setSharedCacheIconUri(iconUri);
           setIsGenerating(false);
         } else {
           // Not in cache, added to queue - show loading state
           setIsGenerating(true);
         }
+        
+        // Mark initial load as complete
+        if (isInitialLoad) {
+          setIsInitialLoad(false);
+        }
       } catch (error) {
         console.error("[BucketIcon] Error loading/generating icon:", error);
         setIsGenerating(false);
+        if (isInitialLoad) {
+          setIsInitialLoad(false);
+        }
       }
     };
 
@@ -110,6 +119,7 @@ export default function BucketIcon({
       loadOrGenerateIcon();
     });
 
+    // Call immediately without delay
     loadOrGenerateIcon();
 
     return () => {
