@@ -1,10 +1,7 @@
-import { settingsService } from "@/services/settings-service";
-import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useBucket } from "@/hooks/notifications";
-import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
 import { Image } from "expo-image";
-import React, { useEffect, useState } from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, TouchableWithoutFeedback, View } from "react-native";
 import { Icon, useTheme } from "react-native-paper";
 
@@ -30,107 +27,20 @@ export default function BucketIcon({
   userId = null,
 }: BucketIconProps) {
   const theme = useTheme();
-  const { data: appConfig } = usePublicAppConfigQuery();
-  const uploadEnabled = appConfig?.publicAppConfig?.uploadEnabled ?? true;
 
   const { bucket, isOrphan } = useBucket(bucketId, {
     userId: userId ?? undefined,
-    autoFetch: true,
+    autoFetch: false,
   });
-  const {
-    color,
-    icon,
-    iconAttachmentUuid,
-    iconUrl,
-    name: bucketName,
-  } = bucket || {};
+
+  const sharedCacheIconUri = useMemo(() => {
+    return bucket?.iconUrl;
+  }, [bucket?.iconUrl]);
+
+  const { color } = bucket || {};
+
   const { navigateToDanglingBucket, navigateToBucketDetail } =
     useNavigationUtils();
-
-  const [sharedCacheIconUri, setSharedCacheIconUri] = useState<string | null>(
-    () => {
-      // Initialize with cached value if available (instant access, no async delay)
-      if (bucketId && uploadEnabled) {
-        return mediaCache.getCachedBucketIconUri(bucketId);
-      }
-      return null;
-    }
-  );
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-
-  // Load bucket icon and subscribe to updates
-  // Subscribe FIRST to avoid race condition where icon downloads before subscription
-  useEffect(() => {
-    if (!bucketId || !bucketName) return;
-
-    // If attachments are disabled, skip icon loading/generation
-    if (!uploadEnabled) {
-      console.log(
-        `[BucketIcon] Attachments disabled, using fallback for ${bucketName}`
-      );
-      return;
-    }
-
-    // Subscribe to bucket icon ready events (reactive updates)
-    const iconReadySubscription = mediaCache.bucketIconReady.subscribe(
-      ({ bucketId: readyBucketId, uri }) => {
-        if (readyBucketId === bucketId) {
-          setSharedCacheIconUri(uri);
-          setIsGenerating(false);
-        }
-      }
-    );
-
-    // Helper function to load icon
-    const loadOrGenerateIcon = async () => {
-      try {
-        // Get from cache or add to queue if not found
-        const iconUri = await mediaCache.getBucketIcon(
-          bucketId,
-          bucketName,
-          iconUrl ?? undefined
-        );
-
-        if (iconUri) {
-          // Found in cache, use immediately
-          setSharedCacheIconUri(iconUri);
-          setIsGenerating(false);
-        } else {
-          // Not in cache, added to queue - show loading state
-          setIsGenerating(true);
-        }
-        
-        // Mark initial load as complete
-        if (isInitialLoad) {
-          setIsInitialLoad(false);
-        }
-      } catch (error) {
-        console.error("[BucketIcon] Error loading/generating icon:", error);
-        setIsGenerating(false);
-        if (isInitialLoad) {
-          setIsInitialLoad(false);
-        }
-      }
-    };
-
-    // Subscribe to init ready event to retry if DB wasn't ready initially
-    const initReadySubscription = mediaCache.initReady.subscribe(() => {
-      loadOrGenerateIcon();
-    });
-
-    // Call immediately without delay
-    loadOrGenerateIcon();
-
-    return () => {
-      iconReadySubscription.unsubscribe();
-      initReadySubscription.unsubscribe();
-    };
-  }, [bucketId, bucketName, color, iconUrl, iconAttachmentUuid, uploadEnabled]);
-
-  if (!bucketId) {
-    return null;
-  }
 
   // Default color if none provided
   const bucketColor = color || theme.colors.primary;
@@ -189,12 +99,11 @@ export default function BucketIcon({
                 width: currentSize.icon,
                 height: currentSize.icon,
                 borderRadius: currentSize.icon / 2,
-                backgroundColor: !uploadEnabled ? bucketColor : undefined, // Show colored background when attachments disabled
+                backgroundColor: bucketColor,
               },
             ]}
           >
-            {uploadEnabled && sharedCacheIconUri ? (
-              // Attachments enabled: Downloaded icon from backend (PNG with color + optional initials embedded)
+            {sharedCacheIconUri ? (
               <Image
                 source={{ uri: sharedCacheIconUri }}
                 style={{
@@ -206,7 +115,7 @@ export default function BucketIcon({
                 cachePolicy="memory-disk"
                 recyclingKey={sharedCacheIconUri}
               />
-            ) : uploadEnabled && (isGenerating || !sharedCacheIconUri) ? (
+            ) : !sharedCacheIconUri ? (
               // Loading state: show colored placeholder
               <View
                 style={{
@@ -224,35 +133,6 @@ export default function BucketIcon({
                   color={theme.colors.surface}
                 />
               </View>
-            ) : !uploadEnabled &&
-              ((iconUrl &&
-                typeof iconUrl === "string" &&
-                iconUrl.startsWith("http")) ||
-                (icon &&
-                  typeof icon === "string" &&
-                  icon.startsWith("http"))) ? (
-              // Attachments disabled: Show iconUrl (preferred) or icon URL if available
-              <Image
-                source={{
-                  uri:
-                    iconUrl &&
-                    typeof iconUrl === "string" &&
-                    iconUrl.startsWith("http")
-                      ? iconUrl
-                      : icon &&
-                        typeof icon === "string" &&
-                        icon.startsWith("http")
-                      ? icon
-                      : undefined,
-                }}
-                style={{
-                  width: currentSize.icon,
-                  height: currentSize.icon,
-                  borderRadius: currentSize.icon / 2,
-                }}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-              />
             ) : null}
           </View>
         </TouchableWithoutFeedback>

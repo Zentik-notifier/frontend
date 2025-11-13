@@ -1,7 +1,14 @@
 import { UpdateUserDeviceInput, useUpdateUserDeviceMutation } from '@/generated/gql-operations-generated';
+import {
+  useDeleteNotification as useDeleteNotificationRQ,
+  useMarkAsRead as useMarkAsReadRQ,
+} from '@/hooks/notifications/useNotificationMutations';
+import {
+  refreshNotificationQueries,
+} from '@/hooks/notifications/useNotificationQueries';
 import { settingsService } from '@/services/settings-service';
 import { useNavigationUtils } from '@/utils/navigation';
-import * as Notifications from 'expo-notifications';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { Alert, Linking } from 'react-native';
 import {
@@ -14,17 +21,8 @@ import {
   useSetBucketSnoozeMinutesMutation,
   useUpdateDeviceTokenMutation
 } from '../generated/gql-operations-generated';
-import { useI18n } from './useI18n';
 import { useCleanup } from './useCleanup';
-import { setBadgeCount } from '@/utils/badgeUtils';
-import {
-  useMarkAsRead as useMarkAsReadRQ,
-  useDeleteNotification as useDeleteNotificationRQ,
-} from '@/hooks/notifications/useNotificationMutations';
-import {
-  refreshNotificationQueries,
-} from '@/hooks/notifications/useNotificationQueries';
-import { useQueryClient } from '@tanstack/react-query';
+import { useI18n } from './useI18n';
 
 /**
  * Hook that provides callbacks for handling notification actions
@@ -309,12 +307,6 @@ export function useNotificationActions() {
         // Notification is already saved in DB by push notification system
         // Just invalidate React Query cache to refresh all lists
         await refreshNotificationQueries(queryClient);
-
-        const currentCount = await Notifications.getBadgeCountAsync();
-        await setBadgeCount(currentCount + 1);
-
-        // // Notify Watch of new notification
-        // IosBridgeService.notifyAll('add');
       } catch (e) {
         console.warn('[useNotificationActions] Failed to handle push notification:', e);
       }
