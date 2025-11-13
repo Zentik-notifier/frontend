@@ -1297,11 +1297,6 @@ class MediaCacheService {
                 this.bucketParamsCache.set(bucketId, { bucketName, iconUrl, timestamp: currentTimestamp });
             }
 
-            // Generate cache key
-            const cacheKey = this.generateBucketIconCacheKey(bucketId, bucketName);
-
-            // console.log(`[MediaCache] 🔍 Checking cache for ${bucketName}`, { cacheKey, iconUrl });
-
             // Check if already cached
             const timestamp = this.bucketParamsCache.get(bucketId)?.timestamp || Date.now();
 

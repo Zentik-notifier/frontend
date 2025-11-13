@@ -1,4 +1,7 @@
+import { deleteBucket, saveBuckets } from '@/db/repositories/buckets-repository';
+import { getNotificationStats } from '@/db/repositories/notifications-query-repository';
 import {
+  NotificationFragment,
   ResourceType,
   ShareBucketMutationVariables,
   SnoozeScheduleInput,
@@ -6,23 +9,19 @@ import {
   UpdateBucketSnoozesMutationVariables,
   useCreateBucketMutation,
   useDeleteBucketMutation,
-  useUpdateBucketMutation,
   UserRole,
   useSetBucketSnoozeMutation,
   useShareBucketMutation,
   useUnshareBucketMutation,
-  useUpdateBucketSnoozesMutation,
-  NotificationFragment
+  useUpdateBucketMutation,
+  useUpdateBucketSnoozesMutation
 } from '@/generated/gql-operations-generated';
+import IosBridgeService from '@/services/ios-bridge';
 import { deleteNotificationsByBucketId } from '@/services/notifications-repository';
-import { deleteBucket, saveBuckets } from '@/db/repositories/buckets-repository';
-import { getNotificationStats } from '@/db/repositories/notifications-query-repository';
 import { BucketWithStats } from '@/types/notifications';
-import { mediaCache } from '@/services/media-cache-service';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BucketDetailData, bucketKeys } from './useBucketQueries';
 import { notificationKeys } from './useNotificationQueries';
-import IosBridgeService from '@/services/ios-bridge';
 
 /**
  * Hook for deleting a bucket and all its notifications with optimistic updates
@@ -61,10 +60,6 @@ export function useDeleteBucketWithNotifications(options?: {
       // Step 2: Delete the bucket from local database
       await deleteBucket(bucketId);
       console.log(`[useDeleteBucketWithNotifications] Deleted bucket ${bucketId} from local database`);
-
-      // Step 3: Delete bucket icon from cache
-      await mediaCache.invalidateBucketIcon(bucketId);
-      console.log(`[useDeleteBucketWithNotifications] Deleted bucket ${bucketId} icon from cache`);
 
       // Step 4: Delete the bucket from the server
       try {
@@ -187,7 +182,7 @@ export function useDeleteBucketWithNotifications(options?: {
         console.error('[useDeleteBucketWithNotifications] Error recalculating stats:', error);
       }
 
-            console.log('[useDeleteBucketWithNotifications] AppState updated with recalculated stats');
+      console.log('[useDeleteBucketWithNotifications] AppState updated with recalculated stats');
 
       // Trigger WatchConnectivity event: data updated
       IosBridgeService.notifyWatchOfUpdate();

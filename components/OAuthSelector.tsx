@@ -23,9 +23,10 @@ import OAuthProviderIcon from "./OAuthProviderIcon";
 type Props = {
   onProviderSelect: (provider: OAuthProviderPublicFragment) => void;
   disabled?: boolean;
+  onSuccess?: () => void;
 };
 
-export function OAuthSelector({ onProviderSelect, disabled }: Props) {
+export function OAuthSelector({ onProviderSelect, disabled, onSuccess }: Props) {
   const { t } = useI18n();
   const theme = useTheme();
   const { data } = usePublicAppConfigQuery({ fetchPolicy: "cache-first" });
@@ -114,6 +115,7 @@ export function OAuthSelector({ onProviderSelect, disabled }: Props) {
       const refreshToken = data?.appleLoginMobile?.refreshToken;
       if (accessToken && refreshToken) {
         await completeAuth(accessToken, refreshToken);
+        onSuccess?.();
       } else {
         throw new Error("Missing tokens in response");
       }

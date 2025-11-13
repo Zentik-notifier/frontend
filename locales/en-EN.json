@@ -1110,7 +1110,7 @@
     "default": "Default",
     "yes": "Yes",
     "no": "No",
-    "offline": "Offline",
+    "offline": "Logged out",
     "navigationError": "Navigation Error",
     "navigationFailed": "Failed to navigate to the specified location.",
     "actionError": "Action Error",

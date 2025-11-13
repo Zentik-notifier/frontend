@@ -1,6 +1,7 @@
 import { useNotificationsState } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";
+import BucketIcon from "./BucketIcon";
 import Selector, { SelectorOption } from "./ui/Selector";
 
 interface BucketSelectorProps {
@@ -30,9 +31,13 @@ export default function BucketSelector({
       options.push({
         id: bucket.id,
         name: bucket.name,
-        iconUrl: bucket.icon ?? undefined,
-        iconColor: bucket.color ?? undefined,
-        iconName: "circle",
+        iconElement: (
+          <BucketIcon
+            bucketId={bucket.id}
+            size="sm"
+            noRouting={true}
+          />
+        ),
       });
     });
 

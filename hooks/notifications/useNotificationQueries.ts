@@ -23,7 +23,6 @@ import {
 } from '@/generated/gql-operations-generated';
 import {
     getAllNotificationsFromCache,
-    upsertNotificationsBatch
 } from '@/services/notifications-repository';
 import {
     BucketWithStats,
@@ -33,7 +32,6 @@ import {
     UseNotificationsOptions
 } from '@/types/notifications';
 import { useInfiniteQuery, useQuery, useQueryClient, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
-import { mediaCache } from '@/services/media-cache-service';
 
 /**
  * Query keys for notification-related queries
@@ -102,11 +100,11 @@ export function useInfiniteNotifications(
                         offset: (pageParam as number) * limit,
                     }
                 });
-                
+
                 // Preload bucket icons for this page BEFORE returning (makes icons instantly visible)
                 const uniqueBucketIds = new Set<string>();
                 const bucketInfoMap = new Map<string, { name: string; iconUrl?: string }>();
-                
+
                 result.notifications.forEach(notif => {
                     if (notif.message?.bucket?.id && notif.message?.bucket?.name) {
                         uniqueBucketIds.add(notif.message.bucket.id);
@@ -116,30 +114,6 @@ export function useInfiniteNotifications(
                         });
                     }
                 });
-                
-                // Preload icons in BACKGROUND (non-blocking) - icons will appear instantly if cached
-                // Thanks to getCachedBucketIconUri() in BucketIcon, cached icons show immediately
-                // Uncached icons will appear when download completes via bucketIconReady$ observable
-                if (uniqueBucketIds.size > 0) {
-                    // Fire and forget - don't block notification rendering
-                    Promise.all(
-                        Array.from(uniqueBucketIds).map(async (bucketId) => {
-                            const info = bucketInfoMap.get(bucketId);
-                            if (info) {
-                                try {
-                                    await mediaCache.getBucketIcon(bucketId, info.name, info.iconUrl);
-                                } catch (error) {
-                                    // Silently fail - icon will use fallback
-                                    console.debug(`[useInfiniteNotifications] Failed to preload icon for ${info.name}:`, error);
-                                }
-                            }
-                        })
-                    ).catch(() => {
-                        // Ignore errors - icons are optional
-                    });
-                }
-                
-                // console.log(`[useInfiniteNotifications] Loaded ${result.notifications.length} notifications (page ${pageParam})`);
                 return result;
             } catch (error) {
                 console.error('[useInfiniteNotifications] Error:', error);
@@ -278,20 +252,20 @@ export function useNotificationsState(
                 // Process buckets from API
                 let apiBuckets: BucketWithUserData[] = [];
                 let apiSuccess = false;
-                
+
                 if (bucketsResult.status === 'fulfilled' && bucketsResult.value.data?.buckets) {
                     apiBuckets = bucketsResult.value.data.buckets as BucketWithUserData[];
                     apiSuccess = true;
                     console.log(`[useNotificationsState] API synced: ${apiBuckets.length} buckets`);
                 } else {
-                    console.warn('[useNotificationsState] Failed to fetch buckets from API:', 
+                    console.warn('[useNotificationsState] Failed to fetch buckets from API:',
                         bucketsResult.status === 'rejected' ? bucketsResult.reason : 'No data');
                 }
 
                 // ============================================================
                 // PHASE 3: Merge cache + API and detect orphans
                 // ============================================================
-                
+
                 // Calculate fresh stats after API sync
                 const freshStats = await getNotificationStats([]);
                 const allBucketFromNotifications = freshStats.byBucket ?? [];
@@ -301,15 +275,15 @@ export function useNotificationsState(
                 if (apiSuccess && apiBuckets.length > 0) {
                     // API is available: merge API buckets with orphans
                     const apiBucketIds = new Set(apiBuckets.map(b => b.id));
-                    
+
                     // Identify orphans: buckets in cache but NOT in API
                     const orphanedCachedBuckets = cachedBuckets.filter(b => !apiBucketIds.has(b.id));
-                    
+
                     // Also check notification stats for buckets not in API (true orphans)
                     const orphanedFromNotifications = allBucketFromNotifications
                         .filter(bucket => !apiBucketIds.has(bucket.bucketId))
                         .map(bucket => bucket.bucketId);
-                    
+
                     const allOrphanIds = new Set([
                         ...orphanedCachedBuckets.map(b => b.id),
                         ...orphanedFromNotifications
@@ -486,7 +460,7 @@ export function useNotificationsState(
                 } else {
                     // API offline: use cache only
                     console.log('[useNotificationsState] API offline - using cache only');
-                    
+
                     finalBuckets = cachedBuckets.map((bucket) => {
                         const bucketStat = freshStats.byBucket?.find(s => s.bucketId === bucket.id);
                         const snoozeUntil = bucket.userBucket?.snoozeUntil;
@@ -536,8 +510,8 @@ export function useNotificationsState(
                 });
 
                 // After API sync, re-fetch from cache to get the complete merged state
-                const finalNotifications = apiNotifications.length > 0 
-                    ? await getAllNotificationsFromCache() 
+                const finalNotifications = apiNotifications.length > 0
+                    ? await getAllNotificationsFromCache()
                     : cachedNotifications;
 
                 console.log(`[useNotificationsState] ✅ Complete: ${finalNotifications.length} notifications, ${finalBuckets.length} buckets, ${freshStats.totalCount} total (${freshStats.unreadCount} unread)`);

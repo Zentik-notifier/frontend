@@ -474,7 +474,10 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         labelsStack.setContentHuggingPriority(.required, for: .vertical)
         
         let title = UILabel()
-        title.font = .systemFont(ofSize: 16, weight: .semibold)
+        // Title is bold only if subtitle or body exists
+        let hasSubtitleOrBody = !notificationSubtitleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || 
+                                !notificationBodyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        title.font = .systemFont(ofSize: 16, weight: hasSubtitleOrBody ? .semibold : .regular)
         title.textColor = .label
         title.numberOfLines = 0  // Auto-resize based on content
         title.text = notificationTitleText.isEmpty ? "" : notificationTitleText

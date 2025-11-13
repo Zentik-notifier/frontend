@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MenuProvider } from 'react-native-popup-menu';
 import LoginForm from './LoginForm';
 
 interface LoginModalProps {
@@ -27,14 +28,16 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.form}>
-          <LoginForm 
-            onSuccess={handleSuccess}
-            onCancel={onClose}
-          />
-        </View>
-      </SafeAreaView>
+      <MenuProvider>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+          <View style={styles.form}>
+            <LoginForm 
+              onSuccess={handleSuccess}
+              onCancel={onClose}
+            />
+          </View>
+        </SafeAreaView>
+      </MenuProvider>
     </Modal>
   );
 }

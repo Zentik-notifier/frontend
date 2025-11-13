@@ -324,7 +324,7 @@ export default function Selector({
     <View style={{ flex: 1 }}>
       <View style={styles.valueRow}>
         {item?.iconElement ? (
-          item?.iconElement
+          <View style={{ marginRight: 8 }}>{item.iconElement}</View>
         ) : item?.iconUrl ? (
           <Image
             source={item.iconUrl}

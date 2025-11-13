@@ -1163,7 +1163,7 @@
     "default": "Predefinito",
     "yes": "Sì",
     "no": "No",
-    "offline": "Offline",
+    "offline": "Non loggato",
     "navigationError": "Errore di Navigazione",
     "navigationFailed": "Impossibile navigare alla posizione specificata.",
     "actionError": "Errore Azione",

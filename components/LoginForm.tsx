@@ -180,6 +180,7 @@ export default function LoginForm({
             <OAuthSelector
               onProviderSelect={openProviderLogin}
               disabled={isLoading}
+              onSuccess={onSuccess}
             />
           </View>
         </View>

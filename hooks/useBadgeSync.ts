@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Platform } from 'react-native';
-import { useI18n } from './useI18n';
-import { useMarkAllAsRead, useAppState } from './notifications';
 import { setBadgeCount } from '@/utils/badgeUtils';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
+import { useAppState, useMarkAllAsRead } from './notifications';
+import { useI18n } from './useI18n';
 
 /**
  * Hook to sync app badge count with unread notifications
@@ -20,19 +20,10 @@ export function useBadgeSync() {
     const hasUnreadNotifications = unreadCount > 0;
 
     useEffect(() => {
-        const exec = async () => {
-            if (!isMarkingAllAsRead && !isLoading) {
-                await setBadgeCount(unreadCount);
-            }
+        if (!isMarkingAllAsRead && !isLoading) {
+            setBadgeCount(unreadCount).then();
         }
 
-        if (Platform.OS !== 'web') {
-            exec();
-        } else {
-            if (navigator.setAppBadge) {
-                navigator.setAppBadge(unreadCount);
-            }
-        }
     }, [unreadCount, isMarkingAllAsRead, isLoading]);
 
     const handleMarkAllAsRead = useCallback(async () => {

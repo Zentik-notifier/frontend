@@ -1,7 +1,8 @@
 import { useBucket } from "@/hooks/notifications";
+import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
 import { Image } from "expo-image";
-import React, { useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, TouchableWithoutFeedback, View } from "react-native";
 import { Icon, useTheme } from "react-native-paper";
 
@@ -15,7 +16,7 @@ const sizeMap = {
 
 interface BucketIconProps {
   size?: "sm" | "md" | "lg" | "xl" | "xxl";
-  bucketId?: string;
+  bucketId: string;
   noRouting?: boolean;
   userId?: string | null;
 }
@@ -33,9 +34,7 @@ export default function BucketIcon({
     autoFetch: false,
   });
 
-  const sharedCacheIconUri = useMemo(() => {
-    return bucket?.iconUrl;
-  }, [bucket?.iconUrl]);
+  const [iconUri, setIconUri] = useState<string | null>(null);
 
   const { color } = bucket || {};
 
@@ -56,6 +55,47 @@ export default function BucketIcon({
       }
     }
   };
+
+  // Load bucket icon when bucket data is available
+  useEffect(() => {
+    if (!bucket) return;
+
+    let cancelled = false;
+
+    // Try to get cached icon synchronously first
+    const cachedUri = mediaCache.getCachedBucketIconUri(bucketId);
+    if (cachedUri && !cancelled) {
+      setIconUri(cachedUri);
+    }
+
+    // Start async loading
+    const loadIcon = async () => {
+      const uri = await mediaCache.getBucketIcon(
+        bucketId,
+        bucket.name,
+        bucket.iconUrl ?? ""
+      );
+      if (!cancelled && uri) {
+        setIconUri(uri);
+      }
+    };
+
+    loadIcon();
+
+    // Subscribe to bucket icon ready events
+    const subscription = mediaCache.bucketIconReady.subscribe(
+      ({ bucketId: readyBucketId, uri }) => {
+        if (readyBucketId === bucketId && !cancelled) {
+          setIconUri(uri);
+        }
+      }
+    );
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [bucketId, bucket?.name, bucket?.iconUrl]);
 
   const iconContent = (
     <View
@@ -103,19 +143,19 @@ export default function BucketIcon({
               },
             ]}
           >
-            {sharedCacheIconUri ? (
+            {iconUri ? (
               <Image
-                source={{ uri: sharedCacheIconUri }}
+                source={{ uri: iconUri }}
                 style={{
                   width: currentSize.icon,
                   height: currentSize.icon,
                   borderRadius: currentSize.icon / 2,
                 }}
                 contentFit="cover"
-                cachePolicy="memory-disk"
-                recyclingKey={sharedCacheIconUri}
+                cachePolicy="memory"
+                recyclingKey={iconUri}
               />
-            ) : !sharedCacheIconUri ? (
+            ) : (
               // Loading state: show colored placeholder
               <View
                 style={{
@@ -133,7 +173,7 @@ export default function BucketIcon({
                   color={theme.colors.surface}
                 />
               </View>
-            ) : null}
+            )}
           </View>
         </TouchableWithoutFeedback>
       )}
