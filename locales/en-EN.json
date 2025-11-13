@@ -994,7 +994,6 @@
     "chooseFile": "Choose File",
     "cropImage": "Crop Image",
     "cropAndUpload": "Crop & Upload",
-    "finalPreview": "Final Preview",
     "urlRequired": "Please enter a valid URL",
     "invalidUrl": "Invalid URL format",
     "filePickError": "Failed to pick file",

@@ -49,6 +49,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const [bucketName, setBucketName] = useState("");
   const [bucketColor, setBucketColor] = useState(defaultColor);
   const [bucketIcon, setBucketIcon] = useState("");
+  const [bucketIconSourceUrl, setBucketIconSourceUrl] = useState(""); // Original source URL
   const [bucketIconError, setBucketIconError] = useState("");
   const [isIconEditorVisible, setIsIconEditorVisible] = useState(false);
   const [createAccessToken, setCreateAccessToken] = useState(false);
@@ -131,6 +132,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const [originalName, setOriginalName] = useState("");
   const [originalColor, setOriginalColor] = useState(defaultColor);
   const [originalIcon, setOriginalIcon] = useState("");
+  const [originalIconSourceUrl, setOriginalIconSourceUrl] = useState("");
   // Device selection removed
 
   // Initialize form with bucket data when editing
@@ -139,11 +141,13 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       setBucketName(bucket.name);
       setBucketColor(bucket.color || defaultColor);
       setBucketIcon(bucket.icon || "");
+      setBucketIconSourceUrl(bucket.icon || ""); // Use icon as source URL
 
       // Store original values
       setOriginalName(bucket.name);
       setOriginalColor(bucket.color || defaultColor);
       setOriginalIcon(bucket.icon || "");
+      setOriginalIconSourceUrl(bucket.icon || "");
     }
   }, [bucket, isEditing]);
 
@@ -161,9 +165,10 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       const bucketData: CreateBucketDto | UpdateBucketDto = {
         name: bucketName.trim(),
         color: bucketColor,
+        // Use iconSourceUrl (original) for the icon field
         // Only include icon if it's being created or if it changed during edit
-        ...(!isEditing || bucketIcon !== originalIcon
-          ? { icon: bucketIcon.trim() || undefined }
+        ...(!isEditing || bucketIconSourceUrl !== originalIconSourceUrl
+          ? { icon: bucketIconSourceUrl.trim() || undefined }
           : {}),
         // Only send generateIconWithInitials if attachments are enabled
         ...(uploadEnabled && {
@@ -207,8 +212,9 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
     setIsIconEditorVisible(true);
   };
 
-  const handleIconChange = (newIconUrl: string) => {
-    setBucketIcon(newIconUrl);
+  const handleIconChange = (iconUrl: string, originalSourceUrl?: string) => {
+    setBucketIcon(iconUrl); // Uploaded/processed icon URL
+    setBucketIconSourceUrl(originalSourceUrl || iconUrl); // Original source URL
     setIsIconEditorVisible(false);
   };
 
@@ -230,6 +236,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
 
   const handleIconUrlChange = (text: string) => {
     setBucketIcon(text);
+    setBucketIconSourceUrl(text); // Reset source URL to match manual input
     if (text.trim()) {
       validateIconUrl(text);
     } else {
@@ -246,11 +253,13 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       // Reset to original values when editing
       setBucketName(originalName);
       setBucketIcon(originalIcon);
+      setBucketIconSourceUrl(originalIconSourceUrl);
       setBucketColor(originalColor);
     } else {
       // Reset to defaults when creating
       setBucketName("");
       setBucketIcon("");
+      setBucketIconSourceUrl("");
       setBucketColor(defaultColor);
       setCreateAccessToken(false);
       setGenerateMagicCode(true);
@@ -364,7 +373,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="url"
-                  multiline={true}
+                  multiline
                   editable={!isEditing || canWrite}
                   disabled={(isEditing && !canWrite) || offline}
                   mode="outlined"
@@ -390,9 +399,9 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
             {/* Icon Preview */}
             {!isProtectedBucket && (
               <View style={styles.previewSection}>
-                <Text style={styles.previewLabel}>
+                {/* <Text style={styles.previewLabel}>
                   {t("buckets.form.preview")}
-                </Text>
+                </Text> */}
                 <Surface style={styles.previewContainer} elevation={0}>
                   {bucketIcon ? (
                     <View style={styles.previewIconContainer}>
@@ -573,7 +582,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       {/* Icon Editor Modal */}
       {isIconEditorVisible && uploadEnabled && iconUploaderEnabled && (
         <IconEditor
-          currentIcon={bucketIcon || undefined}
+          currentIcon={bucketIconSourceUrl || bucketIcon || undefined}
           bucketColor={bucketColor}
           bucketName={bucketName}
           onIconChange={handleIconChange}
@@ -671,6 +680,7 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     backgroundColor: "transparent",
+    overflow: "hidden", // Clip image to circular shape
     zIndex: 1,
   },
   previewIcon: {

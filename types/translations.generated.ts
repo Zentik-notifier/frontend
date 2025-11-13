@@ -996,7 +996,6 @@ export interface Translation {
     chooseFile: string;
     cropImage: string;
     cropAndUpload: string;
-    finalPreview: string;
     urlRequired: string;
     invalidUrl: string;
     filePickError: string;

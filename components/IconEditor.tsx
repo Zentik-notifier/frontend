@@ -1,6 +1,7 @@
 import { useI18n } from "@/hooks/useI18n";
 import { uploadBucketIcon } from "@/services/buckets";
 import * as DocumentPicker from "expo-document-picker";
+import { File, Paths } from "expo-file-system/next";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import React, { useState } from "react";
 import {
@@ -28,7 +29,7 @@ interface IconEditorProps {
   currentIcon?: string;
   bucketColor?: string;
   bucketName?: string;
-  onIconChange: (iconUrl: string) => void;
+  onIconChange: (iconUrl: string, originalIconUrl?: string) => void;
   onClose: () => void;
 }
 
@@ -38,13 +39,12 @@ const PREVIEW_SIZE = 300;
 export default function IconEditor({
   currentIcon,
   bucketColor,
-  bucketName,
   onIconChange,
   onClose,
 }: IconEditorProps) {
   const { t } = useI18n();
   const theme = useTheme();
-  
+
   // Default color if not provided
   const finalBucketColor = bucketColor || theme.colors.primary;
 
@@ -83,8 +83,10 @@ export default function IconEditor({
     const size = Math.min(w, h);
     const selection = {
       size,
-      x: (w - size) / 2,
-      y: (h - size) / 2,
+      x: 0,
+      // x: (w - size) / 2,
+      y: 0,
+      // y: (h - size) / 2,
     };
     setSelection(selection);
   };
@@ -313,7 +315,7 @@ export default function IconEditor({
     </>
   ) : null;
 
-  const handleLoadFromUrl = () => {
+  const handleLoadFromUrl = async () => {
     if (!url.trim()) {
       Alert.alert(t("common.error"), t("iconEditor.urlRequired"));
       return;
@@ -321,10 +323,33 @@ export default function IconEditor({
 
     try {
       new URL(url);
-      setPreviewImage(url);
+      setIsLoading(true);
+
+      // Download image to local cache using new File API
+      const fileName = `temp-icon-${Date.now()}.jpg`;
+      const targetFile = new File(Paths.cache, fileName);
+
+      console.log("📥 Downloading image from URL:", url);
+      console.log("📁 Target file path:", targetFile.uri);
+
+      const downloadResult = await File.downloadFileAsync(url, targetFile);
+
+      console.log("✅ Download result:", downloadResult);
+      console.log("📄 File exists:", targetFile.exists);
+      console.log("📊 File size:", targetFile.size);
+
+      if (!downloadResult.uri) {
+        throw new Error("Failed to download image");
+      }
+
+      console.log("🖼️ Setting preview image to:", downloadResult.uri);
+      setPreviewImage(downloadResult.uri);
       setMode("crop");
-    } catch {
+    } catch (e) {
+      console.error("❌ Error loading image from URL:", e);
       Alert.alert(t("common.error"), t("iconEditor.invalidUrl"));
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -348,19 +373,36 @@ export default function IconEditor({
     if (!previewImage || !previewLayout || !selection) return;
     setIsLoading(true);
     try {
+      console.log("🔪 Starting crop process for image:", previewImage);
+
       const imageDims = await new Promise<{ w: number; h: number }>(
         (resolve, reject) => {
           Image.getSize(previewImage!, (w, h) => resolve({ w, h }), reject);
         }
       );
+
+      console.log("📐 Image dimensions:", imageDims);
+
       const scaleX = imageDims.w / PREVIEW_SIZE;
       const scaleY = imageDims.h / PREVIEW_SIZE;
+
+      // Calculate crop parameters and clamp to valid range
       const crop = {
-        originX: selection.x * scaleX,
-        originY: selection.y * scaleY,
-        width: selection.size * scaleX,
-        height: selection.size * scaleY,
+        originX: Math.max(0, Math.floor(selection.x * scaleX)),
+        originY: Math.max(0, Math.floor(selection.y * scaleY)),
+        width: Math.min(imageDims.w, Math.ceil(selection.size * scaleX)),
+        height: Math.min(imageDims.h, Math.ceil(selection.size * scaleY)),
       };
+
+      // Ensure crop doesn't exceed image boundaries
+      if (crop.originX + crop.width > imageDims.w) {
+        crop.width = imageDims.w - crop.originX;
+      }
+      if (crop.originY + crop.height > imageDims.h) {
+        crop.height = imageDims.h - crop.originY;
+      }
+
+      console.log("✂️ Crop parameters:", crop);
 
       const croppedWidth = selection.size * scaleX;
       const croppedHeight = selection.size * scaleY;
@@ -370,19 +412,22 @@ export default function IconEditor({
       const format = SaveFormat.PNG;
       const fileExtension = "png";
 
+      console.log("🎨 Creating ImageManipulator context for:", previewImage);
       const context = ImageManipulator.manipulate(previewImage);
       context.crop(crop);
       if (needsResize) {
         context.resize({ width: CROP_TARGET_PX, height: CROP_TARGET_PX });
       }
 
+      console.log("🖼️ Rendering image...");
       const image = await context.renderAsync();
       const result = await image.saveAsync({
         compress: 1.0,
         format,
       });
 
-      // Rilascia le risorse
+      console.log("💾 Image saved to:", result.uri);
+
       context.release();
       image.release();
 
@@ -390,7 +435,11 @@ export default function IconEditor({
         result.uri,
         `icon.${fileExtension}`
       );
-      onIconChange(iconUrl);
+
+      // Pass both URLs:
+      // - iconUrl: uploaded/processed icon (goes to bucket.iconUrl)
+      // - url: original source URL (goes to bucket.icon)
+      onIconChange(iconUrl, url.trim() || undefined);
       onClose();
     } catch (e) {
       console.error(e);
@@ -511,6 +560,7 @@ export default function IconEditor({
           style={styles.urlInput}
           value={url}
           onChangeText={setUrl}
+          multiline
           placeholder={t("iconEditor.urlPlaceholder")}
           keyboardType="url"
           autoCapitalize="none"
@@ -521,7 +571,11 @@ export default function IconEditor({
           onPress={handleLoadFromUrl}
           disabled={!url.trim()}
         >
-          <Icon source="cloud-download" size={20} color={theme.colors.onPrimary} />
+          <Icon
+            source="cloud-download"
+            size={20}
+            color={theme.colors.onPrimary}
+          />
         </TouchableRipple>
       </View>
     </View>
@@ -538,7 +592,9 @@ export default function IconEditor({
       >
         <View style={styles.fileButtonContent}>
           <Icon source="folder-open" size={20} color={theme.colors.onPrimary} />
-          <Text style={[styles.fileButtonText, { color: theme.colors.onPrimary }]}>
+          <Text
+            style={[styles.fileButtonText, { color: theme.colors.onPrimary }]}
+          >
             {t("iconEditor.chooseFile")}
           </Text>
         </View>
@@ -563,7 +619,7 @@ export default function IconEditor({
           {/* Layer 1: Circular colored background (simulates final icon) */}
           <View
             style={{
-              position: 'absolute',
+              position: "absolute",
               top: 0,
               left: 0,
               width: PREVIEW_SIZE,
@@ -573,11 +629,11 @@ export default function IconEditor({
               zIndex: 0,
             }}
           />
-          
+
           {/* Layer 2: Image with crop area (clipped to circle) */}
           <View
             style={{
-              position: 'absolute',
+              position: "absolute",
               top: 0,
               left: 0,
               width: PREVIEW_SIZE,
@@ -594,11 +650,11 @@ export default function IconEditor({
               ]}
             />
           </View>
-          
+
           {/* Layer 3: Crop overlay and handles (on top, no clipping) */}
           <View
             style={{
-              position: 'absolute',
+              position: "absolute",
               top: 0,
               left: 0,
               width: PREVIEW_SIZE,
@@ -611,42 +667,9 @@ export default function IconEditor({
           </View>
         </View>
       </View>
-      
+
       {/* Final icon preview (small, shows how it will look with crop applied) */}
-      {selection && (
-        <View style={styles.finalPreviewContainer}>
-          <Text variant="labelSmall" style={styles.finalPreviewLabel}>
-            {t("iconEditor.finalPreview")}
-          </Text>
-          <View
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 32,
-              backgroundColor: finalBucketColor,
-              justifyContent: 'center',
-              alignItems: 'center',
-              borderWidth: 1,
-              borderColor: theme.colors.outline,
-            }}
-          >
-            {/* Show only the cropped area */}
-            <Image
-              source={{ uri: previewImage || undefined }}
-              style={{
-                width: (PREVIEW_SIZE / selection.size) * 64,
-                height: (PREVIEW_SIZE / selection.size) * 64,
-                transform: [
-                  { translateX: -(selection.x / selection.size) * 64 },
-                  { translateY: -(selection.y / selection.size) * 64 },
-                ],
-              }}
-              resizeMode="cover"
-            />
-          </View>
-        </View>
-      )}
-      
+
       <TouchableRipple
         style={[styles.cropButton, { backgroundColor: theme.colors.primary }]}
         onPress={handleConfirmCrop}
@@ -654,7 +677,9 @@ export default function IconEditor({
       >
         <View style={styles.cropButtonContent}>
           <Icon source="crop" size={20} color={theme.colors.onPrimary} />
-          <Text style={[styles.cropButtonText, { color: theme.colors.onPrimary }]}>
+          <Text
+            style={[styles.cropButtonText, { color: theme.colors.onPrimary }]}
+          >
             {isLoading ? t("common.loading") : t("iconEditor.cropAndUpload")}
           </Text>
         </View>
@@ -873,14 +898,5 @@ const styles = StyleSheet.create({
     position: "absolute",
     backgroundColor: "rgba(255,255,255,0.3)",
     height: 1,
-  },
-  finalPreviewContainer: {
-    alignItems: 'center',
-    marginVertical: 16,
-    gap: 8,
-  },
-  finalPreviewLabel: {
-    fontSize: 12,
-    opacity: 0.7,
   },
 });
