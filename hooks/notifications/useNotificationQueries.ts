@@ -101,6 +101,43 @@ export function useInfiniteNotifications(
                         offset: (pageParam as number) * limit,
                     }
                 });
+                
+                // Preload bucket icons for this page BEFORE returning (makes icons instantly visible)
+                const uniqueBucketIds = new Set<string>();
+                const bucketInfoMap = new Map<string, { name: string; iconUrl?: string }>();
+                
+                result.notifications.forEach(notif => {
+                    if (notif.message?.bucket?.id && notif.message?.bucket?.name) {
+                        uniqueBucketIds.add(notif.message.bucket.id);
+                        bucketInfoMap.set(notif.message.bucket.id, {
+                            name: notif.message.bucket.name,
+                            iconUrl: notif.message.bucket.iconUrl ?? undefined
+                        });
+                    }
+                });
+                
+                // Preload icons in BACKGROUND (non-blocking) - icons will appear instantly if cached
+                // Thanks to getCachedBucketIconUri() in BucketIcon, cached icons show immediately
+                // Uncached icons will appear when download completes via bucketIconReady$ observable
+                if (uniqueBucketIds.size > 0) {
+                    // Fire and forget - don't block notification rendering
+                    Promise.all(
+                        Array.from(uniqueBucketIds).map(async (bucketId) => {
+                            const info = bucketInfoMap.get(bucketId);
+                            if (info) {
+                                try {
+                                    await mediaCache.getBucketIcon(bucketId, info.name, info.iconUrl);
+                                } catch (error) {
+                                    // Silently fail - icon will use fallback
+                                    console.debug(`[useInfiniteNotifications] Failed to preload icon for ${info.name}:`, error);
+                                }
+                            }
+                        })
+                    ).catch(() => {
+                        // Ignore errors - icons are optional
+                    });
+                }
+                
                 // console.log(`[useInfiniteNotifications] Loaded ${result.notifications.length} notifications (page ${pageParam})`);
                 return result;
             } catch (error) {
@@ -220,38 +257,6 @@ export function useNotificationsState(
                 // ============================================================
                 const cachedNotifications = await getAllNotificationsFromCache();
                 const cachedBuckets = await getAllBuckets();
-
-                // Preload bucket icons SYNCHRONOUSLY from cache BEFORE rendering
-                // This ensures icons are ready when BucketIcon components mount  
-                console.log(`[useNotificationsState] 🎨 Pre-loading ${cachedBuckets.length} bucket icons from cache...`);
-                const iconLoadStart = Date.now();
-                
-                // Load icons and trigger immediate cache population
-                const iconLoadResults = await Promise.all(
-                    cachedBuckets.map(async (bucket) => {
-                        try {
-                            // This will check cache and return URI if found
-                            const iconUri = await mediaCache.getBucketIcon(
-                                bucket.id,
-                                bucket.name,
-                                bucket.iconUrl ?? undefined
-                            );
-                            
-                            return { 
-                                bucket: bucket.name, 
-                                uri: iconUri, 
-                                found: !!iconUri 
-                            };
-                        } catch (error) {
-                            console.debug(`[useNotificationsState] Failed to preload icon for ${bucket.name}:`, error);
-                            return { bucket: bucket.name, uri: null, found: false };
-                        }
-                    })
-                );
-                
-                const cachedCount = iconLoadResults.filter(r => r.found).length;
-                const iconLoadDuration = Date.now() - iconLoadStart;
-                console.log(`[useNotificationsState] ✨ Preloaded ${cachedCount}/${cachedBuckets.length} bucket icons from cache in ${iconLoadDuration}ms`);
 
                 // Calculate stats from cache
                 const cachedStats = await getNotificationStats([]);
