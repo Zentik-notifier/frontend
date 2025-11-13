@@ -1,3 +1,5 @@
+import { settingsService } from "@/services/settings-service";
+import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useBucket } from "@/hooks/notifications";
 import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -16,7 +18,7 @@ const sizeMap = {
 
 interface BucketIconProps {
   size?: "sm" | "md" | "lg" | "xl" | "xxl";
-  bucketId: string;
+  bucketId?: string;
   noRouting?: boolean;
   userId?: string | null;
 }
@@ -33,13 +35,92 @@ export default function BucketIcon({
     userId: userId ?? undefined,
     autoFetch: false,
   });
-
-  const [iconUri, setIconUri] = useState<string | null>(null);
-
-  const { color } = bucket || {};
-
+  const {
+    color,
+    icon,
+    iconAttachmentUuid,
+    iconUrl,
+    name: bucketName,
+  } = bucket || {};
   const { navigateToDanglingBucket, navigateToBucketDetail } =
     useNavigationUtils();
+
+  const [sharedCacheIconUri, setSharedCacheIconUri] = useState<string | null>(
+    () => {
+      // Initialize with cached value if available (instant access, no async delay)
+      if (bucketId) {
+        return mediaCache.getCachedBucketIconUri(bucketId);
+      }
+      return null;
+    }
+  );
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Load bucket icon and subscribe to updates
+  // Subscribe FIRST to avoid race condition where icon downloads before subscription
+  useEffect(() => {
+    if (!bucketId || !bucketName) return;
+
+    // Subscribe to bucket icon ready events (reactive updates)
+    const iconReadySubscription = mediaCache.bucketIconReady.subscribe(
+      ({ bucketId: readyBucketId, uri }) => {
+        if (readyBucketId === bucketId) {
+          setSharedCacheIconUri(uri);
+          setIsGenerating(false);
+        }
+      }
+    );
+
+    // Helper function to load icon
+    const loadOrGenerateIcon = async () => {
+      try {
+        // Get from cache or add to queue if not found
+        const iconUri = await mediaCache.getBucketIcon(
+          bucketId,
+          bucketName,
+          iconUrl ?? undefined
+        );
+
+        if (iconUri) {
+          // Found in cache, use immediately
+          setSharedCacheIconUri(iconUri);
+          setIsGenerating(false);
+        } else {
+          // Not in cache, added to queue - show loading state
+          setIsGenerating(true);
+        }
+
+        // Mark initial load as complete
+        if (isInitialLoad) {
+          setIsInitialLoad(false);
+        }
+      } catch (error) {
+        console.error("[BucketIcon] Error loading/generating icon:", error);
+        setIsGenerating(false);
+        if (isInitialLoad) {
+          setIsInitialLoad(false);
+        }
+      }
+    };
+
+    // Subscribe to init ready event to retry if DB wasn't ready initially
+    const initReadySubscription = mediaCache.initReady.subscribe(() => {
+      loadOrGenerateIcon();
+    });
+
+    // Call immediately without delay
+    loadOrGenerateIcon();
+
+    return () => {
+      iconReadySubscription.unsubscribe();
+      initReadySubscription.unsubscribe();
+    };
+  }, [bucketId, bucketName, color, iconUrl, iconAttachmentUuid]);
+
+  if (!bucketId) {
+    return null;
+  }
 
   // Default color if none provided
   const bucketColor = color || theme.colors.primary;
@@ -55,47 +136,6 @@ export default function BucketIcon({
       }
     }
   };
-
-  // Load bucket icon when bucket data is available
-  useEffect(() => {
-    if (!bucket) return;
-
-    let cancelled = false;
-
-    // Try to get cached icon synchronously first
-    const cachedUri = mediaCache.getCachedBucketIconUri(bucketId);
-    if (cachedUri && !cancelled) {
-      setIconUri(cachedUri);
-    }
-
-    // Start async loading
-    const loadIcon = async () => {
-      const uri = await mediaCache.getBucketIcon(
-        bucketId,
-        bucket.name,
-        bucket.iconUrl ?? ""
-      );
-      if (!cancelled && uri) {
-        setIconUri(uri);
-      }
-    };
-
-    loadIcon();
-
-    // Subscribe to bucket icon ready events
-    const subscription = mediaCache.bucketIconReady.subscribe(
-      ({ bucketId: readyBucketId, uri }) => {
-        if (readyBucketId === bucketId && !cancelled) {
-          setIconUri(uri);
-        }
-      }
-    );
-
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
-  }, [bucketId, bucket?.name, bucket?.iconUrl]);
 
   const iconContent = (
     <View
@@ -143,9 +183,10 @@ export default function BucketIcon({
               },
             ]}
           >
-            {iconUri ? (
+            {sharedCacheIconUri ? (
+              // Attachments enabled: Downloaded icon from backend (PNG with color + optional initials embedded)
               <Image
-                source={{ uri: iconUri }}
+                source={{ uri: sharedCacheIconUri }}
                 style={{
                   width: currentSize.icon,
                   height: currentSize.icon,
@@ -153,9 +194,9 @@ export default function BucketIcon({
                 }}
                 contentFit="cover"
                 cachePolicy="memory"
-                recyclingKey={iconUri}
+                recyclingKey={sharedCacheIconUri}
               />
-            ) : (
+            ) : isGenerating || !sharedCacheIconUri ? (
               // Loading state: show colored placeholder
               <View
                 style={{
@@ -173,7 +214,7 @@ export default function BucketIcon({
                   color={theme.colors.surface}
                 />
               </View>
-            )}
+            ) : null}
           </View>
         </TouchableWithoutFeedback>
       )}
