@@ -23,7 +23,7 @@ import {
 import { Icon, Surface, Text, useTheme } from "react-native-paper";
 import CopyButton from "./ui/CopyButton";
 import PaperScrollView from "./ui/PaperScrollView";
-import Selector from "./ui/Selector";
+import Multiselect from "./ui/Multiselect";
 import { Directory } from "@/utils/filesystem-wrapper";
 
 export default function AppLogs() {
@@ -33,8 +33,8 @@ export default function AppLogs() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [query, setQuery] = useState<string>("");
-  const [levelFilter, setLevelFilter] = useState<string | null>(null);
-  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
+  const [levelFilters, setLevelFilters] = useState<string[]>([]);
+  const [sourceFilters, setSourceFilters] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isClearing, setIsClearing] = useState<boolean>(false);
   const [selectedLog, setSelectedLog] = useState<AppLog | null>(null);
@@ -144,90 +144,20 @@ export default function AppLogs() {
     };
   }, [logs]);
 
-  const renderItem = useCallback(
-    ({ item }: { item: AppLog }) => {
-      const meta = item.metadata;
-
-      const hasLongContent =
-        item.message.length > 100 ||
-        (meta && JSON.stringify(meta).length > 200);
-
-      return (
-        <TouchableOpacity
-          style={[
-            styles.logItem,
-            {
-              borderColor: theme.colors.outline,
-              backgroundColor: theme.colors.surface,
-            },
-          ]}
-          onPress={() => handleShowLog(item)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.logHeader}>
-            <View style={styles.levelBadgeContainer}>
-              <View
-                style={[
-                  styles.levelBadge,
-                  { backgroundColor: levelToColor[item.level] },
-                ]}
-              />
-              <Text style={styles.levelText}>{item.level.toUpperCase()}</Text>
-            </View>
-            <View style={styles.headerRight}>
-              <Text style={styles.dateText}>
-                {new Date(item.timestamp).toLocaleString()}
-              </Text>
-              {!!item.source && (
-                <Text
-                  style={[styles.sourceText, { color: theme.colors.primary }]}
-                >
-                  [{item.source}]
-                </Text>
-              )}
-              {hasLongContent && (
-                <Icon
-                  source="open-in-new"
-                  size={16}
-                  color={theme.colors.primary}
-                />
-              )}
-            </View>
-          </View>
-          {!!item.tag && (
-            <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>tag:</Text>
-              <Text style={styles.metaValue}>{item.tag}</Text>
-            </View>
-          )}
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>message:</Text>
-            <Text style={styles.metaValue}>{truncate(item.message, 150)}</Text>
-          </View>
-          {!!meta && (
-            <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>meta:</Text>
-              <Text style={styles.metaValue}>
-                {truncate(JSON.stringify(meta), 150)}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      );
-    },
-    [theme.colors, levelToColor, handleShowLog]
-  );
-
   const filteredLogs = useMemo(() => {
     // Filter out logs with empty messages first
     let validLogs = logs.filter((l) => l.message && l.message.trim() !== "");
 
-    if (levelFilter) {
-      validLogs = validLogs.filter((l) => l.level.trim().toUpperCase() === levelFilter);
+    if (levelFilters.length > 0) {
+      validLogs = validLogs.filter((l) => 
+        levelFilters.includes(l.level.trim().toUpperCase())
+      );
     }
 
-    if (sourceFilter) {
-      validLogs = validLogs.filter((l) => l.source === sourceFilter);
+    if (sourceFilters.length > 0) {
+      validLogs = validLogs.filter((l) => 
+        sourceFilters.includes(l.source ?? "")
+      );
     }
 
     // Apply search query
@@ -244,7 +174,89 @@ export default function AppLogs() {
       ];
       return parts.some((p) => (p ?? "").toString().toLowerCase().includes(q));
     });
-  }, [logs, query, levelFilter, sourceFilter]);
+  }, [logs, query, levelFilters, sourceFilters]);
+
+  // Group logs by 5-minute intervals
+  const groupedLogs = useMemo(() => {
+    const groups: { timeLabel: string; logs: AppLog[] }[] = [];
+    const groupMap = new Map<string, AppLog[]>();
+
+    filteredLogs.forEach((log) => {
+      const date = new Date(log.timestamp);
+      const minutes = date.getMinutes();
+      const roundedMinutes = Math.floor(minutes / 5) * 5;
+      date.setMinutes(roundedMinutes, 0, 0);
+      
+      const timeKey = date.toISOString();
+      const timeLabel = date.toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+
+      if (!groupMap.has(timeKey)) {
+        groupMap.set(timeKey, []);
+        groups.push({ timeLabel, logs: groupMap.get(timeKey)! });
+      }
+      groupMap.get(timeKey)!.push(log);
+    });
+
+    return groups;
+  }, [filteredLogs]);
+
+  const renderLogItem = useCallback(
+    (log: AppLog) => {
+      return (
+        <TouchableOpacity
+          key={log.id}
+          style={[
+            styles.logItem,
+            {
+              borderBottomColor: theme.colors.surfaceVariant,
+            },
+          ]}
+          onPress={() => handleShowLog(log)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.logLine}>
+            <View
+              style={[
+                styles.levelIndicator,
+                { backgroundColor: levelToColor[log.level] },
+              ]}
+            />
+            <Text
+              style={[
+                styles.logText,
+                {
+                  fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+                  color: theme.colors.onSurface,
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {log.source ? `[${log.source}] ` : ""}
+              {log.message}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [theme.colors, levelToColor, handleShowLog]
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: { timeLabel: string; logs: AppLog[] } }) => {
+      return (
+        <View style={styles.logGroup}>
+          <Text style={[styles.timeGroupLabel, { color: theme.colors.onSurfaceVariant }]}>
+            {item.timeLabel}
+          </Text>
+          {item.logs.map((log) => renderLogItem(log))}
+        </View>
+      );
+    },
+    [theme.colors, renderLogItem]
+  );
 
   const handleExportLogs = useCallback(async () => {
     try {
@@ -370,21 +382,25 @@ export default function AppLogs() {
       {/* Filters row */}
       <View style={styles.filtersContainer}>
         <View style={styles.filterItem}>
-          <Selector
+          <Multiselect
             placeholder={t("appLogs.filters.allLevels")}
             options={levelOptions}
-            selectedValue={levelFilter}
-            onValueChange={setLevelFilter}
+            selectedValues={levelFilters}
+            onValuesChange={setLevelFilters}
             mode="inline"
+            maxChipsToShow={2}
+            showSelectAll={false}
           />
         </View>
         <View style={styles.filterItem}>
-          <Selector
+          <Multiselect
             placeholder={t("appLogs.filters.allSources")}
             options={sourceOptions}
-            selectedValue={sourceFilter}
-            onValueChange={setSourceFilter}
+            selectedValues={sourceFilters}
+            onValuesChange={setSourceFilters}
             mode="inline"
+            maxChipsToShow={2}
+            showSelectAll={false}
           />
         </View>
       </View>
@@ -408,8 +424,8 @@ export default function AppLogs() {
               { color: theme.colors.onSurfaceVariant },
             ]}
           >
-            {sourceFilter
-              ? `${filteredLogs.length} logs from ${sourceFilter}`
+            {sourceFilters.length > 0
+              ? `${filteredLogs.length} logs from ${sourceFilters.length} source${sourceFilters.length !== 1 ? "s" : ""}`
               : `${filteredLogs.length} logs from ${
                   sourceOptions.length
                 } source${sourceOptions.length !== 1 ? "s" : ""}`}
@@ -418,8 +434,8 @@ export default function AppLogs() {
       )}
 
       <FlatList
-        data={filteredLogs}
-        keyExtractor={(item) => String(item.id ?? item.timestamp)}
+        data={groupedLogs}
+        keyExtractor={(item) => item.timeLabel}
         renderItem={renderItem}
         refreshControl={
           <RefreshControl
@@ -631,10 +647,23 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   logItem: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+  },
+  logLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  levelIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  logText: {
+    flex: 1,
+    fontSize: 11,
   },
   logHeader: {
     flexDirection: "row",
@@ -767,5 +796,15 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 16,
     bottom: 16,
+  },
+  logGroup: {
+    marginBottom: 16,
+  },
+  timeGroupLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    opacity: 0.7,
   },
 });
