@@ -3,6 +3,20 @@ import WatchConnectivity
 import WidgetKit
 
 /**
+ * Struttura per decodificare i log ricevuti dal Watch
+ * Deve corrispondere alla struttura LogEntry in LoggingSystem.swift del Watch
+ */
+struct WatchLogEntry: Codable {
+    let id: String
+    let level: String
+    let tag: String?
+    let message: String
+    let metadata: [String: String]?
+    let timestamp: Int64
+    let source: String
+}
+
+/**
  * iPhone-side WatchConnectivity Manager
  * Handles bidirectional communication with Apple Watch
  * 
@@ -458,6 +472,7 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         if let error = error {
             logger.error(tag: "Session", message: "Activation failed: \(error.localizedDescription)", source: "iPhoneWatchManager")
+            print("📱 [iPhoneWatchManager] ❌ Session activation failed: \(error.localizedDescription)")
         } else {
             logger.info(
                 tag: "Session",
@@ -465,23 +480,30 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                 metadata: ["state": String(activationState.rawValue)],
                 source: "iPhoneWatchManager"
             )
+            print("📱 [iPhoneWatchManager] ✅ Session activated with state: \(activationState.rawValue)")
         }
     }
     
     func sessionDidBecomeInactive(_ session: WCSession) {
         logger.info(tag: "Session", message: "Session became inactive", source: "iPhoneWatchManager")
+        print("📱 [iPhoneWatchManager] ⏸️ Session became inactive")
     }
     
     func sessionDidDeactivate(_ session: WCSession) {
         logger.info(tag: "Session", message: "Session deactivated, reactivating...", source: "iPhoneWatchManager")
+        print("📱 [iPhoneWatchManager] 🔄 Session deactivated, reactivating...")
         session.activate()
     }
     
     // MARK: - Receive Messages from Watch
     
     func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
+        print("📱 ========== INTERACTIVE MESSAGE RECEIVED ==========")
+        print("📱 [iPhoneWatchManager] 💬 Message keys: \(message.keys.joined(separator: ", "))")
+        
         guard let action = message["action"] as? String else {
             logger.error(tag: "Watch→iPhone", message: "Missing action in message", source: "iPhoneWatchManager")
+            print("📱 [iPhoneWatchManager] ⚠️ Missing action in message")
             replyHandler(["error": "Missing action"])
             return
         }
@@ -492,6 +514,7 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
             metadata: ["action": action],
             source: "iPhoneWatchManager"
         )
+        print("📱 [iPhoneWatchManager] 💬 Received interactive message with action: \(action)")
         
         DispatchQueue.main.async {
             switch action {
@@ -726,15 +749,50 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                 
             case "watchLogs":
                 // Watch sent logs for debugging
-                if let logsJson = message["logs"] as? String,
-                   let count = message["count"] as? Int {
-                    self.logger.info(
-                        tag: "Watch→iPhone",
-                        message: "Received \(count) logs from Watch",
-                        source: "iPhoneWatchManager"
-                    )
-                    // Could save to file or forward to backend
-                    replyHandler(["success": true])
+                if let logsJsonString = message["logs"] as? String,
+                   let logsData = logsJsonString.data(using: .utf8) {
+                    
+                    do {
+                        let decoder = JSONDecoder()
+                        let watchLogs = try decoder.decode([WatchLogEntry].self, from: logsData)
+                        
+                        for logEntry in watchLogs {
+                            let timestamp = Date(timeIntervalSince1970: TimeInterval(logEntry.timestamp) / 1000)
+                            let dateFormatter = DateFormatter()
+                            dateFormatter.dateFormat = "HH:mm:ss.SSS"
+                            let timeString = dateFormatter.string(from: timestamp)
+                            
+                            let metadataString = logEntry.metadata?.map { "\($0.key)=\($0.value)" }.joined(separator: ", ") ?? ""
+                            let tagString = logEntry.tag.map { "[\($0)]" } ?? ""
+                            
+                            print("⌚→📱 [\(timeString)] [\(logEntry.source)] \(tagString) [\(logEntry.level)] \(logEntry.message) \(metadataString.isEmpty ? "" : "{\(metadataString)}")")
+                            
+                            // Usa direttamente i campi originali del Watch (forza source "Watch")
+                            self.logger.log(
+                                level: logEntry.level,
+                                tag: logEntry.tag,
+                                message: logEntry.message,
+                                metadata: logEntry.metadata,
+                                source: "Watch",
+                                timestamp: logEntry.timestamp
+                            )
+                        }
+                        
+                        self.logger.info(
+                            tag: "WatchLogs",
+                            message: "Received and logged \(watchLogs.count) logs from Watch",
+                            source: "iPhoneWatchManager"
+                        )
+                        
+                        replyHandler(["success": true])
+                    } catch {
+                        self.logger.error(
+                            tag: "WatchLogs",
+                            message: "Failed to decode Watch logs: \(error.localizedDescription)",
+                            source: "iPhoneWatchManager"
+                        )
+                        replyHandler(["error": "Failed to decode logs"])
+                    }
                 } else {
                     replyHandler(["error": "Invalid logs format"])
                 }
@@ -823,8 +881,13 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
     }
     
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
+        print("📱 ========== BACKGROUND TRANSFER RECEIVED ==========")
+        print("📱 [iPhoneWatchManager] 📦 UserInfo keys: \(userInfo.keys.joined(separator: ", "))")
+        print("📱 [iPhoneWatchManager] 📦 UserInfo count: \(userInfo.count)")
+        
         guard let action = userInfo["action"] as? String else {
             logger.error(tag: "Watch→iPhone", message: "Missing action in userInfo", source: "iPhoneWatchManager")
+            print("📱 [iPhoneWatchManager] ⚠️ Missing action in userInfo")
             return
         }
         
@@ -834,12 +897,14 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
             metadata: ["action": action],
             source: "iPhoneWatchManager"
         )
+        print("📱 [iPhoneWatchManager] 📦 Background transfer action: \(action)")
         
         DispatchQueue.main.async {
             switch action {
             case "requestFullSync":
                 // Watch requested full data sync (background)
                 self.logger.info(tag: "Watch→iPhone", message: "Watch requested full sync (background)", source: "iPhoneWatchManager")
+                print("📱 [iPhoneWatchManager] 🔄 Processing: requestFullSync")
                 
                 // Handle sync directly in Swift - works even when app is closed/background
                 self.sendFullSyncToWatch { success, notificationsCount, bucketsCount in
@@ -853,8 +918,10 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                             ],
                             source: "iPhoneWatchManager"
                         )
+                        print("📱 [iPhoneWatchManager] ✅ Full sync completed: \(notificationsCount) notifications, \(bucketsCount) buckets")
                     } else {
                         self.logger.error(tag: "Watch→iPhone", message: "Full sync failed (background)", source: "iPhoneWatchManager")
+                        print("📱 [iPhoneWatchManager] ❌ Full sync failed")
                     }
                 }
                 
@@ -865,15 +932,20 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                 // }
                 
             case "notificationRead":
+                print("📱 [iPhoneWatchManager] 📖 Processing: notificationRead")
                 if let notificationId = userInfo["notificationId"] as? String,
                    let readAt = userInfo["readAt"] as? String {
+                    print("📱 [iPhoneWatchManager] 📖 Notification \(notificationId) marked as read")
                     if let bridge = WatchConnectivityBridge.shared {
                         bridge.emitNotificationRead(notificationId: notificationId, readAt: readAt)
                     }
+                } else {
+                    print("📱 [iPhoneWatchManager] ⚠️ Missing notificationId or readAt in notificationRead")
                 }
                 
             case "notificationsRead":
                 // Bulk mark as read (background transfer)
+                print("📱 [iPhoneWatchManager] 📖 Processing: notificationsRead (bulk)")
                 if let notificationIds = userInfo["notificationIds"] as? [String],
                    let readAt = userInfo["readAt"] as? String {
                     self.logger.info(
@@ -881,38 +953,93 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                         message: "Received bulk mark as read (\(notificationIds.count) notifications) (background)",
                         source: "iPhoneWatchManager"
                     )
+                    print("📱 [iPhoneWatchManager] 📖 Bulk mark as read: \(notificationIds.count) notifications")
                     
                     // Emit bulk event to React Native if app is open
                     if let bridge = WatchConnectivityBridge.shared {
                         bridge.emitNotificationsRead(notificationIds: notificationIds, readAt: readAt)
                     }
+                } else {
+                    print("📱 [iPhoneWatchManager] ⚠️ Missing notificationIds or readAt in notificationsRead")
                 }
                 
             case "notificationUnread":
+                print("📱 [iPhoneWatchManager] 📕 Processing: notificationUnread")
                 if let notificationId = userInfo["notificationId"] as? String {
+                    print("📱 [iPhoneWatchManager] 📕 Notification \(notificationId) marked as unread")
                     if let bridge = WatchConnectivityBridge.shared {
                         bridge.emitNotificationUnread(notificationId: notificationId)
                     }
+                } else {
+                    print("📱 [iPhoneWatchManager] ⚠️ Missing notificationId in notificationUnread")
                 }
                 
             case "notificationDeleted":
+                print("📱 [iPhoneWatchManager] 🗑️ Processing: notificationDeleted")
                 if let notificationId = userInfo["notificationId"] as? String {
+                    print("📱 [iPhoneWatchManager] 🗑️ Notification \(notificationId) deleted")
                     if let bridge = WatchConnectivityBridge.shared {
                         bridge.emitNotificationDeleted(notificationId: notificationId)
                     }
+                } else {
+                    print("📱 [iPhoneWatchManager] ⚠️ Missing notificationId in notificationDeleted")
                 }
                 
             case "watchLogs":
-                if let count = userInfo["count"] as? Int {
+                print("📱 [iPhoneWatchManager] 📊 Processing: watchLogs")
+                if let logsJsonString = userInfo["logs"] as? String,
+                   let logsData = logsJsonString.data(using: .utf8) {
+                    
+                    do {
+                        let decoder = JSONDecoder()
+                        let watchLogs = try decoder.decode([WatchLogEntry].self, from: logsData)
+                        
+                        // Logga ogni singolo log ricevuto dal Watch nel sistema di logging JSON
+                        for logEntry in watchLogs {
+                            let timestamp = Date(timeIntervalSince1970: TimeInterval(logEntry.timestamp) / 1000)
+                            let dateFormatter = DateFormatter()
+                            dateFormatter.dateFormat = "HH:mm:ss.SSS"
+                            let timeString = dateFormatter.string(from: timestamp)
+                            
+                            let metadataString = logEntry.metadata?.map { "\($0.key)=\($0.value)" }.joined(separator: ", ") ?? ""
+                            let tagString = logEntry.tag.map { "[\($0)]" } ?? ""
+                            
+                            print("⌚→📱 [\(timeString)] [\(logEntry.source)] \(tagString) [\(logEntry.level)] \(logEntry.message) \(metadataString.isEmpty ? "" : "{\(metadataString)}")")
+                            
+                            // Usa direttamente i campi originali del Watch (forza source "Watch")
+                            self.logger.log(
+                                level: logEntry.level,
+                                tag: logEntry.tag,
+                                message: logEntry.message,
+                                metadata: logEntry.metadata,
+                                source: "Watch",
+                                timestamp: logEntry.timestamp
+                            )
+                        }
+                        
+                        self.logger.info(
+                            tag: "WatchLogs",
+                            message: "Received and logged \(watchLogs.count) logs from Watch",
+                            source: "iPhoneWatchManager"
+                        )
+                    } catch {
+                        self.logger.error(
+                            tag: "WatchLogs",
+                            message: "Failed to decode Watch logs: \(error.localizedDescription)",
+                            source: "iPhoneWatchManager"
+                        )
+                    }
+                } else if let count = userInfo["count"] as? Int {
                     self.logger.info(
-                        tag: "Watch→iPhone",
-                        message: "Received \(count) logs from Watch (background)",
+                        tag: "WatchLogs",
+                        message: "Received \(count) logs from Watch (background) but logs data missing",
                         source: "iPhoneWatchManager"
                     )
                 }
                 
             case "transferMediaToWatch":
                 // NSE requested media transfer to Watch (background)
+                print("📱 [iPhoneWatchManager] 🎬 Processing: transferMediaToWatch")
                 if let url = userInfo["url"] as? String,
                    let mediaType = userInfo["mediaType"] as? String,
                    let localPath = userInfo["localPath"] as? String {
@@ -927,6 +1054,7 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                         ],
                         source: "iPhoneWatchManager"
                     )
+                    print("📱 [iPhoneWatchManager] 🎬 Media transfer: \(mediaType) from \(url)")
                     
                     self.transferMediaFileToWatch(
                         url: url,
@@ -934,10 +1062,13 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                         localPath: localPath,
                         notificationId: userInfo["notificationId"] as? String
                     )
+                } else {
+                    print("📱 [iPhoneWatchManager] ⚠️ Missing media transfer data")
                 }
                 
             case "executeNotificationAction":
                 // Watch requested notification action execution (background)
+                print("📱 [iPhoneWatchManager] ⚡ Processing: executeNotificationAction")
                 if let notificationId = userInfo["notificationId"] as? String,
                    let actionData = userInfo["actionData"] as? [String: Any],
                    let actionType = actionData["type"] as? String {
@@ -948,6 +1079,7 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                         metadata: ["id": notificationId, "actionType": actionType],
                         source: "iPhoneWatchManager"
                     )
+                    print("📱 [iPhoneWatchManager] ⚡ Executing action '\(actionType)' for notification \(notificationId)")
                     
                     // Reconstruct NotificationAction
                     let action = NotificationAction(
@@ -1005,6 +1137,7 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                 }
                 
             default:
+                print("📱 [iPhoneWatchManager] ❓ Unknown background action: \(action)")
                 self.logger.error(
                     tag: "Watch→iPhone",
                     message: "Unknown background action: \(action)",
