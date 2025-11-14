@@ -66,7 +66,7 @@ export const useCleanup = () => {
         // 0. Load buckets from SQL/IndexedDB into React Query cache (before backend sync)
         await executeWithRAF(
             async () => {
-                console.log('[Cleanup] Loading buckets from local DB into React Query cache...');
+                // console.log('[Cleanup] Loading buckets from local DB into React Query cache...');
                 const localBuckets = await getAllBuckets();
 
                 // Update React Query cache with buckets from local DB

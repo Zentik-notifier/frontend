@@ -670,46 +670,89 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
             return
         }
         
-        // ALWAYS use background transfer (transferUserInfo) for guaranteed delivery
-        // even when Watch is reachable. This ensures messages are delivered even if
-        // the Watch app is in background or not running.
-        
         // Calculate payload size for debugging
         var payloadSize = 0
         if let jsonData = try? JSONSerialization.data(withJSONObject: message, options: []) {
             payloadSize = jsonData.count
         }
         
-        logger.debug(
-            tag: "iPhone→Watch",
-            message: "Preparing background transfer",
-            metadata: [
-                "action": message["action"] as? String ?? "unknown",
-                "messageKeys": message.keys.joined(separator: ", "),
-                "messageSize": "\(message.count) fields",
-                "payloadBytes": "\(payloadSize) bytes (\(payloadSize / 1024)KB)"
-            ],
-            source: "iPhoneWatchManager"
-        )
+        let action = message["action"] as? String ?? "unknown"
         
-        WCSession.default.transferUserInfo(message)
-        
-        logger.debug(
-            tag: "iPhone→Watch",
-            message: "Queued for background transfer: \(description)",
-            source: "iPhoneWatchManager"
-        )
-        
-        // Log outstanding transfers count
-        let pendingCount = WCSession.default.outstandingUserInfoTransfers.count
-        logger.debug(
-            tag: "iPhone→Watch",
-            message: "Outstanding transfers after queuing",
-            metadata: [
-                "pendingCount": "\(pendingCount)"
-            ],
-            source: "iPhoneWatchManager"
-        )
+        // Use sendMessage for immediate delivery when Watch is reachable
+        // This is much faster than transferUserInfo and delivers instantly
+        if WCSession.default.isReachable {
+            logger.debug(
+                tag: "iPhone→Watch",
+                message: "Watch is reachable - sending immediate message",
+                metadata: [
+                    "action": action,
+                    "payloadBytes": "\(payloadSize) bytes"
+                ],
+                source: "iPhoneWatchManager"
+            )
+            
+            WCSession.default.sendMessage(message, replyHandler: { reply in
+                self.logger.debug(
+                    tag: "iPhone→Watch",
+                    message: "Message delivered successfully: \(description)",
+                    metadata: ["reply": "\(reply)"],
+                    source: "iPhoneWatchManager"
+                )
+            }, errorHandler: { error in
+                self.logger.error(
+                    tag: "iPhone→Watch",
+                    message: "Failed to send message: \(error.localizedDescription)",
+                    metadata: ["action": action],
+                    source: "iPhoneWatchManager"
+                )
+                
+                // Fallback to background transfer on error
+                self.logger.debug(
+                    tag: "iPhone→Watch",
+                    message: "Falling back to background transfer",
+                    metadata: ["action": action],
+                    source: "iPhoneWatchManager"
+                )
+                WCSession.default.transferUserInfo(message)
+            })
+        } else {
+            // Watch not reachable - use background transfer for guaranteed delivery
+            logger.debug(
+                tag: "iPhone→Watch",
+                message: "Watch not reachable - using background transfer",
+                metadata: [
+                    "action": action,
+                    "payloadBytes": "\(payloadSize) bytes"
+                ],
+                source: "iPhoneWatchManager"
+            )
+            
+            WCSession.default.transferUserInfo(message)
+            
+            // Log outstanding transfers count
+            let pendingCount = WCSession.default.outstandingUserInfoTransfers.count
+            if pendingCount > 3 {
+                logger.warn(
+                    tag: "iPhone→Watch",
+                    message: "High number of pending transfers - Watch may be offline",
+                    metadata: [
+                        "pendingCount": "\(pendingCount)",
+                        "action": action
+                    ],
+                    source: "iPhoneWatchManager"
+                )
+            } else {
+                logger.debug(
+                    tag: "iPhone→Watch",
+                    message: "Queued for background transfer",
+                    metadata: [
+                        "pendingCount": "\(pendingCount)",
+                        "action": action
+                    ],
+                    source: "iPhoneWatchManager"
+                )
+            }
+        }
     }
 }
 

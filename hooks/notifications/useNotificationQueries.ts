@@ -226,7 +226,6 @@ export function useNotificationsState(
         }> => {
             try {
                 console.log('[useNotificationsState] Starting simplified state initialization...');
-
                 // ============================================================
                 // PHASE 1: Load from cache (FAST - immediate response)
                 // ============================================================

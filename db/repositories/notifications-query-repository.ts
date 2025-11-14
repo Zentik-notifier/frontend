@@ -698,7 +698,7 @@ export async function getNotificationStats(
         }
 
         // Overall stats
-        console.log(`[getNotificationStats] Executing overall stats query... with buckets: ${JSON.stringify(params)}`);
+        // console.log(`[getNotificationStats] Executing overall stats query... with buckets: ${JSON.stringify(params)}`);
         const overallStatsQuery = `SELECT 
             COUNT(*) as total_count,
             SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END) as unread_count,
@@ -712,14 +712,14 @@ export async function getNotificationStats(
         let overallStats;
         try {
           overallStats = await db.getFirstAsync(overallStatsQuery, params);
-          console.log('[getNotificationStats] Overall stats result:', overallStats);
+          // console.log('[getNotificationStats] Overall stats result:', overallStats);
         } catch (error: any) {
           console.error(`[getNotificationStats] Overall stats query failed: code ${error?.code} | message ${error?.message}`);
           throw error;
         }
 
         // Stats by bucket
-        console.log('[getNotificationStats] Executing bucket stats query...');
+        // console.log('[getNotificationStats] Executing bucket stats query...');
         const bucketStatsQuery = `SELECT 
             bucket_id,
             COUNT(*) as total_count,
@@ -736,7 +736,7 @@ export async function getNotificationStats(
         let bucketStatsResults;
         try {
           bucketStatsResults = await db.getAllAsync(bucketStatsQuery, params);
-          console.log('[getNotificationStats] Bucket stats result count:', bucketStatsResults?.length);
+          // console.log('[getNotificationStats] Bucket stats result count:', bucketStatsResults?.length);
         } catch (error) {
           console.error('[getNotificationStats] Bucket stats query failed:', error);
           throw error;
@@ -744,7 +744,7 @@ export async function getNotificationStats(
 
         // Get bucket names with a single optimized query using GROUP BY
         // This is much better than multiple parallel queries which can cause locks
-        console.log('[getNotificationStats] Fetching bucket names...');
+        // console.log('[getNotificationStats] Fetching bucket names...');
         const resultBucketIds = bucketStatsResults.map((stats: any) => stats.bucket_id);
         const bucketNamesMap = new Map<string, string>();
         
@@ -796,7 +796,7 @@ export async function getNotificationStats(
           firstNotificationDate: stats.first_notification_date,
         }));
 
-        console.log('[getNotificationStats] Successfully processed all bucket stats');
+        // console.log('[getNotificationStats] Successfully processed all bucket stats');
 
         return {
           totalCount: overallStats?.total_count || 0,
