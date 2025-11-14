@@ -28,6 +28,17 @@ public class LoggingSystem {
             self.timestamp = Int64(Date().timeIntervalSince1970 * 1000)
             self.source = source
         }
+        
+        /// Init with custom timestamp (for logs received from Watch)
+        public init(id: String, level: String, tag: String?, message: String, metadata: [String: String]?, timestamp: Int64, source: String) {
+            self.id = id
+            self.level = level
+            self.tag = tag
+            self.message = message
+            self.metadata = metadata
+            self.timestamp = timestamp
+            self.source = source
+        }
     }
 
     // MARK: - Shared Logger Instance
@@ -83,6 +94,42 @@ public class LoggingSystem {
            let jsonString = String(data: jsonData, encoding: .utf8) {
             print("[\(source)] \(jsonString)")
         }
+        
+        // Add to source-specific buffer (thread-safe)
+        queue.async(flags: .barrier) {
+            if self.logBuffers[source] == nil {
+                self.logBuffers[source] = []
+            }
+            self.logBuffers[source]?.append(entry)
+            
+            // Flush if buffer is full for this source
+            if let count = self.logBuffers[source]?.count, count >= self.bufferLimit {
+                self.flushLogs(forSource: source)
+            } else {
+                self.scheduleFlush(forSource: source)
+            }
+        }
+    }
+    
+    /// Log a message with custom timestamp (for logs received from Watch)
+    public func logWithTimestamp(
+        id: String,
+        level: String,
+        tag: String? = nil,
+        message: String,
+        metadata: [String: String]? = nil,
+        timestamp: Int64,
+        source: String
+    ) {
+        let entry = LogEntry(
+            id: id,
+            level: level,
+            tag: tag,
+            message: message,
+            metadata: metadata,
+            timestamp: timestamp,
+            source: source
+        )
         
         // Add to source-specific buffer (thread-safe)
         queue.async(flags: .barrier) {

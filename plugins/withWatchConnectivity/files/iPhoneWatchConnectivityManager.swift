@@ -936,11 +936,14 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                             
                             print("⌚→📱 [\(timeString)] [\(logEntry.source)] \(tagString) [\(logEntry.level)] \(logEntry.message) \(metadataString.isEmpty ? "" : "{\(metadataString)}")")
                             
-                            self.logger.log(
+                            // Use the timestamp from the Watch instead of creating a new one
+                            self.logger.logWithTimestamp(
+                                id: logEntry.id,
                                 level: logEntry.level,
                                 tag: logEntry.tag,
                                 message: logEntry.message,
                                 metadata: logEntry.metadata,
+                                timestamp: logEntry.timestamp,
                                 source: "Watch"
                             )
                         }
@@ -1173,12 +1176,14 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                             
                             print("⌚→📱 [\(timeString)] [\(logEntry.source)] \(tagString) [\(logEntry.level)] \(logEntry.message) \(metadataString.isEmpty ? "" : "{\(metadataString)}")")
                             
-                            // Usa direttamente i campi originali del Watch (forza source "Watch")
-                            self.logger.log(
+                            // Use the timestamp from the Watch instead of creating a new one
+                            self.logger.logWithTimestamp(
+                                id: logEntry.id,
                                 level: logEntry.level,
                                 tag: logEntry.tag,
                                 message: logEntry.message,
                                 metadata: logEntry.metadata,
+                                timestamp: logEntry.timestamp,
                                 source: "Watch"
                             )
                         }
