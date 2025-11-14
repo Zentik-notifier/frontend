@@ -47,7 +47,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             self?.sendLogsToiPhoneIfNeeded()
         }
         
-        print("⌚ [WatchConnectivity] 🔄 Automatic log sync enabled (every \(Int(logSyncInterval))s)")
+        // print("⌚ [WatchConnectivity] 🔄 Automatic log sync enabled (every \(Int(logSyncInterval))s)")
     }
     
     /**
@@ -61,7 +61,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             return
         }
         
-        print("⌚ [WatchConnectivity] 📊 Auto-sync: Found \(logs.count) logs to send")
+        // print("⌚ [WatchConnectivity] 📊 Auto-sync: Found \(logs.count) logs to send")
         sendLogsToiPhone()
     }
     
@@ -426,7 +426,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         let logs = LoggingSystem.shared.readLogs()
         
         guard logs.count > 0 else {
-            print("⌚ [Watch] ℹ️ No logs to send")
+            // print("⌚ [Watch] ℹ️ No logs to send")
             return
         }
         
@@ -446,16 +446,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                     return
                 }
                 
-                // Usa sempre transferUserInfo per garantire la consegna
-                // anche quando l'iPhone non è raggiungibile
                 WCSession.default.transferUserInfo(message)
                 
-                print("⌚ [Watch] 📤 Queued \(logs.count) logs for background transfer to iPhone")
+                // print("⌚ [Watch] 📤 Queued \(logs.count) logs for background transfer to iPhone")
                 
-                // Cancella i log dopo averli accodati per l'invio
-                // (verranno consegnati in modo affidabile dal sistema)
                 LoggingSystem.shared.clearAllLogs()
-                print("⌚ [Watch] 🧹 Cleared \(logs.count) logs after queueing for transfer")
+                // print("⌚ [Watch] 🧹 Cleared \(logs.count) logs after queueing for transfer")
             }
         } catch {
             print("⌚ [Watch] ❌ Failed to encode logs: \(error.localizedDescription)")
@@ -1030,14 +1026,15 @@ extension WatchConnectivityManager: WCSessionDelegate {
             return
         }
         
+        let metadata: [String: String] = [
+            "action": action,
+            "dataSize": "\(userInfo.count) fields"
+        ]
         LoggingSystem.shared.log(
             level: "INFO",
             tag: "didReceiveUserInfo",
             message: "Processing buffered action",
-            metadata: [
-                "action": action,
-                "dataSize": "\(userInfo.count) fields"
-            ],
+            metadata: metadata,
             source: "Watch"
         )
         
@@ -1111,24 +1108,84 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 }
                 
             case "notificationAdded":
-                // New notification added with complete fragment - save to local database
+                // New notification added - save compact notification to local JSON
                 if let notificationId = userInfo["notificationId"] as? String,
                    let fragment = userInfo["fragment"] as? [String: Any] {
-                    print("⌚ [WatchConnectivity] ➕ New notification \(notificationId) with fragment - saving to local DB (background)")
+                    print("⌚ [WatchConnectivity] ➕ New notification \(notificationId) with compact data - saving to local JSON (background)")
                     LoggingSystem.shared.log(
                         level: "INFO",
                         tag: "WatchConnectivity",
-                        message: "➕ Buffered: New notification with fragment",
+                        message: "➕ Buffered: New notification with compact data",
                         metadata: ["notificationId": notificationId],
                         source: "Watch"
                     )
-                    self.saveNotificationFromFragment(fragment: fragment)
+                    
+                    // Create WidgetNotification from compact fragment
+                    let notification = WidgetNotification(
+                        id: fragment["id"] as? String ?? notificationId,
+                        title: fragment["title"] as? String ?? "",
+                        body: fragment["body"] as? String ?? "",
+                        subtitle: nil,
+                        createdAt: fragment["createdAt"] as? String ?? "",
+                        isRead: fragment["isRead"] as? Bool ?? false,
+                        bucketId: fragment["bucketId"] as? String ?? "",
+                        bucketName: fragment["bucketName"] as? String,
+                        bucketColor: fragment["bucketColor"] as? String,
+                        bucketIconUrl: nil,
+                        attachments: [],
+                        actions: []
+                    )
+                    
+                    // Wrap in NotificationData
+                    let notificationData = NotificationData(notification: notification)
+                    
+                    // Add to local notifications array
+                    DispatchQueue.main.async {
+                        // Insert at beginning (most recent first)
+                        self.notifications.insert(notificationData, at: 0)
+                        
+                        // Update unread count if notification is unread
+                        if !notification.isRead {
+                            self.unreadCount += 1
+                        }
+                        
+                        // Update bucket counts by recreating the bucket
+                        if let bucketIndex = self.buckets.firstIndex(where: { $0.id == notification.bucketId }) {
+                            let existingBucket = self.buckets[bucketIndex]
+                            let updatedBucket = BucketItem(
+                                id: existingBucket.id,
+                                name: existingBucket.name,
+                                unreadCount: existingBucket.unreadCount + (notification.isRead ? 0 : 1),
+                                totalCount: existingBucket.totalCount + 1,
+                                color: existingBucket.color,
+                                iconUrl: existingBucket.iconUrl,
+                                lastNotificationDate: existingBucket.lastNotificationDate
+                            )
+                            self.buckets[bucketIndex] = updatedBucket
+                        }
+                        
+                        // Save to JSON
+                        self.saveToCache()
+                        
+                        print("⌚ [WatchConnectivity] ✅ Added notification to local JSON (total: \(self.notifications.count), unread: \(self.unreadCount))")
+                        LoggingSystem.shared.log(
+                            level: "INFO",
+                            tag: "WatchConnectivity",
+                            message: "✅ Saved new notification to JSON",
+                            metadata: [
+                                "notificationId": notificationId,
+                                "totalCount": "\(self.notifications.count)",
+                                "unreadCount": "\(self.unreadCount)"
+                            ],
+                            source: "Watch"
+                        )
+                    }
                 } else {
-                    print("⌚ [WatchConnectivity] ⚠️ notificationAdded missing fragment (background)")
+                    print("⌚ [WatchConnectivity] ⚠️ notificationAdded missing notificationId or fragment (background)")
                     LoggingSystem.shared.log(
                         level: "WARN",
                         tag: "WatchConnectivity",
-                        message: "⚠️ Buffered: notificationAdded missing fragment",
+                        message: "⚠️ Buffered: notificationAdded missing data",
                         metadata: [:],
                         source: "Watch"
                     )
@@ -2207,6 +2264,36 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 metadata: ["url": url, "mediaType": mediaType],
                 source: "Watch"
             )
+        }
+    }
+    
+    // MARK: - UserInfo Transfer Monitoring
+    
+    func session(_ session: WCSession, didFinish userInfoTransfer: WCSessionUserInfoTransfer, error: Error?) {
+        if let error = error {
+            LoggingSystem.shared.log(
+                level: "ERROR",
+                tag: "WatchConnectivity",
+                message: "❌ UserInfo transfer failed",
+                metadata: [
+                    "error": error.localizedDescription,
+                    "isTransferring": "\(userInfoTransfer.isTransferring)"
+                ],
+                source: "Watch"
+            )
+            print("⌚ [WatchConnectivity] ❌ UserInfo transfer failed: \(error.localizedDescription)")
+        } else {
+            let action = userInfoTransfer.userInfo["action"] as? String ?? "unknown"
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "WatchConnectivity",
+                message: "✅ UserInfo transfer completed",
+                metadata: [
+                    "action": action
+                ],
+                source: "Watch"
+            )
+            print("⌚ [WatchConnectivity] ✅ UserInfo transfer completed for action: \(action)")
         }
     }
 }

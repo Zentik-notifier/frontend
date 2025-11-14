@@ -94,12 +94,13 @@ struct ContentView: View {
         .onChange(of: scenePhase) { oldPhase, newPhase in
             // Detect when app transitions from background to active (foreground)
             if oldPhase == .background && newPhase == .active {
-                print("⌚ [ContentView] 📱→⌚ App returned to foreground from background - requesting fresh data")
-                requestFullRefresh()
+                print("⌚ [ContentView] 📱→⌚ App returned to foreground from background - using cached data")
+                // Don't auto-refresh - let user tap refresh button if needed
+                // Data is already updated via background WatchConnectivity messages
             } else if newPhase == .active && oldPhase != .background {
                 // App opened for the first time or from inactive state
-                print("⌚ [ContentView] 📱→⌚ App became active - requesting fresh data")
-                requestFullRefresh()
+                print("⌚ [ContentView] 📱→⌚ App became active - using cached data")
+                // Don't auto-refresh - let user tap refresh button if needed
             }
         }
     }

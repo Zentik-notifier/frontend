@@ -39,7 +39,6 @@ public class KeychainAccess {
         let teamId = "C3F24V5NS5"
         return "\(teamId).\(mainBundleId).keychain"
     }
-    
     // MARK: - Keychain Operations
     
     /// Get API endpoint from SQLite database (replaces keychain storage)

@@ -1327,14 +1327,6 @@ class NotificationService: UNNotificationServiceExtension {
         )
         print("📱 [NotificationService] 📁 File saved with name: \(filename)")
         
-        // Notify iPhone to transfer media to Watch
-        self.notifyMediaDownloaded(
-          url: mediaItem.url,
-          mediaType: mediaItem.mediaType,
-          localPath: cacheFileUrl.path,
-          notificationId: notificationId
-        )
-        
         // Mark as completed in shared metadata (set isDownloading=false and update size)
         self.markMediaAsCompleted(mediaItem, success: true, isNewDownload: true)
         completion(attachment)
@@ -1743,11 +1735,9 @@ class NotificationService: UNNotificationServiceExtension {
     if sqlite3_step(stmt) == SQLITE_DONE {
       print("📱 [NotificationService] ✅ Notification saved to database: \(notificationId)")
       
-      // Notify Watch via WatchConnectivity (async, non-blocking)
-      self.notifyWatchOfNewNotification(
-        notificationId: notificationId,
-        userInfo: userInfo
-      )
+      // Notify main app via Darwin notification (works across processes)
+      // Main app will then notify Watch via WatchConnectivity
+      self.notifyMainAppOfNewNotification(notificationId: notificationId)
     } else {
       print("📱 [NotificationService] ❌ Failed to save notification to database")
     }
@@ -1767,158 +1757,46 @@ class NotificationService: UNNotificationServiceExtension {
     }
   }
 
-  // MARK: - WatchConnectivity Notification
+  // MARK: - Darwin Notification to Main App
   
   /**
-   * Notify Watch of new notification via WatchConnectivity
-   * This method runs in background and does NOT block notification delivery
-   * Sends the complete notification fragment to Watch so it can save it locally
+   * Notify main app that a new notification was saved
+   * Main app will then notify Watch via WatchConnectivity
+   * Uses Darwin notifications which work across processes (NSE -> Main App)
    */
-  private func notifyWatchOfNewNotification(
-    notificationId: String,
-    userInfo: [String: Any]
-  ) {
-    guard WCSession.isSupported() else {
-      print("📱 [NotificationService] ⚠️ WatchConnectivity not supported")
-      return
-    }
+  private func notifyMainAppOfNewNotification(notificationId: String) {
+    // Store notification ID in UserDefaults App Group for AppDelegate to read
+    let mainBundleId = KeychainAccess.getMainBundleIdentifier()
+    let suiteName = "group.\(mainBundleId)"
     
-    let session = WCSession.default
-    
-    // CRITICAL: Activate session if not already activated
-    // NSE needs to activate WCSession to send messages
-    if session.activationState != .activated {
-      print("📱 [NotificationService] 🔄 Activating WCSession for NSE...")
-      session.delegate = self
-      session.activate()
-      
-      // Wait a short time for activation (max 1 second to not delay notification)
-      let deadline = Date().addingTimeInterval(1.0)
-      while session.activationState != .activated && Date() < deadline {
-        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-      }
-      
-      if session.activationState != .activated {
-        print("📱 [NotificationService] ⚠️ WCSession activation timeout - queuing anyway")
-        // Continue anyway - transferUserInfo will queue the message
-      } else {
-        print("📱 [NotificationService] ✅ WCSession activated successfully")
-      }
-    }
-    
-    // Extract bucket info
-    guard let bucketId = userInfo["bucketId"] as? String else {
-      print("📱 [NotificationService] ⚠️ No bucketId for Watch notification")
-      return
-    }
-    
-    let now = ISO8601DateFormatter().string(from: Date())
-    
-    // Build notification fragment (same structure as stored in SQLite)
-    var notificationFragment: [String: Any] = [
-      "__typename": "Notification",
-      "id": notificationId,
-      "receivedAt": now,
-      "readAt": NSNull(),
-      "sentAt": now,
-      "createdAt": now,
-      "updatedAt": now
-    ]
-    
-    // Build message object
-    var messageObj: [String: Any] = [
-      "__typename": "Message",
-      "id": UUID().uuidString,
-      "title": userInfo["title"] as? String ?? "",
-      "body": userInfo["body"] as? String ?? "",
-      "subtitle": (userInfo["subtitle"] as? String)?.isEmpty == false ? (userInfo["subtitle"] as! String) : NSNull(),
-      "sound": "default",
-      "deliveryType": "PUSH",
-      "locale": NSNull(),
-      "snoozes": NSNull(),
-      "createdAt": now,
-      "updatedAt": now
-    ]
-    
-    // Add attachments if present
-    if let attachmentData = userInfo["attachmentData"] as? [[String: Any]], !attachmentData.isEmpty {
-      let attachments = attachmentData.map { item -> [String: Any] in
-        return [
-          "__typename": "MessageAttachment",
-          "mediaType": (item["mediaType"] as? String)?.uppercased() ?? "IMAGE",
-          "url": (item["url"] as? String) ?? NSNull() as Any,
-          "name": (item["name"] as? String) ?? NSNull() as Any,
-          "attachmentUuid": (item["attachmentUuid"] as? String) ?? NSNull() as Any,
-          "saveOnServer": (item["saveOnServer"] as? Bool) ?? NSNull() as Any
-        ]
-      }
-      messageObj["attachments"] = attachments
+    if let sharedDefaults = UserDefaults(suiteName: suiteName) {
+      sharedDefaults.set(notificationId, forKey: "pending_watch_notification_id")
+      sharedDefaults.synchronize()
+      print("📱 [NotificationService] 💾 Stored notification ID in UserDefaults: \(notificationId)")
     } else {
-      messageObj["attachments"] = []
+      print("📱 [NotificationService] ⚠️ Failed to access UserDefaults with suite: \(suiteName)")
     }
     
-    // Add tapAction if present
-    if let tapAction = userInfo["tapAction"] as? [String: Any] {
-      messageObj["tapAction"] = [
-        "__typename": "NotificationAction",
-        "type": (tapAction["type"] as? String)?.uppercased() ?? "OPEN_NOTIFICATION",
-        "value": (tapAction["value"] as? String) ?? NSNull() as Any,
-        "title": (tapAction["title"] as? String) ?? NSNull() as Any,
-        "icon": (tapAction["icon"] as? String) ?? NSNull() as Any,
-        "destructive": tapAction["destructive"] as? Bool ?? false
-      ]
-    }
+    let notificationName = "com.zentik.notification.new" as CFString
     
-    // Add actions if present
-    if let actions = userInfo["actions"] as? [[String: Any]], !actions.isEmpty {
-      let actionsArray = actions.map { action -> [String: Any] in
-        return [
-          "__typename": "NotificationAction",
-          "type": (action["type"] as? String)?.uppercased() ?? "CUSTOM",
-          "value": (action["value"] as? String) ?? NSNull() as Any,
-          "title": (action["title"] as? String) ?? NSNull() as Any,
-          "icon": (action["icon"] as? String) ?? NSNull() as Any,
-          "destructive": action["destructive"] as? Bool ?? false
-        ]
-      }
-      messageObj["actions"] = actionsArray
-    } else {
-      messageObj["actions"] = []
-    }
+    // Post Darwin notification (works across processes)
+    CFNotificationCenterPostNotification(
+      CFNotificationCenterGetDarwinNotifyCenter(),
+      CFNotificationName(notificationName),
+      nil,
+      nil,
+      true  // deliver immediately
+    )
     
-    // Add bucket info
-    messageObj["bucket"] = [
-      "__typename": "Bucket",
-      "id": bucketId,
-      "name": userInfo["bucketName"] as? String ?? "Unknown",
-      "description": NSNull(),
-      "color": (userInfo["bucketColor"] as? String) ?? NSNull() as Any,
-      "iconUrl": (userInfo["bucketIconUrl"] as? String) ?? NSNull() as Any,
-      "createdAt": now,
-      "updatedAt": now,
-      "isProtected": NSNull(),
-      "isPublic": NSNull()
-    ]
+    print("📱 [NotificationService] 📬 Posted Darwin notification to main app for: \(notificationId)")
     
-    notificationFragment["message"] = messageObj
-    
-    // Send complete notification fragment to Watch
-    let message: [String: Any] = [
-      "action": "notificationAdded",
-      "notificationId": notificationId,
-      "fragment": notificationFragment
-    ]
-    
-    // Use transferUserInfo for guaranteed delivery (even when Watch is asleep)
-    session.transferUserInfo(message)
-    print("📱 [NotificationService] ✅ Queued complete notification fragment to Watch: \(notificationId)")
-    print("📱 [NotificationService] 📊 WCSession state: activated=\(session.activationState == .activated), reachable=\(session.isReachable), paired=\(session.isPaired)")
-    
-    // Log the number of pending transfers
-    if #available(iOS 9.3, *) {
-      let pendingTransfers = session.outstandingUserInfoTransfers.count
-      print("📱 [NotificationService] 📤 Pending transfers in queue: \(pendingTransfers)")
-    }
+    LoggingSystem.shared.log(
+      level: "INFO",
+      tag: "Darwin",
+      message: "Posted Darwin notification to main app",
+      metadata: ["notificationId": notificationId, "suiteName": suiteName],
+      source: "NSE"
+    )
   }
 
   
@@ -2012,79 +1890,4 @@ class NotificationService: UNNotificationServiceExtension {
     UNUserNotificationCenter.current().setNotificationCategories([category])
     print("📱 [NotificationService] ✅ Registered category 'DYNAMIC' with \(notificationActions.count) actions")
   }
-  
-  // MARK: - Watch Media Transfer
-  
-  /// Notify iPhone to transfer downloaded media to Watch
-  private func notifyMediaDownloaded(url: String, mediaType: String, localPath: String, notificationId: String?) {
-    guard WCSession.isSupported() else {
-      print("📱 [NotificationService] ⚠️ WatchConnectivity not supported, skipping media transfer")
-      return
-    }
-    
-    let session = WCSession.default
-    guard session.isPaired && session.isWatchAppInstalled else {
-      print("📱 [NotificationService] ⚠️ Watch not paired or app not installed, skipping media transfer")
-      return
-    }
-    
-    // Get file size for logging
-    var fileSize: Int64 = 0
-    if let attributes = try? FileManager.default.attributesOfItem(atPath: localPath) {
-      fileSize = (attributes[.size] as? NSNumber)?.int64Value ?? 0
-    }
-    
-    // Log to centralized logging system
-    LoggingSystem.shared.log(
-      level: "INFO",
-      tag: "MEDIA_TRANSFER",
-      message: "NSE media downloaded, queuing for Watch transfer",
-      metadata: [
-        "event": "nse_media_downloaded",
-        "url": url,
-        "mediaType": mediaType,
-        "localPath": localPath,
-        "fileSize": fileSize,
-        "notificationId": notificationId ?? "",
-        "watchPaired": session.isPaired,
-        "watchAppInstalled": session.isWatchAppInstalled
-      ],
-      source: "NSE"
-    )
-    
-    // Send message to iPhone's WatchConnectivityManager to trigger file transfer
-    let message: [String: Any] = [
-      "action": "transferMediaToWatch",
-      "url": url,
-      "mediaType": mediaType,
-      "localPath": localPath,
-      "notificationId": notificationId ?? ""
-    ]
-    
-    // Use transferUserInfo for guaranteed delivery (works even when iPhone/Watch is asleep)
-    session.transferUserInfo(message)
-    print("📱 [NotificationService] ✅ Queued media transfer request to iPhone")
-  }
-}
-
-// MARK: - WCSessionDelegate
-
-extension NotificationService: WCSessionDelegate {
-  func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
-    if let error = error {
-      print("📱 [NotificationService] ❌ WCSession activation failed: \(error.localizedDescription)")
-    } else {
-      print("📱 [NotificationService] ✅ WCSession activated with state: \(activationState.rawValue)")
-    }
-  }
-  
-  #if os(iOS)
-  func sessionDidBecomeInactive(_ session: WCSession) {
-    print("📱 [NotificationService] WCSession became inactive")
-  }
-  
-  func sessionDidDeactivate(_ session: WCSession) {
-    print("📱 [NotificationService] WCSession deactivated")
-  }
-  #endif
 }

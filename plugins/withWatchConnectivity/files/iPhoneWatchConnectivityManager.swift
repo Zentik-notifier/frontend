@@ -1,6 +1,7 @@
 import Foundation
 import WatchConnectivity
 import WidgetKit
+import SQLite3
 
 /**
  * Struttura per decodificare i log ricevuti dal Watch
@@ -144,6 +145,160 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
     func notifyWatchToSyncIncremental() {
         let message: [String: Any] = ["action": "syncIncremental"]
         sendMessageToWatch(message, description: "incremental sync trigger (deprecated)")
+    }
+    
+    /**
+     * Sync specific notification from SQLite to Watch
+     * Called by AppDelegate when receiving Darwin notification from NSE
+     * @param notificationId - Specific notification ID to sync, or nil to sync latest
+     */
+    func syncLatestNotificationToWatch(notificationId: String? = nil) {
+        let targetId = notificationId ?? {
+            // Read from UserDefaults App Group if not provided
+            let mainBundleId = KeychainAccess.getMainBundleIdentifier()
+            let suiteName = "group.\(mainBundleId)"
+            let sharedDefaults = UserDefaults(suiteName: suiteName)
+            let id = sharedDefaults?.string(forKey: "pending_watch_notification_id")
+            logger.info(
+                tag: "WatchSync",
+                message: "Reading notification ID from UserDefaults",
+                metadata: [
+                    "notificationId": id ?? "nil",
+                    "suiteName": suiteName
+                ],
+                source: "iPhoneWatchManager"
+            )
+            return id
+        }()
+        
+        guard let targetId = targetId else {
+            logger.warn(
+                tag: "WatchSync",
+                message: "No notification ID provided or found in UserDefaults",
+                source: "iPhoneWatchManager"
+            )
+            return
+        }
+        
+        logger.info(
+            tag: "WatchSync",
+            message: "Syncing specific notification to Watch from SQLite",
+            metadata: ["notificationId": targetId],
+            source: "iPhoneWatchManager"
+        )
+        
+        // Read specific notification from SQLite
+        guard let dbPath = DatabaseAccess.getDbPath() else {
+            logger.error(
+                tag: "WatchSync",
+                message: "Failed to get database path",
+                source: "iPhoneWatchManager"
+            )
+            return
+        }
+        
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
+            logger.error(
+                tag: "WatchSync",
+                message: "Failed to open database",
+                source: "iPhoneWatchManager"
+            )
+            return
+        }
+        defer { sqlite3_close(db) }
+        
+        // Get the specific notification by ID
+        let sql = "SELECT id, fragment FROM notifications WHERE id = ? LIMIT 1"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            logger.error(
+                tag: "WatchSync",
+                message: "Failed to prepare SQL query",
+                source: "iPhoneWatchManager"
+            )
+            return
+        }
+        defer { sqlite3_finalize(stmt) }
+        
+        sqlite3_bind_text(stmt, 1, (targetId as NSString).utf8String, -1, nil)
+        
+        guard sqlite3_step(stmt) == SQLITE_ROW else {
+            logger.warn(
+                tag: "WatchSync",
+                message: "Notification not found in database",
+                metadata: ["notificationId": targetId],
+                source: "iPhoneWatchManager"
+            )
+            return
+        }
+        
+        guard let idCString = sqlite3_column_text(stmt, 0),
+              let fragmentCString = sqlite3_column_text(stmt, 1) else {
+            logger.error(
+                tag: "WatchSync",
+                message: "Failed to read notification data",
+                source: "iPhoneWatchManager"
+            )
+            return
+        }
+        
+        let notificationId = String(cString: idCString)
+        let fragmentString = String(cString: fragmentCString)
+        
+        // Parse JSON fragment
+        guard let fragmentData = fragmentString.data(using: .utf8),
+              let fragment = try? JSONSerialization.jsonObject(with: fragmentData) as? [String: Any] else {
+            logger.error(
+                tag: "WatchSync",
+                message: "Failed to parse notification fragment",
+                metadata: ["notificationId": notificationId],
+                source: "iPhoneWatchManager"
+            )
+            return
+        }
+        
+        // Extract only essential fields for Watch JSON (lightweight payload)
+        let compactNotification: [String: Any] = [
+            "id": notificationId,
+            "title": fragment["title"] as? String ?? "",
+            "body": fragment["body"] as? String ?? "",
+            "bucketId": fragment["bucketId"] as? String ?? "",
+            "bucketName": fragment["bucketName"] as? String ?? "",
+            "bucketColor": fragment["bucketColor"] as? String ?? "",
+            "createdAt": fragment["createdAt"] as? String ?? "",
+            "isRead": fragment["isRead"] as? Bool ?? false,
+            "readAt": fragment["readAt"] as? String ?? ""
+        ]
+        
+        logger.info(
+            tag: "WatchSync",
+            message: "Sending new notification to Watch (incremental)",
+            metadata: [
+                "notificationId": notificationId,
+                "method": "notificationAdded",
+                "strategy": "compact-model"
+            ],
+            source: "iPhoneWatchManager"
+        )
+        
+        // Send to Watch using notificationAdded with compact notification data
+        // This keeps the message small and reliable for background delivery
+        notifyWatchNotificationAdded(notificationId: notificationId, fragment: compactNotification)
+        
+        // Clear the UserDefaults flag after processing
+        let mainBundleId = KeychainAccess.getMainBundleIdentifier()
+        let suiteName = "group.\(mainBundleId)"
+        let sharedDefaults = UserDefaults(suiteName: suiteName)
+        sharedDefaults?.removeObject(forKey: "pending_watch_notification_id")
+        sharedDefaults?.synchronize()
+        
+        logger.info(
+            tag: "WatchSync",
+            message: "Cleared notification ID from UserDefaults after sync",
+            metadata: ["suiteName": suiteName],
+            source: "iPhoneWatchManager"
+        )
     }
     
     // MARK: - Full Sync via transferFile
@@ -437,32 +592,46 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
             return
         }
         
-        if WCSession.default.isReachable {
-            // Watch is reachable, send immediately
-            WCSession.default.sendMessage(message, replyHandler: { reply in
-                self.logger.debug(
-                    tag: "iPhone→Watch",
-                    message: "Message sent successfully: \(description)",
-                    source: "iPhoneWatchManager"
-                )
-            }) { error in
-                self.logger.error(
-                    tag: "iPhone→Watch",
-                    message: "Failed to send message, using background transfer: \(error.localizedDescription)",
-                    source: "iPhoneWatchManager"
-                )
-                // Fallback to background transfer
-                WCSession.default.transferUserInfo(message)
-            }
-        } else {
-            // Watch not reachable, use background transfer (guaranteed delivery)
-            WCSession.default.transferUserInfo(message)
-            logger.debug(
-                tag: "iPhone→Watch",
-                message: "Queued for background transfer: \(description)",
-                source: "iPhoneWatchManager"
-            )
+        // ALWAYS use background transfer (transferUserInfo) for guaranteed delivery
+        // even when Watch is reachable. This ensures messages are delivered even if
+        // the Watch app is in background or not running.
+        
+        // Calculate payload size for debugging
+        var payloadSize = 0
+        if let jsonData = try? JSONSerialization.data(withJSONObject: message, options: []) {
+            payloadSize = jsonData.count
         }
+        
+        logger.debug(
+            tag: "iPhone→Watch",
+            message: "Preparing background transfer",
+            metadata: [
+                "action": message["action"] as? String ?? "unknown",
+                "messageKeys": message.keys.joined(separator: ", "),
+                "messageSize": "\(message.count) fields",
+                "payloadBytes": "\(payloadSize) bytes (\(payloadSize / 1024)KB)"
+            ],
+            source: "iPhoneWatchManager"
+        )
+        
+        WCSession.default.transferUserInfo(message)
+        
+        logger.debug(
+            tag: "iPhone→Watch",
+            message: "Queued for background transfer: \(description)",
+            source: "iPhoneWatchManager"
+        )
+        
+        // Log outstanding transfers count
+        let pendingCount = WCSession.default.outstandingUserInfoTransfers.count
+        logger.debug(
+            tag: "iPhone→Watch",
+            message: "Outstanding transfers after queuing",
+            metadata: [
+                "pendingCount": "\(pendingCount)"
+            ],
+            source: "iPhoneWatchManager"
+        )
     }
 }
 
@@ -767,14 +936,12 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                             
                             print("⌚→📱 [\(timeString)] [\(logEntry.source)] \(tagString) [\(logEntry.level)] \(logEntry.message) \(metadataString.isEmpty ? "" : "{\(metadataString)}")")
                             
-                            // Usa direttamente i campi originali del Watch (forza source "Watch")
                             self.logger.log(
                                 level: logEntry.level,
                                 tag: logEntry.tag,
                                 message: logEntry.message,
                                 metadata: logEntry.metadata,
-                                source: "Watch",
-                                timestamp: logEntry.timestamp
+                                source: "Watch"
                             )
                         }
                         
@@ -1012,8 +1179,7 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                                 tag: logEntry.tag,
                                 message: logEntry.message,
                                 metadata: logEntry.metadata,
-                                source: "Watch",
-                                timestamp: logEntry.timestamp
+                                source: "Watch"
                             )
                         }
                         

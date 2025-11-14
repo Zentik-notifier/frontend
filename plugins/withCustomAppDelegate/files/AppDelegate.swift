@@ -64,6 +64,9 @@ FirebaseApp.configure()
     // This ensures WCSession is activated even if React Native hasn't started yet
     _ = iPhoneWatchConnectivityManager.shared
     print("📱 [AppDelegate] WatchConnectivity initialized early")
+    
+    // Listen for Darwin notifications from NSE about new notifications
+    setupDarwinNotificationListener()
 
     return result
   }
@@ -248,5 +251,50 @@ FirebaseApp.configure()
   ) -> Bool {
     let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
+  }
+  
+  // MARK: - Darwin Notifications
+  
+  /// Setup listener for Darwin notifications from NSE
+  private func setupDarwinNotificationListener() {
+    let notificationName = "com.zentik.notification.new" as CFString
+    
+    // Use Darwin notification center (works across processes)
+    let observer = Unmanaged.passUnretained(self).toOpaque()
+    CFNotificationCenterAddObserver(
+      CFNotificationCenterGetDarwinNotifyCenter(),
+      observer,
+      { (center, observer, name, object, userInfo) in
+        // This callback is called when NSE posts a Darwin notification
+        guard let observer = observer else { return }
+        let appDelegate = Unmanaged<AppDelegate>.fromOpaque(observer).takeUnretainedValue()
+        appDelegate.handleNewNotificationFromNSE()
+      },
+      notificationName,
+      nil,
+      .deliverImmediately
+    )
+    
+    print("📱 [AppDelegate] ✅ Listening for Darwin notifications from NSE")
+    LoggingSystem.shared.info(
+      tag: "AppDelegate",
+      message: "Darwin notification listener setup complete",
+      source: "AppDelegate"
+    )
+  }
+  
+  /// Handle notification from NSE via Darwin notification
+  private func handleNewNotificationFromNSE() {
+    print("📱 [AppDelegate] 📬 Received Darwin notification from NSE - new notification available")
+    
+    LoggingSystem.shared.info(
+      tag: "AppDelegate",
+      message: "Received Darwin notification from NSE",
+      source: "AppDelegate"
+    )
+    
+    // Read latest notification from SQLite and notify Watch
+    // This runs in the main app process which has WatchConnectivity access
+    iPhoneWatchConnectivityManager.shared.syncLatestNotificationToWatch()
   }
 }
