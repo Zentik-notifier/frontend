@@ -777,6 +777,95 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
         session.activate()
     }
     
+    // MARK: - Application Context Reception
+    
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
+        print("📱 ========== APPLICATION CONTEXT RECEIVED ==========")
+        print("📱 [iPhoneWatchManager] 📋 Context keys: \(applicationContext.keys.joined(separator: ", "))")
+        
+        guard let action = applicationContext["action"] as? String else {
+            logger.error(tag: "Watch→iPhone", message: "Missing action in applicationContext", source: "iPhoneWatchManager")
+            print("📱 [iPhoneWatchManager] ⚠️ Missing action in applicationContext")
+            return
+        }
+        
+        print("📱 [iPhoneWatchManager] 📋 ApplicationContext action: \(action)")
+        
+        DispatchQueue.main.async {
+            switch action {
+            case "watchLogs":
+                // Watch sent logs via ApplicationContext (preferred method)
+                print("📱 [iPhoneWatchManager] 📊 Processing: watchLogs (ApplicationContext)")
+                
+                if let logsJsonString = applicationContext["logs"] as? String,
+                   let logsData = logsJsonString.data(using: .utf8) {
+                    
+                    do {
+                        let decoder = JSONDecoder()
+                        let watchLogs = try decoder.decode([WatchLogEntry].self, from: logsData)
+                        
+                        // Log each entry to iPhone's logging system
+                        for logEntry in watchLogs {
+                            let timestamp = Date(timeIntervalSince1970: TimeInterval(logEntry.timestamp) / 1000)
+                            let dateFormatter = DateFormatter()
+                            dateFormatter.dateFormat = "HH:mm:ss.SSS"
+                            let timeString = dateFormatter.string(from: timestamp)
+                            
+                            let metadataString = logEntry.metadata?.map { "\($0.key)=\($0.value)" }.joined(separator: ", ") ?? ""
+                            let tagString = logEntry.tag.map { "[\($0)]" } ?? ""
+                            
+                            print("⌚→📱 [\(timeString)] [\(logEntry.source)] \(tagString) [\(logEntry.level)] \(logEntry.message) \(metadataString.isEmpty ? "" : "{\(metadataString)}")")
+                            
+                            self.logger.logWithTimestamp(
+                                id: logEntry.id,
+                                level: logEntry.level,
+                                tag: logEntry.tag,
+                                message: logEntry.message,
+                                metadata: logEntry.metadata,
+                                timestamp: logEntry.timestamp,
+                                source: "Watch"
+                            )
+                        }
+                        
+                        let transferId = applicationContext["transferId"] as? String ?? "unknown"
+                        let method = applicationContext["method"] as? String ?? "applicationContext"
+                        
+                        self.logger.info(
+                            tag: "WatchLogs",
+                            message: "Received and logged \(watchLogs.count) logs from Watch via \(method)",
+                            metadata: ["transferId": transferId, "method": method],
+                            source: "iPhoneWatchManager"
+                        )
+                        
+                        print("📱 [iPhoneWatchManager] ✅ Processed \(watchLogs.count) logs from Watch (ID: \(transferId))")
+                    } catch {
+                        self.logger.error(
+                            tag: "WatchLogs",
+                            message: "Failed to decode Watch logs from ApplicationContext: \(error.localizedDescription)",
+                            source: "iPhoneWatchManager"
+                        )
+                        print("📱 [iPhoneWatchManager] ❌ Failed to decode logs: \(error.localizedDescription)")
+                    }
+                } else if let count = applicationContext["count"] as? Int {
+                    self.logger.info(
+                        tag: "WatchLogs",
+                        message: "Received \(count) logs from Watch (ApplicationContext) but logs data missing",
+                        source: "iPhoneWatchManager"
+                    )
+                }
+                
+            default:
+                print("📱 [iPhoneWatchManager] ❓ Unknown ApplicationContext action: \(action)")
+                self.logger.warn(
+                    tag: "Watch→iPhone",
+                    message: "Unknown ApplicationContext action",
+                    metadata: ["action": action],
+                    source: "iPhoneWatchManager"
+                )
+            }
+        }
+    }
+    
     // MARK: - Receive Messages from Watch
     
     func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
@@ -1342,7 +1431,8 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                 }
                 
             case "watchLogs":
-                print("📱 [iPhoneWatchManager] 📊 Processing: watchLogs")
+                // Watch sent logs via transferUserInfo (fallback method for large payloads)
+                print("📱 [iPhoneWatchManager] 📊 Processing: watchLogs (transferUserInfo)")
                 if let logsJsonString = userInfo["logs"] as? String,
                    let logsData = logsJsonString.data(using: .utf8) {
                     
@@ -1350,7 +1440,7 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                         let decoder = JSONDecoder()
                         let watchLogs = try decoder.decode([WatchLogEntry].self, from: logsData)
                         
-                        // Logga ogni singolo log ricevuto dal Watch nel sistema di logging JSON
+                        // Log each entry to iPhone's logging system
                         for logEntry in watchLogs {
                             let timestamp = Date(timeIntervalSince1970: TimeInterval(logEntry.timestamp) / 1000)
                             let dateFormatter = DateFormatter()
@@ -1374,22 +1464,29 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                             )
                         }
                         
+                        let transferId = userInfo["transferId"] as? String ?? "unknown"
+                        let method = userInfo["method"] as? String ?? "transferUserInfo"
+                        
                         self.logger.info(
                             tag: "WatchLogs",
-                            message: "Received and logged \(watchLogs.count) logs from Watch",
+                            message: "Received and logged \(watchLogs.count) logs from Watch via \(method)",
+                            metadata: ["transferId": transferId, "method": method],
                             source: "iPhoneWatchManager"
                         )
+                        
+                        print("📱 [iPhoneWatchManager] ✅ Processed \(watchLogs.count) logs from Watch (ID: \(transferId))")
                     } catch {
                         self.logger.error(
                             tag: "WatchLogs",
-                            message: "Failed to decode Watch logs: \(error.localizedDescription)",
+                            message: "Failed to decode Watch logs from transferUserInfo: \(error.localizedDescription)",
                             source: "iPhoneWatchManager"
                         )
+                        print("📱 [iPhoneWatchManager] ❌ Failed to decode logs: \(error.localizedDescription)")
                     }
                 } else if let count = userInfo["count"] as? Int {
                     self.logger.info(
                         tag: "WatchLogs",
-                        message: "Received \(count) logs from Watch (background) but logs data missing",
+                        message: "Received \(count) logs from Watch (transferUserInfo) but logs data missing",
                         source: "iPhoneWatchManager"
                     )
                 }

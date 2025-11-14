@@ -141,6 +141,35 @@ class NotificationService: UNNotificationServiceExtension {
         )
       }
       
+      // Check if this is a SILENT notification (deliveryType = SILENT)
+      // SILENT notifications complete ALL processing but don't show banner
+      if let deliveryType = userInfo["deliveryType"] as? String,
+         deliveryType.uppercased() == "SILENT" {
+        
+        print("📱 [NotificationService] 🔕 SILENT notification - all processing done, suppressing banner")
+        
+        // Log silent notification
+        if let notificationId = userInfo["notificationId"] as? String {
+          logToDatabase(
+            level: "info",
+            tag: "Silent",
+            message: "SILENT notification processed (no communication style) - no banner shown",
+            metadata: [
+              "notificationId": notificationId,
+              "deliveryType": deliveryType,
+              "skipSendMessageIntent": true
+            ]
+          )
+        }
+        
+        // Flush logs before returning empty content
+        LoggingSystem.shared.flushLogs()
+        
+        // Return empty content to suppress banner/sound (after all processing is done)
+        contentHandler(UNMutableNotificationContent())
+        return
+      }
+      
       // Deliver notification without communication style
       contentHandler(content)
       
@@ -280,6 +309,34 @@ class NotificationService: UNNotificationServiceExtension {
         print("📱 [NotificationService] ⌚️ Notification ready for delivery to iOS and watchOS")
         print("📱 [NotificationService] ⌚️ Category: \(bestContent.categoryIdentifier)")
         print("📱 [NotificationService] ⌚️ UserInfo keys: \(bestContent.userInfo.keys.map { String(describing: $0) }.joined(separator: ", "))")
+      }
+
+      // Check if this is a SILENT notification (deliveryType = SILENT)
+      // SILENT notifications complete ALL processing but don't show banner
+      if let deliveryType = userInfo["deliveryType"] as? String,
+         deliveryType.uppercased() == "SILENT" {
+        
+        print("📱 [NotificationService] 🔕 SILENT notification - all processing done, suppressing banner")
+        
+        // Log silent notification
+        if let notificationId = userInfo["notificationId"] as? String {
+          logToDatabase(
+            level: "info",
+            tag: "Silent",
+            message: "SILENT notification processed - no banner shown",
+            metadata: [
+              "notificationId": notificationId,
+              "deliveryType": deliveryType
+            ]
+          )
+        }
+        
+        // Flush logs before returning empty content
+        LoggingSystem.shared.flushLogs()
+        
+        // Return empty content to suppress banner/sound (after all processing is done)
+        contentHandler(UNMutableNotificationContent())
+        return
       }
 
       // everything went alright, we are ready to display our notification.

@@ -117,13 +117,22 @@ class WatchConnectivityBridge: RCTEventEmitter {
   func notifyWatchOfUpdate(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     logger.info(
       tag: "ReactNative→Watch",
-      message: "React Native requested Watch reload",
-      metadata: ["action": "reload"],
+      message: "React Native requested Watch full sync",
+      metadata: ["action": "fullSync"],
       source: "WatchBridge"
     )
     
-    iPhoneWatchConnectivityManager.shared.notifyWatchOfUpdate()
-    resolve(["success": true])
+    iPhoneWatchConnectivityManager.shared.sendFullSyncToWatch { success, notificationCount, bucketCount in
+      if success {
+        resolve([
+          "success": true,
+          "notificationCount": notificationCount,
+          "bucketCount": bucketCount
+        ])
+      } else {
+        resolve(["success": false])
+      }
+    }
   }
   
   @objc

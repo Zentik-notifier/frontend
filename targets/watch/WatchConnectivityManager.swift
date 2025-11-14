@@ -24,6 +24,11 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     private var pendingLogTransfers: Set<String> = []
     private let pendingTransfersQueue = DispatchQueue(label: "com.zentik.watch.pendingTransfers")
     
+    // Track failed transfers for retry
+    private var failedTransfers: [(id: String, logs: [LoggingSystem.LogEntry], attemptCount: Int)] = []
+    private let maxRetryAttempts = 3
+    private var retryTimer: Timer?
+    
     private override init() {
         super.init()
         
@@ -38,6 +43,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         
         // Setup automatic log sync
         setupAutomaticLogSync()
+        
+        // Setup retry timer for failed transfers
+        setupRetryTimer()
     }
     
     // MARK: - Automatic Log Sync
@@ -67,6 +75,70 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         
         // print("⌚ [WatchConnectivity] 📊 Auto-sync: Found \(logs.count) logs to send")
         sendLogsToiPhone()
+    }
+    
+    /**
+     * Setup retry timer for failed log transfers
+     */
+    private func setupRetryTimer() {
+        // Retry failed transfers every 30 seconds
+        retryTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+            self?.retryFailedTransfers()
+        }
+    }
+    
+    /**
+     * Retry failed log transfers
+     */
+    private func retryFailedTransfers() {
+        var transfersToRetry: [(id: String, logs: [LoggingSystem.LogEntry], attemptCount: Int)] = []
+        var transfersToDiscard: [String] = []
+        
+        // Read failed transfers in sync block
+        pendingTransfersQueue.sync {
+            guard !self.failedTransfers.isEmpty else { return }
+            
+            print("⌚ [Watch] 🔄 Retrying \(self.failedTransfers.count) failed log transfers...")
+            
+            // Process failed transfers
+            for transfer in self.failedTransfers {
+                if transfer.attemptCount < self.maxRetryAttempts {
+                    transfersToRetry.append(transfer)
+                } else {
+                    transfersToDiscard.append(transfer.id)
+                    print("⌚ [Watch] ⚠️ Discarding transfer \(transfer.id) after \(self.maxRetryAttempts) attempts")
+                }
+            }
+            
+            // Clear discarded transfers
+            self.failedTransfers.removeAll { transfer in
+                transfersToDiscard.contains(transfer.id)
+            }
+        }
+        
+        // Retry remaining transfers (outside sync block to avoid deadlock)
+        for transfer in transfersToRetry {
+            // Remove from failed list
+            pendingTransfersQueue.sync {
+                self.failedTransfers.removeAll { $0.id == transfer.id }
+            }
+            
+            // Retry with incremented attempt count
+            DispatchQueue.main.async {
+                // Re-encode logs to JSON
+                if let jsonData = try? JSONEncoder().encode(transfer.logs),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+                    self.sendLogsViaUserInfo(
+                        logs: transfer.logs,
+                        jsonString: jsonString,
+                        timestamp: timestamp,
+                        transferId: transfer.id,
+                        attemptCount: transfer.attemptCount + 1
+                    )
+                }
+            }
+        }
     }
     
     // MARK: - Load Cached Data
@@ -539,8 +611,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     
     /**
      * Send logs to iPhone for debugging
-     * Uses background transfer to guarantee delivery even if iPhone is not reachable
-     * IMPORTANT: Logs are only cleared after transfer is confirmed via didFinish delegate
+     * Uses transferUserInfo for guaranteed delivery without interfering with ApplicationContext
+     * used by fullSync. Includes retry logic to handle transient network issues.
      */
     public func sendLogsToiPhone() {
         // Get recent logs from LoggingSystem
@@ -551,50 +623,83 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             return
         }
         
+        guard WCSession.default.activationState == .activated else {
+            print("⌚ [Watch] ⚠️ WCSession not activated, cannot send logs")
+            return
+        }
+        
         // Convert to JSON array
         do {
             let jsonData = try JSONEncoder().encode(logs)
-            if let jsonString = String(data: jsonData, encoding: .utf8) {
-                // Generate unique ID for this transfer to track completion
-                let transferId = UUID().uuidString
-                
-                let message: [String: Any] = [
-                    "action": "watchLogs",
-                    "logs": jsonString,
-                    "count": logs.count,
-                    "timestamp": Int64(Date().timeIntervalSince1970 * 1000),
-                    "transferId": transferId  // Track this transfer
-                ]
-                
-                guard WCSession.default.activationState == .activated else {
-                    print("⌚ [Watch] ⚠️ WCSession not activated, cannot send logs")
-                    return
-                }
-                
-                // Track this transfer as pending
-                pendingTransfersQueue.sync {
-                    pendingLogTransfers.insert(transferId)
-                }
-                
-                // Queue transfer - logs will be cleared only when didFinish is called
-                let transfer = WCSession.default.transferUserInfo(message)
-                
-                print("⌚ [Watch] 📤 Queued \(logs.count) logs for transfer (ID: \(transferId))")
-                print("⌚ [Watch] ⏳ Pending transfers: \(pendingLogTransfers.count)")
-                
-                // Safety timeout: if transfer doesn't complete in 60 seconds, clear logs anyway
-                DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in
-                    self?.pendingTransfersQueue.sync {
-                        if self?.pendingLogTransfers.contains(transferId) == true {
-                            print("⌚ [Watch] ⚠️ Transfer timeout - clearing logs anyway (ID: \(transferId))")
-                            self?.pendingLogTransfers.remove(transferId)
-                            LoggingSystem.shared.clearAllLogs()
-                        }
+            guard let jsonString = String(data: jsonData, encoding: .utf8) else {
+                print("⌚ [Watch] ❌ Failed to convert logs to JSON string")
+                return
+            }
+            
+            let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+            let transferId = UUID().uuidString
+            let payloadSize = jsonData.count
+            
+            // Always use transferUserInfo to avoid interfering with ApplicationContext fullSync
+            sendLogsViaUserInfo(logs: logs, jsonString: jsonString, timestamp: timestamp, transferId: transferId)
+            
+            print("⌚ [Watch] 📤 Sending \(logs.count) logs via transferUserInfo (\(payloadSize) bytes, ID: \(transferId))")
+            
+        } catch {
+            print("⌚ [Watch] ❌ Failed to encode logs: \(error.localizedDescription)")
+        }
+    }
+    
+    /**
+     * Send logs via transferUserInfo for guaranteed delivery
+     * Uses retry logic for maximum reliability without interfering with ApplicationContext
+     * 
+     * @param logs - Log entries to send
+     * @param jsonString - Pre-encoded JSON string
+     * @param timestamp - Transfer timestamp
+     * @param transferId - Unique transfer ID
+     * @param attemptCount - Current attempt number (for retry tracking)
+     */
+    private func sendLogsViaUserInfo(logs: [LoggingSystem.LogEntry], jsonString: String, timestamp: Int64, transferId: String, attemptCount: Int = 1) {
+        let message: [String: Any] = [
+            "action": "watchLogs",
+            "logs": jsonString,
+            "count": logs.count,
+            "timestamp": timestamp,
+            "transferId": transferId,
+            "method": "transferUserInfo",
+            "attemptCount": attemptCount
+        ]
+        
+        // Track this transfer as pending
+        pendingTransfersQueue.async(flags: .barrier) {
+            self.pendingLogTransfers.insert(transferId)
+        }
+        
+        // Queue transfer - logs will be cleared only when didFinish is called
+        WCSession.default.transferUserInfo(message)
+        
+        let attemptInfo = attemptCount > 1 ? " (attempt \(attemptCount)/\(maxRetryAttempts))" : ""
+        print("⌚ [Watch] 📤 Queued \(logs.count) logs via transferUserInfo\(attemptInfo) (ID: \(transferId))")
+        print("⌚ [Watch] ⏳ Pending transfers: \(pendingLogTransfers.count)")
+        
+        // Safety timeout: if transfer doesn't complete in 60 seconds, mark as failed for retry
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in
+            self?.pendingTransfersQueue.sync {
+                if self?.pendingLogTransfers.contains(transferId) == true {
+                    print("⌚ [Watch] ⚠️ Transfer timeout (ID: \(transferId))")
+                    self?.pendingLogTransfers.remove(transferId)
+                    
+                    // Add to failed transfers for retry (if not max retries reached)
+                    if attemptCount < (self?.maxRetryAttempts ?? 3) {
+                        self?.failedTransfers.append((id: transferId, logs: logs, attemptCount: attemptCount))
+                        print("⌚ [Watch] 🔄 Added to retry queue (attempt \(attemptCount + 1)/\(self?.maxRetryAttempts ?? 3))")
+                    } else {
+                        print("⌚ [Watch] ❌ Max retries reached - clearing logs anyway")
+                        LoggingSystem.shared.clearAllLogs()
                     }
                 }
             }
-        } catch {
-            print("⌚ [Watch] ❌ Failed to encode logs: \(error.localizedDescription)")
         }
     }
     
@@ -2329,13 +2434,27 @@ extension WatchConnectivityManager: WCSessionDelegate {
             )
             print("⌚ [WatchConnectivity] ❌ UserInfo transfer failed: \(error.localizedDescription)")
             
-            // If watchLogs transfer failed, don't clear logs - they will be retried
+            // If watchLogs transfer failed, add to retry queue
             if action == "watchLogs" {
-                if let transferId = userInfoTransfer.userInfo["transferId"] as? String {
+                if let transferId = userInfoTransfer.userInfo["transferId"] as? String,
+                   let logsJsonString = userInfoTransfer.userInfo["logs"] as? String,
+                   let logsData = logsJsonString.data(using: .utf8),
+                   let logs = try? JSONDecoder().decode([LoggingSystem.LogEntry].self, from: logsData) {
+                    
+                    let attemptCount = userInfoTransfer.userInfo["attemptCount"] as? Int ?? 1
+                    
                     pendingTransfersQueue.sync {
                         pendingLogTransfers.remove(transferId)
+                        
+                        // Add to failed transfers for retry
+                        if attemptCount < maxRetryAttempts {
+                            failedTransfers.append((id: transferId, logs: logs, attemptCount: attemptCount))
+                            print("⌚ [WatchConnectivity] ⚠️ Log transfer failed - added to retry queue (attempt \(attemptCount + 1)/\(maxRetryAttempts), ID: \(transferId))")
+                        } else {
+                            print("⌚ [WatchConnectivity] ❌ Log transfer failed - max retries reached, clearing logs (ID: \(transferId))")
+                            LoggingSystem.shared.clearAllLogs()
+                        }
                     }
-                    print("⌚ [WatchConnectivity] ⚠️ Log transfer failed - logs preserved for retry (ID: \(transferId))")
                 }
             }
         } else {
