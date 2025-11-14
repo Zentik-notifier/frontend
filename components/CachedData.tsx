@@ -1133,27 +1133,27 @@ export default function CachedData() {
       <DetailCollapsibleSection
         title={t("cachedData.notifications")}
         icon="bell"
-        subtitle={`${appState?.stats.totalCount || 0} notifications in cache`}
+        subtitle={`${appState?.stats.totalCount || 0} ${t("cachedData.notificationsInCache")}`}
         expanded={notificationsExpanded}
         onToggleExpanded={() =>
           setNotificationsExpanded(!notificationsExpanded)
         }
         actions={[
           {
-            label: "Delete All",
+            label: t("cachedData.deleteAll"),
             icon: "delete-sweep",
             onPress: handleDeleteAllNotifications,
             disabled: !appState?.notifications.length,
           },
           {
-            label: "Import",
+            label: t("cachedData.import"),
             icon: "upload",
             onPress: handleImportNotifications,
             disabled: isExporting || isImporting,
             loading: isImporting,
           },
           {
-            label: "Export",
+            label: t("cachedData.export"),
             icon: "download",
             onPress: handleExportNotifications,
             disabled:
@@ -1207,7 +1207,7 @@ export default function CachedData() {
               variant="bodyLarge"
               style={{ color: theme.colors.onSurfaceVariant }}
             >
-              No notifications in cache
+              {t("cachedData.noNotifications")}
             </Text>
           </View>
         )}
@@ -1217,18 +1217,18 @@ export default function CachedData() {
       <DetailCollapsibleSection
         title={t("cachedData.buckets")}
         icon="folder"
-        subtitle={`${appState?.buckets.length || 0} buckets in cache`}
+        subtitle={`${appState?.buckets.length || 0} ${t("cachedData.bucketsInCache")}`}
         expanded={bucketsExpanded}
         onToggleExpanded={() => setBucketsExpanded(!bucketsExpanded)}
         actions={[
           {
-            label: "Delete All",
+            label: t("cachedData.deleteAll"),
             icon: "delete-sweep",
             onPress: handleDeleteAllBuckets,
             disabled: !appState?.buckets.length,
           },
           {
-            label: "Import",
+            label: t("cachedData.import"),
             icon: "upload",
             onPress: handleImportBuckets,
           },
@@ -1279,7 +1279,7 @@ export default function CachedData() {
               variant="bodyLarge"
               style={{ color: theme.colors.onSurfaceVariant }}
             >
-              No buckets in cache
+              {t("cachedData.noBuckets")}
             </Text>
           </View>
         )}
@@ -1287,25 +1287,25 @@ export default function CachedData() {
 
       {/* Logs Section */}
       <DetailCollapsibleSection
-        title="Logs"
+        title={t("cachedData.logs")}
         icon="file-document-outline"
         subtitle={
           Platform.OS === "web"
-            ? `${logEntries.length} entries in localStorage`
-            : `${logFiles.length} log files`
+            ? `${logEntries.length} ${t("cachedData.entriesInLocalStorage")}`
+            : `${logFiles.length} ${t("cachedData.logFiles")}`
         }
         expanded={logsExpanded}
         onToggleExpanded={() => setLogsExpanded(!logsExpanded)}
         actions={[
           {
-            label: "Clear All",
+            label: t("cachedData.clearAll"),
             icon: "delete-sweep",
             onPress: handleClearAllLogs,
             disabled:
               Platform.OS === "web" ? !logEntries.length : !logFiles.length,
           },
           {
-            label: "Export",
+            label: t("cachedData.export"),
             icon: "download",
             onPress: handleExportLogs,
             disabled:
@@ -1375,7 +1375,7 @@ export default function CachedData() {
                 variant="bodyLarge"
                 style={{ color: theme.colors.onSurfaceVariant }}
               >
-                No log entries
+                {t("cachedData.noLogEntries")}
               </Text>
             </View>
           )
@@ -1402,7 +1402,7 @@ export default function CachedData() {
                           >
                             {file.size
                               ? `${(file.size / 1024).toFixed(2)} KB`
-                              : "Unknown size"}
+                              : t("cachedData.unknownSize")}
                           </Text>
                         </View>
                         <View style={styles.itemActions}>
@@ -1440,7 +1440,7 @@ export default function CachedData() {
                     variant="bodyLarge"
                     style={{ color: theme.colors.onSurfaceVariant }}
                   >
-                    No log files
+                    {t("cachedData.noLogFiles")}
                   </Text>
                 </View>
               )
@@ -1526,7 +1526,7 @@ export default function CachedData() {
                       variant="bodyLarge"
                       style={{ color: theme.colors.onSurfaceVariant }}
                     >
-                      No entries in this file
+                      {t("cachedData.noEntriesInFile")}
                     </Text>
                   </View>
                 )}
@@ -1538,20 +1538,20 @@ export default function CachedData() {
 
       {/* Settings Section */}
       <DetailCollapsibleSection
-        title="App Settings"
+        title={t("cachedData.appSettings")}
         icon="cog"
-        subtitle={`${settings.size} settings in storage`}
+        subtitle={`${settings.size} ${t("cachedData.settingsInStorage")}`}
         expanded={settingsExpanded}
         onToggleExpanded={() => setSettingsExpanded(!settingsExpanded)}
         actions={[
           {
-            label: "Clear All",
+            label: t("cachedData.clearAll"),
             icon: "delete-sweep",
             onPress: handleClearAllSettings,
             disabled: settings.size === 0,
           },
           {
-            label: "Export",
+            label: t("cachedData.export"),
             icon: "export",
             onPress: handleExportAllSettings,
             disabled: settings.size === 0,
@@ -1564,7 +1564,7 @@ export default function CachedData() {
               variant="bodyLarge"
               style={{ color: theme.colors.onSurfaceVariant }}
             >
-              Loading settings...
+              {t("cachedData.loadingSettings")}
             </Text>
           </View>
         ) : settings.size > 0 ? (
@@ -1621,7 +1621,7 @@ export default function CachedData() {
               variant="bodyLarge"
               style={{ color: theme.colors.onSurfaceVariant }}
             >
-              No settings in storage
+              {t("cachedData.noSettings")}
             </Text>
           </View>
         )}
@@ -1630,14 +1630,14 @@ export default function CachedData() {
       {/* Media Files Section (iOS only) */}
       {Platform.OS !== "web" && (
         <DetailCollapsibleSection
-          title="Media Files"
+          title={t("cachedData.mediaFiles")}
           icon="folder-multiple-image"
-          subtitle={`${mediaFiles.length} files/folders`}
+          subtitle={`${mediaFiles.length} ${t("cachedData.filesFolders")}`}
           expanded={mediaExpanded}
           onToggleExpanded={() => setMediaExpanded(!mediaExpanded)}
           actions={[
             {
-              label: "Clear All",
+              label: t("cachedData.clearAll"),
               icon: "delete-sweep",
               onPress: handleClearAllMedia,
               disabled: !mediaFiles.length,
@@ -1664,10 +1664,10 @@ export default function CachedData() {
                             }}
                           >
                             {file.isDirectory
-                              ? "Folder"
+                              ? t("cachedData.folder")
                               : file.size
                               ? `${(file.size / 1024).toFixed(2)} KB`
-                              : "Unknown"}
+                              : t("cachedData.unknown")}
                           </Text>
                         </View>
                         <View style={styles.itemActions}>
@@ -1707,7 +1707,7 @@ export default function CachedData() {
                     variant="bodyLarge"
                     style={{ color: theme.colors.onSurfaceVariant }}
                   >
-                    No media files
+                    {t("cachedData.noMediaFiles")}
                   </Text>
                 </View>
               )
@@ -1741,10 +1741,10 @@ export default function CachedData() {
                               }}
                             >
                               {file.isDirectory
-                                ? "Folder"
+                                ? t("cachedData.folder")
                                 : file.size
                                 ? `${(file.size / 1024).toFixed(2)} KB`
-                                : "Unknown"}
+                                : t("cachedData.unknown")}
                             </Text>
                           </View>
                           <View style={styles.itemActions}>
@@ -1786,7 +1786,7 @@ export default function CachedData() {
                       variant="bodyLarge"
                       style={{ color: theme.colors.onSurfaceVariant }}
                     >
-                      No files in this folder
+                      {t("cachedData.noFilesInFolder")}
                     </Text>
                   </View>
                 )}
@@ -1798,20 +1798,20 @@ export default function CachedData() {
 
       {/* Media Metadata Section */}
       <DetailCollapsibleSection
-        title="Media Metadata"
+        title={t("cachedData.mediaMetadata")}
         icon="image-multiple-outline"
-        subtitle={`${mediaItems.length} cached items`}
+        subtitle={`${mediaItems.length} ${t("cachedData.cachedItems")}`}
         expanded={metadataExpanded}
         onToggleExpanded={() => setMetadataExpanded(!metadataExpanded)}
         actions={[
           {
-            label: "Clear All",
+            label: t("cachedData.clearAll"),
             icon: "delete-sweep",
             onPress: handleClearAllMetadata,
             disabled: !mediaItems.length,
           },
           {
-            label: "Export",
+            label: t("cachedData.export"),
             icon: "download",
             onPress: handleExportMetadata,
             disabled: !mediaItems.length,
@@ -1843,7 +1843,7 @@ export default function CachedData() {
                     >
                       {media.downloadedAt
                         ? new Date(media.downloadedAt).toLocaleString()
-                        : "Not downloaded"}
+                        : t("cachedData.notDownloaded")}
                     </Text>
                   </View>
                   <View style={styles.itemActions}>
@@ -1874,7 +1874,7 @@ export default function CachedData() {
               variant="bodyLarge"
               style={{ color: theme.colors.onSurfaceVariant }}
             >
-              No media metadata
+              {t("cachedData.noMediaMetadata")}
             </Text>
           </View>
         )}
@@ -1886,14 +1886,14 @@ export default function CachedData() {
         onDismiss={() => setShowDetailModal(false)}
         title={
           selectedRecord?.type === "bucket"
-            ? "Bucket Details"
+            ? t("cachedData.bucketDetails")
             : selectedRecord?.type === "log"
-            ? "Log Entry Details"
+            ? t("cachedData.logEntryDetails")
             : selectedRecord?.type === "setting"
-            ? "Setting Details"
+            ? t("cachedData.settingDetails")
             : selectedRecord?.type === "media"
-            ? "Media Details"
-            : "Notification Details"
+            ? t("cachedData.mediaDetails")
+            : t("cachedData.notificationDetails")
         }
         icon={
           selectedRecord?.type === "bucket"
@@ -1924,17 +1924,17 @@ export default function CachedData() {
                   buttons={[
                     {
                       value: "thumbnail",
-                      label: "Thumbnail",
+                      label: t("cachedData.thumbnail"),
                       icon: "image-outline",
                     },
                     {
                       value: "media",
-                      label: "Full",
+                      label: t("cachedData.full"),
                       icon: "image",
                     },
                     {
                       value: "json",
-                      label: "JSON",
+                      label: t("cachedData.json"),
                       icon: "code-json",
                     },
                   ]}
@@ -1986,7 +1986,7 @@ export default function CachedData() {
                           variant="bodyMedium"
                           style={{ color: theme.colors.onSurfaceVariant }}
                         >
-                          Media not cached locally
+                          {t("cachedData.mediaNotCached")}
                         </Text>
                       </View>
                     )}
@@ -1997,7 +1997,7 @@ export default function CachedData() {
                         color: theme.colors.onSurfaceVariant,
                       }}
                     >
-                      {(selectedRecord.data as CacheItem).originalFileName || "No filename"}
+                      {(selectedRecord.data as CacheItem).originalFileName || t("cachedData.noFilename")}
                     </Text>
                     <Text
                       variant="bodySmall"
