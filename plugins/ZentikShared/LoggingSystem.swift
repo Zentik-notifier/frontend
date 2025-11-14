@@ -131,6 +131,12 @@ public class LoggingSystem {
             source: source
         )
         
+        // Print to console (same as log method)
+        if let jsonData = try? JSONEncoder().encode(entry),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            print("[\(source)] \(jsonString)")
+        }
+        
         // Add to source-specific buffer (thread-safe)
         queue.async(flags: .barrier) {
             if self.logBuffers[source] == nil {

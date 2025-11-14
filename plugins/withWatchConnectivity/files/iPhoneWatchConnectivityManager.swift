@@ -128,6 +128,40 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
             "fragment": fragment
         ]
         
+        // Log the complete notification being sent to Watch
+        var metadata: [String: String] = [
+            "notificationId": notificationId,
+            "action": "notificationAdded"
+        ]
+        
+        // Add fragment details
+        if let title = fragment["title"] as? String {
+            metadata["title"] = title
+        }
+        if let body = fragment["body"] as? String {
+            metadata["body"] = body
+        }
+        if let bucketId = fragment["bucketId"] as? String {
+            metadata["bucketId"] = bucketId
+        }
+        if let bucketName = fragment["bucketName"] as? String {
+            metadata["bucketName"] = bucketName
+        }
+        
+        // Convert full fragment to JSON string for logging
+        if let fragmentData = try? JSONSerialization.data(withJSONObject: fragment, options: .prettyPrinted),
+           let fragmentString = String(data: fragmentData, encoding: .utf8) {
+            metadata["fragmentData"] = fragmentString
+        }
+        
+        logger.log(
+            level: "INFO",
+            tag: "WatchNotification",
+            message: "Sending notification to Watch via Darwin->WatchConnectivity",
+            metadata: metadata,
+            source: "iPhoneWatchManager"
+        )
+        
         sendMessageToWatch(message, description: "notification \(notificationId) added with fragment")
     }
     

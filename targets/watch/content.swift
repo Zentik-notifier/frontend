@@ -94,13 +94,12 @@ struct ContentView: View {
         .onChange(of: scenePhase) { oldPhase, newPhase in
             // Detect when app transitions from background to active (foreground)
             if oldPhase == .background && newPhase == .active {
-                print("⌚ [ContentView] 📱→⌚ App returned to foreground from background - using cached data")
-                // Don't auto-refresh - let user tap refresh button if needed
-                // Data is already updated via background WatchConnectivity messages
+                print("⌚ [ContentView] 📱→⌚ App returned to foreground from background")
+                checkAndRefreshIfNeeded()
             } else if newPhase == .active && oldPhase != .background {
                 // App opened for the first time or from inactive state
-                print("⌚ [ContentView] 📱→⌚ App became active - using cached data")
-                // Don't auto-refresh - let user tap refresh button if needed
+                print("⌚ [ContentView] 📱→⌚ App became active")
+                checkAndRefreshIfNeeded()
             }
         }
     }
@@ -113,6 +112,50 @@ struct ContentView: View {
         lastFetchTime = Date()
         connectivityManager.requestFullRefresh()
         isInitialLoad = false
+    }
+    
+    /**
+     * Check if last refresh was more than 30 minutes ago and auto-refresh if needed
+     */
+    private func checkAndRefreshIfNeeded() {
+        guard let lastUpdate = connectivityManager.lastUpdate else {
+            // No previous update - refresh immediately
+            print("⌚ [ContentView] 🔄 No previous update found - requesting full refresh")
+            
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "autoRefresh",
+                message: "Auto-refresh triggered: No previous update found",
+                metadata: [:],
+                source: "Watch"
+            )
+            
+            requestFullRefresh()
+            return
+        }
+        
+        let thirtyMinutesAgo = Date().addingTimeInterval(-30 * 60)
+        
+        if lastUpdate < thirtyMinutesAgo {
+            let minutesAgo = Int(-lastUpdate.timeIntervalSinceNow / 60)
+            print("⌚ [ContentView] 🔄 Last update was \(minutesAgo) minutes ago - requesting full refresh")
+            
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "autoRefresh",
+                message: "Auto-refresh triggered: Last update exceeded 30 minutes threshold",
+                metadata: [
+                    "minutesAgo": "\(minutesAgo)",
+                    "lastUpdate": ISO8601DateFormatter().string(from: lastUpdate)
+                ],
+                source: "Watch"
+            )
+            
+            requestFullRefresh()
+        } else {
+            let minutesAgo = Int(-lastUpdate.timeIntervalSinceNow / 60)
+            print("⌚ [ContentView] ✅ Last update was \(minutesAgo) minutes ago - using cached data")
+        }
     }
 }
 

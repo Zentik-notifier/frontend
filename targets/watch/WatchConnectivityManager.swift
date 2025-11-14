@@ -1112,11 +1112,37 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 if let notificationId = userInfo["notificationId"] as? String,
                    let fragment = userInfo["fragment"] as? [String: Any] {
                     print("⌚ [WatchConnectivity] ➕ New notification \(notificationId) with compact data - saving to local JSON (background)")
+                    
+                    // Prepare metadata with notification details
+                    var metadata: [String: String] = [
+                        "notificationId": notificationId
+                    ]
+                    
+                    // Add fragment details
+                    if let title = fragment["title"] as? String {
+                        metadata["title"] = title
+                    }
+                    if let body = fragment["body"] as? String {
+                        metadata["body"] = body
+                    }
+                    if let bucketId = fragment["bucketId"] as? String {
+                        metadata["bucketId"] = bucketId
+                    }
+                    if let bucketName = fragment["bucketName"] as? String {
+                        metadata["bucketName"] = bucketName
+                    }
+                    
+                    // Convert full fragment to JSON string for logging
+                    if let fragmentData = try? JSONSerialization.data(withJSONObject: fragment, options: .prettyPrinted),
+                       let fragmentString = String(data: fragmentData, encoding: .utf8) {
+                        metadata["fragmentData"] = fragmentString
+                    }
+                    
                     LoggingSystem.shared.log(
                         level: "INFO",
                         tag: "WatchConnectivity",
                         message: "➕ Buffered: New notification with compact data",
-                        metadata: ["notificationId": notificationId],
+                        metadata: metadata,
                         source: "Watch"
                     )
                     
