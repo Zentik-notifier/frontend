@@ -100,6 +100,10 @@ struct ContentView: View {
                 // App opened for the first time or from inactive state
                 print("⌚ [ContentView] 📱→⌚ App became active")
                 checkAndRefreshIfNeeded()
+            } else if newPhase == .background {
+                // App going to background - send logs to iPhone
+                print("⌚ [ContentView] 📴 App going to background - sending logs to iPhone")
+                connectivityManager.sendLogsToiPhone()
             }
         }
     }

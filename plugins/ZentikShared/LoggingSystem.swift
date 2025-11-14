@@ -48,7 +48,12 @@ public class LoggingSystem {
     // Separate buffer per source to enable parallel logging without conflicts
     private var logBuffers: [String: [LogEntry]] = [:]
     private let bufferLimit = 20
-    private let maxLogsPerFile = 2000 // Auto-cleanup threshold
+    private let maxLogsPerFile = 10000 // Auto-cleanup threshold
+    
+    // Notification for when logs should be synced to iPhone (Watch only)
+    public static let shouldSyncLogsNotification = Notification.Name("LoggingSystemShouldSyncLogs")
+    private let syncThreshold = 10 // Send to iPhone when buffer reaches this size
+    
     private var flushTimers: [String: Timer] = [:]
     private let flushInterval: TimeInterval = 5.0
     private let queue = DispatchQueue(label: "com.zentik.loggingsystem", attributes: .concurrent)
@@ -101,6 +106,14 @@ public class LoggingSystem {
                 self.logBuffers[source] = []
             }
             self.logBuffers[source]?.append(entry)
+            
+            // Check if total buffer count reaches sync threshold (for Watch -> iPhone sync)
+            let totalLogCount = self.logBuffers.values.reduce(0) { $0 + $1.count }
+            if totalLogCount >= self.syncThreshold {
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: LoggingSystem.shouldSyncLogsNotification, object: nil)
+                }
+            }
             
             // Flush if buffer is full for this source
             if let count = self.logBuffers[source]?.count, count >= self.bufferLimit {

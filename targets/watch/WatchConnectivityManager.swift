@@ -34,6 +34,18 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         
         // Setup automatic log sync
         setupAutomaticLogSync()
+        
+        // Listen for log sync notifications from LoggingSystem
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleLogSyncNotification),
+            name: LoggingSystem.shouldSyncLogsNotification,
+            object: nil
+        )
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     // MARK: - Automatic Log Sync
@@ -62,6 +74,14 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
         
         // print("⌚ [WatchConnectivity] 📊 Auto-sync: Found \(logs.count) logs to send")
+        sendLogsToiPhone()
+    }
+    
+    /**
+     * Handle notification from LoggingSystem when buffer threshold is reached
+     */
+    @objc private func handleLogSyncNotification() {
+        print("⌚ [WatchConnectivity] 📨 Received log sync notification - sending logs to iPhone")
         sendLogsToiPhone()
     }
     
@@ -1146,20 +1166,26 @@ extension WatchConnectivityManager: WCSessionDelegate {
                         source: "Watch"
                     )
                     
+                    // Parse attachments from fragment
+                    let attachments = NotificationParser.parseAttachments(from: fragment["attachments"] as? [[String: Any]])
+                    
+                    // Parse actions from fragment
+                    let actions = NotificationParser.parseActions(from: fragment["actions"] as? [[String: Any]])
+                    
                     // Create WidgetNotification from compact fragment
                     let notification = WidgetNotification(
                         id: fragment["id"] as? String ?? notificationId,
                         title: fragment["title"] as? String ?? "",
                         body: fragment["body"] as? String ?? "",
-                        subtitle: nil,
+                        subtitle: fragment["subtitle"] as? String,
                         createdAt: fragment["createdAt"] as? String ?? "",
                         isRead: fragment["isRead"] as? Bool ?? false,
                         bucketId: fragment["bucketId"] as? String ?? "",
                         bucketName: fragment["bucketName"] as? String,
                         bucketColor: fragment["bucketColor"] as? String,
                         bucketIconUrl: nil,
-                        attachments: [],
-                        actions: []
+                        attachments: attachments,
+                        actions: actions
                     )
                     
                     // Wrap in NotificationData
@@ -2310,15 +2336,19 @@ extension WatchConnectivityManager: WCSessionDelegate {
             print("⌚ [WatchConnectivity] ❌ UserInfo transfer failed: \(error.localizedDescription)")
         } else {
             let action = userInfoTransfer.userInfo["action"] as? String ?? "unknown"
-            LoggingSystem.shared.log(
-                level: "INFO",
-                tag: "WatchConnectivity",
-                message: "✅ UserInfo transfer completed",
-                metadata: [
-                    "action": action
-                ],
-                source: "Watch"
-            )
+            
+            // Skip logging for watchLogs action to prevent infinite loop
+            if action != "watchLogs" {
+                LoggingSystem.shared.log(
+                    level: "INFO",
+                    tag: "WatchConnectivity",
+                    message: "✅ UserInfo transfer completed",
+                    metadata: [
+                        "action": action
+                    ],
+                    source: "Watch"
+                )
+            }
             print("⌚ [WatchConnectivity] ✅ UserInfo transfer completed for action: \(action)")
         }
     }

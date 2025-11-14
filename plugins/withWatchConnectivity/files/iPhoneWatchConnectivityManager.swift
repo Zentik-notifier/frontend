@@ -292,17 +292,61 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
             return
         }
         
+        // Extract message and bucket objects from fragment
+        let message = fragment["message"] as? [String: Any] ?? [:]
+        let bucket = message["bucket"] as? [String: Any] ?? [:]
+        
+        // Extract attachments array
+        let attachmentsData = message["attachments"] as? [[String: Any]] ?? []
+        let attachments: [[String: Any]] = attachmentsData.map { attachment in
+            return [
+                "mediaType": attachment["mediaType"] as? String ?? "IMAGE",
+                "url": attachment["url"] as? String ?? "",
+                "name": attachment["name"] as? String ?? ""
+            ]
+        }
+        
+        // Extract actions array
+        let actionsData = message["actions"] as? [[String: Any]] ?? []
+        let actions: [[String: Any]] = actionsData.map { action in
+            var actionDict: [String: Any] = [
+                "type": action["type"] as? String ?? "CUSTOM",
+                "label": action["title"] as? String ?? ""
+            ]
+            if let value = action["value"] as? String {
+                actionDict["value"] = value
+            }
+            if let id = action["id"] as? String {
+                actionDict["id"] = id
+            }
+            if let url = action["url"] as? String {
+                actionDict["url"] = url
+            }
+            if let bucketId = action["bucketId"] as? String {
+                actionDict["bucketId"] = bucketId
+            }
+            if let minutes = action["minutes"] as? Int {
+                actionDict["minutes"] = minutes
+            }
+            return actionDict
+        }
+        
         // Extract only essential fields for Watch JSON (lightweight payload)
         let compactNotification: [String: Any] = [
-            "id": notificationId,
-            "title": fragment["title"] as? String ?? "",
-            "body": fragment["body"] as? String ?? "",
-            "bucketId": fragment["bucketId"] as? String ?? "",
-            "bucketName": fragment["bucketName"] as? String ?? "",
-            "bucketColor": fragment["bucketColor"] as? String ?? "",
+            "id": fragment["id"] as? String ?? notificationId,
+            "title": message["title"] as? String ?? "",
+            "body": message["body"] as? String ?? "",
+            "subtitle": message["subtitle"] as? String ?? "",
+            "bucketId": bucket["id"] as? String ?? "",
+            "bucketName": bucket["name"] as? String ?? "",
+            "bucketColor": bucket["color"] as? String ?? "",
             "createdAt": fragment["createdAt"] as? String ?? "",
-            "isRead": fragment["isRead"] as? Bool ?? false,
-            "readAt": fragment["readAt"] as? String ?? ""
+            "receivedAt": fragment["receivedAt"] as? String ?? "",
+            "sentAt": fragment["sentAt"] as? String ?? "",
+            "isRead": (fragment["readAt"] as? String) == nil ? false : true,
+            "readAt": fragment["readAt"] as? String ?? "",
+            "attachments": attachments,
+            "actions": actions
         ]
         
         logger.info(
