@@ -127,19 +127,6 @@ class WatchConnectivityBridge: RCTEventEmitter {
   }
   
   @objc
-  func notifyWatchToSyncIncremental(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    logger.info(
-      tag: "ReactNative→Watch",
-      message: "React Native requested Watch incremental sync",
-      metadata: ["action": "syncIncremental"],
-      source: "WatchBridge"
-    )
-    
-    iPhoneWatchConnectivityManager.shared.notifyWatchToSyncIncremental()
-    resolve(["success": true])
-  }
-  
-  @objc
   func notifyWatchNotificationRead(_ notificationId: String, readAt: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     logger.info(
       tag: "ReactNative→Watch",

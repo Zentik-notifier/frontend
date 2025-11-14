@@ -107,7 +107,7 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
     
     /**
      * Notify Watch that a new notification was added (without fragment)
-     * Watch will need to fetch the full data via sync
+     * Watch will need to fetch the full data via reply message
      */
     func notifyWatchNotificationAdded(notificationId: String) {
         let message: [String: Any] = [
@@ -115,11 +115,19 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
             "notificationId": notificationId
         ]
         
-        sendMessageToWatch(message, description: "notification \(notificationId) added (trigger sync)")
+        sendMessageToWatch(message, description: "notification \(notificationId) added (Watch will fetch)")
+    }
+    
+    /**
+     * Alias for notifyWatchNotificationAdded - clearer name for AppDelegate usage
+     */
+    func sendNewNotificationToWatch(notificationId: String) {
+        notifyWatchNotificationAdded(notificationId: notificationId)
     }
     
     /**
      * Notify Watch that a new notification was added with complete fragment
+     * DEPRECATED: Use notifyWatchNotificationAdded(notificationId:) instead
      */
     func notifyWatchNotificationAdded(notificationId: String, fragment: [String: Any]) {
         let message: [String: Any] = [
@@ -163,22 +171,6 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
         )
         
         sendMessageToWatch(message, description: "notification \(notificationId) added with fragment")
-    }
-    
-    /**
-     * DEPRECATED: Generic reload trigger (not used anymore)
-     */
-    func notifyWatchOfUpdate() {
-        let message: [String: Any] = ["action": "reload"]
-        sendMessageToWatch(message, description: "reload trigger (deprecated)")
-    }
-    
-    /**
-     * DEPRECATED: Incremental sync trigger (not used anymore)
-     */
-    func notifyWatchToSyncIncremental() {
-        let message: [String: Any] = ["action": "syncIncremental"]
-        sendMessageToWatch(message, description: "incremental sync trigger (deprecated)")
     }
     
     /**
@@ -835,6 +827,38 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                 // NOTE: DO NOT emit event to React Native - this would cause concurrent DB access
                 // The native sync is complete and React Query will refresh when user opens the app
                 
+            case "fetchNotification":
+                // Watch requested a specific notification's full data
+                if let notificationId = message["notificationId"] as? String {
+                    self.logger.info(
+                        tag: "Watch→iPhone",
+                        message: "Watch requested notification fetch",
+                        metadata: ["id": notificationId],
+                        source: "iPhoneWatchManager"
+                    )
+                    
+                    // Fetch notification from SQLite
+                    if let notificationData = DatabaseAccess.fetchNotification(byId: notificationId) {
+                        self.logger.info(
+                            tag: "Watch→iPhone",
+                            message: "Fetched notification from DB, sending to Watch",
+                            metadata: ["id": notificationId, "title": notificationData["title"] as? String ?? ""],
+                            source: "iPhoneWatchManager"
+                        )
+                        replyHandler(["success": true, "notification": notificationData])
+                    } else {
+                        self.logger.warn(
+                            tag: "Watch→iPhone",
+                            message: "Notification not found in DB",
+                            metadata: ["id": notificationId],
+                            source: "iPhoneWatchManager"
+                        )
+                        replyHandler(["success": false, "error": "Notification not found"])
+                    }
+                } else {
+                    replyHandler(["error": "Missing notificationId"])
+                }
+                
             case "notificationRead":
                 // Watch marked notification as read - update SQLite directly
                 if let notificationId = message["notificationId"] as? String,
@@ -1274,6 +1298,47 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                     }
                 } else {
                     print("📱 [iPhoneWatchManager] ⚠️ Missing notificationId in notificationDeleted")
+                }
+                
+            case "fetchNotification":
+                // Watch requested a specific notification's full data (background)
+                print("📱 [iPhoneWatchManager] 🔍 Processing: fetchNotification (background)")
+                if let notificationId = userInfo["notificationId"] as? String {
+                    self.logger.info(
+                        tag: "Watch→iPhone",
+                        message: "Watch requested notification fetch (background)",
+                        metadata: ["id": notificationId],
+                        source: "iPhoneWatchManager"
+                    )
+                    
+                    // Fetch notification from SQLite
+                    if let notificationData = DatabaseAccess.fetchNotification(byId: notificationId) {
+                        self.logger.info(
+                            tag: "Watch→iPhone",
+                            message: "Fetched notification from DB, sending to Watch (background)",
+                            metadata: ["id": notificationId, "title": notificationData["title"] as? String ?? ""],
+                            source: "iPhoneWatchManager"
+                        )
+                        
+                        // Send notification data back via transferUserInfo
+                        let response: [String: Any] = [
+                            "action": "fetchNotification",
+                            "notificationId": notificationId,
+                            "notification": notificationData
+                        ]
+                        WCSession.default.transferUserInfo(response)
+                        
+                        print("📱 [iPhoneWatchManager] ✅ Queued notification data for Watch (background)")
+                    } else {
+                        self.logger.warn(
+                            tag: "Watch→iPhone",
+                            message: "Notification not found in DB (background)",
+                            metadata: ["id": notificationId],
+                            source: "iPhoneWatchManager"
+                        )
+                    }
+                } else {
+                    print("📱 [iPhoneWatchManager] ⚠️ Missing notificationId in fetchNotification")
                 }
                 
             case "watchLogs":

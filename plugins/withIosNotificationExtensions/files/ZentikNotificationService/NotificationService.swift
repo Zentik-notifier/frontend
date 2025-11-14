@@ -1736,8 +1736,8 @@ class NotificationService: UNNotificationServiceExtension {
       print("📱 [NotificationService] ✅ Notification saved to database: \(notificationId)")
       
       // Notify main app via Darwin notification (works across processes)
-      // Main app will then notify Watch via WatchConnectivity
-      self.notifyMainAppOfNewNotification(notificationId: notificationId, notificationData: notificationFragment)
+      // Main app will forward notification ID to Watch, which will fetch full data
+      self.notifyMainAppOfNewNotification(notificationId: notificationId)
     } else {
       print("📱 [NotificationService] ❌ Failed to save notification to database")
     }
@@ -1761,10 +1761,11 @@ class NotificationService: UNNotificationServiceExtension {
   
   /**
    * Notify main app that a new notification was saved
-   * Main app will then notify Watch via WatchConnectivity
+   * Sends only the notification ID - main app will forward to Watch
+   * Watch will then fetch full data from iPhone when needed
    * Uses Darwin notifications which work across processes (NSE -> Main App)
    */
-  private func notifyMainAppOfNewNotification(notificationId: String, notificationData: [String: Any]) {
+  private func notifyMainAppOfNewNotification(notificationId: String) {
     // Store notification ID in UserDefaults App Group for AppDelegate to read
     let mainBundleId = KeychainAccess.getMainBundleIdentifier()
     let suiteName = "group.\(mainBundleId)"
@@ -1777,7 +1778,7 @@ class NotificationService: UNNotificationServiceExtension {
       print("📱 [NotificationService] ⚠️ Failed to access UserDefaults with suite: \(suiteName)")
     }
     
-    let notificationName = "com.zentik.notification.new" as CFString
+    let notificationName = KeychainAccess.getDarwinNotificationName() as CFString
     
     // Post Darwin notification (works across processes)
     CFNotificationCenterPostNotification(
@@ -1790,36 +1791,15 @@ class NotificationService: UNNotificationServiceExtension {
     
     print("📱 [NotificationService] 📬 Posted Darwin notification to main app for: \(notificationId)")
     
-    // Extract notification details for logging
-    var metadata: [String: String] = [
-      "notificationId": notificationId,
-      "suiteName": suiteName
-    ]
-    
-    // Add title and body from message
-    if let message = notificationData["message"] as? [String: Any] {
-      if let title = message["title"] as? String {
-        metadata["title"] = title
-      }
-      if let body = message["body"] as? String {
-        metadata["body"] = body
-      }
-      if let subtitle = message["subtitle"] as? String, !subtitle.isEmpty {
-        metadata["subtitle"] = subtitle
-      }
-    }
-    
-    // Convert full notification data to JSON string for logging
-    if let jsonData = try? JSONSerialization.data(withJSONObject: notificationData, options: .prettyPrinted),
-       let jsonString = String(data: jsonData, encoding: .utf8) {
-      metadata["notificationData"] = jsonString
-    }
-    
     LoggingSystem.shared.log(
       level: "INFO",
       tag: "Darwin",
-      message: "Posted Darwin notification to main app",
-      metadata: metadata,
+      message: "Posted Darwin notification with ID only",
+      metadata: [
+        "notificationId": notificationId,
+        "suiteName": suiteName,
+        "darwinName": notificationName as String
+      ],
       source: "NSE"
     )
   }

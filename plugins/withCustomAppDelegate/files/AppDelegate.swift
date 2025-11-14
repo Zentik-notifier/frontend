@@ -58,12 +58,10 @@ FirebaseApp.configure()
     expoNotificationDelegate = UNUserNotificationCenter.current().delegate
     
     UNUserNotificationCenter.current().delegate = self
-    print("📱 [AppDelegate] Notification delegate set (with Expo delegate saved)")
     
     // Initialize WatchConnectivity early to handle background transfers from Watch
     // This ensures WCSession is activated even if React Native hasn't started yet
     _ = iPhoneWatchConnectivityManager.shared
-    print("📱 [AppDelegate] WatchConnectivity initialized early")
     
     // Listen for Darwin notifications from NSE about new notifications
     setupDarwinNotificationListener()
@@ -87,17 +85,12 @@ FirebaseApp.configure()
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
-    print("📱 [AppDelegate] ========== ACTION RESPONSE RECEIVED ==========")
-    print("📱 [AppDelegate] Action identifier: \(response.actionIdentifier)")
-    print("📱 [AppDelegate] Notification ID: \(response.notification.request.identifier)")
-    
     let userInfo = response.notification.request.content.userInfo
-    print("📱 [AppDelegate] UserInfo: \(userInfo)")
     
-    // Log action to database
+    // Single consolidated log for action received
     LoggingSystem.shared.info(
-      tag: "AppDelegate",
-      message: "[UserAction] Notification action triggered",
+      tag: "Action",
+      message: "User action triggered",
       metadata: [
         "actionIdentifier": response.actionIdentifier,
         "notificationId": response.notification.request.identifier,
@@ -127,18 +120,19 @@ FirebaseApp.configure()
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-    print("📱 [AppDelegate] Notification will present in foreground")
-    
     let userInfo = notification.request.content.userInfo
-    print("📱 [AppDelegate] UserInfo: \(userInfo)")
+    let notificationId = userInfo["notificationId"] as? String ?? notification.request.identifier
     
-    // Log to database
+    // Single log for foreground notification
     LoggingSystem.shared.info(
       tag: "AppDelegate",
       message: "Notification received in foreground",
-      metadata: ["notificationId": notification.request.identifier],
+      metadata: ["notificationId": notificationId],
       source: "AppDelegate"
     )
+    
+    // NOTE: No need to notify Watch here - NSE already sent Darwin notification
+    // Darwin system handles all cases: foreground, background, app closed
     
     // CRITICAL: Propagate event to Expo delegate for React Native listeners
     if let expoDelegate = expoNotificationDelegate {
@@ -164,43 +158,24 @@ FirebaseApp.configure()
     let userInfo = response.notification.request.content.userInfo
     let notificationId = userInfo["notificationId"] as? String ?? ""
     
-    print("📱 [AppDelegate] 🎯 Processing action: \(actionIdentifier)")
-    
-    LoggingSystem.shared.info(
-      tag: "AppDelegate",
-      message: "[Action] Notification action received",
-      metadata: [
-        "actionIdentifier": actionIdentifier,
-        "notificationId": notificationId
-      ],
-      source: "AppDelegate"
-    )
-    
-    // Log keychain data availability
-    if let endpoint = KeychainAccess.getApiEndpoint() {
-      print("📱 [AppDelegate] 🔑 API Endpoint from keychain: \(endpoint)")
-    } else {
-      print("📱 [AppDelegate] ⚠️ API Endpoint NOT found in keychain")
-    }
-    
-    if let token = KeychainAccess.getStoredAuthToken() {
-      print("📱 [AppDelegate] 🔑 Auth Token from keychain: \(String(token.prefix(10)))...")
-    } else {
-      print("📱 [AppDelegate] ⚠️ Auth Token NOT found in keychain")
-    }
-    
     // Parse action using shared handler
     guard let action = NotificationActionHandler.parseActionIdentifier(actionIdentifier, from: userInfo) else {
-      print("📱 [AppDelegate] ⚠️ Could not parse action identifier")
+      LoggingSystem.shared.warn(
+        tag: "Action",
+        message: "Could not parse action identifier",
+        metadata: ["actionIdentifier": actionIdentifier],
+        source: "AppDelegate"
+      )
       return
     }
     
-    print("📱 [AppDelegate] 📋 Action type: \(action["type"] ?? "unknown")")
-    print("📱 [AppDelegate] 📋 Action value: \(action["value"] ?? "unknown")")
-    
-    // Execute action using shared handler
     guard let type = action["type"], let value = action["value"] else {
-      print("📱 [AppDelegate] ❌ Invalid action format")
+      LoggingSystem.shared.error(
+        tag: "Action",
+        message: "Invalid action format",
+        metadata: ["action": action],
+        source: "AppDelegate"
+      )
       return
     }
     
@@ -213,8 +188,6 @@ FirebaseApp.configure()
     ) { result in
       switch result {
       case .success:
-        print("📱 [AppDelegate] ✅ Action completed successfully")
-        
         // Notify Watch via WatchConnectivity after successful action
         if type.uppercased() == "MARK_AS_READ" {
           let readAt = ISO8601DateFormatter().string(from: Date())
@@ -229,7 +202,17 @@ FirebaseApp.configure()
         }
         
       case .failure(let error):
-        print("📱 [AppDelegate] ❌ Action failed: \(error.localizedDescription)")
+        LoggingSystem.shared.error(
+          tag: "Action",
+          message: "Action failed",
+          metadata: [
+            "type": type,
+            "value": value,
+            "notificationId": notificationId,
+            "error": error.localizedDescription
+          ],
+          source: "AppDelegate"
+        )
       }
     }
   }
@@ -257,7 +240,7 @@ FirebaseApp.configure()
   
   /// Setup listener for Darwin notifications from NSE
   private func setupDarwinNotificationListener() {
-    let notificationName = "com.zentik.notification.new" as CFString
+    let notificationName = KeychainAccess.getDarwinNotificationName() as CFString
     
     // Use Darwin notification center (works across processes)
     let observer = Unmanaged.passUnretained(self).toOpaque()
@@ -275,26 +258,44 @@ FirebaseApp.configure()
       .deliverImmediately
     )
     
-    print("📱 [AppDelegate] ✅ Listening for Darwin notifications from NSE")
     LoggingSystem.shared.info(
-      tag: "AppDelegate",
-      message: "Darwin notification listener setup complete",
+      tag: "Darwin",
+      message: "Listener setup complete",
+      metadata: ["darwinName": notificationName as String],
       source: "AppDelegate"
     )
   }
   
   /// Handle notification from NSE via Darwin notification
+  /// Reads notification ID from UserDefaults and forwards it to Watch
   private func handleNewNotificationFromNSE() {
-    print("📱 [AppDelegate] 📬 Received Darwin notification from NSE - new notification available")
+    // Read notification ID from UserDefaults
+    let mainBundleId = KeychainAccess.getMainBundleIdentifier()
+    let suiteName = "group.\(mainBundleId)"
     
-    LoggingSystem.shared.info(
-      tag: "AppDelegate",
-      message: "Received Darwin notification from NSE",
-      source: "AppDelegate"
-    )
-    
-    // Read latest notification from SQLite and notify Watch
-    // This runs in the main app process which has WatchConnectivity access
-    iPhoneWatchConnectivityManager.shared.syncLatestNotificationToWatch()
+    if let sharedDefaults = UserDefaults(suiteName: suiteName),
+       let notificationId = sharedDefaults.string(forKey: "pending_watch_notification_id") {
+      
+      LoggingSystem.shared.info(
+        tag: "Darwin",
+        message: "Forwarding notification ID to Watch",
+        metadata: ["notificationId": notificationId],
+        source: "AppDelegate"
+      )
+      
+      // Send only notification ID to Watch - Watch will fetch full data when needed
+      iPhoneWatchConnectivityManager.shared.sendNewNotificationToWatch(notificationId: notificationId)
+      
+      // Clear the pending ID
+      sharedDefaults.removeObject(forKey: "pending_watch_notification_id")
+      sharedDefaults.synchronize()
+    } else {
+      LoggingSystem.shared.warn(
+        tag: "Darwin",
+        message: "No notification ID found in UserDefaults",
+        metadata: ["suiteName": suiteName],
+        source: "AppDelegate"
+      )
+    }
   }
 }

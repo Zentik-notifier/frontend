@@ -168,6 +168,9 @@ public struct AppConfig {
     
     /// NCE bundle identifier
     public static let nceBundle = "\(mainBundleId).NotificationContentExtension"
+    
+    /// Darwin notification name for new notifications (NSE -> Main App)
+    public static let darwinNotificationName = KeychainAccess.getDarwinNotificationName()
 }
 
 // MARK: - Constants

@@ -274,6 +274,61 @@ public class DatabaseAccess {
         }
     }
     
+    /// Fetch a single notification by ID from database
+    /// Returns notification data as dictionary with all fields parsed
+    /// - Parameters:
+    ///   - notificationId: Notification ID to fetch
+    ///   - source: Source identifier for logging (default: "DatabaseAccess")
+    /// - Returns: Dictionary with notification data or nil if not found
+    public static func fetchNotification(
+        byId notificationId: String,
+        source: String = "DatabaseAccess"
+    ) -> [String: Any]? {
+        var notificationData: [String: Any]? = nil
+        let semaphore = DispatchSemaphore(value: 0)
+        
+        performDatabaseOperation(
+            type: .read,
+            name: "FetchNotification",
+            source: source,
+            operation: { db in
+                let sql = "SELECT id, created_at, read_at, bucket_id, has_attachments, notification_data FROM notifications WHERE id = ? LIMIT 1"
+                var stmt: OpaquePointer?
+                
+                let prepareResult = sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+                guard prepareResult == SQLITE_OK else {
+                    let errorMsg = String(cString: sqlite3_errmsg(db))
+                    return .failure("Failed to prepare statement: \(errorMsg) (code: \(prepareResult))")
+                }
+                
+                defer { sqlite3_finalize(stmt) }
+                
+                sqlite3_bind_text(stmt, 1, (notificationId as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    // Parse notification_data JSON column
+                    if let jsonText = sqlite3_column_text(stmt, 5) {
+                        let jsonString = String(cString: jsonText)
+                        if let jsonData = jsonString.data(using: .utf8),
+                           let parsedData = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                            notificationData = parsedData
+                            print("📱 [DatabaseAccess] ✅ [FetchNotification] Found notification: \(notificationId)")
+                        }
+                    }
+                    return .success
+                } else {
+                    print("📱 [DatabaseAccess] ⚠️ [FetchNotification] Notification not found: \(notificationId)")
+                    return .success // Not an error, just not found
+                }
+            }
+        ) { _ in
+            semaphore.signal()
+        }
+        
+        _ = semaphore.wait(timeout: .now() + DB_OPERATION_TIMEOUT)
+        return notificationData
+    }
+    
     /// Delete notification from local database
     /// - Parameters:
     ///   - notificationId: The notification ID to delete

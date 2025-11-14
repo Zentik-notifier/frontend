@@ -39,6 +39,14 @@ public class KeychainAccess {
         let teamId = "C3F24V5NS5"
         return "\(teamId).\(mainBundleId).keychain"
     }
+    
+    /// Get Darwin notification name for new notifications (NSE -> Main App)
+    /// Format: {bundleId}.notification.new
+    public static func getDarwinNotificationName() -> String {
+        let mainBundleId = getMainBundleIdentifier()
+        return "\(mainBundleId).notification.new"
+    }
+    
     // MARK: - Keychain Operations
     
     /// Get API endpoint from SQLite database (replaces keychain storage)

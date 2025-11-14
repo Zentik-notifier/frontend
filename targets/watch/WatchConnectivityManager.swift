@@ -422,6 +422,122 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     }
     
     /**
+     * Fetch a specific notification's full data from iPhone
+     * First tries interactive fetch if iPhone is reachable
+     * Falls back to requesting via transferUserInfo for background delivery
+     */
+    private func fetchNotificationFromiPhone(notificationId: String) {
+        print("⌚ [WatchConnectivity] 🔄 Fetching notification from iPhone: \(notificationId)")
+        
+        LoggingSystem.shared.log(
+            level: "INFO",
+            tag: "WC-Fetch",
+            message: "Watch→iPhone: Fetch notification",
+            metadata: ["notificationId": notificationId],
+            source: "Watch"
+        )
+        
+        guard WCSession.default.activationState == .activated else {
+            print("⌚ [WatchConnectivity] ❌ WCSession not activated, cannot fetch notification")
+            return
+        }
+        
+        // Try interactive fetch first if iPhone is reachable (faster)
+        if WCSession.default.isReachable {
+            let message: [String: Any] = [
+                "action": "fetchNotification",
+                "notificationId": notificationId
+            ]
+            
+            WCSession.default.sendMessage(message, replyHandler: { [weak self] reply in
+                print("⌚ [WatchConnectivity] ✅ Received notification data from iPhone")
+                
+                if let success = reply["success"] as? Bool, success,
+                   let notificationData = reply["notification"] as? [String: Any] {
+                    
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "WC-Fetch",
+                        message: "Successfully fetched notification",
+                        metadata: [
+                            "notificationId": notificationId,
+                            "title": notificationData["title"] as? String ?? ""
+                        ],
+                        source: "Watch"
+                    )
+                    
+                    // Save notification using the fragment format
+                    self?.saveNotificationFromFragment(fragment: notificationData)
+                } else {
+                    let error = reply["error"] as? String ?? "Unknown error"
+                    print("⌚ [WatchConnectivity] ❌ Failed to fetch notification: \(error)")
+                    
+                    LoggingSystem.shared.log(
+                        level: "ERROR",
+                        tag: "WC-Fetch",
+                        message: "Failed to fetch notification",
+                        metadata: [
+                            "notificationId": notificationId,
+                            "error": error
+                        ],
+                        source: "Watch"
+                    )
+                }
+            }) { error in
+                print("⌚ [WatchConnectivity] ❌ Fetch error: \(error.localizedDescription)")
+                
+                LoggingSystem.shared.log(
+                    level: "ERROR",
+                    tag: "WC-Fetch",
+                    message: "Interactive fetch failed - falling back to background",
+                    metadata: [
+                        "notificationId": notificationId,
+                        "error": error.localizedDescription
+                    ],
+                    source: "Watch"
+                )
+                
+                // Fallback to background transfer
+                self.requestNotificationViaBackground(notificationId: notificationId)
+            }
+        } else {
+            // iPhone not reachable - use background transfer (works even when app is closed)
+            print("⌚ [WatchConnectivity] ⚠️ iPhone not reachable, using background fetch")
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "WC-Fetch",
+                message: "iPhone not reachable - using background transfer",
+                metadata: ["notificationId": notificationId],
+                source: "Watch"
+            )
+            
+            requestNotificationViaBackground(notificationId: notificationId)
+        }
+    }
+    
+    /**
+     * Request notification via background transfer
+     * iPhone will respond via transferUserInfo with notification data
+     */
+    private func requestNotificationViaBackground(notificationId: String) {
+        let message: [String: Any] = [
+            "action": "fetchNotification",
+            "notificationId": notificationId
+        ]
+        
+        WCSession.default.transferUserInfo(message)
+        
+        LoggingSystem.shared.log(
+            level: "INFO",
+            tag: "WC-Fetch",
+            message: "Background fetch request queued",
+            metadata: ["notificationId": notificationId],
+            source: "Watch"
+        )
+        print("⌚ [WatchConnectivity] 📦 Queued background fetch request for: \(notificationId)")
+    }
+    
+    /**
      * Send logs to iPhone for debugging
      * Uses background transfer to guarantee delivery even if iPhone is not reachable
      * IMPORTANT: Logs are only cleared after transfer is confirmed via didFinish delegate
@@ -921,12 +1037,31 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 }
                 
             case "notificationAdded":
-                if let notificationId = message["notificationId"] as? String,
-                   let fragment = message["fragment"] as? [String: Any] {
+                // iPhone sent notification ID - fetch full data from iPhone
+                if let notificationId = message["notificationId"] as? String {
                     LoggingSystem.shared.log(
                         level: "INFO",
                         tag: "WC-Message",
-                        message: "iPhone→Watch: New notification",
+                        message: "iPhone→Watch: New notification ID received",
+                        metadata: [
+                            "notificationId": notificationId,
+                            "action": action
+                        ],
+                        source: "Watch"
+                    )
+                    
+                    // Reply immediately to confirm receipt
+                    replyHandler(["success": true])
+                    
+                    // Fetch full notification data from iPhone
+                    self.fetchNotificationFromiPhone(notificationId: notificationId)
+                } else if let fragment = message["fragment"] as? [String: Any],
+                          let notificationId = message["notificationId"] as? String {
+                    // Fallback: handle old format with fragment (for compatibility)
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "WC-Message",
+                        message: "iPhone→Watch: New notification (legacy format)",
                         metadata: [
                             "notificationId": notificationId,
                             "action": action,
@@ -941,20 +1076,12 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     LoggingSystem.shared.log(
                         level: "WARN",
                         tag: "WC-Message",
-                        message: "iPhone→Watch: notificationAdded missing fragment",
+                        message: "iPhone→Watch: notificationAdded missing ID",
                         metadata: ["action": action],
                         source: "Watch"
                     )
-                    replyHandler(["error": "Missing fragment"])
+                    replyHandler(["error": "Missing notificationId"])
                 }
-                
-            case "reload":
-                // Deprecated - no longer used
-                replyHandler(["success": true])
-                
-            case "syncIncremental":
-                // Deprecated - no longer used
-                replyHandler(["success": true])
                 
             case "fullUpdate":
                 if let notificationsData = message["notifications"] as? [[String: Any]],
@@ -1079,10 +1206,24 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 }
                 
             case "notificationAdded":
-                // New notification added - save compact notification to local JSON
-                if let notificationId = userInfo["notificationId"] as? String,
-                   let fragment = userInfo["fragment"] as? [String: Any] {
+                // iPhone sent notification ID - fetch full data from iPhone
+                if let notificationId = userInfo["notificationId"] as? String {
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "WC-UserInfo",
+                        message: "iPhone→Watch: New notification ID received (bg)",
+                        metadata: [
+                            "notificationId": notificationId,
+                            "action": action
+                        ],
+                        source: "Watch"
+                    )
                     
+                    // Fetch full notification data from iPhone
+                    self.fetchNotificationFromiPhone(notificationId: notificationId)
+                } else if let fragment = userInfo["fragment"] as? [String: Any],
+                          let notificationId = fragment["id"] as? String ?? userInfo["notificationId"] as? String {
+                    // Fallback: handle old format with fragment (for compatibility)
                     // Parse attachments and actions from fragment
                     let attachments = NotificationParser.parseAttachments(from: fragment["attachments"] as? [[String: Any]])
                     let actions = NotificationParser.parseActions(from: fragment["actions"] as? [[String: Any]])
@@ -1090,7 +1231,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     LoggingSystem.shared.log(
                         level: "INFO",
                         tag: "WC-UserInfo",
-                        message: "iPhone→Watch: New notification (bg)",
+                        message: "iPhone→Watch: New notification (bg, legacy format)",
                         metadata: [
                             "notificationId": notificationId,
                             "action": action,
@@ -1159,14 +1300,34 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     )
                 }
                 
-            case "reload":
-                // Deprecated - no longer used
-                break
-            
-            case "syncIncremental":
-                // Deprecated - no longer used
-                break
-            
+            case "fetchNotification":
+                // iPhone sent notification data in response to fetch request (background)
+                if let notificationData = userInfo["notification"] as? [String: Any],
+                   let notificationId = notificationData["id"] as? String ?? userInfo["notificationId"] as? String {
+                    
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "WC-UserInfo",
+                        message: "iPhone→Watch: Fetched notification (bg)",
+                        metadata: [
+                            "notificationId": notificationId,
+                            "action": action
+                        ],
+                        source: "Watch"
+                    )
+                    
+                    // Save notification using the fragment format
+                    self.saveNotificationFromFragment(fragment: notificationData)
+                } else {
+                    LoggingSystem.shared.log(
+                        level: "WARN",
+                        tag: "WC-UserInfo",
+                        message: "iPhone→Watch: fetchNotification missing data (bg)",
+                        metadata: ["action": action],
+                        source: "Watch"
+                    )
+                }
+                
             case "fullSyncData":
                 // Full sync data received via transferUserInfo (large payload, background-compatible)
                 if let bucketsData = userInfo["buckets"] as? [[String: Any]],
