@@ -644,4 +644,89 @@ export async function clearAllLogs(): Promise<void> {
   }
 }
 
+// Static method to delete a single log entry by ID
+export async function deleteLogEntry(logId: string, source?: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    try {
+      const stored = localStorage.getItem('zentik-logs-json');
+      if (!stored) return;
+
+      let allLogs: AppLog[] = JSON.parse(stored);
+      allLogs = allLogs.filter(log => log.id !== logId);
+      
+      localStorage.setItem('zentik-logs-json', JSON.stringify(allLogs));
+    } catch (error) {
+      console.warn('Failed to delete web log entry:', error);
+      throw error;
+    }
+  } else {
+    try {
+      const logsDir = await getLogsDirectory();
+      const directory = new Directory(logsDir);
+
+      if (!directory.exists) return;
+
+      const files = await directory.list();
+
+      for (const file of files) {
+        const fileName = file.name;
+        
+        // Skip corrupted backup files
+        if (fileName.includes('_corrupted_')) continue;
+        
+        // Only process .json files
+        if (!fileName.endsWith('.json')) continue;
+
+        // If source specified, only process that file
+        if (source) {
+          const sourceFromFile = fileName.replace('.json', '');
+          if (sourceFromFile !== source) continue;
+        }
+
+        try {
+          const logFile = new File(`${logsDir}/${fileName}`);
+          const content = await logFile.read();
+
+          if (content) {
+            let logs: AppLog[] = JSON.parse(content);
+            const originalLength = logs.length;
+            
+            logs = logs.filter(log => log.id !== logId);
+            
+            // Only write if we actually removed something
+            if (logs.length !== originalLength) {
+              await logFile.write(JSON.stringify(logs, null, 2));
+              return; // Log found and deleted, exit
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to process log file ${fileName}:`, error);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to delete mobile log entry:', error);
+      throw error;
+    }
+  }
+}
+
+// Static method to delete an entire log file (iOS only)
+export async function deleteLogFile(fileName: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    throw new Error('deleteLogFile is not supported on web platform');
+  }
+
+  try {
+    const logsDir = await getLogsDirectory();
+    const logFile = new File(`${logsDir}/${fileName}`);
+
+    if (logFile.exists) {
+      await logFile.delete();
+    }
+  } catch (error) {
+    console.warn(`Failed to delete log file ${fileName}:`, error);
+    throw error;
+  }
+}
+
 

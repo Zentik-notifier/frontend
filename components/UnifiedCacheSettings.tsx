@@ -1,29 +1,18 @@
 import { useAppContext } from "@/contexts/AppContext";
-import { useGlobalNotificationStats } from "@/hooks/notifications/useNotificationStats";
 import { useI18n } from "@/hooks/useI18n";
-import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { useNotificationExportImport } from "@/hooks/useNotificationExportImport";
 import { useSettings } from "@/hooks/useSettings";
-import { mediaCache } from "@/services/media-cache-service";
 import type { MarkAsReadMode } from "@/services/settings-service";
-import { formatFileSize } from "@/utils";
-import { File, Paths } from "expo-file-system";
-import * as Sharing from "expo-sharing";
-import React, { useEffect, useMemo, useState } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { StyleSheet, View } from "react-native";
 import {
-  Button,
   Card,
-  Dialog,
   Icon,
-  Portal,
   Surface,
   Switch,
   Text,
   TextInput,
   useTheme,
 } from "react-native-paper";
-import { CacheResetModal } from "./CacheResetModal";
 import NumberListInput from "./ui/NumberListInput";
 import Selector from "./ui/Selector";
 
@@ -41,14 +30,7 @@ export default function UnifiedCacheSettings() {
     setDefaultPostpones,
     setDefaultSnoozes,
   } = useSettings();
-  const [showResetModal, setShowResetModal] = useState(false);
-  const [isExportingMetadata, setIsExportingMetadata] = useState(false);
-
-  // Dialog states
-  const [showErrorDialog, setShowErrorDialog] = useState(false);
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [dialogMessage, setDialogMessage] = useState("");
-
+  
   const [localMaxCacheSizeMB, setLocalMaxCacheSizeMB] = useState<string>(
     settings.retentionPolicies?.maxCacheSizeMB?.toString() || ""
   );
@@ -78,9 +60,6 @@ export default function UnifiedCacheSettings() {
   const [localDefaultSnoozes, setLocalDefaultSnoozes] = useState<number[]>(
     settings.notificationsPreferences?.defaultSnoozes || []
   );
-
-  // Get notification stats from React Query (automatically updated)
-  const { totalCount: dbNotificationsCount } = useGlobalNotificationStats();
 
   // Sync when settings change externally
   useEffect(() => {
@@ -122,7 +101,6 @@ export default function UnifiedCacheSettings() {
     isEditingMaxNotificationsDays,
   ]);
 
-  const { cacheStats } = useGetCacheStats();
   const {
     userSettings: {
       updateMediaCacheDownloadSettings,
@@ -132,28 +110,6 @@ export default function UnifiedCacheSettings() {
       settings: { downloadSettings, notificationsPreferences },
     },
   } = useAppContext();
-
-  const {
-    handleExportNotifications,
-    handleImportNotifications,
-    isExporting,
-    isImporting,
-  } = useNotificationExportImport();
-
-  // Calculate total cache size
-  const totalCacheSize = useMemo(() => {
-    if (!cacheStats) {
-      return 0;
-    }
-    const mediaSize = cacheStats.totalSize;
-    // Approximate GraphQL cache size: each notification is roughly 2KB
-    const gqlSize = dbNotificationsCount * 2048; // 2KB per notification
-    return formatFileSize(mediaSize + gqlSize);
-  }, [cacheStats, dbNotificationsCount]);
-
-  const handleOpenResetModal = () => {
-    setShowResetModal(true);
-  };
 
   const handleDefaultPostponesChange = async (values: number[]) => {
     try {
@@ -173,204 +129,8 @@ export default function UnifiedCacheSettings() {
     }
   };
 
-  const handleExportMetadata = async () => {
-    setIsExportingMetadata(true);
-    try {
-      if (Platform.OS !== "ios") {
-        setDialogMessage(t("common.notAvailableOnWeb"));
-        setShowErrorDialog(true);
-        return;
-      }
-
-      const items = await mediaCache.getMetadata();
-
-      const payload = {
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        itemCount: items.length,
-        items,
-      };
-
-      const json = JSON.stringify(payload, null, 2);
-      const fileName = `media-cache-metadata-${
-        new Date().toISOString().split("T")[0]
-      }.json`;
-      const destPath = `${Paths.document.uri}${fileName}`;
-      const file = new File(destPath);
-      file.write(json, {});
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(destPath, {
-          mimeType: "application/json",
-          dialogTitle: "Export Media Cache Metadata",
-        });
-      } else {
-        setDialogMessage(
-          t("appSettings.gqlCache.importExport.exportCompleteMessage", {
-            path: destPath,
-          })
-        );
-        setShowSuccessDialog(true);
-      }
-
-      try {
-        file.delete();
-      } catch (cleanupError) {
-        console.log("File cleanup failed:", cleanupError);
-      }
-    } catch (error) {
-      console.error("Error exporting media cache DB metadata:", error);
-      setDialogMessage(
-        t("appSettings.gqlCache.importExport.exportMetadataError")
-      );
-      setShowErrorDialog(true);
-    } finally {
-      setIsExportingMetadata(false);
-    }
-  };
-
-  // Logs export and toggle removed
-
   return (
     <View style={styles.sectionContainer}>
-      {/* Cache Overview Section */}
-      <Surface style={styles.surfaceSection} elevation={1}>
-        <View style={styles.sectionHeader}>
-          <Text variant="headlineSmall" style={styles.sectionTitle}>
-            {t("appSettings.cache.title")}
-          </Text>
-          <Text
-            variant="bodyMedium"
-            style={[
-              styles.sectionDescription,
-              { color: theme.colors.onSurfaceVariant },
-            ]}
-          >
-            {t("appSettings.cache.description")}
-          </Text>
-        </View>
-
-        {/* Cache Summary */}
-        <Card style={styles.summaryCard} elevation={0}>
-          <Card.Content>
-            <View style={styles.summaryHeader}>
-              <Icon
-                source="chart-line"
-                size={24}
-                color={theme.colors.primary}
-              />
-              <Text variant="titleMedium" style={styles.summaryTitle}>
-                {t("appSettings.cache.summary")}
-              </Text>
-            </View>
-
-            <View style={styles.summaryStats}>
-              <View style={styles.summaryStat}>
-                <Text
-                  variant="headlineMedium"
-                  style={[
-                    styles.summaryStatValue,
-                    { color: theme.colors.primary },
-                  ]}
-                >
-                  {cacheStats ? formatFileSize(cacheStats.totalSize) : "0"}
-                </Text>
-                <Text
-                  variant="bodySmall"
-                  style={[
-                    styles.summaryStatLabel,
-                    { color: theme.colors.onSurfaceVariant },
-                  ]}
-                >
-                  {t("appSettings.cache.mediaSize")}
-                </Text>
-                <Text
-                  variant="labelSmall"
-                  style={[
-                    styles.summaryStatSubtext,
-                    { color: theme.colors.outline },
-                  ]}
-                >
-                  {cacheStats ? cacheStats.totalItems : 0}{" "}
-                  {t("appSettings.cache.items")}
-                </Text>
-              </View>
-
-              <View style={styles.summaryStat}>
-                <Text
-                  variant="headlineMedium"
-                  style={[
-                    styles.summaryStatValue,
-                    { color: theme.colors.primary },
-                  ]}
-                >
-                  {dbNotificationsCount}
-                </Text>
-                <Text
-                  variant="bodySmall"
-                  style={[
-                    styles.summaryStatLabel,
-                    { color: theme.colors.onSurfaceVariant },
-                  ]}
-                >
-                  {t("appSettings.cache.notificationsCount")}
-                </Text>
-                <Text
-                  variant="labelSmall"
-                  style={[
-                    styles.summaryStatSubtext,
-                    { color: theme.colors.outline },
-                  ]}
-                >
-                  {t("appSettings.cache.inCache")}
-                </Text>
-              </View>
-
-              <View style={styles.summaryStat}>
-                <Text
-                  variant="headlineMedium"
-                  style={[
-                    styles.summaryStatValue,
-                    { color: theme.colors.primary },
-                  ]}
-                >
-                  {totalCacheSize}
-                </Text>
-                <Text
-                  variant="bodySmall"
-                  style={[
-                    styles.summaryStatLabel,
-                    { color: theme.colors.onSurfaceVariant },
-                  ]}
-                >
-                  {t("appSettings.cache.totalSize")}
-                </Text>
-                <Text
-                  variant="labelSmall"
-                  style={[
-                    styles.summaryStatSubtext,
-                    { color: theme.colors.outline },
-                  ]}
-                >
-                  {t("appSettings.cache.approximate")}
-                </Text>
-              </View>
-            </View>
-
-            <Button
-              mode="contained"
-              buttonColor={theme.colors.error}
-              textColor={theme.colors.onError}
-              onPress={handleOpenResetModal}
-              icon="delete"
-              style={styles.resetButton}
-            >
-              {t("appSettings.cache.resetCache")}
-            </Button>
-          </Card.Content>
-        </Card>
-      </Surface>
-
       {/* Auto Download Settings */}
       <Surface style={styles.surfaceSection} elevation={1}>
         <View style={styles.sectionHeader}>
@@ -948,121 +708,6 @@ export default function UnifiedCacheSettings() {
           </Card.Content>
         </Card>
       </Surface>
-
-      {/* Advanced Section */}
-      <Surface style={styles.surfaceSection} elevation={1}>
-        <View style={styles.sectionHeader}>
-          <Text variant="headlineSmall" style={styles.sectionTitle}>
-            {t("appSettings.gqlCache.importExport.title")}
-          </Text>
-          <Text
-            variant="bodyMedium"
-            style={[
-              styles.sectionDescription,
-              { color: theme.colors.onSurfaceVariant },
-            ]}
-          >
-            {t("appSettings.gqlCache.importExport.description")}
-          </Text>
-        </View>
-
-        <View style={styles.importExportContainer}>
-          {/* Import Button */}
-          <Button
-            mode="contained"
-            buttonColor={theme.colors.primary}
-            textColor={theme.colors.onPrimary}
-            onPress={handleImportNotifications}
-            disabled={isExporting || isImporting}
-            loading={isImporting}
-            icon="cloud-upload"
-            style={styles.importExportButton}
-          >
-            {isImporting
-              ? t("common.importing")
-              : t("appSettings.gqlCache.importExport.importButton")}
-          </Button>
-
-          {/* Export Button */}
-          <Button
-            mode="contained"
-            buttonColor={theme.colors.primary}
-            textColor={theme.colors.onPrimary}
-            onPress={handleExportNotifications}
-            disabled={isExporting || isImporting}
-            loading={isExporting}
-            icon="download"
-            style={styles.importExportButton}
-          >
-            {isExporting
-              ? t("common.exporting")
-              : t("appSettings.gqlCache.importExport.exportButton")}
-          </Button>
-
-          {/* Export Metadata Button */}
-          <Button
-            mode="contained"
-            buttonColor={theme.colors.primary}
-            textColor={theme.colors.onPrimary}
-            onPress={handleExportMetadata}
-            disabled={isExportingMetadata || isExporting || isImporting}
-            loading={isExportingMetadata}
-            icon="file-document"
-            style={styles.importExportButton}
-          >
-            {isExportingMetadata
-              ? t("common.exporting")
-              : t("appSettings.gqlCache.importExport.exportMetadataButton")}
-          </Button>
-        </View>
-      </Surface>
-
-      {/* Cache Reset Modal */}
-      <CacheResetModal
-        visible={showResetModal}
-        onClose={() => setShowResetModal(false)}
-        totalCacheSize={totalCacheSize.toString()}
-      />
-
-      {/* Success Dialog */}
-      <Portal>
-        <Dialog
-          visible={showSuccessDialog}
-          onDismiss={() => setShowSuccessDialog(false)}
-        >
-          <Dialog.Title>
-            {t("appSettings.gqlCache.importExport.exportComplete")}
-          </Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">{dialogMessage}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowSuccessDialog(false)}>
-              {t("common.ok")}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-
-      {/* Error Dialog */}
-      <Portal>
-        <Dialog
-          visible={showErrorDialog}
-          onDismiss={() => setShowErrorDialog(false)}
-        >
-          <Dialog.Title>
-            {t("appSettings.gqlCache.importExport.exportMetadataError")}
-          </Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">{dialogMessage}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowErrorDialog(false)}>
-              {t("common.ok")}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
     </View>
   );
 }
@@ -1085,40 +730,6 @@ const styles = StyleSheet.create({
   },
   sectionDescription: {
     lineHeight: 20,
-  },
-  summaryCard: {
-    marginHorizontal: 0,
-    marginBottom: 16,
-  },
-  summaryHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  summaryTitle: {
-    marginLeft: 12,
-  },
-  summaryStats: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 20,
-    gap: 8,
-  },
-  summaryStat: {
-    alignItems: "center",
-  },
-  summaryStatValue: {
-    marginBottom: 4,
-  },
-  summaryStatLabel: {
-    textAlign: "center",
-  },
-  summaryStatSubtext: {
-    textAlign: "center",
-    marginTop: 2,
-  },
-  resetButton: {
-    marginTop: 16,
   },
   settingCard: {
     marginHorizontal: 0,
@@ -1158,13 +769,5 @@ const styles = StyleSheet.create({
   compactInput: {
     minWidth: 60,
     height: 40,
-  },
-  importExportContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  importExportButton: {
-    marginBottom: 8,
   },
 });
