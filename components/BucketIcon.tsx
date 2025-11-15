@@ -18,6 +18,7 @@ interface BucketIconProps {
   size?: "sm" | "md" | "lg" | "xl" | "xxl";
   bucketId: string;
   noRouting?: boolean;
+  forceRefetch?: boolean;
   userId?: string | null;
 }
 
@@ -26,12 +27,13 @@ export default function BucketIcon({
   bucketId,
   noRouting = false,
   userId = null,
+  forceRefetch,
 }: BucketIconProps) {
   const theme = useTheme();
 
   const { bucket, isOrphan } = useBucket(bucketId, {
     userId: userId ?? undefined,
-    autoFetch: false,
+    autoFetch: forceRefetch,
   });
 
   const [iconUri, setIconUri] = useState<string | null>(null);

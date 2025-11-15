@@ -321,7 +321,7 @@ export default function NotificationDetail({
           {/* Left side: Bucket info */}
           <View style={styles.headerLeft}>
             <View style={styles.bucketContainer}>
-              <BucketIcon bucketId={message?.bucket?.id || ""} size="xxl" />
+              <BucketIcon bucketId={message?.bucket?.id || ""} size="xxl" forceRefetch/>
               <View style={styles.bucketInfo}>
                 <Text
                   style={[
