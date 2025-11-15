@@ -446,6 +446,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         );
         await markAllAsRead();
       } else if (nextAppState === "background") {
+        return;
         console.log(
           "[AppContext] App going to background, flushing logs and closing database..."
         );

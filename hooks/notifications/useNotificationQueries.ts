@@ -235,7 +235,7 @@ export function useNotificationsState(
                 // Calculate stats from cache
                 const cachedStats = await getNotificationStats([]);
 
-                console.log(`[useNotificationsState] Cache loaded: ${cachedNotifications.length} notifications, ${cachedBuckets.length} buckets, ${cachedStats.totalCount} total (${cachedStats.unreadCount} unread)`);
+                // console.log(`[useNotificationsState] Cache loaded: ${cachedNotifications.length} notifications, ${cachedBuckets.length} buckets, ${cachedStats.totalCount} total (${cachedStats.unreadCount} unread)`);
 
                 // ============================================================
                 // PHASE 2: Fetch from API in parallel (SLOW - background update)
