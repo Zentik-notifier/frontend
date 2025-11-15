@@ -18,8 +18,6 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import { useNotificationUtils } from "@/hooks/useNotificationUtils";
 import * as Clipboard from "expo-clipboard";
-import { File, Paths } from "expo-file-system";
-import * as Sharing from "expo-sharing";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -28,6 +26,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  Share
 } from "react-native";
 import { Icon, IconButton, Surface, Text, useTheme } from "react-native-paper";
 import { ExecutionExpandedContent } from "./EntityExecutionsSection";
@@ -186,26 +185,19 @@ export default function NotificationDetail({
   const shareNotification = async () => {
     const fullText = buildNotificationText();
     try {
-      if (await Sharing.isAvailableAsync()) {
-        const fileName = `notification_${Date.now()}.txt`;
-        const fileUri = `${Paths.document.uri}${fileName}`;
-        const file = new File(fileUri);
-        file.write(fullText, {});
+      const result = await Share.share({
+        message: fullText,
+        title: t("notificationDetail.shareNotification"),
+      });
 
-        await Sharing.shareAsync(fileUri, {
-          mimeType: "text/plain",
-          dialogTitle: t("notificationDetail.shareNotification"),
-          UTI: "public.plain-text",
-        });
-
-        try {
-          file.delete();
-        } catch (cleanupError) {
-          console.log("File cleanup failed:", cleanupError);
-        }
+      if (result.action === Share.sharedAction) {
+        console.log("Notification shared successfully");
+      } else if (result.action === Share.dismissedAction) {
+        console.log("Share dismissed");
       }
     } catch (error) {
       console.error("Error sharing notification:", error);
+      // Fallback to clipboard
       try {
         await Clipboard.setStringAsync(fullText);
         Alert.alert(
@@ -221,26 +213,19 @@ export default function NotificationDetail({
   const shareNotificationSource = async () => {
     const sourceData = JSON.stringify(notification, null, 2);
     try {
-      if (await Sharing.isAvailableAsync()) {
-        const fileName = `notification_source_${Date.now()}.json`;
-        const fileUri = `${Paths.document.uri}${fileName}`;
-        const file = new File(fileUri);
-        file.write(sourceData, {});
+      const result = await Share.share({
+        message: sourceData,
+        title: t("notificationDetail.shareSource"),
+      });
 
-        await Sharing.shareAsync(fileUri, {
-          mimeType: "application/json",
-          dialogTitle: t("notificationDetail.shareSource"),
-          UTI: "public.json",
-        });
-
-        try {
-          file.delete();
-        } catch (cleanupError) {
-          console.log("File cleanup failed:", cleanupError);
-        }
+      if (result.action === Share.sharedAction) {
+        console.log("Notification source shared successfully");
+      } else if (result.action === Share.dismissedAction) {
+        console.log("Share dismissed");
       }
     } catch (error) {
       console.error("Error sharing notification source:", error);
+      // Fallback to clipboard
       try {
         await Clipboard.setStringAsync(sourceData);
         Alert.alert(t("common.copied"), t("notificationDetail.shareSource"));
@@ -319,26 +304,9 @@ export default function NotificationDetail({
       fabGroupIcon={notificationActions.length > 0 ? "play" : undefined}
       customActions={[
         {
-          icon: "content-copy",
-          label: t("notificationDetail.copySource"),
-          onPress: copyNotificationSource,
-        },
-        {
           icon: "share",
           label: t("notificationDetail.shareSource"),
           onPress: shareNotificationSource,
-        },
-        {
-          icon: "code-tags",
-          label: enableHtmlRendering
-            ? t("notificationDetail.htmlEnabled")
-            : t("notificationDetail.htmlDisabled"),
-          onPress: () => setEnableHtmlRendering(!enableHtmlRendering),
-          style: {
-            backgroundColor: enableHtmlRendering
-              ? theme.colors.primaryContainer
-              : theme.colors.surfaceVariant,
-          },
         },
         ...notificationActions.map((action, index) => ({
           icon: getActionTypeIcon(action.type),
@@ -372,18 +340,18 @@ export default function NotificationDetail({
             {/* Actions */}
             <View style={styles.actionsContainer}>
               <ButtonGroup>
-                {/* Copy Text Button */}
+                {/* HTML Toggle Button */}
                 <IconButton
-                  icon={isCopying ? "check" : "content-copy"}
+                  icon={enableHtmlRendering ? "code-tags-check" : "code-tags"}
                   size={15}
                   iconColor={
-                    isCopying
+                    enableHtmlRendering
                       ? theme.colors.primary
                       : theme.colors.onSurfaceVariant
                   }
                   style={[styles.actionButton, { width: 26, height: 26 }]}
-                  onPress={copyNotificationToClipboard}
-                  accessibilityLabel="copy-text"
+                  onPress={() => setEnableHtmlRendering(!enableHtmlRendering)}
+                  accessibilityLabel="toggle-html"
                 />
 
                 {/* Share Text Button */}
