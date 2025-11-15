@@ -225,7 +225,7 @@ export function useNotificationsState(
             lastSync: string;
         }> => {
             try {
-                console.log('[useNotificationsState] Starting simplified state initialization...');
+                console.log('[useNotificationsState] Starting state initialization...');
                 // ============================================================
                 // PHASE 1: Load from cache (FAST - immediate response)
                 // ============================================================
@@ -255,7 +255,7 @@ export function useNotificationsState(
                 if (bucketsResult.status === 'fulfilled' && bucketsResult.value.data?.buckets) {
                     apiBuckets = bucketsResult.value.data.buckets as BucketWithUserData[];
                     apiSuccess = true;
-                    console.log(`[useNotificationsState] API synced: ${apiBuckets.length} buckets`);
+                    // console.log(`[useNotificationsState] API synced: ${apiBuckets.length} buckets`);
                 } else {
                     console.warn('[useNotificationsState] Failed to fetch buckets from API:',
                         bucketsResult.status === 'rejected' ? bucketsResult.reason : 'No data');
@@ -288,7 +288,7 @@ export function useNotificationsState(
                         ...orphanedFromNotifications
                     ]);
 
-                    console.log(`[useNotificationsState] Detected ${allOrphanIds.size} orphaned buckets`);
+                    // console.log(`[useNotificationsState] Detected ${allOrphanIds.size} orphaned buckets`);
 
                     // Convert API buckets to BucketWithStats
                     const apiBucketsWithStats: BucketWithStats[] = apiBuckets.map((bucket) => {
@@ -449,10 +449,7 @@ export function useNotificationsState(
                     if (bucketsNeedingUpdate.length > 0) {
                         await saveBuckets(bucketsNeedingUpdate);
                         console.log(`[useNotificationsState] Saved ${bucketsNeedingUpdate.length}/${bucketsToSave.length} buckets to cache (${bucketsNeedingUpdate.length} new/updated, ${bucketsToSave.length - bucketsNeedingUpdate.length} unchanged)`);
-                    } else {
-                        console.log(`[useNotificationsState] No bucket changes detected - skipping DB write for ${bucketsToSave.length} buckets`);
                     }
-
 
                     // Combine all buckets
                     finalBuckets = [...apiBucketsWithStats, ...orphanedBuckets];
@@ -590,7 +587,7 @@ export function useAllNotificationIds(
         queryFn: async (): Promise<string[]> => {
             try {
                 const ids = await getAllNotificationIds();
-                console.log(`[useAllNotificationIds] Loaded ${ids.length} notification IDs`);
+                // console.log(`[useAllNotificationIds] Loaded ${ids.length} notification IDs`);
                 return ids;
             } catch (error) {
                 console.error('[useAllNotificationIds] Error:', error);
@@ -618,7 +615,7 @@ export async function refreshNotificationQueries(
     queryClient: any
 ): Promise<void> {
     try {
-        console.log('[refreshNotificationQueries] Invalidating all notification queries...');
+        // console.log('[refreshNotificationQueries] Invalidating all notification queries...');
 
         // Invalidate all notification-related queries
         await queryClient.invalidateQueries({
@@ -628,7 +625,7 @@ export async function refreshNotificationQueries(
             }
         });
 
-        console.log('[refreshNotificationQueries] Queries invalidated, lists will refresh');
+        // console.log('[refreshNotificationQueries] Queries invalidated, lists will refresh');
     } catch (error) {
         console.error('[refreshNotificationQueries] Failed to invalidate queries:', error);
         throw error;
@@ -647,7 +644,7 @@ export async function refreshNotificationQueries(
  * ```
  */
 export async function clearAllNotificationsFromCache(queryClient?: any): Promise<void> {
-    console.log('[clearAllNotificationsFromCache] Starting notification cache clear with query cleanup...');
+    // console.log('[clearAllNotificationsFromCache] Starting notification cache clear with query cleanup...');
 
     try {
         // Import the repository function dynamically to avoid circular dependencies
@@ -658,7 +655,7 @@ export async function clearAllNotificationsFromCache(queryClient?: any): Promise
 
         // Handle query cleanup here in the queries layer
         if (queryClient) {
-            console.log('[clearAllNotificationsFromCache] Invalidating notification queries...');
+            // console.log('[clearAllNotificationsFromCache] Invalidating notification queries...');
             await Promise.all([
                 queryClient.invalidateQueries({
                     queryKey: notificationKeys.stats(),
@@ -677,10 +674,10 @@ export async function clearAllNotificationsFromCache(queryClient?: any): Promise
                     refetchType: 'none',
                 }),
             ]);
-            console.log('[clearAllNotificationsFromCache] Notification queries invalidated');
+            // console.log('[clearAllNotificationsFromCache] Notification queries invalidated');
         }
 
-        console.log('[clearAllNotificationsFromCache] Notification cache clear completed successfully');
+        // console.log('[clearAllNotificationsFromCache] Notification cache clear completed successfully');
     } catch (error) {
         console.error('[clearAllNotificationsFromCache] Failed to clear notification cache:', error);
         throw error;

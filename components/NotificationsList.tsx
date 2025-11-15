@@ -229,9 +229,9 @@ export default function NotificationsList({
 
   useEffect(() => {
     if (allNotificationIds) {
-      console.log(
-        `[NotificationsList] Syncing ${allNotificationIds.length} notification IDs to context`
-      );
+      // console.log(
+      //   `[NotificationsList] Syncing ${allNotificationIds.length} notification IDs to context`
+      // );
       handleSetAllNotificationIds(allNotificationIds);
     }
   }, [allNotificationIds, handleSetAllNotificationIds]);
