@@ -292,7 +292,7 @@ public class DatabaseAccess {
             name: "FetchNotification",
             source: source,
             operation: { db in
-                let sql = "SELECT id, created_at, read_at, bucket_id, has_attachments, notification_data FROM notifications WHERE id = ? LIMIT 1"
+                let sql = "SELECT id, created_at, read_at, bucket_id, has_attachments, fragment FROM notifications WHERE id = ? LIMIT 1"
                 var stmt: OpaquePointer?
                 
                 let prepareResult = sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
@@ -306,7 +306,7 @@ public class DatabaseAccess {
                 sqlite3_bind_text(stmt, 1, (notificationId as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
                 
                 if sqlite3_step(stmt) == SQLITE_ROW {
-                    // Parse notification_data JSON column
+                    // Parse fragment JSON column
                     if let jsonText = sqlite3_column_text(stmt, 5) {
                         let jsonString = String(cString: jsonText)
                         if let jsonData = jsonString.data(using: .utf8),
