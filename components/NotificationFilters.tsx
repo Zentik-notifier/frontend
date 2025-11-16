@@ -370,16 +370,20 @@ export default function NotificationVisualization({
             onPress={handleShowFiltersModal}
           >
             <View>
-              <Icon
-                source="filter"
-                size={18}
-                color={
-                  activeFiltersCount > 0
-                    ? theme.colors.primary
-                    : theme.colors.onSurfaceVariant
-                }
-              />
-              {activeFiltersCount > 0 && (
+              {refreshing && activeFiltersCount > 0 ? (
+                <ActivityIndicator size={18} color={theme.colors.primary} />
+              ) : (
+                <Icon
+                  source="filter"
+                  size={18}
+                  color={
+                    activeFiltersCount > 0
+                      ? theme.colors.primary
+                      : theme.colors.onSurfaceVariant
+                  }
+                />
+              )}
+              {activeFiltersCount > 0 && !refreshing && (
                 <Badge style={[styles.filtersBadge]}>
                   {activeFiltersCount}
                 </Badge>

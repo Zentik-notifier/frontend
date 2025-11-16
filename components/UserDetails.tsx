@@ -131,16 +131,6 @@ export default function UserDetails({ userId }: UserDetailsProps) {
     await Promise.all([refetchUser(), refetchStats()]);
   };
 
-  if (!user && !userLoading) {
-    return (
-      <Surface>
-        <Text variant="bodyLarge" style={styles.errorText}>
-          {t("administration.userNotFound")}
-        </Text>
-      </Surface>
-    );
-  }
-
   if (!user) {
     return null;
   }

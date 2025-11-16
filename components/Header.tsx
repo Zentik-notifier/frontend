@@ -163,8 +163,7 @@ export default function Header() {
     unreadCount,
     isMarkingAllAsRead,
   } = useBadgeSync();
-  const { isLoginModalOpen, closeLoginModal, isMainLoading, logout } =
-    useAppContext();
+  const { isLoginModalOpen, closeLoginModal, logout } = useAppContext();
   const { itemsInQueue } = useDownloadQueue();
   const { t } = useI18n();
   const {
@@ -356,32 +355,21 @@ export default function Header() {
               </Surface>
             )}
 
-            {/* Main Loading Indicator */}
-            {isMainLoading && !currentTitle && (
-              <View style={styles.mainLoadingContainer}>
-                <ActivityIndicator
-                  size="small"
-                  color={theme.colors.primary}
-                  style={styles.loadingIcon}
-                />
-              </View>
-            )}
-
             {/* Mark All as Read Button */}
             {shouldShowStatusBadges && hasUnreadNotifications && (
               <View style={styles.markAllButtonContainer}>
-                <Surface
-                  style={[
-                    styles.iconButtonSurface,
-                    { backgroundColor: theme.colors.primaryContainer },
-                  ]}
-                  elevation={2}
+                <TouchableRipple
+                  onPress={handleMarkAllAsRead}
+                  disabled={!hasUnreadNotifications || isMarkingAllAsRead}
+                  style={styles.iconButtonRipple}
+                  borderless
                 >
-                  <TouchableRipple
-                    onPress={handleMarkAllAsRead}
-                    disabled={!hasUnreadNotifications || isMarkingAllAsRead}
-                    style={styles.iconButtonRipple}
-                    borderless
+                  <Surface
+                    style={[
+                      styles.iconButtonSurface,
+                      { backgroundColor: theme.colors.primaryContainer },
+                    ]}
+                    elevation={2}
                   >
                     <View
                       style={[
@@ -404,8 +392,8 @@ export default function Header() {
                         </Animated.View>
                       )}
                     </View>
-                  </TouchableRipple>
-                </Surface>
+                  </Surface>
+                </TouchableRipple>
                 {unreadCount > 0 && (
                   <Surface
                     style={[
@@ -431,17 +419,17 @@ export default function Header() {
             {/* Download Queue Progress Icon */}
             {shouldShowStatusBadges && itemsInQueue > 0 && (
               <View style={styles.downloadQueueContainer}>
-                <Surface
-                  style={[
-                    styles.iconButtonSurface,
-                    { backgroundColor: theme.colors.secondaryContainer },
-                  ]}
-                  elevation={2}
+                <TouchableRipple
+                  disabled
+                  style={styles.iconButtonRipple}
+                  borderless
                 >
-                  <TouchableRipple
-                    disabled
-                    style={styles.iconButtonRipple}
-                    borderless
+                  <Surface
+                    style={[
+                      styles.iconButtonSurface,
+                      { backgroundColor: theme.colors.secondaryContainer },
+                    ]}
+                    elevation={2}
                   >
                     <View
                       style={[
@@ -457,8 +445,8 @@ export default function Header() {
                         />
                       </Animated.View>
                     </View>
-                  </TouchableRipple>
-                </Surface>
+                  </Surface>
+                </TouchableRipple>
                 <Surface
                   style={[
                     styles.downloadQueueBadge,
@@ -832,6 +820,7 @@ const styles = StyleSheet.create({
   },
   iconButtonRipple: {
     borderRadius: 18,
+    padding: 4, // Aggiunge area cliccabile attorno all'icona
   },
   iconButtonContent: {
     width: 36,

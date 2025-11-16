@@ -77,7 +77,6 @@ export default function NotificationsList({
   const theme = useTheme();
   const { t } = useI18n();
   const {
-    setMainLoading,
     userSettings: { settings },
   } = useAppContext();
 
@@ -94,6 +93,7 @@ export default function NotificationsList({
   const [firstVisibleIndex, setFirstVisibleIndex] = useState(0);
   const [lastVisibleIndex, setLastVisibleIndex] = useState(0);
   const [limit, setLimit] = useState(50); // Start with 50 items
+  const [isLoadingNewFilter, setIsLoadingNewFilter] = useState(false);
 
   const {
     state: { selectionMode, selectedItems, allNotificationIds: contextAllIds },
@@ -195,6 +195,10 @@ export default function NotificationsList({
     };
   }, [notificationVisualization.sortBy]);
 
+  // Track previous filters to detect when new data has arrived
+  const prevFiltersRef = useRef(JSON.stringify(queryFilters));
+  const prevSortRef = useRef(JSON.stringify(querySort));
+
   // Fetch notifications with React Query Infinite
   // No autoSync - sync only happens on app startup
   // Push notifications will add items to cache and invalidate queries
@@ -211,7 +215,7 @@ export default function NotificationsList({
     filters: queryFilters,
     sort: querySort,
     pagination: { limit },
-    refetchInterval: 10000, // Refresh from local DB every 10 seconds
+    refetchInterval: 20000, // Refresh from local DB every 10 seconds
   });
 
   // Load all notification IDs for select-all functionality
@@ -227,25 +231,34 @@ export default function NotificationsList({
     );
   }, [data]);
 
+  // Clear loading state when new data arrives that matches current filters
+  useEffect(() => {
+    const currentFiltersStr = JSON.stringify(queryFilters);
+    const currentSortStr = JSON.stringify(querySort);
+    
+    // If filters/sort changed and we have new data
+    if (isLoadingNewFilter && notifications.length >= 0) {
+      // Clear loading state - data has been updated
+      setIsLoadingNewFilter(false);
+      prevFiltersRef.current = currentFiltersStr;
+      prevSortRef.current = currentSortStr;
+    }
+  }, [notifications, queryFilters, querySort, isLoadingNewFilter]);
+
   useEffect(() => {
     if (allNotificationIds) {
-      // console.log(
-      //   `[NotificationsList] Syncing ${allNotificationIds.length} notification IDs to context`
-      // );
       handleSetAllNotificationIds(allNotificationIds);
     }
   }, [allNotificationIds, handleSetAllNotificationIds]);
 
-  // Reset when filters change - invalidate query instead of changing limit
+    // Reset when filters change - invalidate query instead of changing limit
   useEffect(() => {
     // Query will automatically refetch due to key change
+    setIsLoadingNewFilter(true);
     setLimit(50);
   }, [queryFilters, querySort]);
 
   // Update loading state
-  useEffect(() => {
-    setMainLoading(batchDeleteMutation.isPending);
-  }, [batchDeleteMutation.isPending, setMainLoading]);
 
   // Track currently visible item ids and debounce marking as read
   const visibleIdsRef = useRef<Set<string>>(new Set());
@@ -464,7 +477,7 @@ export default function NotificationsList({
       style={[styles.emptyState, { backgroundColor: theme.colors.background }]}
       elevation={0}
     >
-      {isLoading ? (
+      {isLoading || (isFetching && notifications.length === 0) ? (
         <>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text
@@ -556,47 +569,48 @@ export default function NotificationsList({
   };
 
   return (
-    <Surface
-      style={[
-        styles.container,
-        { backgroundColor: theme.colors.background },
-        listStyle,
-      ]}
-      elevation={0}
-    >
-      <View style={styles.filtersWrapper}>
-        <NotificationFilters
-          totalNotifications={notifications.length}
-          onToggleReadStatus={handleToggleReadStatus}
-          onDeleteSelected={handleDeleteSelected}
-          onRefresh={handleRefresh}
-          refreshing={isRefreshing || isFetching}
-        />
-      </View>
-
-      {customHeader}
-
-      <FlashList
-        ref={listRef}
-        data={notifications}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        onViewableItemsChanged={onViewableItemsChanged}
-        onScroll={() => {
-          didUserScrollRef.current = true;
-        }}
-        scrollEventThrottle={16}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
+    <View style={styles.outerContainer}>
+      <Surface
+        style={[
+          styles.container,
+          { backgroundColor: theme.colors.background },
+          listStyle,
+        ]}
+        elevation={0}
+      >
+        <View style={styles.filtersWrapper}>
+          <NotificationFilters
+            totalNotifications={notifications.length}
+            onToggleReadStatus={handleToggleReadStatus}
+            onDeleteSelected={handleDeleteSelected}
             onRefresh={handleRefresh}
-            colors={[theme.colors.primary] as any}
-            tintColor={theme.colors.primary as any}
+            refreshing={isRefreshing || isFetching || isLoadingNewFilter}
           />
-        }
-        showsVerticalScrollIndicator
+        </View>
+        
+        {customHeader}
+
+        <FlashList
+          ref={listRef}
+          data={notifications}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          onViewableItemsChanged={onViewableItemsChanged}
+          onScroll={() => {
+            didUserScrollRef.current = true;
+          }}
+          scrollEventThrottle={16}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={[theme.colors.primary] as any}
+              tintColor={theme.colors.primary as any}
+            />
+          }
+          showsVerticalScrollIndicator
         ListEmptyComponent={renderEmptyState}
         ListFooterComponent={renderListFooter}
       />
@@ -706,11 +720,16 @@ export default function NotificationsList({
           </View>
         </TouchableRipple>
       )}
-    </Surface>
+      </Surface>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+    position: 'relative',
+  },
   container: {
     flex: 1,
   },

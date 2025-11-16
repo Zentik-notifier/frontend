@@ -40,8 +40,8 @@ import { useInfiniteQuery, useQuery, useQueryClient, UseQueryOptions, UseQueryRe
 export const notificationKeys = {
     all: ['notifications'] as const,
     lists: () => [...notificationKeys.all, 'list'] as const,
-    list: (bucketIds?: string[], unreadOnly?: boolean, withAttachments?: boolean, limit?: number) =>
-        [...notificationKeys.lists(), { bucketIds, unreadOnly, withAttachments, limit }] as const,
+    list: (filters?: any, sort?: any, limit?: number) =>
+        [...notificationKeys.lists(), { filters, sort, limit }] as const,
     detail: (id: string) => [...notificationKeys.all, 'detail', id] as const,
     stats: () => [...notificationKeys.all, 'stats'] as const,
     stat: (bucketIds?: string[]) => [...notificationKeys.stats(), { bucketIds }] as const,
@@ -84,14 +84,10 @@ export function useInfiniteNotifications(
     const limit = pagination?.limit || 20;
 
     return useInfiniteQuery({
-        queryKey: notificationKeys.list(
-            filters?.bucketId ? [filters.bucketId] : undefined,
-            filters?.isRead === false,
-            filters?.hasAttachments,
-            limit
-        ),
+        queryKey: notificationKeys.list(filters, sort, limit),
         queryFn: async ({ pageParam = 0 }): Promise<NotificationQueryResult> => {
             try {
+                // console.log(`[useInfiniteNotifications] Fetching page ${pageParam} with limit ${limit}...`);
                 const result = await queryNotifications({
                     filters,
                     sort,
@@ -100,20 +96,21 @@ export function useInfiniteNotifications(
                         offset: (pageParam as number) * limit,
                     }
                 });
+                // console.log(`[useInfiniteNotifications] Loaded ${result.notifications.length} notifications on page ${pageParam}`);
 
                 // Preload bucket icons for this page BEFORE returning (makes icons instantly visible)
-                const uniqueBucketIds = new Set<string>();
-                const bucketInfoMap = new Map<string, { name: string; iconUrl?: string }>();
+                // const uniqueBucketIds = new Set<string>();
+                // const bucketInfoMap = new Map<string, { name: string; iconUrl?: string }>();
 
-                result.notifications.forEach(notif => {
-                    if (notif.message?.bucket?.id && notif.message?.bucket?.name) {
-                        uniqueBucketIds.add(notif.message.bucket.id);
-                        bucketInfoMap.set(notif.message.bucket.id, {
-                            name: notif.message.bucket.name,
-                            iconUrl: notif.message.bucket.iconUrl ?? undefined
-                        });
-                    }
-                });
+                // result.notifications.forEach(notif => {
+                //     if (notif.message?.bucket?.id && notif.message?.bucket?.name) {
+                //         uniqueBucketIds.add(notif.message.bucket.id);
+                //         bucketInfoMap.set(notif.message.bucket.id, {
+                //             name: notif.message.bucket.name,
+                //             iconUrl: notif.message.bucket.iconUrl ?? undefined
+                //         });
+                //     }
+                // });
                 return result;
             } catch (error) {
                 console.error('[useInfiniteNotifications] Error:', error);

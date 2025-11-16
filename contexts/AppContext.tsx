@@ -73,8 +73,6 @@ interface AppContextProps {
   showOnboarding: () => void;
   isOnboardingOpen: boolean;
   hideOnboarding: () => void;
-  setMainLoading: (loading: boolean) => void;
-  isMainLoading: boolean;
   userSettings: ReturnType<typeof useSettings>;
   connectionStatus: ReturnType<typeof useConnectionStatus>;
   deviceToken: string | null;
@@ -99,7 +97,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const userSettings = useSettings();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-  const [isMainLoading, setIsLoading] = useState(false);
   const { mutateAsync: markAllAsRead } = useMarkAllAsRead();
   const { cleanup } = useCleanup();
   const { processPendingNavigationIntent } = usePendingNotificationIntents();
@@ -508,8 +505,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         showOnboarding: () => setIsOnboardingOpen(true),
         isOnboardingOpen,
         hideOnboarding: () => setIsOnboardingOpen(false),
-        setMainLoading: setIsLoading,
-        isMainLoading,
         userSettings,
         connectionStatus,
         deviceToken: push.deviceToken,
