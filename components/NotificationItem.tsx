@@ -339,7 +339,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               onStartShouldSetResponder={() => true}
             >
               <BucketIcon
-                key={notification.message?.bucket?.id}
                 bucketId={notification.message?.bucket?.id}
                 size={"lg"}
                 noRouting={noBucketRouting}

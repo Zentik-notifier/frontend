@@ -595,6 +595,11 @@ export default function NotificationsList({
           data={notifications}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
+          extraData={{
+            selectedItems: Array.from(selectedItems),
+            selectionMode,
+            visibleItems: Array.from(visibleItems),
+          }}
           onViewableItemsChanged={onViewableItemsChanged}
           onScroll={() => {
             didUserScrollRef.current = true;

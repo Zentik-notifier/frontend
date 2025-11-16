@@ -155,7 +155,8 @@ export default function BucketIcon({
                 }}
                 contentFit="cover"
                 cachePolicy="memory"
-                recyclingKey={iconUri}
+                recyclingKey={`${bucketId}-${iconUri}`}
+                priority="high"
               />
             ) : (
               // Loading state: show colored placeholder
