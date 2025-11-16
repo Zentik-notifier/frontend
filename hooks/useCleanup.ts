@@ -8,14 +8,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { getAllBuckets } from "@/db/repositories/buckets-repository";
 
-// // Polyfill for requestIdleCallback (not available in React Native)
-// const requestIdleCallbackPolyfill = (callback: () => void) => {
-//     if (typeof requestIdleCallback !== 'undefined') {
-//         return requestIdleCallback(callback);
-//     }
-//     // Fallback: use setTimeout with 0ms delay
-//     return setTimeout(callback, 0) as any;
-// };
+// Polyfill for requestIdleCallback (not available in React Native)
+const requestIdleCallbackPolyfill = (callback: () => void) => {
+    if (typeof requestIdleCallback !== 'undefined') {
+        return requestIdleCallback(callback);
+    }
+    // Fallback: use setTimeout with 0ms delay
+    return setTimeout(callback, 0) as any;
+};
 
 interface CleanupProps {
     immediate?: boolean,
@@ -29,39 +29,39 @@ export const useCleanup = () => {
     const cleanup = useCallback(async ({ immediate, force }: CleanupProps) => {
         const shouldCleanup = !settingsService.shouldRunCleanup() ? false : true;
 
-        // const executeWithRAF = <T>(fn: () => Promise<T>, label: string): Promise<T> => {
-        //     return new Promise((resolve, reject) => {
-        //         requestIdleCallbackPolyfill(async () => {
-        //             try {
-        //                 const result = await fn();
-        //                 resolve(result);
-        //             } catch (error) {
-        //                 console.error(`[Cleanup] Error on ${label}:`, error);
-        //                 reject(error);
-        //             }
-        //         });
-        //     });
-        // };
-        // const waitRAF = () => new Promise<void>(resolve => {
-        //     requestIdleCallbackPolyfill(() => {
-        //         setTimeout(resolve, 0);
-        //     });
-        // });
+        const delay = immediate ? 0 : 15000;
 
+        await new Promise(resolve => setTimeout(resolve, delay));
         const executeWithRAF = <T>(fn: () => Promise<T>, label: string): Promise<T> => {
-            return new Promise(async (resolve, reject) => {
-                try {
-                    const result = await fn();
-                    resolve(result);
-                } catch (error) {
-                    console.error(`[Cleanup] Error on ${label}:`, error);
-                    reject(error);
-                }
+            return new Promise((resolve, reject) => {
+                requestIdleCallbackPolyfill(async () => {
+                    try {
+                        const result = await fn();
+                        resolve(result);
+                    } catch (error) {
+                        console.error(`[Cleanup] Error on ${label}:`, error);
+                        reject(error);
+                    }
+                });
             });
         };
-        // const delay = immediate ? 0 : 15000;
+        const waitRAF = () => new Promise<void>(resolve => {
+            requestIdleCallbackPolyfill(() => {
+                setTimeout(resolve, 0);
+            });
+        });
 
-        // await new Promise(resolve => setTimeout(resolve, delay));
+        // const executeWithRAF = <T>(fn: () => Promise<T>, label: string): Promise<T> => {
+        //     return new Promise(async (resolve, reject) => {
+        //         try {
+        //             const result = await fn();
+        //             resolve(result);
+        //         } catch (error) {
+        //             console.error(`[Cleanup] Error on ${label}:`, error);
+        //             reject(error);
+        //         }
+        //     });
+        // };
 
         // 0. Load buckets from SQL/IndexedDB into React Query cache (before backend sync)
         await executeWithRAF(
@@ -111,7 +111,7 @@ export const useCleanup = () => {
         ).catch((e) => {
             console.error('[Cleanup] Error during sync of complete app state with backend', e);
         });
-        // await waitRAF();
+        await waitRAF();
 
         // 6. THIRD: Now cleanup local notifications by settings
         if (shouldCleanup || force) {
@@ -126,7 +126,7 @@ export const useCleanup = () => {
                 console.error('[Cleanup] Error during cleanup of notifications');
             });
 
-            // await waitRAF();
+            await waitRAF();
 
             // 7. Cleanup gallery by settings
             await executeWithRAF(
@@ -140,7 +140,7 @@ export const useCleanup = () => {
             });
             await settingsService.setLastCleanup(new Date().toISOString());
             console.log('[Cleanup] Updated last cleanup timestamp');
-            // await waitRAF();
+            await waitRAF();
         }
 
         // 8. Reload media cache metadata
