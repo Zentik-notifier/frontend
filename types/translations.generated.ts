@@ -2239,8 +2239,8 @@ export interface Translation {
       CorsOrigin: string;
       CorsCredentials: string;
       LogLevel: string;
-      LogStorageEnabled: string;
       LogRetentionDays: string;
+      LogStorageDirectory: string;
       PrometheusEnabled: string;
       EnableSystemTokenRequests: string;
     };
@@ -2295,8 +2295,8 @@ export interface Translation {
     CorsOrigin: string;
     CorsCredentials: string;
     LogLevel: string;
-    LogStorageEnabled: string;
     LogRetentionDays: string;
+    LogStorageDirectory: string;
     PrometheusEnabled: string;
   };
   serverLogs: {

@@ -2293,8 +2293,8 @@
     "CorsOrigin": "CORS Origin",
     "CorsCredentials": "CORS Credentials",
     "LogLevel": "Log Level",
-    "LogStorageEnabled": "Enable Database Log Storage",
     "LogRetentionDays": "Log Retention (days)",
+    "LogStorageDirectory": "Log Storage Directory",
     "PrometheusEnabled": "Enable Prometheus Metrics"
   },
   "serverLogs": {
