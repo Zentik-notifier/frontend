@@ -1207,6 +1207,7 @@ export interface Translation {
       SILENT: string;
       NORMAL: string;
       CRITICAL: string;
+      NO_PUSH: string;
     };
     notificationCopied: string;
     shareNotification: string;

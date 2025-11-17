@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
+import { NotificationDeliveryType } from '@/generated/gql-operations-generated';
 
 interface IncomingNotificationToastProps {
   title: string;
@@ -21,7 +22,7 @@ interface IncomingNotificationToastProps {
   onPress?: () => void;
   duration?: number; // Duration in ms before auto-dismiss (default: 5000)
   bucketColor?: string;
-  deliveryType?: string;
+  deliveryType?: NotificationDeliveryType;
 }
 
 export const IncomingNotificationToast: React.FC<
@@ -48,10 +49,12 @@ export const IncomingNotificationToast: React.FC<
 
   // Determine border color based on deliveryType
   const getBorderColor = () => {
-    if (deliveryType === 'CRITICAL') {
+    if (deliveryType === NotificationDeliveryType.Critical) {
       return theme.colors.error;
-    } else if (deliveryType === 'SILENT') {
+    } else if (deliveryType === NotificationDeliveryType.Silent) {
       return theme.colors.secondary;
+    } else if (deliveryType === NotificationDeliveryType.NoPush) {
+      return theme.colors.tertiary;
     } else if (bucketColor) {
       return bucketColor;
     }
@@ -60,7 +63,9 @@ export const IncomingNotificationToast: React.FC<
 
   // Determine border width based on deliveryType
   const getBorderWidth = () => {
-    if (deliveryType === 'CRITICAL' || deliveryType === 'SILENT') {
+    if (deliveryType === NotificationDeliveryType.Critical || 
+        deliveryType === NotificationDeliveryType.Silent || 
+        deliveryType === NotificationDeliveryType.NoPush) {
       return 4;
     }
     return 4;

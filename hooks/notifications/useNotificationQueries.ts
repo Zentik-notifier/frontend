@@ -23,6 +23,7 @@ import {
 } from '@/generated/gql-operations-generated';
 import {
     getAllNotificationsFromCache,
+    upsertNotificationsBatch,
 } from '@/services/notifications-repository';
 import {
     BucketWithStats,
@@ -244,6 +245,19 @@ export function useNotificationsState(
 
                 // Process notifications from API
                 const apiNotifications: NotificationFragment[] = [];
+                if (notificationsResult.status === 'fulfilled' && notificationsResult.value.data?.notifications) {
+                    apiNotifications.push(...(notificationsResult.value.data.notifications as NotificationFragment[]));
+                    console.log(`[useNotificationsState] API fetched: ${apiNotifications.length} notifications`);
+                    
+                    // Save notifications to local cache
+                    if (apiNotifications.length > 0) {
+                        await upsertNotificationsBatch(apiNotifications);
+                        console.log(`[useNotificationsState] Saved ${apiNotifications.length} notifications to local cache`);
+                    }
+                } else {
+                    console.warn('[useNotificationsState] Failed to fetch notifications from API:',
+                        notificationsResult.status === 'rejected' ? notificationsResult.reason : 'No data');
+                }
 
                 // Process buckets from API
                 let apiBuckets: BucketWithUserData[] = [];

@@ -1204,7 +1204,8 @@
     "deliveryTypes": {
       "SILENT": "Silent",
       "NORMAL": "Normal",
-      "CRITICAL": "Critical"
+      "CRITICAL": "Critical",
+      "NO_PUSH": "Database Only"
     },
     "notificationCopied": "Notification copied to clipboard",
     "shareNotification": "Share Notification",

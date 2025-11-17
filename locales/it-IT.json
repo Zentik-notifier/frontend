@@ -1253,7 +1253,8 @@
     "deliveryTypes": {
       "SILENT": "Silenziosa",
       "NORMAL": "Normale",
-      "CRITICAL": "Critica"
+      "CRITICAL": "Critica",
+      "NO_PUSH": "Solo Database"
     },
     "notificationCopied": "Notifica copiata negli appunti",
     "shareNotification": "Condividi Notifica",

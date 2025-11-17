@@ -137,7 +137,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const markAsReadMutation = useMarkAsRead();
   const markAsUnreadMutation = useMarkAsUnread();
   const { executeAction } = useNotificationActions();
-  const { getActionTypeIcon, getNotificationActions } = useNotificationUtils();
+  const { getActionTypeIcon, getNotificationActions, getDeliveryTypeColor } = useNotificationUtils();
 
   const attachments = useMemo(
     () =>
@@ -288,17 +288,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const bodyStyle = useMemo(() => styles.body, []);
 
   const deliveryType = notification.message?.deliveryType;
-  const borderColor =
-    deliveryType === NotificationDeliveryType.Critical
-      ? theme.colors.error
-      : deliveryType === NotificationDeliveryType.Silent
-      ? theme.colors.secondary
-      : undefined;
+  const borderColor = deliveryType ? getDeliveryTypeColor(deliveryType) : undefined;
 
   const borderWidth =
     deliveryType === NotificationDeliveryType.Critical ||
-    deliveryType === NotificationDeliveryType.Silent
-      ? 4
+    deliveryType === NotificationDeliveryType.Silent ||
+    deliveryType === NotificationDeliveryType.NoPush
+      ? 2.5
       : 1;
 
   return (

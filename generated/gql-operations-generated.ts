@@ -1123,6 +1123,7 @@ export type NotificationAttachmentDto = {
 export enum NotificationDeliveryType {
   Critical = 'CRITICAL',
   Normal = 'NORMAL',
+  NoPush = 'NO_PUSH',
   Silent = 'SILENT'
 }
 
@@ -1594,7 +1595,6 @@ export enum ServerSettingType {
   LogLevel = 'LogLevel',
   LogRetentionDays = 'LogRetentionDays',
   LogStorageDirectory = 'LogStorageDirectory',
-  LogStorageEnabled = 'LogStorageEnabled',
   MessagesDeleteJobEnabled = 'MessagesDeleteJobEnabled',
   MessagesMaxAge = 'MessagesMaxAge',
   PrometheusEnabled = 'PrometheusEnabled',

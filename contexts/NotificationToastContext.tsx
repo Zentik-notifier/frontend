@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { IncomingNotificationToast } from '../components/IncomingNotificationToast';
+import { NotificationDeliveryType } from '@/generated/gql-operations-generated';
 
 interface NotificationToastData {
   id: string;
@@ -10,7 +11,7 @@ interface NotificationToastData {
   onPress?: () => void;
   duration?: number;
   bucketColor?: string;
-  deliveryType?: string;
+  deliveryType?: NotificationDeliveryType;
 }
 
 interface NotificationToastContextValue {

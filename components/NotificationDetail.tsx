@@ -27,7 +27,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
-  Share
+  Share,
 } from "react-native";
 import { Icon, IconButton, Surface, Text, useTheme } from "react-native-paper";
 import { ExecutionExpandedContent } from "./EntityExecutionsSection";
@@ -47,11 +47,8 @@ export default function NotificationDetail({
   const theme = useTheme();
   const { t } = useI18n();
   const { formatDate } = useDateFormat();
-  const {
-    getNotificationActions,
-    getActionTypeIcon,
-    getActionTypeFriendlyName,
-  } = useNotificationUtils();
+  const { getActionTypeIcon, getNotificationActions, getDeliveryTypeColor } =
+    useNotificationUtils();
   const { executeAction } = useNotificationActions();
   const [fullScreenImageVisible, setFullScreenImageVisible] = useState(false);
   const [fullScreenIndex, setFullScreenIndex] = useState(0);
@@ -98,6 +95,8 @@ export default function NotificationDetail({
     if (!notification) return [];
     return getNotificationActions(notification);
   }, [notification, getNotificationActions]);
+
+  const deliveryType = message?.deliveryType ?? NotificationDeliveryType.Normal;
 
   // Extract all Navigate actions from actions and tapAction
   const navigationLinks = useMemo(() => {
@@ -237,7 +236,9 @@ export default function NotificationDetail({
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteNotificationMutation.mutateAsync({ notificationId: notification.id });
+              await deleteNotificationMutation.mutateAsync({
+                notificationId: notification.id,
+              });
               Alert.alert(
                 t("common.success"),
                 t("notificationDetail.deleteSuccess"),
@@ -309,7 +310,11 @@ export default function NotificationDetail({
           {/* Left side: Bucket info */}
           <View style={styles.headerLeft}>
             <View style={styles.bucketContainer}>
-              <BucketIcon bucketId={message?.bucket?.id || ""} size="xxl" forceRefetch/>
+              <BucketIcon
+                bucketId={message?.bucket?.id || ""}
+                size="xxl"
+                forceRefetch
+              />
               <View style={styles.bucketInfo}>
                 <Text
                   style={[
@@ -330,16 +335,12 @@ export default function NotificationDetail({
               <ButtonGroup
                 style={{
                   borderWidth:
-                    message?.deliveryType === NotificationDeliveryType.Critical ||
-                    message?.deliveryType === NotificationDeliveryType.Silent
-                      ? 4
+                    deliveryType === NotificationDeliveryType.Critical ||
+                    deliveryType === NotificationDeliveryType.Silent ||
+                    deliveryType === NotificationDeliveryType.NoPush
+                      ? 2.5
                       : undefined,
-                  borderColor:
-                    message?.deliveryType === NotificationDeliveryType.Critical
-                      ? theme.colors.error
-                      : message?.deliveryType === NotificationDeliveryType.Silent
-                      ? theme.colors.secondary
-                      : undefined,
+                  borderColor: getDeliveryTypeColor(deliveryType),
                 }}
               >
                 {/* HTML Toggle Button */}

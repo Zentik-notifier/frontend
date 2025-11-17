@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import { useNotificationToast } from '../contexts/NotificationToastContext';
 import { useRouter } from 'expo-router';
+import { NotificationDeliveryType } from '@/generated/gql-operations-generated';
 
 /**
  * Hook che ascolta le notifiche push ricevute quando l'app è in foreground
@@ -23,13 +24,11 @@ export function useForegroundNotificationHandler() {
           imageUrl: data?.imageUrl as string | undefined,
           icon: (data?.icon as string) || 'bell-ring',
           bucketColor: data?.bucketColor as string | undefined,
-          deliveryType: data?.deliveryType as string | undefined,
+          deliveryType: data?.deliveryType as NotificationDeliveryType | undefined,
           onPress: () => {
-            // Naviga alla schermata appropriata se specificata nei data
             if (data?.route) {
               router.push(data.route as any);
             } else if (data?.notificationId) {
-              // Fallback: naviga ai dettagli della notifica
               router.push(`/notification/${data.notificationId}` as any);
             }
           },

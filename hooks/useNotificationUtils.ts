@@ -15,6 +15,8 @@ export const useNotificationUtils = () => {
         return "bell"; // Normale - notifica standard
       case NotificationDeliveryType.Critical:
         return "bell-alert"; // Critico - notifica urgente
+      case NotificationDeliveryType.NoPush:
+        return "database"; // No Push - solo salvataggio DB
       default:
         return "bell";
     }
@@ -26,6 +28,8 @@ export const useNotificationUtils = () => {
         return "#dc3545";
       case NotificationDeliveryType.Silent:
         return "#6c757d";
+      case NotificationDeliveryType.NoPush:
+        return "#9c27b0"; // Purple/Tertiary color
       default:
         return undefined;
     }
