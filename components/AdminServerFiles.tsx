@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Alert, FlatList, StyleSheet, View, Platform } from "react-native";
-import { Card, IconButton, Text } from "react-native-paper";
+import { Alert, FlatList, StyleSheet, View, Platform, RefreshControl } from "react-native";
+import { Card, IconButton, Text, ActivityIndicator, useTheme } from "react-native-paper";
 import * as DocumentPicker from "expo-document-picker";
 import { useI18n } from "@/hooks/useI18n";
 import { settingsService } from "@/services/settings-service";
@@ -8,15 +8,22 @@ import {
   useServerFilesQuery,
   useDeleteServerFileMutation,
 } from "@/generated/gql-operations-generated";
-import PaperScrollView from "./ui/PaperScrollView";
 
 export default function AdminServerFiles() {
   const { t } = useI18n();
+  const theme = useTheme();
   const [path, setPath] = useState<string>("");
   const { data, loading, refetch } = useServerFilesQuery({
     variables: { path: path || null },
   });
   const [deleteFile, { loading: deleting }] = useDeleteServerFileMutation();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refetch({ path: path || null });
+    setRefreshing(false);
+  };
 
   const onDelete = (name: string) => {
     const title = t("administration.serverFiles.confirmDeleteTitle");
@@ -116,102 +123,107 @@ export default function AdminServerFiles() {
     [path]
   );
 
-  return (
-    <PaperScrollView
-      loading={loading}
-      refetch={async () => {
-        await refetch({ path: path || null });
-      }}
-    >
-      {/* Breadcrumbs */}
-      <View style={{ paddingBottom: 8 }}>
-        <Text variant="titleMedium" style={{ marginBottom: 8 }}>
-          {t("administration.serverFiles.title")}
-        </Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-          <IconButton
-            icon="home"
-            mode="contained-tonal"
-            onPress={() => setPath("")}
-            size={20}
-          />
-          <IconButton
-            icon="upload"
-            mode="contained-tonal"
-            onPress={onUpload}
-            size={20}
-          />
-          {/* {path && (
-            <IconButton
-              icon="arrow-up"
-              mode="contained-tonal"
-              onPress={() => setPath(path.split("/").slice(0, -1).join("/"))}
-              size={20}
-            />
-          )} */}
-          {breadcrumbs.map((seg, idx) => {
-            const newPath = breadcrumbs.slice(0, idx + 1).join("/");
-            return (
-              <View
-                key={`${seg}-${idx}`}
-                style={{ flexDirection: "row", alignItems: "center" }}
-              >
-                <IconButton icon="chevron-right" size={16} disabled />
-                <Text
-                  onPress={() => setPath(newPath)}
-                  style={{ textDecorationLine: "underline" }}
-                >
-                  {seg}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      </View>
-      <FlatList
-        data={data?.serverFiles || []}
-        keyExtractor={(item) => item.name}
-        renderItem={({ item }) => (
-          <View style={styles.row}>
-            <View style={{ flex: 1 }}>
+  const renderHeader = () => (
+    <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
+      <Text variant="titleMedium" style={{ marginBottom: 8 }}>
+        {t("administration.serverFiles.title")}
+      </Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+        <IconButton
+          icon="home"
+          mode="contained-tonal"
+          onPress={() => setPath("")}
+          size={20}
+        />
+        <IconButton
+          icon="upload"
+          mode="contained-tonal"
+          onPress={onUpload}
+          size={20}
+        />
+        {breadcrumbs.map((seg, idx) => {
+          const newPath = breadcrumbs.slice(0, idx + 1).join("/");
+          return (
+            <View
+              key={`${seg}-${idx}`}
+              style={{ flexDirection: "row", alignItems: "center" }}
+            >
+              <IconButton icon="chevron-right" size={16} disabled />
               <Text
-                variant="bodyMedium"
-                onPress={() => {
-                  if (item.isDir) {
-                    const next = path ? `${path}/${item.name}` : item.name;
-                    setPath(next);
-                  }
-                }}
-                style={{
-                  textDecorationLine: item.isDir ? "underline" : "none",
-                }}
+                onPress={() => setPath(newPath)}
+                style={{ textDecorationLine: "underline" }}
               >
-                {item.isDir ? `📁 ${item.name}` : item.name}
-              </Text>
-              <Text variant="bodySmall" style={{ opacity: 0.7 }}>
-                {item.isDir ? "—" : (item.size || 0) + " bytes"} ·{" "}
-                {new Date(item.mtime).toLocaleString()}
+                {seg}
               </Text>
             </View>
-            {!item.isDir && (
-              <View style={{ flexDirection: 'row', gap: 4 }}>
-                <IconButton
-                  icon="download"
-                  mode="contained-tonal"
-                  onPress={() => onDownload(item.name)}
-                />
-                <IconButton
-                  icon="delete"
-                  mode="contained-tonal"
-                  onPress={() => onDelete(item.name)}
-                  disabled={deleting}
-                />
-              </View>
-            )}
+          );
+        })}
+      </View>
+    </View>
+  );
+
+  if (loading && !data) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      data={data?.serverFiles || []}
+      keyExtractor={(item) => item.name}
+      ListHeaderComponent={renderHeader}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={[theme.colors.primary]}
+          tintColor={theme.colors.primary}
+        />
+      }
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+      renderItem={({ item }) => (
+        <View style={styles.row}>
+          <View style={{ flex: 1 }}>
+            <Text
+              variant="bodyMedium"
+              onPress={() => {
+                if (item.isDir) {
+                  const next = path ? `${path}/${item.name}` : item.name;
+                  setPath(next);
+                }
+              }}
+              style={{
+                textDecorationLine: item.isDir ? "underline" : "none",
+              }}
+            >
+              {item.isDir ? `📁 ${item.name}` : item.name}
+            </Text>
+            <Text variant="bodySmall" style={{ opacity: 0.7 }}>
+              {item.isDir ? "—" : (item.size || 0) + " bytes"} ·{" "}
+              {new Date(item.mtime).toLocaleString()}
+            </Text>
           </View>
-        )}
-      />
-    </PaperScrollView>
+          {!item.isDir && (
+            <View style={{ flexDirection: 'row', gap: 4 }}>
+              <IconButton
+                icon="download"
+                mode="contained-tonal"
+                onPress={() => onDownload(item.name)}
+              />
+              <IconButton
+                icon="delete"
+                mode="contained-tonal"
+                onPress={() => onDelete(item.name)}
+                disabled={deleting}
+              />
+            </View>
+          )}
+        </View>
+      )}
+    />
   );
 }
 

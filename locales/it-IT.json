@@ -2070,8 +2070,8 @@
       "CorsOrigin": "Origine CORS",
       "CorsCredentials": "Credenziali CORS",
       "LogLevel": "Livello di Log",
-      "LogStorageEnabled": "Abilita Archiviazione Log nel Database",
       "LogRetentionDays": "Conservazione Log (giorni)",
+      "LogStorageDirectory": "Directory Archiviazione Log",
       "PrometheusEnabled": "Abilita Metriche Prometheus",
       "EnableSystemTokenRequests": "Abilita Richieste Token di Sistema"
     },

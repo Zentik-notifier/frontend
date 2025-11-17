@@ -1593,6 +1593,7 @@ export enum ServerSettingType {
   LocalRegistrationEnabled = 'LocalRegistrationEnabled',
   LogLevel = 'LogLevel',
   LogRetentionDays = 'LogRetentionDays',
+  LogStorageDirectory = 'LogStorageDirectory',
   LogStorageEnabled = 'LogStorageEnabled',
   MessagesDeleteJobEnabled = 'MessagesDeleteJobEnabled',
   MessagesMaxAge = 'MessagesMaxAge',

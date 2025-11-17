@@ -507,7 +507,7 @@ export function useNotificationsState(
                     ? await getAllNotificationsFromCache()
                     : cachedNotifications;
 
-                console.log(`[useNotificationsState] ✅ Complete: ${finalNotifications.length} notifications, ${finalBuckets.length} buckets, ${freshStats.totalCount} total (${freshStats.unreadCount} unread)`);
+                console.log(`[useNotificationsState] Data fetch complete: ${finalNotifications.length} notifications, ${finalBuckets.length} buckets, ${freshStats.totalCount} total (${freshStats.unreadCount} unread)`);
 
                 return {
                     buckets: finalBuckets,

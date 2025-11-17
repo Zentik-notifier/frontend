@@ -180,6 +180,8 @@ export default function AppLogs() {
   const groupedLogs = useMemo(() => {
     const groups: { timeLabel: string; logs: AppLog[] }[] = [];
     const groupMap = new Map<string, AppLog[]>();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     filteredLogs.forEach((log) => {
       const date = new Date(log.timestamp);
@@ -188,10 +190,25 @@ export default function AppLogs() {
       date.setMinutes(roundedMinutes, 0, 0);
       
       const timeKey = date.toISOString();
-      const timeLabel = date.toLocaleTimeString([], { 
+      
+      // Check if the log is from today
+      const logDate = new Date(log.timestamp);
+      logDate.setHours(0, 0, 0, 0);
+      const isToday = logDate.getTime() === today.getTime();
+      
+      // Format time label with date if not today
+      let timeLabel = date.toLocaleTimeString([], { 
         hour: '2-digit', 
         minute: '2-digit' 
       });
+      
+      if (!isToday) {
+        const dateLabel = date.toLocaleDateString([], {
+          month: 'short',
+          day: 'numeric'
+        });
+        timeLabel = `${dateLabel}, ${timeLabel}`;
+      }
 
       if (!groupMap.has(timeKey)) {
         groupMap.set(timeKey, []);
@@ -232,7 +249,7 @@ export default function AppLogs() {
                   color: theme.colors.onSurface,
                 },
               ]}
-              numberOfLines={1}
+              numberOfLines={2}
             >
               {log.source ? `[${log.source}] ` : ""}
               {log.message}

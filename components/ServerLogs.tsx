@@ -1,9 +1,10 @@
 import { useI18n } from "@/hooks/useI18n";
-import { FlashList } from "@shopify/flash-list";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
+  FlatList,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -12,19 +13,17 @@ import {
   View,
 } from "react-native";
 import {
-  ActivityIndicator,
-  FAB,
   Icon,
   Surface,
   Text,
   useTheme,
 } from "react-native-paper";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   useGetServerLogsQuery,
   useTriggerLogCleanupMutation,
 } from "@/generated/gql-operations-generated";
 import PaperScrollView from "./ui/PaperScrollView";
+import CopyButton from "./ui/CopyButton";
 
 interface ServerLog {
   id: string;
@@ -40,23 +39,19 @@ interface ServerLog {
 export default function ServerLogs() {
   const { t } = useI18n();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState<string>("");
   const [selectedLog, setSelectedLog] = useState<ServerLog | null>(null);
   const [showLogDialog, setShowLogDialog] = useState<boolean>(false);
-  const [fabOpen, setFabOpen] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
-  const [currentPage, setCurrentPage] = useState(1);
   const [levelFilter, setLevelFilter] = useState<string | null>(null);
 
   // GraphQL queries
-  const { data, loading, refetch, fetchMore, networkStatus } =
+  const { data, loading, refetch } =
     useGetServerLogsQuery({
       variables: {
         input: {
           page: 1,
-          limit: 50,
+          limit: 500,
           search: query || undefined,
           level: levelFilter as any,
         },
@@ -65,22 +60,11 @@ export default function ServerLogs() {
       notifyOnNetworkStatusChange: true,
     });
 
-  const [triggerCleanup, { loading: cleanupLoading }] =
-    useTriggerLogCleanupMutation();
-
-  const isOperationInProgress = cleanupLoading;
+  const [triggerCleanup] = useTriggerLogCleanupMutation();
 
   const logs = useMemo(() => {
     return (data?.logs?.logs as ServerLog[]) || [];
   }, [data]);
-
-  const totalPages = useMemo(() => {
-    return data?.logs?.totalPages || 1;
-  }, [data]);
-
-  const hasMore = useMemo(() => {
-    return currentPage < totalPages;
-  }, [currentPage, totalPages]);
 
   const handleShowLog = useCallback((log: ServerLog) => {
     setSelectedLog(log);
@@ -107,7 +91,6 @@ export default function ServerLogs() {
   );
 
   const handleCleanupLogs = useCallback(async () => {
-    setFabOpen(false);
     Alert.alert(t("serverLogs.cleanupTitle"), t("serverLogs.cleanupMessage"), [
       {
         text: t("common.cancel"),
@@ -136,61 +119,13 @@ export default function ServerLogs() {
     ]);
   }, [t, triggerCleanup, refetch]);
 
-  const handleLoadMore = useCallback(async () => {
-    if (!hasMore || isLoadingMore || loading) return;
-
-    setIsLoadingMore(true);
-    const nextPage = currentPage + 1;
-
-    try {
-      await fetchMore({
-        variables: {
-          input: {
-            page: nextPage,
-            limit: 50,
-            search: query || undefined,
-            level: levelFilter as any,
-          },
-        },
-        updateQuery: (prev, { fetchMoreResult }) => {
-          if (!fetchMoreResult) return prev;
-
-          return {
-            logs: {
-              ...fetchMoreResult.logs,
-              logs: [
-                ...(prev.logs?.logs || []),
-                ...(fetchMoreResult.logs?.logs || []),
-              ],
-            },
-          };
-        },
-      });
-
-      setCurrentPage(nextPage);
-    } catch (error) {
-      console.error("Error loading more logs:", error);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [
-    hasMore,
-    isLoadingMore,
-    loading,
-    currentPage,
-    fetchMore,
-    query,
-    levelFilter,
-  ]);
-
   const refreshFromDb = useCallback(async () => {
     setIsRefreshing(true);
-    setCurrentPage(1);
     try {
       await refetch({
         input: {
           page: 1,
-          limit: 50,
+          limit: 500,
           search: query || undefined,
           level: levelFilter as any,
         },
@@ -200,89 +135,108 @@ export default function ServerLogs() {
     }
   }, [refetch, query, levelFilter]);
 
-  const renderItem = useCallback(
-    ({ item }: { item: ServerLog }) => {
-      const hasLongContent =
-        item.message.length > 100 ||
-        (item.metadata && JSON.stringify(item.metadata).length > 200);
+  const filteredLogs = useMemo(() => {
+    return logs.filter((l) => l.message && l.message.trim() !== "");
+  }, [logs]);
 
+  // Group logs by 5-minute intervals (same as AppLogs)
+  const groupedLogs = useMemo(() => {
+    const groups: { id: string; timeLabel: string; logs: ServerLog[] }[] = [];
+    const groupMap = new Map<string, ServerLog[]>();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    filteredLogs.forEach((log) => {
+      const date = new Date(log.timestamp);
+      const minutes = date.getMinutes();
+      const roundedMinutes = Math.floor(minutes / 5) * 5;
+      date.setMinutes(roundedMinutes, 0, 0);
+      
+      const timeKey = date.toISOString();
+      
+      // Check if the log is from today
+      const logDate = new Date(log.timestamp);
+      logDate.setHours(0, 0, 0, 0);
+      const isToday = logDate.getTime() === today.getTime();
+      
+      // Format time label with date if not today
+      let timeLabel = date.toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      
+      if (!isToday) {
+        const dateLabel = date.toLocaleDateString([], {
+          month: 'short',
+          day: 'numeric'
+        });
+        timeLabel = `${dateLabel}, ${timeLabel}`;
+      }
+
+      if (!groupMap.has(timeKey)) {
+        groupMap.set(timeKey, []);
+        groups.push({ id: timeKey, timeLabel, logs: groupMap.get(timeKey)! });
+      }
+      groupMap.get(timeKey)!.push(log);
+    });
+
+    return groups;
+  }, [filteredLogs]);
+
+  const renderLogItem = useCallback(
+    (log: ServerLog) => {
       return (
         <TouchableOpacity
+          key={log.id}
           style={[
             styles.logItem,
             {
-              borderColor: theme.colors.outline,
-              backgroundColor: theme.colors.surface,
+              borderBottomColor: theme.colors.surfaceVariant,
             },
           ]}
-          onPress={() => handleShowLog(item)}
+          onPress={() => handleShowLog(log)}
           activeOpacity={0.7}
         >
-          <View style={styles.logHeader}>
-            <View style={styles.levelBadgeContainer}>
-              <View
-                style={[
-                  styles.levelBadge,
-                  {
-                    backgroundColor:
-                      levelToColor[item.level as keyof typeof levelToColor] ||
-                      theme.colors.onSurfaceVariant,
-                  },
-                ]}
-              />
-              <Text style={styles.levelText}>{item.level.toUpperCase()}</Text>
-            </View>
-            <View style={styles.headerRight}>
-              <Text style={styles.dateText}>
-                {new Date(item.timestamp).toLocaleString()}
-              </Text>
-              {hasLongContent && (
-                <Icon
-                  source="open-in-new"
-                  size={16}
-                  color={theme.colors.primary}
-                />
-              )}
-            </View>
-          </View>
-          {!!item.context && (
-            <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>
-                {t("serverLogs.fields.context")}:
-              </Text>
-              <Text style={styles.metaValue}>{item.context}</Text>
-            </View>
-          )}
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>
-              {t("serverLogs.fields.message")}:
+          <View style={styles.logLine}>
+            <View
+              style={[
+                styles.levelIndicator,
+                { backgroundColor: levelToColor[log.level as keyof typeof levelToColor] || theme.colors.onSurfaceVariant },
+              ]}
+            />
+            <Text
+              style={[
+                styles.logText,
+                {
+                  fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+                  color: theme.colors.onSurface,
+                },
+              ]}
+              numberOfLines={2}
+            >
+              {log.context ? `[${log.context}] ` : ""}
+              {log.message}
             </Text>
-            <Text style={styles.metaValue}>{truncate(item.message, 150)}</Text>
           </View>
-          {!!item.metadata && (
-            <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>
-                {t("serverLogs.fields.meta")}:
-              </Text>
-              <Text style={styles.metaValue}>
-                {truncate(JSON.stringify(item.metadata), 150)}
-              </Text>
-            </View>
-          )}
         </TouchableOpacity>
       );
     },
-    [theme.colors, levelToColor, handleShowLog, t]
+    [theme.colors, levelToColor, handleShowLog]
   );
 
-  const renderFooter = useCallback(() => {
-    if (!hasMore) return null;
-    return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={theme.colors.primary} />
-      </View>
-    );
-  }, [hasMore, theme.colors.primary]);
+  const renderItem = useCallback(
+    ({ item }: { item: { id: string; timeLabel: string; logs: ServerLog[] } }) => {
+      return (
+        <View style={styles.logGroup}>
+          <Text style={[styles.timeGroupLabel, { color: theme.colors.onSurfaceVariant }]}>
+            {item.timeLabel}
+          </Text>
+          {item.logs.map((log) => renderLogItem(log))}
+        </View>
+      );
+    },
+    [theme.colors, renderLogItem]
+  );
 
   return (
     <PaperScrollView
@@ -319,30 +273,20 @@ export default function ServerLogs() {
         )}
       </Surface>
 
-      {loading && logs.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>{t("serverLogs.loading")}</Text>
-        </View>
-      ) : (
-        <FlashList
-          data={logs}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={renderFooter}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={refreshFromDb}
-              colors={[theme.colors.primary]}
-              tintColor={theme.colors.primary}
-            />
-          }
-          contentContainerStyle={styles.listContent}
-        />
-      )}
+      <FlatList
+        data={groupedLogs}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={refreshFromDb}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
+        contentContainerStyle={styles.listContent}
+      />
 
       {/* Log Detail Modal */}
       <Modal
@@ -377,6 +321,7 @@ export default function ServerLogs() {
                       {t("serverLogs.fields.level")}:
                     </Text>
                     <Text
+                      selectable
                       style={[
                         styles.dialogMetaValue,
                         {
@@ -396,7 +341,7 @@ export default function ServerLogs() {
                     <Text style={styles.dialogMetaLabel}>
                       {t("serverLogs.fields.timestamp")}:
                     </Text>
-                    <Text style={styles.dialogMetaValue}>
+                    <Text selectable style={styles.dialogMetaValue}>
                       {new Date(selectedLog.timestamp).toLocaleString()}
                     </Text>
                   </View>
@@ -406,7 +351,7 @@ export default function ServerLogs() {
                       <Text style={styles.dialogMetaLabel}>
                         {t("serverLogs.fields.context")}:
                       </Text>
-                      <Text style={styles.dialogMetaValue}>
+                      <Text selectable style={styles.dialogMetaValue}>
                         {selectedLog.context}
                       </Text>
                     </View>
@@ -416,9 +361,19 @@ export default function ServerLogs() {
                     <Text style={styles.dialogMetaLabel}>
                       {t("serverLogs.fields.message")}:
                     </Text>
-                    <Text style={styles.dialogMetaValue}>
-                      {selectedLog.message}
-                    </Text>
+                    <TextInput
+                      value={selectedLog.message}
+                      multiline
+                      editable={false}
+                      style={[
+                        styles.fieldInput,
+                        {
+                          backgroundColor: theme.colors.surfaceVariant,
+                          borderColor: theme.colors.outline,
+                          color: theme.colors.onSurface,
+                        },
+                      ]}
+                    />
                   </View>
 
                   {selectedLog.trace && (
@@ -426,20 +381,49 @@ export default function ServerLogs() {
                       <Text style={styles.dialogMetaLabel}>
                         {t("serverLogs.fields.trace")}:
                       </Text>
-                      <Text style={styles.dialogMetaValue}>
-                        {selectedLog.trace}
-                      </Text>
+                      <TextInput
+                        value={selectedLog.trace}
+                        multiline
+                        editable={false}
+                        scrollEnabled
+                        style={[
+                          styles.fieldInput,
+                          {
+                            backgroundColor: theme.colors.surfaceVariant,
+                            borderColor: theme.colors.outline,
+                            color: theme.colors.onSurface,
+                            maxHeight: 200,
+                          },
+                        ]}
+                      />
                     </View>
                   )}
 
                   {selectedLog.metadata && (
-                    <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>
-                        {t("serverLogs.fields.meta")}:
-                      </Text>
-                      <Text style={styles.dialogMetaValue}>
-                        {JSON.stringify(selectedLog.metadata, null, 2)}
-                      </Text>
+                    <View style={styles.metadataSection}>
+                      <View style={styles.metadataHeader}>
+                        <Text style={styles.dialogMetaLabel}>
+                          {t("serverLogs.fields.meta")}:
+                        </Text>
+                        <CopyButton
+                          text={JSON.stringify(selectedLog.metadata, null, 2)}
+                          size={18}
+                        />
+                      </View>
+                      <TextInput
+                        value={JSON.stringify(selectedLog.metadata, null, 2)}
+                        multiline
+                        editable={false}
+                        scrollEnabled
+                        style={[
+                          styles.metadataInput,
+                          {
+                            backgroundColor: theme.colors.surfaceVariant,
+                            borderColor: theme.colors.outline,
+                            color: theme.colors.onSurface,
+                          },
+                        ]}
+                      />
                     </View>
                   )}
                 </>
@@ -461,15 +445,17 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginVertical: 8,
-    borderRadius: 12,
     gap: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 40,
+    marginBottom: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
+    height: 40,
   },
   clearBtn: {
     padding: 4,
@@ -477,71 +463,34 @@ const styles = StyleSheet.create({
   listContent: {
     paddingVertical: 8,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  footerLoader: {
-    paddingVertical: 20,
-    alignItems: "center",
-  },
   logItem: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
-    marginVertical: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
   },
-  logHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  levelBadgeContainer: {
+  logLine: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  levelBadge: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  levelIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  levelText: {
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.5,
-  },
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  dateText: {
-    fontSize: 11,
-    opacity: 0.6,
-  },
-  metaRow: {
-    flexDirection: "row",
-    marginVertical: 2,
-  },
-  metaLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginRight: 6,
-    minWidth: 80,
-    opacity: 0.7,
-  },
-  metaValue: {
-    fontSize: 12,
+  logText: {
     flex: 1,
-    opacity: 0.85,
+    fontSize: 11,
+  },
+  logGroup: {
+    marginBottom: 16,
+  },
+  timeGroupLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    opacity: 0.7,
   },
   modalBackdrop: {
     flex: 1,
@@ -583,5 +532,36 @@ const styles = StyleSheet.create({
   dialogMetaValue: {
     fontSize: 13,
     opacity: 0.9,
+  },
+  fieldInput: {
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 80,
+    maxHeight: 200,
+    fontFamily: "monospace",
+    fontSize: 12,
+    lineHeight: 18,
+    padding: 12,
+    textAlignVertical: "top",
+  },
+  metadataSection: {
+    marginTop: 8,
+  },
+  metadataHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  metadataInput: {
+    borderRadius: 8,
+    borderWidth: 1,
+    maxHeight: 300,
+    minHeight: 100,
+    fontFamily: "monospace",
+    fontSize: 12,
+    lineHeight: 18,
+    padding: 12,
+    textAlignVertical: "top",
   },
 });
