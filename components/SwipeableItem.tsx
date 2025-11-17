@@ -37,6 +37,7 @@ interface SwipeableItemProps {
   marginHorizontal?: number;
   borderRadius?: number;
   borderColor?: string;
+  borderWidth?: number;
   menuItems?: MenuItem[];
   showMenu?: boolean;
   copyId?: string;
@@ -53,6 +54,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   marginHorizontal = 0,
   borderRadius = 12,
   borderColor,
+  borderWidth = 1,
   menuItems = [],
   showMenu = true,
   copyId,
@@ -279,6 +281,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
             {
               borderRadius,
               borderColor: finalBorderColor,
+              borderWidth,
             },
             {
               backgroundColor:
@@ -314,7 +317,6 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     shadowOffset: { width: 0, height: 0 },
     elevation: 0,
-    borderWidth: 1,
   },
   contentWrapper: {
     position: "relative",

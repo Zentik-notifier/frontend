@@ -2,6 +2,7 @@ import { I18nProvider } from "@/components/I18nProvider";
 import { QueryProviders } from "@/components/QueryProviders";
 import { AlertDialog } from "@/components/ui/AlertDialog";
 import { useDeviceType } from "@/hooks/useDeviceType";
+import { useForegroundNotificationHandler } from "@/hooks/useForegroundNotificationHandler";
 import { useWatchConnectivityEvents } from "@/hooks/useWatchConnectivityEvents";
 import { ThemeProvider } from "@/hooks/useTheme";
 import MobileLayout from "@/layouts/mobile";
@@ -18,6 +19,7 @@ import { MenuProvider } from "react-native-popup-menu";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppProvider, useAppContext } from "../contexts/AppContext";
+import { NotificationToastProvider } from "../contexts/NotificationToastContext";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb, openWebStorageDb } from "../services/db-setup";
 import { settingsService } from "../services/settings-service";
@@ -92,6 +94,9 @@ function AppContent() {
   // Initialize Watch connectivity event listeners (iOS only)
   useWatchConnectivityEvents();
 
+  // Handle foreground notifications with toast
+  // useForegroundNotificationHandler();
+
   return (
     <AppProvider>
       <MenuProvider>
@@ -148,7 +153,9 @@ export default function RootLayout() {
         <QueryProviders>
           <ThemeProvider>
             <I18nProvider>
-              <AppContent />
+              <NotificationToastProvider>
+                <AppContent />
+              </NotificationToastProvider>
             </I18nProvider>
           </ThemeProvider>
         </QueryProviders>

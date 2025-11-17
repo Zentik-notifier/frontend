@@ -412,12 +412,12 @@ async function storePendingNotification(notificationData) {
       updatedAt: now,
       message: {
         __typename: 'Message',
-        id: notificationData.notificationId, // Use same ID for message
+        id: notificationData.messageId || notificationData.notificationId, // Use messageId from payload or fallback to notificationId
         title: notificationData.title || '',
         body: notificationData.body || null,
         subtitle: notificationData.subtitle || null,
         sound: 'default',
-        deliveryType: notificationData.deliveryType || 'PUSH',
+        deliveryType: notificationData.deliveryType || 'NORMAL',
         locale: null,
         snoozes: null,
         createdAt: now,

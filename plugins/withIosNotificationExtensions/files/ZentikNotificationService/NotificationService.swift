@@ -141,36 +141,7 @@ class NotificationService: UNNotificationServiceExtension {
         )
       }
       
-      // Check if this is a SILENT notification (deliveryType = SILENT)
-      // SILENT notifications complete ALL processing but don't show banner
-      if let deliveryType = userInfo["deliveryType"] as? String,
-         deliveryType.uppercased() == "SILENT" {
-        
-        print("📱 [NotificationService] 🔕 SILENT notification - all processing done, suppressing banner")
-        
-        // Log silent notification
-        if let notificationId = userInfo["notificationId"] as? String {
-          logToDatabase(
-            level: "info",
-            tag: "Silent",
-            message: "SILENT notification processed (no communication style) - no banner shown",
-            metadata: [
-              "notificationId": notificationId,
-              "deliveryType": deliveryType,
-              "skipSendMessageIntent": true
-            ]
-          )
-        }
-        
-        // Flush logs before returning empty content
-        LoggingSystem.shared.flushLogs()
-        
-        // Return empty content to suppress banner/sound (after all processing is done)
-        contentHandler(UNMutableNotificationContent())
-        return
-      }
-      
-      // Deliver notification without communication style
+      // Deliver notification
       contentHandler(content)
       
       // Flush logs immediately before extension terminates
@@ -311,34 +282,6 @@ class NotificationService: UNNotificationServiceExtension {
         print("📱 [NotificationService] ⌚️ UserInfo keys: \(bestContent.userInfo.keys.map { String(describing: $0) }.joined(separator: ", "))")
       }
 
-      // Check if this is a SILENT notification (deliveryType = SILENT)
-      // SILENT notifications complete ALL processing but don't show banner
-      if let deliveryType = userInfo["deliveryType"] as? String,
-         deliveryType.uppercased() == "SILENT" {
-        
-        print("📱 [NotificationService] 🔕 SILENT notification - all processing done, suppressing banner")
-        
-        // Log silent notification
-        if let notificationId = userInfo["notificationId"] as? String {
-          logToDatabase(
-            level: "info",
-            tag: "Silent",
-            message: "SILENT notification processed - no banner shown",
-            metadata: [
-              "notificationId": notificationId,
-              "deliveryType": deliveryType
-            ]
-          )
-        }
-        
-        // Flush logs before returning empty content
-        LoggingSystem.shared.flushLogs()
-        
-        // Return empty content to suppress banner/sound (after all processing is done)
-        contentHandler(UNMutableNotificationContent())
-        return
-      }
-
       // everything went alright, we are ready to display our notification.
       contentHandler(bestAttemptContent!)
       
@@ -409,10 +352,15 @@ class NotificationService: UNNotificationServiceExtension {
 
         var updated = content.userInfo as? [String: Any] ?? [:]
         if let notificationId = obj["notificationId"] { updated["notificationId"] = notificationId }
+        if let messageId = obj["messageId"] { updated["messageId"] = messageId }
         if let bucketId = obj["bucketId"] { updated["bucketId"] = bucketId }
         if let bucketName = obj["bucketName"] { updated["bucketName"] = bucketName }
         if let bucketIconUrl = obj["bucketIconUrl"] { updated["bucketIconUrl"] = bucketIconUrl }
         if let bucketColor = obj["bucketColor"] { updated["bucketColor"] = bucketColor }
+        if let deliveryType = obj["deliveryType"] { 
+          print("📱 [NotificationService] 🔍 deliveryType FROM BLOB: \(deliveryType)")
+          updated["deliveryType"] = deliveryType 
+        }
         if let actions = obj["actions"] as? [[String: Any]] { updated["actions"] = actions }
         if let attachmentData = obj["attachmentData"] as? [[String: Any]] {
           updated["attachmentData"] = attachmentData
@@ -1673,14 +1621,17 @@ class NotificationService: UNNotificationServiceExtension {
     let now = ISO8601DateFormatter().string(from: Date())
     
     // Build message object
+    let deliveryTypeForDB = userInfo["deliveryType"] as? String ?? "NORMAL"
+    print("📱 [NotificationService] 💾 Saving to DB with deliveryType: \(deliveryTypeForDB)")
+    
     var messageObj: [String: Any] = [
       "__typename": "Message",
-      "id": UUID().uuidString, // Generate a message ID
+      "id": userInfo["messageId"] as? String ?? UUID().uuidString, // Use messageId from payload or generate fallback
       "title": content.title,
       "body": content.body,
       "subtitle": content.subtitle.isEmpty ? NSNull() : content.subtitle,
       "sound": "default",
-      "deliveryType": "PUSH",
+      "deliveryType": deliveryTypeForDB,
       "locale": NSNull(),
       "snoozes": NSNull(),
       "createdAt": now,

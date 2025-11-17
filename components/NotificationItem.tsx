@@ -295,12 +295,19 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       ? theme.colors.secondary
       : undefined;
 
+  const borderWidth =
+    deliveryType === NotificationDeliveryType.Critical ||
+    deliveryType === NotificationDeliveryType.Silent
+      ? 4
+      : 1;
+
   return (
     <SwipeableItem
       marginHorizontal={16}
       leftAction={isMultiSelectionMode ? undefined : toggleReadAction}
       rightAction={isMultiSelectionMode ? undefined : deleteAction}
       borderColor={borderColor}
+      borderWidth={borderWidth}
       menuItems={isMultiSelectionMode ? [] : menuItems}
       showMenu={!isMultiSelectionMode}
       cardStyle={[

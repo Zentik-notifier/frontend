@@ -361,7 +361,7 @@ async function storePendingNotification(notificationData) {
         body: notificationData.body || null,
         subtitle: notificationData.subtitle || null,
         sound: 'default',
-        deliveryType: notificationData.deliveryType || 'PUSH',
+        deliveryType: notificationData.deliveryType || 'NORMAL',
         locale: null,
         snoozes: null,
         createdAt: now,

@@ -6,6 +6,7 @@ import NotificationSnoozeButton from "@/components/NotificationSnoozeButton";
 import {
   MediaType,
   NotificationActionType,
+  NotificationDeliveryType,
   useGetEntityExecutionQuery,
 } from "@/generated/gql-operations-generated";
 import {
@@ -169,19 +170,6 @@ export default function NotificationDetail({
     }
   };
 
-  const copyNotificationSource = async () => {
-    try {
-      const sourceData = JSON.stringify(notification, null, 2);
-      await Clipboard.setStringAsync(sourceData);
-      setIsCopying(true);
-      setTimeout(() => {
-        setIsCopying(false);
-      }, 2000);
-    } catch (error) {
-      console.error("Error copying notification source:", error);
-    }
-  };
-
   const shareNotification = async () => {
     const fullText = buildNotificationText();
     try {
@@ -339,7 +327,21 @@ export default function NotificationDetail({
           <View style={styles.headerRight}>
             {/* Actions */}
             <View style={styles.actionsContainer}>
-              <ButtonGroup>
+              <ButtonGroup
+                style={{
+                  borderWidth:
+                    message?.deliveryType === NotificationDeliveryType.Critical ||
+                    message?.deliveryType === NotificationDeliveryType.Silent
+                      ? 4
+                      : undefined,
+                  borderColor:
+                    message?.deliveryType === NotificationDeliveryType.Critical
+                      ? theme.colors.error
+                      : message?.deliveryType === NotificationDeliveryType.Silent
+                      ? theme.colors.secondary
+                      : undefined,
+                }}
+              >
                 {/* HTML Toggle Button */}
                 <IconButton
                   icon={enableHtmlRendering ? "code-tags-check" : "code-tags"}
