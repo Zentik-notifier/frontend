@@ -190,9 +190,17 @@ export function useNavigationUtils() {
 
         navigateToNotificationsSettings: () => {
             if (isMobile) {
-                router.push(`/(phone)/(settings)/notifications`);
+                router.push(`/(phone)/(settings)/notifications/settings`);
             } else {
-                router.push(`/(desktop)/(settings)/notifications`);
+                router.push(`/(desktop)/(settings)/notifications/settings`);
+            }
+        },
+
+        navigateToCreateNotification: () => {
+            if (isMobile) {
+                router.push(`/(phone)/(settings)/notifications/create`);
+            } else {
+                router.push(`/(desktop)/(settings)/notifications/create`);
             }
         },
 

@@ -18,10 +18,8 @@ import {
   useGetUserSessionsQuery,
   usePublicAppConfigQuery,
   useUpdateProfileMutation,
-  useUserNotificationStatsQuery,
 } from "../generated/gql-operations-generated";
 import AdminSubscriptions from "./AdminSubscriptions";
-import NotificationStats from "./NotificationStats";
 import OAuthConnections from "./OAuthConnections";
 import DetailSectionCard from "./ui/DetailSectionCard";
 import PaperScrollView from "./ui/PaperScrollView";
@@ -76,9 +74,6 @@ export default function UserProfile() {
   const user = userData?.me;
 
   const { data: sessionsData } = useGetUserSessionsQuery();
-
-  const { data: statsData, refetch: refetchStats } =
-    useUserNotificationStatsQuery();
 
   useEffect(() => {
     if (user) {
@@ -153,7 +148,7 @@ export default function UserProfile() {
   };
 
   const handleRefresh = async () => {
-    await Promise.all([refetch(), refetchStats()]);
+    await refetch();
   };
 
   if (!user) {
@@ -424,10 +419,6 @@ export default function UserProfile() {
         <View style={styles.section}>
           {user.role === "ADMIN" && <AdminSubscriptions />}
         </View>
-        {/* Notification Statistics Section */}
-        {statsData?.userNotificationStats && (
-          <NotificationStats dateStats={statsData.userNotificationStats} />
-        )}
 
         {/* Delete Account Section */}
         <DetailSectionCard

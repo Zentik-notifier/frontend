@@ -39,7 +39,7 @@ import CopyButton from "./ui/CopyButton";
 import NumberListInput from "./ui/NumberListInput";
 import ButtonGroup from "./ui/ButtonGroup";
 
-export default function NotificationsSettings() {
+export default function CreateNotification() {
   const {
     userId,
     push,
