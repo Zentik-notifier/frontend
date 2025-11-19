@@ -452,6 +452,10 @@ export interface Translation {
       updateErrorMessage: string;
       readOnlyMode: string;
       readOnlyWarning: string;
+      sharedBucketInfo: string;
+      customNameLabel: string;
+      customNamePlaceholder: string;
+      originalName: string;
       createAccessToken: string;
       createAccessTokenHint: string;
       magicCode: string;

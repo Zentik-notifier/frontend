@@ -4,6 +4,7 @@ import {
   UpdateBucketDto,
   useCreateAccessTokenForBucketMutation,
   usePublicAppConfigQuery,
+  useUpdateUserBucketCustomNameMutation,
 } from "@/generated/gql-operations-generated";
 import {
   useBucket,
@@ -58,7 +59,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const isEditing = !!bucketId;
   const { navigateToBucketDetail } = useNavigationUtils();
 
-  const { bucket, canWrite } = useBucket(bucketId, {
+  const { bucket, canWrite, isSharedWithMe } = useBucket(bucketId, {
     autoFetch: isEditing,
     userId: userId ?? undefined,
   });
@@ -68,9 +69,13 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
     appConfig?.publicAppConfig ?? {};
 
   const isProtectedBucket = bucket?.isProtected;
+  const isSharedBucket = isSharedWithMe && !bucket?.isPublic && !bucket?.isAdmin;
 
   const [createAccessTokenForBucketMutation] =
     useCreateAccessTokenForBucketMutation({});
+
+  const [updateUserBucketCustomNameMutation] =
+    useUpdateUserBucketCustomNameMutation({});
 
   const { createBucket, isLoading: creatingBucket } = useCreateBucket({
     onSuccess: async (data) => {
@@ -138,22 +143,59 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   // Initialize form with bucket data when editing
   useEffect(() => {
     if (bucket && isEditing) {
-      setBucketName(bucket.name);
+      // For shared buckets, use customName if available, otherwise use bucket name
+      const displayName = isSharedBucket 
+        ? (bucket.userBucket?.customName || bucket.name)
+        : bucket.name;
+      
+      setBucketName(displayName);
       setBucketColor(bucket.color || defaultColor);
       setBucketIcon(bucket.icon || "");
       setBucketIconSourceUrl(bucket.icon || ""); // Use icon as source URL
 
       // Store original values
-      setOriginalName(bucket.name);
+      setOriginalName(displayName);
       setOriginalColor(bucket.color || defaultColor);
       setOriginalIcon(bucket.icon || "");
       setOriginalIconSourceUrl(bucket.icon || "");
     }
-  }, [bucket, isEditing]);
+  }, [bucket, isEditing, isSharedBucket]);
 
   const saveBucket = async () => {
-    if (!bucketName.trim() || isLoading || (isEditing && !canWrite) || offline)
+    if (!bucketName.trim() || isLoading || offline)
       return;
+
+    // For shared buckets, only name can be changed (customName)
+    if (isEditing && isSharedBucket) {
+      if (!bucket?.id) return;
+      
+      try {
+        const trimmedName = bucketName.trim();
+        // If name matches original bucket name, set customName to null (remove override)
+        // Otherwise, set it to the new name
+        const customNameValue = trimmedName === bucket.name ? null : trimmedName;
+        
+        await updateUserBucketCustomNameMutation({
+          variables: {
+            bucketId: bucket.id,
+            customName: customNameValue,
+          },
+        });
+        
+        await refreshBucket(bucket.id).catch(console.error);
+        router.back();
+      } catch (error: any) {
+        console.error("Error updating bucket custom name:", error);
+        Alert.alert(
+          t("buckets.form.updateErrorTitle"),
+          error.message || t("buckets.form.updateErrorMessage")
+        );
+      }
+      return;
+    }
+
+    // Regular bucket update/create logic (owner buckets only)
+    if (isEditing && !canWrite) return;
 
     // Validate icon URL if provided
     if (bucketIcon.trim() && !validateIconUrl(bucketIcon)) {
@@ -285,7 +327,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   return (
     <>
       {/* Read-only warning */}
-      {isEditing && !canWrite && !isProtectedBucket && (
+      {isEditing && !canWrite && !isProtectedBucket && !isSharedBucket && (
         <Surface
           style={[
             styles.warningContainer,
@@ -304,6 +346,30 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
             ]}
           >
             {t("buckets.form.readOnlyWarning")}
+          </Text>
+        </Surface>
+      )}
+
+      {/* Shared bucket info */}
+      {isEditing && isSharedBucket && (
+        <Surface
+          style={[
+            styles.warningContainer,
+            { backgroundColor: theme.colors.primaryContainer },
+          ]}
+        >
+          <Icon
+            source="account-multiple"
+            size={24}
+            color={theme.colors.onPrimaryContainer}
+          />
+          <Text
+            style={[
+              styles.warningText,
+              { color: theme.colors.onPrimaryContainer },
+            ]}
+          >
+            {t("buckets.form.sharedBucketInfo")}
           </Text>
         </Surface>
       )}
@@ -328,13 +394,22 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                 style={styles.bucketNameInput}
                 value={bucketName}
                 onChangeText={setBucketName}
-                placeholder={t("buckets.form.namePlaceholder")}
+                placeholder={
+                  isSharedBucket 
+                    ? t("buckets.form.customNamePlaceholder")
+                    : t("buckets.form.namePlaceholder")
+                }
                 maxLength={50}
-                editable={!isEditing || (canWrite && !isProtectedBucket)}
-                disabled={(isEditing && !canWrite) || offline}
+                editable={!offline && (!isEditing || isSharedBucket || (canWrite && !isProtectedBucket))}
+                disabled={offline || (isEditing && !isSharedBucket && (!canWrite || !!isProtectedBucket))}
                 mode="outlined"
+                label={
+                  isSharedBucket && bucket?.name !== bucketName
+                    ? t("buckets.form.customNameLabel")
+                    : undefined
+                }
               />
-              {!isProtectedBucket && (
+              {!isProtectedBucket && !isSharedBucket && (
                 <Surface
                   style={[
                     styles.customColorInput,
@@ -362,8 +437,20 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
               )}
             </View>
 
-            {/* Icon URL Input */}
-            {!isProtectedBucket && (
+            {/* Original bucket name display for shared buckets */}
+            {isSharedBucket && bucket?.name !== bucketName && (
+              <Text
+                style={[
+                  styles.originalNameText,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                {t("buckets.form.originalName")}: {bucket?.name}
+              </Text>
+            )}
+
+            {/* Icon URL Input - Hidden for shared buckets */}
+            {!isProtectedBucket && !isSharedBucket && (
               <View style={styles.iconInputContainer}>
                 <TextInput
                   style={styles.iconInput}
@@ -396,8 +483,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
               </Text>
             ) : null}
 
-            {/* Icon Preview */}
-            {!isProtectedBucket && (
+            {/* Icon Preview - Hidden for shared buckets */}
+            {!isProtectedBucket && !isSharedBucket && (
               <View style={styles.previewSection}>
                 {/* <Text style={styles.previewLabel}>
                   {t("buckets.form.preview")}
@@ -531,7 +618,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
             )}
 
             {/* Action Buttons */}
-            {!isProtectedBucket && (
+            {(!isProtectedBucket || isSharedBucket) && (
               <View style={styles.buttonRow}>
                 <Button
                   mode="contained"
@@ -539,12 +626,12 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                   disabled={
                     isLoading ||
                     !bucketName.trim() ||
-                    (isEditing && !canWrite) ||
+                    (isEditing && !isSharedBucket && !canWrite) ||
                     offline
                   }
                   style={styles.createButton}
                 >
-                  {isEditing && !canWrite
+                  {isEditing && !isSharedBucket && !canWrite
                     ? t("buckets.form.readOnlyMode")
                     : isLoading
                     ? isEditing
@@ -558,7 +645,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                 <Button
                   mode="outlined"
                   onPress={resetForm}
-                  disabled={(isEditing && !canWrite) || offline}
+                  disabled={(isEditing && !isSharedBucket && !canWrite) || offline}
                   style={styles.resetButton}
                 >
                   {t("common.reset")}
@@ -715,6 +802,13 @@ const styles = StyleSheet.create({
   warningText: {
     flex: 1,
     fontSize: 14,
+    fontStyle: "italic",
+  },
+  originalNameText: {
+    fontSize: 13,
+    marginTop: -8,
+    marginBottom: 12,
+    marginLeft: 12,
     fontStyle: "italic",
   },
   errorText: {

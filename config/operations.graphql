@@ -954,6 +954,7 @@ fragment UserBucketFragment on UserBucket {
   userId
   bucketId
   magicCode
+  customName
   snoozeUntil
   snoozes {
     days
@@ -994,6 +995,12 @@ mutation RegenerateMagicCode($bucketId: String!) {
 
 mutation DeleteMagicCode($bucketId: String!) {
   deleteMagicCode(bucketId: $bucketId) {
+    ...UserBucketFragment
+  }
+}
+
+mutation UpdateUserBucketCustomName($bucketId: String!, $customName: String) {
+  updateUserBucketCustomName(bucketId: $bucketId, customName: $customName) {
     ...UserBucketFragment
   }
 }
