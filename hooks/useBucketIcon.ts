@@ -1,5 +1,5 @@
 import { mediaCache } from '@/services/media-cache-service';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface UseBucketIconOptions {
   /**
@@ -83,9 +83,15 @@ export function useBucketIcon(
   const [iconUri, setIconUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Use ref to avoid re-creating loadIcon on every render
+  const onIconLoadedRef = useRef(onIconLoaded);
+  useEffect(() => {
+    onIconLoadedRef.current = onIconLoaded;
+  }, [onIconLoaded]);
 
-  // Function to load icon
-  const loadIcon = async () => {
+  // Memoize loadIcon to prevent unnecessary re-renders
+  const loadIcon = useCallback(async () => {
     if (!enabled || !bucketName) return;
     
     try {
@@ -95,15 +101,13 @@ export function useBucketIcon(
       // Try to get cached icon first (synchronous, with param validation)
       const cachedUri = mediaCache.getCachedBucketIconUri(bucketId, bucketName, iconUrl);
       if (cachedUri) {
-        // console.log(`[useBucketIcon] 💾 Found cached icon for ${bucketName}`);
         setIconUri(cachedUri);
         setIsLoading(false);
-        onIconLoaded?.(cachedUri);
+        onIconLoadedRef.current?.(cachedUri);
         return;
       }
       
       // Start async loading (this will queue the icon if not cached)
-    //   console.log(`[useBucketIcon] 🔄 Loading icon for ${bucketName}`, { iconUrl });
       const uri = await mediaCache.getBucketIcon(
         bucketId,
         bucketName,
@@ -111,11 +115,8 @@ export function useBucketIcon(
       );
       
       if (uri) {
-        // console.log(`[useBucketIcon] ✅ Icon loaded for ${bucketName}`);
         setIconUri(uri);
-        onIconLoaded?.(uri);
-      } else {
-        // console.log(`[useBucketIcon] ⏳ Icon queued for download: ${bucketName}`);
+        onIconLoadedRef.current?.(uri);
       }
     } catch (err: any) {
       console.error(`[useBucketIcon] ❌ Error loading icon for ${bucketName}:`, err);
@@ -123,22 +124,21 @@ export function useBucketIcon(
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [enabled, bucketName, bucketId, iconUrl]);
 
   // Load icon on mount and when params change
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !bucketName) return;
     
     let cancelled = false;
 
     // Try to get cached icon synchronously first (with param validation)
     const cachedUri = mediaCache.getCachedBucketIconUri(bucketId, bucketName, iconUrl);
     if (cachedUri && !cancelled) {
-    //   console.log(`[useBucketIcon] 💾 Instant cache hit for ${bucketName}`);
       setIconUri(cachedUri);
-      onIconLoaded?.(cachedUri);
-    } else {
-      // Start async loading
+      onIconLoadedRef.current?.(cachedUri);
+    } else if (!cancelled) {
+      // Start async loading only if not in cache
       loadIcon();
     }
 
@@ -146,11 +146,10 @@ export function useBucketIcon(
     const subscription = mediaCache.bucketIconReady.subscribe(
       ({ bucketId: readyBucketId, uri }) => {
         if (readyBucketId === bucketId && !cancelled) {
-        //   console.log(`[useBucketIcon] 📢 Icon ready event received for ${bucketName}`);
           setIconUri(uri);
           setIsLoading(false);
           setError(null);
-          onIconLoaded?.(uri);
+          onIconLoadedRef.current?.(uri);
         }
       }
     );
@@ -159,7 +158,7 @@ export function useBucketIcon(
       cancelled = true;
       subscription.unsubscribe();
     };
-  }, [bucketId, bucketName, iconUrl, enabled]);
+  }, [bucketId, bucketName, iconUrl, enabled, loadIcon]);
 
   // Compute isLoaded state
   const isLoaded = iconUri !== null;

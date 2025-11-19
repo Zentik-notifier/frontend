@@ -5,7 +5,7 @@ import { cleanupGalleryBySettings, mediaCache } from "@/services/media-cache-ser
 import { cleanupNotificationsBySettings, getAllNotificationsFromCache } from "@/services/notifications-repository";
 import { settingsService } from "@/services/settings-service";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { getAllBuckets } from "@/db/repositories/buckets-repository";
 
 // Polyfill for requestIdleCallback (not available in React Native)
@@ -25,8 +25,20 @@ interface CleanupProps {
 export const useCleanup = () => {
     const queryClient = useQueryClient();
     const { refreshAll } = useNotificationsState();
+    
+    // Use ref to track if cleanup is currently running
+    const isCleanupRunningRef = useRef(false);
 
     const cleanup = useCallback(async ({ immediate, force }: CleanupProps) => {
+        // Prevent multiple concurrent cleanup operations
+        if (isCleanupRunningRef.current) {
+            console.log('[Cleanup] ⏭️ Cleanup already running, skipping duplicate call');
+            return;
+        }
+        
+        isCleanupRunningRef.current = true;
+        
+        try {
         const shouldCleanup = !settingsService.shouldRunCleanup() ? false : true;
 
         const delay = immediate ? 0 : 15000;
@@ -155,6 +167,10 @@ export const useCleanup = () => {
         });
 
         console.log('[Cleanup] Cleanup completed');
+        } finally {
+            // Always release the lock when cleanup completes or fails
+            isCleanupRunningRef.current = false;
+        }
     }, [queryClient, refreshAll]);
 
     return { cleanup };
