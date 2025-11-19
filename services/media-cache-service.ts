@@ -70,7 +70,6 @@ export interface DownloadQueueItem {
     timestamp: number;
     op: QueueOperation;
     priority?: number;
-    // For bucket-icon operations
     bucketId?: string;
     bucketName?: string;
 }
@@ -1323,10 +1322,34 @@ class MediaCacheService {
 
     /**
      * Get bucket icon URI synchronously from in-memory cache
-     * Returns null if not yet loaded
+     * Returns null if not yet loaded or if params have changed (needs re-download)
      * Use this for instant access during initial render
+     * 
+     * @param bucketId - The bucket ID
+     * @param bucketName - The bucket name (to check if params changed)
+     * @param iconUrl - The icon URL (to check if params changed)
      */
-    getCachedBucketIconUri(bucketId: string): string | null {
+    getCachedBucketIconUri(
+        bucketId: string,
+        bucketName: string,
+        iconUrl?: string
+    ): string | null {
+        // Check if params have changed since last cache
+        const cachedParams = this.bucketParamsCache.get(bucketId);
+        
+        if (cachedParams) {
+            const paramsChanged = 
+                cachedParams.bucketName !== bucketName ||
+                cachedParams.iconUrl !== iconUrl;
+            
+            if (paramsChanged) {
+                // Params changed, invalidate cache
+                console.log(`[MediaCache] 🔄 Params changed for ${bucketName}, cache invalidated`);
+                this.bucketIconUriCache.delete(bucketId);
+                return null;
+            }
+        }
+        
         return this.bucketIconUriCache.get(bucketId) ?? null;
     }
 

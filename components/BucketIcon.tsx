@@ -1,8 +1,8 @@
 import { useBucket } from "@/hooks/notifications";
-import { mediaCache } from "@/services/media-cache-service";
+import { useBucketIcon } from "@/hooks/useBucketIcon";
 import { useNavigationUtils } from "@/utils/navigation";
 import { Image } from "expo-image";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { StyleSheet, TouchableWithoutFeedback, View } from "react-native";
 import { Icon, useTheme } from "react-native-paper";
 
@@ -36,7 +36,15 @@ export default function BucketIcon({
     autoFetch: forceRefetch,
   });
 
-  const [iconUri, setIconUri] = useState<string | null>(null);
+  // Use the new hook to manage bucket icon loading
+  const { iconUri, isLoading } = useBucketIcon(
+    bucketId,
+    bucket?.name || "",
+    bucket?.iconUrl ?? undefined,
+    {
+      enabled: !!bucket, // Only load when bucket data is available
+    }
+  );
 
   const { color } = bucket || {};
 
@@ -57,47 +65,6 @@ export default function BucketIcon({
       }
     }
   };
-
-  // Load bucket icon when bucket data is available
-  useEffect(() => {
-    if (!bucket) return;
-
-    let cancelled = false;
-
-    // Try to get cached icon synchronously first
-    const cachedUri = mediaCache.getCachedBucketIconUri(bucketId);
-    if (cachedUri && !cancelled) {
-      setIconUri(cachedUri);
-    }
-
-    // Start async loading
-    const loadIcon = async () => {
-      const uri = await mediaCache.getBucketIcon(
-        bucketId,
-        bucket.name,
-        bucket.iconUrl ?? ""
-      );
-      if (!cancelled && uri) {
-        setIconUri(uri);
-      }
-    };
-
-    loadIcon();
-
-    // Subscribe to bucket icon ready events
-    const subscription = mediaCache.bucketIconReady.subscribe(
-      ({ bucketId: readyBucketId, uri }) => {
-        if (readyBucketId === bucketId && !cancelled) {
-          setIconUri(uri);
-        }
-      }
-    );
-
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
-  }, [bucketId, bucket?.name, bucket?.iconUrl]);
 
   const iconContent = (
     <View
