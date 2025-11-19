@@ -35,9 +35,10 @@ export interface ExecutionItemProps {
   execution: EntityExecutionFragment;
   isExpanded: boolean;
   onToggle: () => void;
+  showEntityName?: boolean;
 }
 
-export function ExecutionItem({ execution, isExpanded, onToggle }: ExecutionItemProps) {
+export function ExecutionItem({ execution, isExpanded, onToggle, showEntityName }: ExecutionItemProps) {
   const theme = useTheme();
   const { t } = useI18n();
 
@@ -76,6 +77,11 @@ export function ExecutionItem({ execution, isExpanded, onToggle }: ExecutionItem
               >
                 {execution.status}
               </Chip>
+              {showEntityName && execution.entityName && (
+                <Text variant="bodySmall" style={styles.entityNameText}>
+                  {execution.entityName}
+                </Text>
+              )}
               <Text variant="bodySmall" style={styles.executionDate}>
                 {new Date(execution.createdAt).toLocaleString()}
               </Text>
@@ -126,23 +132,23 @@ export function ExecutionExpandedContent({ execution }: ExecutionExpandedContent
     <View>
       {/* Type and Details Grid */}
       <View style={styles.detailsGrid}>
-        <View style={styles.detailRow}>
+        {/* <View style={styles.detailRow}>
           <Text variant="bodySmall" style={styles.detailLabel}>
             {t("entityExecutions.type")}:
           </Text>
           <Text variant="bodySmall" style={styles.detailValue}>
             {execution.type}
           </Text>
-        </View>
+        </View> */}
 
-        <View style={styles.detailRow}>
+        {/* <View style={styles.detailRow}>
           <Text variant="bodySmall" style={styles.detailLabel}>
             ID:
           </Text>
           <Text variant="bodySmall" style={styles.detailValue}>
             {execution.id}
           </Text>
-        </View>
+        </View> */}
 
         {execution.entityName && (
           <View style={styles.detailRow}>
@@ -376,6 +382,7 @@ export default function EntityExecutionsSection({
                   execution={item}
                   isExpanded={expandedExecutionId === item.id}
                   onToggle={() => handleToggleExecution(item.id)}
+                  showEntityName={!entityName}
                 />
               )}
               keyExtractor={(item) => item.id}
@@ -467,6 +474,10 @@ const styles = StyleSheet.create({
   },
   executionDate: {
     opacity: 0.7,
+  },
+  entityNameText: {
+    opacity: 0.85,
+    fontWeight: "600",
   },
   durationText: {
     opacity: 0.7,
