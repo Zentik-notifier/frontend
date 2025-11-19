@@ -297,6 +297,7 @@ export type EntityPermission = {
 
 export type Event = {
   __typename?: 'Event';
+  additionalInfo: Maybe<Scalars['JSON']['output']>;
   createdAt: Scalars['DateTime']['output'];
   id: Scalars['String']['output'];
   objectId: Maybe<Scalars['String']['output']>;
@@ -356,6 +357,7 @@ export enum ExecutionStatus {
 
 /** Types of executions that are tracked */
 export enum ExecutionType {
+  Notification = 'NOTIFICATION',
   PayloadMapper = 'PAYLOAD_MAPPER',
   Webhook = 'WEBHOOK'
 }

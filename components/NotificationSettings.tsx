@@ -3,8 +3,12 @@ import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Text, useTheme } from "react-native-paper";
-import { useUserNotificationStatsQuery } from "@/generated/gql-operations-generated";
+import { 
+  useUserNotificationStatsQuery,
+  ExecutionType,
+} from "@/generated/gql-operations-generated";
 import NotificationStats from "./NotificationStats";
+import EntityExecutionsSection from "./EntityExecutionsSection";
 import PaperScrollView from "./ui/PaperScrollView";
 
 export default function NotificationSettings() {
@@ -40,6 +44,13 @@ export default function NotificationSettings() {
         {statsData?.userNotificationStats && (
           <NotificationStats dateStats={statsData.userNotificationStats} />
         )}
+
+        {/* Entity Executions Section - Show notification sending history */}
+        <View style={styles.executionsSection}>
+          <EntityExecutionsSection
+            entityType={ExecutionType.Notification}
+          />
+        </View>
       </View>
     </PaperScrollView>
   );
@@ -57,5 +68,9 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: "center",
     justifyContent: "center",
+  },
+  executionsSection: {
+    marginTop: 24,
+    marginBottom: 100,
   },
 });

@@ -26,7 +26,7 @@ import { FlashList } from "@shopify/flash-list";
 import CopyButton from "./ui/CopyButton";
 
 interface EntityExecutionsSectionProps {
-  entityId: string;
+  entityId?: string;
   entityType: ExecutionType;
   entityName?: string;
 }
@@ -166,15 +166,15 @@ export function ExecutionExpandedContent({ execution }: ExecutionExpandedContent
           </View>
         )}
 
-        <View style={styles.detailRow}>
+        {/* <View style={styles.detailRow}>
           <Text variant="bodySmall" style={styles.detailLabel}>
             {t("entityExecutions.userId")}:
           </Text>
           <Text variant="bodySmall" style={styles.detailValue}>
             {execution.userId}
           </Text>
-        </View>
-
+        </View> */}
+{/* 
         <View style={styles.detailRow}>
           <Text variant="bodySmall" style={styles.detailLabel}>
             {t("entityExecutions.updatedAt")}:
@@ -182,7 +182,7 @@ export function ExecutionExpandedContent({ execution }: ExecutionExpandedContent
           <Text variant="bodySmall" style={styles.detailValue}>
             {new Date(execution.updatedAt).toLocaleString()}
           </Text>
-        </View>
+        </View> */}
       </View>
 
       {/* Errors */}
