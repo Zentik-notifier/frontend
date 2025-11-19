@@ -467,19 +467,19 @@ export function useBatchMarkAsRead(
     return useMutation({
         mutationFn: async (input: MarkAsReadInput) => {
             const isMarkingAsRead = input.readAt !== null;
-            // 1. Call backend GraphQL batch mutation (this cancels reminders)
-            if (isMarkingAsRead) {
-                await massMarkAsReadGQL({
-                    variables: { ids: input.notificationIds }
-                });
-            } else {
-                await massMarkAsUnreadGQL({
-                    variables: { ids: input.notificationIds }
-                });
-            }
-
-            // 2. Update local DB
+            
+            // 1. Update local DB FIRST for immediate UI update
             await updateNotificationsReadStatus(input.notificationIds, input.readAt);
+
+            // 2. Call backend GraphQL batch mutation in background (this cancels reminders)
+            const backendCall = isMarkingAsRead
+                ? massMarkAsReadGQL({ variables: { ids: input.notificationIds } })
+                : massMarkAsUnreadGQL({ variables: { ids: input.notificationIds } });
+            
+            // Don't await - let it run in background
+            backendCall.catch(error => {
+                console.warn('Backend batchMark failed, but local update completed:', error);
+            });
 
             return input.notificationIds;
         },
@@ -601,24 +601,23 @@ export function useMarkAllAsRead(
         mutationFn: async () => {
             const now = new Date().toISOString();
 
-            // 1. Call backend GraphQL mutation (this cancels all reminders)
-            try {
-                await markAllAsReadGQL();
-            } catch (error) {
-                console.warn('Backend markAllAsRead failed, but proceeding with local update:', error);
-            }
-
-            // 2. Read all notifications from DB to find unread ones
+            // 1. Read all notifications from DB to find unread ones
             const allNotifications = await getAllNotificationsFromCache();
 
             // Filter for unread notifications
             const unreadNotifications = allNotifications.filter(n => !n.readAt);
             const unreadNotificationIds = unreadNotifications.map(n => n.id);
 
-            // 3. Update local DB for all unread notifications
+            // 2. Update local DB FIRST for immediate UI update
             if (unreadNotificationIds.length > 0) {
                 await updateNotificationsReadStatus(unreadNotificationIds, now);
             }
+
+            // 3. Call backend GraphQL mutation in background (this cancels all reminders)
+            // Don't await - let it run in background
+            markAllAsReadGQL().catch(error => {
+                console.warn('Backend markAllAsRead failed, but local update completed:', error);
+            });
 
             // Return both timestamp and unread IDs to use in onSuccess
             return { timestamp: now, unreadNotificationIds };
