@@ -9,12 +9,13 @@ import {
   NotificationDeliveryType,
   useGetEntityExecutionQuery,
 } from "@/generated/gql-operations-generated";
+import { useNotificationActions } from "@/hooks";
 import {
+  useBucket,
   useDeleteNotification,
   useMarkAsRead,
   useNotification,
 } from "@/hooks/notifications";
-import { useNotificationActions } from "@/hooks";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import { useNotificationUtils } from "@/hooks/useNotificationUtils";
@@ -24,10 +25,10 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Share,
   StyleSheet,
   TouchableOpacity,
   View,
-  Share,
 } from "react-native";
 import { Icon, IconButton, Surface, Text, useTheme } from "react-native-paper";
 import { ExecutionExpandedContent } from "./EntityExecutionsSection";
@@ -62,6 +63,10 @@ export default function NotificationDetail({
   } = useNotification(notificationId);
 
   const message = notification?.message;
+  const bucketId = message?.bucket?.id;
+
+  // Fetch bucket from cache using useBucket hook
+  const { bucket } = useBucket(bucketId);
 
   // Hook per ottenere i dettagli dell'esecuzione se executionId è presente
   const { data: executionData, loading: executionLoading } =
@@ -69,7 +74,6 @@ export default function NotificationDetail({
       variables: { id: message?.executionId || "" },
       skip: !message?.executionId,
     });
-  const [isCopying, setIsCopying] = useState(false);
   const [enableHtmlRendering, setEnableHtmlRendering] = useState(true);
   const [payloadModalVisible, setPayloadModalVisible] = useState(false);
 
@@ -88,7 +92,8 @@ export default function NotificationDetail({
     }
   }, [notification, markAsReadMutation]);
 
-  const bucketName = message?.bucket?.name;
+  // Get bucket name from hook (from cache) or fallback to notification bucket name
+  const bucketName = bucket?.name || message?.bucket?.name || "";
 
   // Get filtered notification actions
   const notificationActions = useMemo(() => {
@@ -154,19 +159,6 @@ export default function NotificationDetail({
       textParts.push(message.body.trim());
     }
     return textParts.join("\n\n");
-  };
-
-  const copyNotificationToClipboard = async () => {
-    try {
-      const fullText = buildNotificationText();
-      await Clipboard.setStringAsync(fullText);
-      setIsCopying(true);
-      setTimeout(() => {
-        setIsCopying(false);
-      }, 2000);
-    } catch (error) {
-      console.error("Error copying notification:", error);
-    }
   };
 
   const shareNotification = async () => {
@@ -310,11 +302,7 @@ export default function NotificationDetail({
           {/* Left side: Bucket info */}
           <View style={styles.headerLeft}>
             <View style={styles.bucketContainer}>
-              <BucketIcon
-                bucketId={message?.bucket?.id || ""}
-                size="xxl"
-                forceRefetch
-              />
+              <BucketIcon bucketId={bucketId || ""} size="xxl" forceRefetch />
               <View style={styles.bucketInfo}>
                 <Text
                   style={[
@@ -376,7 +364,7 @@ export default function NotificationDetail({
                   accessibilityLabel="delete-notification"
                 />
                 <NotificationSnoozeButton
-                  bucketId={message?.bucket?.id!}
+                  bucketId={bucketId!}
                   variant="detail"
                   showText={false}
                   style={{ width: 26, height: 26 }}

@@ -1,12 +1,12 @@
 import { useAppContext } from "@/contexts/AppContext";
 import {
   MediaType,
-  NotificationActionType,
   NotificationDeliveryType,
-  NotificationFragment,
+  NotificationFragment
 } from "@/generated/gql-operations-generated";
 import { useNotificationActions, useNotificationUtils } from "@/hooks";
 import {
+  useBucket,
   useDeleteNotification,
   useMarkAsRead,
   useMarkAsUnread,
@@ -17,15 +17,20 @@ import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useRecyclingState } from "@shopify/flash-list";
 import React, { useEffect, useMemo, useRef } from "react";
-import { useSettings } from "@/hooks/useSettings";
-import { Alert, Pressable, StyleSheet, TouchableOpacity, View, ScrollView } from "react-native";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import {
   Icon,
-  IconButton,
   Surface,
   Text,
   TouchableRipple,
-  useTheme,
+  useTheme
 } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import { CachedMedia } from "./CachedMedia";
@@ -33,70 +38,6 @@ import FullScreenMediaViewer from "./FullScreenMediaViewer";
 import { MediaTypeIcon } from "./MediaTypeIcon";
 import SwipeableItem, { MenuItem, SwipeAction } from "./SwipeableItem";
 import { SmartTextRenderer } from "./ui";
-
-// Dynamic height calculator to keep FlashList and item in sync
-export function getNotificationItemHeight(
-  notification: NotificationFragment,
-  isCompactMode: boolean
-): number {
-  const message = notification.message;
-  const hasMedia = (message?.attachments ?? []).some((a) =>
-    [MediaType.Image, MediaType.Gif, MediaType.Video, MediaType.Audio].includes(
-      a.mediaType
-    )
-  );
-  const hasSubtitle = Boolean(message?.subtitle);
-  const hasBody = Boolean(message?.body);
-  const hasBucketName = Boolean(message?.bucket?.name);
-
-  let height = 60;
-
-  if (isCompactMode) {
-    // if (hasActions || hasMedia) {
-    //   height += 40;
-    // }
-  } else {
-    if (hasMedia) {
-      height += 180;
-    }
-    // height += 30;
-  }
-  height += 30;
-
-  if (hasSubtitle) {
-    height += 20;
-  }
-
-  if (hasBody) {
-    const maxBodyLines = isCompactMode ? (hasMedia ? 1 : 2) : hasMedia ? 2 : 5;
-    const charsPerLine = isCompactMode ? 42 : 60;
-    const bodyText = message?.body ?? "";
-    const perLine = 21; // approx styles.body lineHeight (17) + padding
-
-    // Consider newline characters by splitting and estimating each paragraph
-    const segments = bodyText.split(/\r?\n/);
-    let totalEstimatedLines = 0;
-    for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i];
-      const len = seg.trim().length;
-      const linesForSeg = Math.max(1, Math.ceil(len / charsPerLine));
-      totalEstimatedLines += linesForSeg;
-      if (totalEstimatedLines >= maxBodyLines) {
-        totalEstimatedLines = maxBodyLines;
-        break;
-      }
-    }
-
-    if (totalEstimatedLines === 0) totalEstimatedLines = 1;
-    height += totalEstimatedLines * perLine;
-  }
-
-  if (hasBucketName) {
-    height += 10;
-  }
-
-  return Math.round(height);
-}
 
 interface NotificationItemProps {
   notification: NotificationFragment;
@@ -137,7 +78,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const markAsReadMutation = useMarkAsRead();
   const markAsUnreadMutation = useMarkAsUnread();
   const { executeAction } = useNotificationActions();
-  const { getActionTypeIcon, getNotificationActions, getDeliveryTypeColor } = useNotificationUtils();
+  const { getActionTypeIcon, getNotificationActions, getDeliveryTypeColor } =
+    useNotificationUtils();
 
   const attachments = useMemo(
     () =>
@@ -178,7 +120,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
   const handleDelete = async () => {
     try {
-      await deleteNotificationMutation.mutateAsync({ notificationId: notification.id });
+      await deleteNotificationMutation.mutateAsync({
+        notificationId: notification.id,
+      });
     } catch (error) {
       console.error("❌ Failed to delete notification:", error);
       Alert.alert(t("common.error"), t("swipeActions.delete.error"));
@@ -186,7 +130,18 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   };
 
   const isRead = !!notification.readAt;
-  const bucketName = notification.message?.bucket?.name || t("common.general");
+  
+  // Use useRecyclingState to stabilize bucketId and prevent unnecessary BucketIcon re-renders
+  const [stableBucketId] = useRecyclingState<string | undefined>(
+    notification.message?.bucket?.id,
+    [notification.id]
+  );
+
+  // Fetch bucket from cache using useBucket hook
+  const { bucket } = useBucket(stableBucketId);
+
+  // Get bucket name from hook (from cache) or fallback to notification bucket name
+  const bucketName = bucket?.name || notification.message?.bucket?.name || t("common.general");
 
   const visibleAttachment = !isCompactMode
     ? attachments[selectedPreviewIndex] || null
@@ -208,9 +163,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     setFullScreenIndex(-1);
   };
 
-  const hasAttachments = attachments.length > 0;
-
-  // const itemHeight = getNotificationItemHeight(notification, isCompactMode);
   const bodyMaxLines = isCompactMode ? 2 : 5;
 
   // Swipe actions
@@ -222,7 +174,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
   const handleMarkAsUnread = async () => {
     try {
-      await markAsUnreadMutation.mutateAsync({ notificationId: notification.id });
+      await markAsUnreadMutation.mutateAsync({
+        notificationId: notification.id,
+      });
     } catch {}
   };
 
@@ -288,7 +242,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const bodyStyle = useMemo(() => styles.body, []);
 
   const deliveryType = notification.message?.deliveryType;
-  const borderColor = deliveryType ? getDeliveryTypeColor(deliveryType) : undefined;
+  const borderColor = deliveryType
+    ? getDeliveryTypeColor(deliveryType)
+    : undefined;
 
   const borderWidth =
     deliveryType === NotificationDeliveryType.Critical ||
@@ -342,7 +298,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               onStartShouldSetResponder={() => true}
             >
               <BucketIcon
-                bucketId={notification.message?.bucket?.id}
+                bucketId={stableBucketId || ""}
                 size={"lg"}
                 noRouting={noBucketRouting}
               />
@@ -444,11 +400,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 onPress={() => handleFullscreenPress(attachment.url!)}
                 accessibilityLabel="Open fullscreen"
               >
-                <Icon
-                  source="fullscreen"
-                  size={24}
-                  color="#FFFFFF"
-                />
+                <Icon source="fullscreen" size={24} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
           </Surface>
