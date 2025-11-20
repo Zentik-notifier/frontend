@@ -426,36 +426,20 @@ export default function UserProfile() {
           description={t("userProfile.deleteAccountWarning")}
           items={[{ key: "delete" }]}
           renderItem={() => (
-            <View style={styles.deleteAccountContent}>
-              <View style={styles.deleteAccountInfo}>
-                <Text
-                  variant="titleMedium"
-                  style={{ color: theme.colors.onSurface }}
-                >
-                  {t("userProfile.deleteAccount")}
-                </Text>
-                <Text
-                  variant="bodyMedium"
-                  style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}
-                >
-                  {t("userProfile.deleteAccountWarning")}
-                </Text>
-              </View>
-              <Button
-                mode="outlined"
-                onPress={handleDeleteAccount}
-                icon="delete"
-                disabled={deletingAccount}
-                loading={deletingAccount}
-                buttonColor={theme.colors.errorContainer}
-                textColor={theme.colors.onErrorContainer}
-                style={styles.deleteButton}
-              >
-                {deletingAccount
-                  ? t("userProfile.deletingAccount")
-                  : t("userProfile.deleteAccount")}
-              </Button>
-            </View>
+            <Button
+              mode="outlined"
+              onPress={handleDeleteAccount}
+              icon="delete"
+              disabled={deletingAccount}
+              loading={deletingAccount}
+              buttonColor={theme.colors.errorContainer}
+              textColor={theme.colors.onErrorContainer}
+              style={styles.deleteButton}
+            >
+              {deletingAccount
+                ? t("userProfile.deletingAccount")
+                : t("userProfile.deleteAccount")}
+            </Button>
           )}
         />
       </View>
@@ -523,15 +507,6 @@ const styles = StyleSheet.create({
   },
   deleteAccountContainer: {
     marginBottom: 16,
-  },
-  deleteAccountContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  deleteAccountInfo: {
-    flex: 1,
-    marginRight: 16,
   },
   deleteButton: {
     flexShrink: 0,
