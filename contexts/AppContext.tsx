@@ -258,7 +258,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await push.initialize();
 
       setIsInitializing(false);
-      cleanup({ immediate: true }).catch((e) => {
+      cleanup().catch((e) => {
         console.error(
           "Error during cleanup after completeAuth:",
           JSON.stringify(e)
@@ -430,7 +430,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await processPendingNavigationIntent();
         await openSharedCacheDb();
 
-        await cleanup({ immediate: true });
+        await cleanup();
 
         await connectionStatus.checkForUpdates();
       } else if (

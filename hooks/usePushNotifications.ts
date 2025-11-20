@@ -113,7 +113,7 @@ export function usePushNotifications() {
           try {
             console.log("[BackgroundTask] Starting background task");
             installConsoleLoggerBridge();
-            await callbacks.cleanup({ immediate: true, force: true });
+            await callbacks.cleanup({ force: true });
           } catch (e) {
             console.warn("[BackgroundTask] Background fetch task failed:", e);
           }

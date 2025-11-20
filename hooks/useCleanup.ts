@@ -18,155 +18,141 @@ const requestIdleCallbackPolyfill = (callback: () => void) => {
 };
 
 interface CleanupProps {
-    immediate?: boolean,
     force?: boolean,
 }
 
 export const useCleanup = () => {
     const queryClient = useQueryClient();
     const { refreshAll } = useNotificationsState();
-    
+
     // Use ref to track if cleanup is currently running
     const isCleanupRunningRef = useRef(false);
 
-    const cleanup = useCallback(async ({ immediate, force }: CleanupProps) => {
+    const cleanup = useCallback(async (props?: CleanupProps) => {
+        const { force } = props || {};
         // Prevent multiple concurrent cleanup operations
         if (isCleanupRunningRef.current) {
             console.log('[Cleanup] ⏭️ Cleanup already running, skipping duplicate call');
             return;
         }
-        
+
         isCleanupRunningRef.current = true;
-        
+
         try {
-        const shouldCleanup = !settingsService.shouldRunCleanup() ? false : true;
+            const shouldCleanup = !!settingsService.shouldRunCleanup();
 
-        const delay = immediate ? 0 : 15000;
-
-        await new Promise(resolve => setTimeout(resolve, delay));
-        const executeWithRAF = <T>(fn: () => Promise<T>, label: string): Promise<T> => {
-            return new Promise((resolve, reject) => {
-                requestIdleCallbackPolyfill(async () => {
-                    try {
-                        const result = await fn();
-                        resolve(result);
-                    } catch (error) {
-                        console.error(`[Cleanup] Error on ${label}:`, error);
-                        reject(error);
-                    }
+            const executeWithRAF = <T>(fn: () => Promise<T>, label: string): Promise<T> => {
+                return new Promise((resolve, reject) => {
+                    requestIdleCallbackPolyfill(async () => {
+                        try {
+                            const result = await fn();
+                            resolve(result);
+                        } catch (error) {
+                            console.error(`[Cleanup] Error on ${label}:`, error);
+                            reject(error);
+                        }
+                    });
+                });
+            };
+            const waitRAF = () => new Promise<void>(resolve => {
+                requestIdleCallbackPolyfill(() => {
+                    setTimeout(resolve, 0);
                 });
             });
-        };
-        const waitRAF = () => new Promise<void>(resolve => {
-            requestIdleCallbackPolyfill(() => {
-                setTimeout(resolve, 0);
-            });
-        });
 
-        // const executeWithRAF = <T>(fn: () => Promise<T>, label: string): Promise<T> => {
-        //     return new Promise(async (resolve, reject) => {
-        //         try {
-        //             const result = await fn();
-        //             resolve(result);
-        //         } catch (error) {
-        //             console.error(`[Cleanup] Error on ${label}:`, error);
-        //             reject(error);
-        //         }
-        //     });
-        // };
 
-        // 0. Load buckets from SQL/IndexedDB into React Query cache (before backend sync)
-        await executeWithRAF(
-            async () => {
-                // console.log('[Cleanup] Loading buckets from local DB into React Query cache...');
-                const localBuckets = await getAllBuckets();
+            // 0. Load buckets from SQL/IndexedDB into React Query cache (before backend sync)
+            // await executeWithRAF(
+            //     async () => {
+            //         // console.log('[Cleanup] Loading buckets from local DB into React Query cache...');
+            //         const localBuckets = await getAllBuckets();
 
-                // Update React Query cache with buckets from local DB
-                queryClient.setQueryData(['app-state'], (oldData: any) => {
-                    if (!oldData) {
-                        // No existing data - initialize with buckets from DB
-                        return {
-                            buckets: localBuckets,
-                            notifications: [],
-                            stats: {
-                                totalCount: 0,
-                                unreadCount: 0,
-                                readCount: 0,
-                                byBucket: [],
-                            },
-                            lastSync: new Date().toISOString(),
-                        };
-                    }
+            //         // Update React Query cache with buckets from local DB
+            //         queryClient.setQueryData(['app-state'], (oldData: any) => {
+            //             if (!oldData) {
+            //                 // No existing data - initialize with buckets from DB
+            //                 return {
+            //                     buckets: localBuckets,
+            //                     notifications: [],
+            //                     stats: {
+            //                         totalCount: 0,
+            //                         unreadCount: 0,
+            //                         readCount: 0,
+            //                         byBucket: [],
+            //                     },
+            //                     lastSync: new Date().toISOString(),
+            //                 };
+            //             }
 
-                    // Merge buckets from local DB with existing data
-                    return {
-                        ...oldData,
-                        buckets: localBuckets,
-                    };
-                });
+            //             // Merge buckets from local DB with existing data
+            //             return {
+            //                 ...oldData,
+            //                 buckets: localBuckets,
+            //             };
+            //         });
 
-                console.log(`[Cleanup] Loaded ${localBuckets.length} buckets from local DB into React Query cache`);
-            },
-            'loading buckets from local DB'
-        ).catch((e) => {
-            console.error('[Cleanup] Error loading buckets from local DB', e);
-        });
+            //         console.log(`[Cleanup] Loaded ${localBuckets.length} buckets from local DB into React Query cache`);
+            //     },
+            //     'loading buckets from local DB'
+            // ).catch((e) => {
+            //     console.error('[Cleanup] Error loading buckets from local DB', e);
+            // });
 
-        // 1. Sync complete app state with BACKEND (single unified call)
-        await executeWithRAF(
-            async () => {
-                console.log('[Cleanup] Syncing complete app state with backend...');
-                await refreshAll();
-                console.log('[Cleanup] Complete app state synced with backend');
-            },
-            'syncing complete app state with backend'
-        ).catch((e) => {
-            console.error('[Cleanup] Error during sync of complete app state with backend', e);
-        });
-        await waitRAF();
-
-        // 6. THIRD: Now cleanup local notifications by settings
-        if (shouldCleanup || force) {
+            // 1. Sync complete app state with BACKEND (single unified call)
             await executeWithRAF(
                 async () => {
-                    console.log('[Cleanup] 🧹 Starting local cleanup...');
-                    await cleanupNotificationsBySettings();
-                    console.log('[Cleanup] 🧹 Cleaned up notifications');
+                    console.log('[Cleanup] Syncing complete app state with backend...');
+                    await refreshAll();
+                    console.log('[Cleanup] Complete app state synced with backend');
                 },
-                'cleaning notifications'
-            ).catch(() => {
-                console.error('[Cleanup] Error during cleanup of notifications');
-            });
-
-            await waitRAF();
-
-            // 7. Cleanup gallery by settings
-            await executeWithRAF(
-                async () => {
-                    await cleanupGalleryBySettings();
-                    console.log('[Cleanup] Cleaned up gallery');
-                },
-                'cleaning gallery'
+                'syncing complete app state with backend'
             ).catch((e) => {
-                console.error('[Cleanup] Error during gallery cleanup', e);
+                console.error('[Cleanup] Error during sync of complete app state with backend', e);
             });
-            await settingsService.setLastCleanup(new Date().toISOString());
-            console.log('[Cleanup] Updated last cleanup timestamp');
             await waitRAF();
-        }
 
-        // 8. Reload media cache metadata
-        await executeWithRAF(
-            async () => {
-                await mediaCache.reloadMetadata();
-                console.log('[Cleanup] Reloaded media cache metadata');
-            },
-            'reloading media cache'
-        ).catch((e) => {
-            console.error('[Cleanup] Error reloading media cache metadata', e);
-        });
+            // 6. THIRD: Now cleanup local notifications by settings
+            if (shouldCleanup || force) {
+                await executeWithRAF(
+                    async () => {
+                        console.log('[Cleanup] 🧹 Starting local cleanup...');
+                        await cleanupNotificationsBySettings();
+                        console.log('[Cleanup] 🧹 Cleaned up notifications');
+                    },
+                    'cleaning notifications'
+                ).catch(() => {
+                    console.error('[Cleanup] Error during cleanup of notifications');
+                });
 
-        console.log('[Cleanup] Cleanup completed');
+                await waitRAF();
+
+                // 7. Cleanup gallery by settings
+                await executeWithRAF(
+                    async () => {
+                        await cleanupGalleryBySettings();
+                        console.log('[Cleanup] Cleaned up gallery');
+                    },
+                    'cleaning gallery'
+                ).catch((e) => {
+                    console.error('[Cleanup] Error during gallery cleanup', e);
+                });
+                await settingsService.setLastCleanup(new Date().toISOString());
+                console.log('[Cleanup] Updated last cleanup timestamp');
+                await waitRAF();
+            }
+
+            // 8. Reload media cache metadata
+            await executeWithRAF(
+                async () => {
+                    await mediaCache.reloadMetadata();
+                    console.log('[Cleanup] Reloaded media cache metadata');
+                },
+                'reloading media cache'
+            ).catch((e) => {
+                console.error('[Cleanup] Error reloading media cache metadata', e);
+            });
+
+            console.log('[Cleanup] Cleanup completed');
         } finally {
             // Always release the lock when cleanup completes or fails
             isCleanupRunningRef.current = false;

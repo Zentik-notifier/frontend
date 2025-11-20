@@ -231,9 +231,7 @@ export function useNotificationsState(
                 const cachedBuckets = await getAllBuckets();
 
                 // Calculate stats from cache
-                const cachedStats = await getNotificationStats([]);
-
-                // console.log(`[useNotificationsState] Cache loaded: ${cachedNotifications.length} notifications, ${cachedBuckets.length} buckets, ${cachedStats.totalCount} total (${cachedStats.unreadCount} unread)`);
+                // const cachedStats = await getNotificationStats([]);
 
                 // ============================================================
                 // PHASE 2: Fetch from API in parallel (SLOW - background update)
@@ -545,17 +543,343 @@ export function useNotificationsState(
 
     /**
      * Refresh everything from API and re-calculate stats
-     * Forces a fresh fetch from the server
-     * Updates ALL components using useNotificationsState automatically
+     * Optimized flow:
+     * 1. First: Do all local operations to fill cache immediately (FAST)
+     * 2. Then: Fetch from backend and update local entities (SLOW)
+     * 3. Finally: Update React Query cache to propagate changes
+     * 
+     * This ensures UI updates immediately with local data,
+     * then refreshes with backend data when available
      */
     const refreshAll = async (): Promise<void> => {
         try {
-            // Force refetch
-            // This ensures fresh data from the server
-            await queryClient.refetchQueries({
-                queryKey: ['app-state'],
-                type: 'active', // Only refetch if query is mounted
+            console.log('[refreshAll] Starting refresh...');
+
+            // ============================================================
+            // PHASE 1: LOCAL OPERATIONS (FAST - fill cache immediately)
+            // ============================================================
+            console.log('[refreshAll] Phase 1: Performing local operations...');
+            
+            // Load from cache
+            const cachedNotifications = await getAllNotificationsFromCache();
+            const cachedBuckets = await getAllBuckets();
+            
+            // Calculate fresh stats from local data
+            const freshStats = await getNotificationStats([]);
+            
+            // Build buckets with stats from cache (no API yet)
+            const finalBuckets: BucketWithStats[] = cachedBuckets.map((bucket) => {
+                const bucketStat = freshStats.byBucket?.find(s => s.bucketId === bucket.id);
+                const snoozeUntil = bucket.userBucket?.snoozeUntil;
+                const isSnoozed = snoozeUntil
+                    ? new Date().getTime() < new Date(snoozeUntil).getTime()
+                    : false;
+
+                return {
+                    id: bucket.id,
+                    name: bucket.name,
+                    description: bucket.description,
+                    icon: bucket.icon,
+                    iconAttachmentUuid: bucket.iconAttachmentUuid,
+                    iconUrl: bucket.iconUrl,
+                    color: bucket.color,
+                    createdAt: bucket.createdAt,
+                    updatedAt: bucket.updatedAt,
+                    isProtected: bucket.isProtected ?? false,
+                    isPublic: bucket.isPublic ?? false,
+                    isAdmin: bucket.isAdmin ?? false,
+                    totalMessages: bucketStat?.totalCount ?? 0,
+                    unreadCount: bucketStat?.unreadCount ?? 0,
+                    lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                    isSnoozed,
+                    snoozeUntil: snoozeUntil ?? null,
+                    user: bucket.user,
+                    permissions: bucket.permissions ?? [],
+                    userPermissions: bucket.userPermissions,
+                    userBucket: bucket.userBucket,
+                    magicCode: bucket.userBucket?.magicCode ?? null,
+                    isOrphan: bucket.isOrphan ?? false,
+                };
             });
+
+            // Sort buckets
+            finalBuckets.sort((a, b) => {
+                if (a.unreadCount !== b.unreadCount) {
+                    return b.unreadCount - a.unreadCount;
+                }
+                const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
+                const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
+                if (aTime !== bTime) {
+                    return bTime - aTime;
+                }
+                return a.name.localeCompare(b.name);
+            });
+
+            // Update React Query cache with local data (instant UI update)
+            console.log('[refreshAll] Updating React Query cache with local data...');
+            queryClient.setQueryData(['app-state'], {
+                buckets: finalBuckets,
+                notifications: cachedNotifications,
+                stats: freshStats,
+                lastSync: new Date().toISOString(),
+            });
+
+            // ============================================================
+            // PHASE 2: BACKEND OPERATIONS (SLOW - update local entities)
+            // ============================================================
+            console.log('[refreshAll] Phase 2: Fetching from backend...');
+            
+            // Fetch from API in parallel
+            const [notificationsResult, bucketsResult] = await Promise.allSettled([
+                fetchNotifications(),
+                fetchBuckets(),
+            ]);
+
+            // Process notifications from API
+            let apiNotifications: NotificationFragment[] = [];
+            if (notificationsResult.status === 'fulfilled' && notificationsResult.value.data?.notifications) {
+                apiNotifications = notificationsResult.value.data.notifications as NotificationFragment[];
+                console.log(`[refreshAll] API fetched: ${apiNotifications.length} notifications`);
+                
+                // Save notifications to local cache
+                if (apiNotifications.length > 0) {
+                    await upsertNotificationsBatch(apiNotifications);
+                    console.log(`[refreshAll] Saved ${apiNotifications.length} notifications to local cache`);
+                }
+            } else {
+                console.warn('[refreshAll] Failed to fetch notifications from API:',
+                    notificationsResult.status === 'rejected' ? notificationsResult.reason : 'No data');
+            }
+
+            // Process buckets from API
+            let apiBuckets: BucketWithUserData[] = [];
+            let apiSuccess = false;
+
+            if (bucketsResult.status === 'fulfilled' && bucketsResult.value.data?.buckets) {
+                apiBuckets = bucketsResult.value.data.buckets as BucketWithUserData[];
+                apiSuccess = true;
+                console.log(`[refreshAll] API synced: ${apiBuckets.length} buckets`);
+            } else {
+                console.warn('[refreshAll] Failed to fetch buckets from API:',
+                    bucketsResult.status === 'rejected' ? bucketsResult.reason : 'No data');
+            }
+
+            // ============================================================
+            // PHASE 3: MERGE AND UPDATE LOCAL ENTITIES
+            // ============================================================
+            if (apiSuccess && apiBuckets.length > 0) {
+                console.log('[refreshAll] Phase 3: Merging API data with local cache...');
+                
+                // Recalculate stats after API sync
+                const updatedStats = await getNotificationStats([]);
+                const updatedBucketFromNotifications = updatedStats.byBucket ?? [];
+
+                // API is available: merge API buckets with orphans
+                const apiBucketIds = new Set(apiBuckets.map(b => b.id));
+
+                // Identify orphans: buckets in cache but NOT in API
+                const orphanedCachedBuckets = cachedBuckets.filter(b => !apiBucketIds.has(b.id));
+
+                // Also check notification stats for buckets not in API (true orphans)
+                const orphanedFromNotifications = updatedBucketFromNotifications
+                    .filter(bucket => !apiBucketIds.has(bucket.bucketId))
+                    .map(bucket => bucket.bucketId);
+
+                const allOrphanIds = new Set([
+                    ...orphanedCachedBuckets.map(b => b.id),
+                    ...orphanedFromNotifications
+                ]);
+
+                // Convert API buckets to BucketWithStats
+                const apiBucketsWithStats: BucketWithStats[] = apiBuckets.map((bucket) => {
+                    const bucketStat = updatedStats.byBucket?.find(s => s.bucketId === bucket.id);
+                    const snoozeUntil = bucket.userBucket?.snoozeUntil;
+                    const isSnoozed = snoozeUntil
+                        ? new Date().getTime() < new Date(snoozeUntil).getTime()
+                        : false;
+
+                    return {
+                        id: bucket.id,
+                        name: bucket.name,
+                        description: bucket.description,
+                        icon: bucket.icon,
+                        iconAttachmentUuid: bucket.iconAttachmentUuid,
+                        iconUrl: bucket.iconUrl,
+                        color: bucket.color,
+                        createdAt: bucket.createdAt,
+                        updatedAt: bucket.updatedAt,
+                        isProtected: bucket.isProtected,
+                        isPublic: bucket.isPublic,
+                        isAdmin: bucket.isAdmin,
+                        totalMessages: bucketStat?.totalCount ?? 0,
+                        unreadCount: bucketStat?.unreadCount ?? 0,
+                        lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                        isSnoozed,
+                        snoozeUntil: snoozeUntil ?? null,
+                        user: bucket.user,
+                        permissions: bucket.permissions,
+                        userPermissions: bucket.userPermissions,
+                        userBucket: bucket.userBucket,
+                        magicCode: bucket.userBucket?.magicCode ?? null,
+                        isOrphan: false,
+                    };
+                });
+
+                // Create orphaned bucket entries
+                const orphanedBuckets: BucketWithStats[] = Array.from(allOrphanIds).map(orphanId => {
+                    const cachedBucket = cachedBuckets.find(b => b.id === orphanId);
+                    const bucketStat = updatedStats.byBucket?.find(s => s.bucketId === orphanId);
+                    const notificationBucket = updatedBucketFromNotifications.find(b => b.bucketId === orphanId);
+
+                    if (cachedBucket) {
+                        return {
+                            id: cachedBucket.id,
+                            name: cachedBucket.name,
+                            description: cachedBucket.description,
+                            icon: cachedBucket.icon,
+                            iconAttachmentUuid: cachedBucket.iconAttachmentUuid,
+                            iconUrl: cachedBucket.iconUrl,
+                            color: cachedBucket.color,
+                            createdAt: cachedBucket.createdAt,
+                            updatedAt: cachedBucket.updatedAt,
+                            isProtected: cachedBucket.isProtected ?? false,
+                            isPublic: cachedBucket.isPublic ?? false,
+                            isAdmin: cachedBucket.isAdmin ?? false,
+                            totalMessages: bucketStat?.totalCount ?? 0,
+                            unreadCount: bucketStat?.unreadCount ?? 0,
+                            lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                            isSnoozed: false,
+                            snoozeUntil: null,
+                            user: cachedBucket.user,
+                            permissions: cachedBucket.permissions ?? [],
+                            userPermissions: cachedBucket.userPermissions,
+                            userBucket: cachedBucket.userBucket,
+                            magicCode: cachedBucket.userBucket?.magicCode ?? null,
+                            isOrphan: true,
+                        };
+                    } else {
+                        return {
+                            id: orphanId,
+                            name: notificationBucket?.bucketName ?? `Bucket ${orphanId.slice(0, 8)}`,
+                            description: null,
+                            icon: null,
+                            iconAttachmentUuid: null,
+                            iconUrl: null,
+                            color: null,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                            isProtected: false,
+                            isPublic: false,
+                            isAdmin: false,
+                            totalMessages: bucketStat?.totalCount ?? 0,
+                            unreadCount: bucketStat?.unreadCount ?? 0,
+                            lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                            isSnoozed: false,
+                            snoozeUntil: null,
+                            user: null,
+                            permissions: [],
+                            userBucket: null,
+                            isOrphan: true,
+                        };
+                    }
+                });
+
+                // Save API buckets + orphans to cache
+                const bucketsToSave: BucketData[] = [
+                    ...apiBuckets.map(bucket => ({
+                        id: bucket.id,
+                        name: bucket.name,
+                        icon: bucket.icon,
+                        iconAttachmentUuid: bucket.iconAttachmentUuid,
+                        iconUrl: bucket.iconUrl,
+                        description: bucket.description,
+                        updatedAt: bucket.updatedAt,
+                        color: bucket.color,
+                        createdAt: bucket.createdAt,
+                        isProtected: bucket.isProtected,
+                        isPublic: bucket.isPublic,
+                        isAdmin: bucket.isAdmin,
+                        userBucket: bucket.userBucket,
+                        user: bucket.user,
+                        permissions: bucket.permissions,
+                        userPermissions: bucket.userPermissions,
+                        isOrphan: false,
+                    })),
+                    ...orphanedBuckets.map(bucket => ({
+                        id: bucket.id,
+                        name: bucket.name,
+                        icon: bucket.icon,
+                        iconAttachmentUuid: bucket.iconAttachmentUuid,
+                        iconUrl: bucket.iconUrl,
+                        description: bucket.description,
+                        updatedAt: bucket.updatedAt,
+                        color: bucket.color,
+                        createdAt: bucket.createdAt,
+                        isProtected: bucket.isProtected,
+                        isPublic: bucket.isPublic,
+                        isAdmin: bucket.isAdmin ?? false,
+                        userBucket: bucket.userBucket,
+                        user: bucket.user,
+                        permissions: bucket.permissions,
+                        userPermissions: bucket.userPermissions,
+                        isOrphan: true,
+                    }))
+                ];
+
+                // Get existing buckets' updatedAt timestamps to avoid unnecessary writes
+                const bucketIds = bucketsToSave.map(b => b.id);
+                const existingUpdatedAt = await getBucketsUpdatedAt(bucketIds);
+
+                // Filter buckets that actually need updating (new or changed)
+                const bucketsNeedingUpdate = bucketsToSave.filter(bucket => {
+                    const existingDate = existingUpdatedAt.get(bucket.id);
+                    if (!existingDate) {
+                        return true;
+                    }
+                    const remoteDate = new Date(bucket.updatedAt).getTime();
+                    const localDate = new Date(existingDate).getTime();
+                    return remoteDate > localDate;
+                });
+
+                if (bucketsNeedingUpdate.length > 0) {
+                    await saveBuckets(bucketsNeedingUpdate);
+                    console.log(`[refreshAll] Saved ${bucketsNeedingUpdate.length}/${bucketsToSave.length} buckets to cache`);
+                }
+
+                // Combine all buckets
+                const mergedBuckets = [...apiBucketsWithStats, ...orphanedBuckets];
+                mergedBuckets.sort((a, b) => {
+                    if (a.unreadCount !== b.unreadCount) {
+                        return b.unreadCount - a.unreadCount;
+                    }
+                    const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
+                    const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
+                    if (aTime !== bTime) {
+                        return bTime - aTime;
+                    }
+                    return a.name.localeCompare(b.name);
+                });
+
+                // Re-fetch notifications from cache after API sync
+                const finalNotifications = apiNotifications.length > 0
+                    ? await getAllNotificationsFromCache()
+                    : cachedNotifications;
+
+                // Update React Query cache with merged data
+                console.log('[refreshAll] Updating React Query cache with merged data...');
+                queryClient.setQueryData(['app-state'], {
+                    buckets: mergedBuckets,
+                    notifications: finalNotifications,
+                    stats: updatedStats,
+                    lastSync: new Date().toISOString(),
+                });
+
+                console.log(`[refreshAll] Refresh complete: ${finalNotifications.length} notifications, ${mergedBuckets.length} buckets, ${updatedStats.totalCount} total (${updatedStats.unreadCount} unread)`);
+            } else {
+                console.log('[refreshAll] Backend unavailable, using local data only');
+                // Already updated cache in Phase 1, no need to update again
+            }
+
         } catch (error) {
             console.error('[refreshAll] Error refreshing complete app state:', error);
             throw error;
