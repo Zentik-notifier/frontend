@@ -16,7 +16,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const {
     isInitialized,
     settings: {
-      termsAcceptance: { acceptedVersion, termsAccepted },
+      termsAcceptance: { termsEnabled, termsAccepted, acceptedVersion },
     },
   } = useSettings();
 
@@ -33,7 +33,8 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
 
     // 1) Terms gate has highest priority
     const needsTerms =
-      !termsAccepted || acceptedVersion !== CURRENT_TERMS_VERSION;
+      termsEnabled &&
+      (!termsAccepted || acceptedVersion !== CURRENT_TERMS_VERSION);
     if (!isInitializing && needsTerms) {
       if (!isTerms) {
         navigateToTerms();
@@ -52,8 +53,10 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
       if (isPrivate) {
         // Save redirect path to return after login
         try {
-          const redirectPath = pathname || '/';
-          settingsRepository.setSetting('auth_redirectAfterLogin', redirectPath).catch(() => {});
+          const redirectPath = pathname || "/";
+          settingsRepository
+            .setSetting("auth_redirectAfterLogin", redirectPath)
+            .catch(() => {});
         } catch {}
         navigateToLogin();
       }

@@ -9,6 +9,7 @@ import {
   Dialog,
   Portal,
   Surface,
+  Switch,
   Text,
   TextInput,
   useTheme,
@@ -19,10 +20,18 @@ import { LocalizationSettings } from "./LocalizationSettings";
 import ThemeSettings from "./ThemeSettings";
 import UnifiedCacheSettings from "./UnifiedCacheSettings";
 import { VersionInfo } from "./VersionInfo";
+import { useSettings } from "@/hooks/useSettings";
 
 export function AppSettings() {
   const theme = useTheme();
   const { t } = useI18n();
+  const {
+    settings: {
+      termsAcceptance: { termsEnabled },
+      hideHints,
+    },
+    updateSettings,
+  } = useSettings();
 
   // API URL state
   const [apiUrl, setApiUrl] = useState("");
@@ -74,15 +83,15 @@ export function AppSettings() {
     try {
       // Reset to default API URL
       await settingsService.resetApiEndpoint();
-      
+
       // Reload the value
       const defaultUrl = settingsService.getCustomApiUrl();
       setApiUrl(defaultUrl);
       setOriginalApiUrl(defaultUrl);
-      
+
       // Reinitialize Apollo Client with default URL
       await reinitializeApolloClient();
-      
+
       // Show success dialog
       setDialogMessage(t("appSettings.apiUrl.successMessage"));
       setShowSuccessDialog(true);
@@ -96,6 +105,10 @@ export function AppSettings() {
   };
 
   const hasChanges = apiUrl !== originalApiUrl;
+
+  const handleToggleHints = async (value: boolean) => {
+    await updateSettings({ hideHints: !value });
+  };
 
   const handleRefresh = async () => {
     // This screen mostly manages local settings; noop refresh hook
@@ -167,10 +180,41 @@ export function AppSettings() {
         {/* Unified Cache Settings */}
         <UnifiedCacheSettings />
 
+        {/* Hints Settings */}
+        <Card style={styles.apiUrlCard}>
+          <Card.Content>
+            <Text variant="headlineSmall" style={styles.sectionTitle}>
+              {t("appSettings.hints.title")}
+            </Text>
+            <Text
+              variant="bodyMedium"
+              style={[
+                styles.sectionDescription,
+                { color: theme.colors.onSurfaceVariant, marginBottom: 16 },
+              ]}
+            >
+              {t("appSettings.hints.description")}
+            </Text>
+            <View style={styles.hintsSettingRow}>
+              <View style={styles.hintsSettingInfo}>
+                <Text variant="titleMedium" style={styles.hintsSettingTitle}>
+                  {t("appSettings.hints.showHintsTitle")}
+                </Text>
+              </View>
+              <Switch
+                value={!hideHints}
+                onValueChange={handleToggleHints}
+              />
+            </View>
+          </Card.Content>
+        </Card>
+
         {/* Legal Documents */}
-        <Surface style={styles.settingsSurface} elevation={1}>
-          <LegalDocumentsSettings />
-        </Surface>
+        {termsEnabled && (
+          <Surface style={styles.settingsSurface} elevation={1}>
+            <LegalDocumentsSettings />
+          </Surface>
+        )}
 
         {/* Version Information */}
         <Surface style={styles.settingsSurface} elevation={1}>
@@ -269,5 +313,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
     fontStyle: "italic",
+  },
+  hintsSettingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+  },
+  hintsSettingInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  hintsSettingTitle: {
+    fontWeight: "500",
   },
 });

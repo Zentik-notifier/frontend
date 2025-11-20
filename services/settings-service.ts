@@ -116,9 +116,11 @@ export interface UserSettings {
     hasCompletedOnboarding: boolean;
   };
   termsAcceptance: {
+    termsEnabled: boolean;
     termsAccepted: boolean;
     acceptedVersion: string;
   };
+  hideHints?: boolean;
   lastCleanup?: string;
 }
 
@@ -199,9 +201,11 @@ const DEFAULT_SETTINGS: UserSettings = {
     hasCompletedOnboarding: false,
   },
   termsAcceptance: {
+    termsEnabled: false,
     termsAccepted: false,
     acceptedVersion: CURRENT_TERMS_VERSION,
   },
+  hideHints: false,
   lastCleanup: undefined,
 };
 
@@ -222,9 +226,6 @@ const DEFAULT_AUTH_DATA: AuthData = {
 const SERVICE = 'zentik-auth';
 const PUBLIC_KEY_SERVICE = 'zentik-public-key';
 const PRIVATE_KEY_SERVICE = 'zentik-private-key';
-const BADGE_COUNT_SERVICE = 'zentik-badge-count';
-const API_ENDPOINT_SERVICE = 'zentik-api-endpoint';
-const LOCALE_SERVICE = 'zentik-locale';
 
 const bundleIdentifier = process.env.EXPO_PUBLIC_APP_VARIANT === 'development' ?
   'com.apocaliss92.zentik.dev' :
@@ -254,9 +255,6 @@ class SettingsService {
 
       await this.initializeDatabase();
 
-      // Migrate from legacy AsyncStorage if needed
-      await this.migrateFromLegacyStorage();
-
       await Promise.all([
         this.loadUserSettings(),
         this.loadAuthData()
@@ -280,149 +278,6 @@ class SettingsService {
   private async initializeDatabase(): Promise<void> {
     if (this.dbInitialized) return;
     this.dbInitialized = true;
-  }
-
-  /**
-   * Migrates legacy auth-storage data from AsyncStorage and Keychain to the new system
-   * This method can be safely removed after all users have migrated
-   */
-  private async migrateFromLegacyStorage(): Promise<void> {
-    try {
-      // Check if migration has already been done
-      const migrationComplete = await settingsRepository.getSetting('migration_completed');
-      if (migrationComplete === 'true') {
-        return;
-      }
-
-      console.log('[SettingsService] Starting migration from legacy storage...');
-
-      // Helper function to get value from Keychain with fallback to AsyncStorage
-      const getFromKeychainOrAsyncStorage = async (
-        service: string,
-        asyncStorageKey: string
-      ): Promise<string | null> => {
-        // Try Keychain first (iOS/macOS)
-        if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-          try {
-            const options: Keychain.GetOptions = Device.isDevice
-              ? { service, accessGroup: KEYCHAIN_ACCESS_GROUP }
-              : { service };
-            const creds = await Keychain.getGenericPassword(options);
-            if (creds) {
-              console.log(`[SettingsService] Found ${asyncStorageKey} in Keychain`);
-              return creds.password;
-            }
-          } catch (error) {
-            console.log(`[SettingsService] Keychain read failed for ${asyncStorageKey}, trying AsyncStorage`);
-          }
-        }
-
-        // Fallback to AsyncStorage
-        try {
-          const value = await AsyncStorage.getItem(asyncStorageKey);
-          if (value) {
-            console.log(`[SettingsService] Found ${asyncStorageKey} in AsyncStorage`);
-          }
-          return value;
-        } catch (error) {
-          return null;
-        }
-      };
-
-      // Migrate data with Keychain support
-      const migrateWithKeychain = async (
-        service: string,
-        asyncStorageKey: string,
-        newKey: string
-      ) => {
-        try {
-          const value = await getFromKeychainOrAsyncStorage(service, asyncStorageKey);
-          if (value !== null) {
-            await settingsRepository.setSetting(newKey, value);
-            console.log(`[SettingsService] Migrated ${asyncStorageKey} -> ${newKey}`);
-          }
-        } catch (error) {
-          console.error(`[SettingsService] Failed to migrate ${asyncStorageKey}:`, error);
-        }
-      };
-
-      // Migrate simple AsyncStorage-only keys
-      const migrateSimple = async (oldKey: string, newKey: string) => {
-        try {
-          const value = await AsyncStorage.getItem(oldKey);
-          if (value !== null) {
-            await settingsRepository.setSetting(newKey, value);
-            console.log(`[SettingsService] Migrated ${oldKey} -> ${newKey}`);
-          }
-        } catch (error) {
-          console.error(`[SettingsService] Failed to migrate ${oldKey}:`, error);
-        }
-      };
-
-      // Run all migrations in parallel
-      // Note: pendingNavigationIntent is no longer migrated - read directly from DB when needed
-      await Promise.all([
-        // Keys that were in Keychain with AsyncStorage fallback
-        migrateWithKeychain(BADGE_COUNT_SERVICE, 'badge_count', 'auth_badgeCount'),
-        migrateWithKeychain(API_ENDPOINT_SERVICE, 'api_endpoint', 'auth_apiEndpoint'),
-        migrateWithKeychain(LOCALE_SERVICE, 'locale', 'locale'),
-
-        // Keys that were only in AsyncStorage
-        migrateSimple('device_token', 'auth_deviceToken'),
-        migrateSimple('device_id', 'auth_deviceId'),
-        migrateSimple('last_user_id', 'auth_lastUserId'),
-        migrateSimple('push_notifications_initialized', 'auth_pushNotificationsInitialized'),
-      ]);
-
-      // Mark migration as complete
-      await settingsRepository.setSetting('migration_completed', 'true');
-
-      // Clean up old AsyncStorage keys
-      try {
-        await AsyncStorage.multiRemove([
-          'device_token',
-          'device_id',
-          'last_user_id',
-          'push_notifications_initialized',
-          'badge_count',
-          'api_endpoint',
-          'locale',
-        ]);
-        console.log('[SettingsService] AsyncStorage cleanup completed');
-      } catch (error) {
-        console.error('[SettingsService] Failed to clean up AsyncStorage:', error);
-      }
-
-      // Clean up old Keychain entries (iOS/macOS only)
-      if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-        try {
-          const keychainServices = [
-            BADGE_COUNT_SERVICE,
-            API_ENDPOINT_SERVICE,
-            LOCALE_SERVICE,
-          ];
-
-          for (const service of keychainServices) {
-            try {
-              const options: Keychain.SetOptions = Device.isDevice
-                ? { service, accessGroup: KEYCHAIN_ACCESS_GROUP }
-                : { service };
-              await Keychain.resetGenericPassword(options);
-            } catch (error) {
-              // Ignore errors - key might not exist
-            }
-          }
-          console.log('[SettingsService] Keychain cleanup completed');
-        } catch (error) {
-          console.error('[SettingsService] Failed to clean up Keychain:', error);
-        }
-      }
-
-      console.log('[SettingsService] Migration completed successfully');
-    } catch (error) {
-      console.error('[SettingsService] Migration failed:', error);
-      // Don't throw - let the app continue even if migration fails
-    }
   }
 
   private async loadUserSettings(): Promise<void> {
@@ -964,35 +819,6 @@ class SettingsService {
   public async resetSettings(): Promise<void> {
     this.settingsSubject.next({ ...DEFAULT_SETTINGS });
     await this.saveSettings(DEFAULT_SETTINGS);
-  }
-
-  /**
-   * Force re-migration from legacy storage
-   * This will re-run the migration even if it was already completed
-   * Useful for testing or manual recovery
-   */
-  public async forceMigrationFromLegacy(): Promise<void> {
-    try {
-      await settingsRepository.removeSetting('migration_completed');
-      await this.migrateFromLegacyStorage();
-      console.log('[SettingsService] Forced migration completed');
-    } catch (error) {
-      console.error('[SettingsService] Forced migration failed:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Check if migration from legacy storage has been completed
-   */
-  public async isMigrationCompleted(): Promise<boolean> {
-    try {
-      const migrationComplete = await settingsRepository.getSetting('migration_completed');
-      return migrationComplete === 'true';
-    } catch (error) {
-      console.error('[SettingsService] Failed to check migration status:', error);
-      return false;
-    }
   }
 
   public async exportSettings(): Promise<string> {

@@ -78,6 +78,11 @@
       "downloadOnWiFiOnly": "WiFi Only",
       "downloadOnWiFiOnlyDescription": "Automatically download only when connected to WiFi to save mobile data"
     },
+    "hints": {
+      "title": "Hints",
+      "description": "Configure the display of hints and guides in the app",
+      "showHintsTitle": "Show Hints"
+    },
     "gqlCache": {
       "title": "Notifications cache",
       "notificationsCount": "Saved notifications",
@@ -717,8 +722,7 @@
       "updateError": "Failed to update system access token",
       "tokenNotFound": "System access token not found",
       "token": "Token"
-    }
-    ,
+    },
     "requests": {
       "pendingTitle": "Pending Requests",
       "deleteRequestTitle": "Delete Request",
@@ -1068,6 +1072,38 @@
     },
     "markAsUnread": {
       "label": "Unread"
+    }
+  },
+  "help": {
+    "hideHintsLabel": "Don't show hints anymore",
+    "hideHintsHelperText": "The hints can be enabled again in the app settings page"
+  },
+  "notificationsHelp": {
+    "title": "Notifications Guide",
+    "swipeActions": {
+      "title": "Swipe Actions",
+      "description": "Swipe a notification to quickly access actions:",
+      "left": "Swipe Left",
+      "leftDescription": "Mark as read/unread",
+      "right": "Swipe Right",
+      "rightDescription": "Delete the notification",
+      "menu": "Actions Menu",
+      "menuDescription": "Tap the menu icon (⋮) to see all available actions for the notification, such as Navigate, Webhook, Background Call, etc."
+    },
+    "borderColor": {
+      "title": "Border Color (Priority)",
+      "description": "The border color indicates the notification priority:",
+      "CRITICAL": "Red - Critical notification with maximum priority",
+      "SILENT": "Gray - Silent notification, no sound",
+      "NO_PUSH": "Purple - Notification saved only in database, no push"
+    },
+    "unreadSymbol": {
+      "title": "Unread Symbol",
+      "description": "Unread notifications show a small colored triangle in the top-right corner of the item."
+    },
+    "bucketIcon": {
+      "title": "Bucket Icon",
+      "description": "Tap the bucket icon to navigate directly to the bucket screen related to the notification."
     }
   },
   "mediaTypes": {
@@ -1683,13 +1719,13 @@
       "createTitle": "Create OAuth Provider",
       "editTitle": "Edit OAuth Provider",
       "save": "Save",
-        "appleAdditionalConfig": "additional configuration",
-        "applePrivateKeyPath": "Private Key Path (.p8)",
-        "applePrivateKeyPathPlaceholder": "/path/to/websign_key.p8",
-        "appleTeamId": "Team ID",
-        "appleTeamIdPlaceholder": "C3F24V5NS5",
-        "appleKeyIdentifier": "Key Identifier",
-        "appleKeyIdentifierPlaceholder": "com.apocaliss92.zentik.websignin",
+      "appleAdditionalConfig": "additional configuration",
+      "applePrivateKeyPath": "Private Key Path (.p8)",
+      "applePrivateKeyPathPlaceholder": "/path/to/websign_key.p8",
+      "appleTeamId": "Team ID",
+      "appleTeamIdPlaceholder": "C3F24V5NS5",
+      "appleKeyIdentifier": "Key Identifier",
+      "appleKeyIdentifierPlaceholder": "com.apocaliss92.zentik.websignin",
       "basicInformation": "Basic Information",
       "nameRequired": "Name *",
       "namePlaceholder": "e.g., My Custom Provider",
@@ -2447,9 +2483,9 @@
       "tokenSelected": "Token Selected Successfully",
       "tokenHint": "Save this token in a secure location. It won't be visible again after closing this screen.",
       "tokenSelectedHint": "This token has been selected for use with the bucket.",
-        "useExistingToken": "Use Existing Token",
-        "createNewToken": "Create New Token",
-        "useExistingBucket": "Use Existing Bucket",
+      "useExistingToken": "Use Existing Token",
+      "createNewToken": "Create New Token",
+      "useExistingBucket": "Use Existing Bucket",
       "noTokensAvailable": "No tokens available for this bucket",
       "selectExistingToken": "Select Existing Token",
       "selectTokenPlaceholder": "Choose a token...",

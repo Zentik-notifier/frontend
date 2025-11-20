@@ -1,5 +1,6 @@
 import { useAppContext } from "@/contexts/AppContext";
 import { useBadgeSync } from "@/hooks";
+import { useSettings } from "@/hooks/useSettings";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { TranslationKeyPath, useI18n } from "@/hooks/useI18n";
 import { useDownloadQueue } from "@/hooks/useMediaCache";
@@ -21,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LoginModal } from "./LoginModal";
 import StatusBadge from "./StatusBadge";
 import UserDropdown from "./UserDropdown";
+import { HelpModal } from "./Help";
 
 const ROUTES_WITH_HOME_BUTTON: string[] = [
   "/(phone)/(settings)",
@@ -169,13 +171,9 @@ export default function Header() {
   const { isLoginModalOpen, closeLoginModal, logout } = useAppContext();
   const { itemsInQueue } = useDownloadQueue();
   const { t } = useI18n();
-  const {
-    navigateToHome,
-    navigateBack,
-    navigateToAppSettings,
-    navigateToRegister,
-    navigateToForgotPassword,
-  } = useNavigationUtils();
+  const { settings } = useSettings();
+  const { navigateToHome, navigateBack, navigateToAppSettings } =
+    useNavigationUtils();
   const segments = useSegments() as string[];
   const insets = useSafeAreaInsets();
   const theme = useTheme();
@@ -184,6 +182,9 @@ export default function Header() {
   const isPublic = segments[0] === "(common)";
   const isSelfService = segments[0] === "self-service";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isHelpModalVisible, setIsHelpModalVisible] = useState(false);
+  
+  const hideHints = settings.hideHints ?? false;
 
   // Pulsating animations for icons only (not the entire badge)
   const markAllIconOpacity = useRef(new Animated.Value(1)).current;
@@ -289,8 +290,33 @@ export default function Header() {
             }
           }}
         >
-          {/* SEZIONE SINISTRA: Navigation + Badge di Status */}
           <View style={styles.leftSection}>
+            {/* Help Button - Only on home routes and if hints are not hidden */}
+            {shouldShowStatusBadges && !hideHints && (
+              <Surface
+                style={[
+                  styles.buttonWrapper,
+                  { backgroundColor: theme.colors.surface },
+                ]}
+                elevation={2}
+              >
+                <TouchableRipple
+                  style={styles.helpButton}
+                  onPress={() => setIsHelpModalVisible(true)}
+                  accessibilityLabel={t("notificationsHelp.title" as any)}
+                  accessibilityRole="button"
+                >
+                  <View style={styles.helpButtonContent}>
+                    <Icon
+                      source="help"
+                      size={24}
+                      color={theme.colors.onSurface}
+                    />
+                  </View>
+                </TouchableRipple>
+              </Surface>
+            )}
+
             {/* Navigation Button */}
             {shouldShowBackButton && (
               <Surface
@@ -598,6 +624,10 @@ export default function Header() {
       </View>
 
       <LoginModal visible={isLoginModalOpen} onClose={closeLoginModal} />
+      <HelpModal
+        visible={isHelpModalVisible}
+        onDismiss={() => setIsHelpModalVisible(false)}
+      />
     </>
   );
 }
@@ -709,6 +739,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+  helpButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  helpButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   titleText: {
     fontWeight: "600",

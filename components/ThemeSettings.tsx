@@ -1,6 +1,9 @@
 import { useI18n } from "@/hooks/useI18n";
 import { useSettings } from "@/hooks/useSettings";
-import type { DynamicThemeColors, LayoutMode } from "@/services/settings-service";
+import type {
+  DynamicThemeColors,
+  LayoutMode,
+} from "@/services/settings-service";
 import {
   DEFAULT_DYNAMIC_COLORS,
   generateDynamicTheme,
@@ -9,17 +12,17 @@ import {
 import {
   ThemePreset,
   getAllThemePresets,
-  getThemePreset
+  getThemePreset,
 } from "@/services/theme-presets";
 import React, { useCallback, useState } from "react";
-import { Alert, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import {
-  Button,
-  Divider,
-  Text,
-  TextInput,
-  useTheme
-} from "react-native-paper";
+  Alert,
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from "react-native";
+import { Button, Divider, Text, TextInput, useTheme } from "react-native-paper";
 import Selector, { SelectorOption } from "./ui/Selector";
 import Slider from "./ui/Slider";
 
@@ -28,7 +31,13 @@ const THEME_PRESETS = getAllThemePresets();
 export default function ThemeSettings() {
   const { t } = useI18n();
   const { width } = useWindowDimensions();
-  const { settings, setCustomThemeSettings, getLayoutMode, setLayoutMode, setTextScale } = useSettings();
+  const {
+    settings,
+    setCustomThemeSettings,
+    getLayoutMode,
+    setLayoutMode,
+    setTextScale,
+  } = useSettings();
 
   const [selectedPreset, setSelectedPreset] = useState<ThemePreset>(
     settings.theme.themePreset || ThemePreset.Material3
@@ -125,10 +134,10 @@ export default function ThemeSettings() {
   }));
 
   const layoutModeOptions: SelectorOption[] = [
-    { id: 'auto', name: t('appSettings.theme.layoutModes.auto') },
-    { id: 'desktop', name: t('appSettings.theme.layoutModes.desktop') },
-    { id: 'tablet', name: t('appSettings.theme.layoutModes.tablet') },
-    { id: 'mobile', name: t('appSettings.theme.layoutModes.mobile') },
+    { id: "auto", name: t("appSettings.theme.layoutModes.auto") },
+    { id: "desktop", name: t("appSettings.theme.layoutModes.desktop") },
+    { id: "tablet", name: t("appSettings.theme.layoutModes.tablet") },
+    { id: "mobile", name: t("appSettings.theme.layoutModes.mobile") },
   ];
 
   const renderDynamicColorInput = (
@@ -183,8 +192,6 @@ export default function ThemeSettings() {
         />
       </View>
 
-      <Divider style={styles.divider} />
-
       <View style={styles.section}>
         <View style={styles.layoutModeContainer}>
           <Selector
@@ -203,8 +210,6 @@ export default function ThemeSettings() {
         </View>
       </View>
 
-      <Divider style={styles.divider} />
-
       <View style={styles.section}>
         <Text variant="titleMedium" style={styles.sectionTitle}>
           {t("appSettings.theme.textScale")}
@@ -212,7 +217,7 @@ export default function ThemeSettings() {
         <Text variant="bodyMedium" style={styles.sectionDescription}>
           {t("appSettings.theme.textScaleDescription")}
         </Text>
-        
+
         <View style={styles.scaleContainer}>
           <Text variant="bodySmall" style={styles.sliderLabel}>
             {Math.round(settings.theme.textScale * 100)}%
@@ -225,11 +230,11 @@ export default function ThemeSettings() {
             step={0.05}
             style={styles.slider}
           />
-          <Text variant="bodySmall" style={styles.scaleRange}>Range: 50% - 200%</Text>
+          <Text variant="bodySmall" style={styles.scaleRange}>
+            Range: 50% - 200%
+          </Text>
         </View>
       </View>
-
-      {showDynamic && <Divider style={styles.divider} />}
 
       {showDynamic && (
         <View style={styles.section}>
@@ -292,9 +297,6 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
-  },
-  divider: {
-    marginVertical: 16,
   },
   layoutModeContainer: {
     gap: 12,

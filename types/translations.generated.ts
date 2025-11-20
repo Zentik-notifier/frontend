@@ -81,6 +81,11 @@ export interface Translation {
       downloadOnWiFiOnly: string;
       downloadOnWiFiOnlyDescription: string;
     };
+    hints: {
+      title: string;
+      description: string;
+      showHintsTitle: string;
+    };
     gqlCache: {
       title: string;
       notificationsCount: string;
@@ -1070,6 +1075,38 @@ export interface Translation {
     };
     markAsUnread: {
       label: string;
+    };
+  };
+  help: {
+    hideHintsLabel: string;
+    hideHintsHelperText: string;
+  };
+  notificationsHelp: {
+    title: string;
+    swipeActions: {
+      title: string;
+      description: string;
+      left: string;
+      leftDescription: string;
+      right: string;
+      rightDescription: string;
+      menu: string;
+      menuDescription: string;
+    };
+    borderColor: {
+      title: string;
+      description: string;
+      CRITICAL: string;
+      SILENT: string;
+      NO_PUSH: string;
+    };
+    unreadSymbol: {
+      title: string;
+      description: string;
+    };
+    bucketIcon: {
+      title: string;
+      description: string;
     };
   };
   mediaTypes: {

@@ -78,6 +78,11 @@
       "downloadOnWiFiOnly": "Solo su WiFi",
       "downloadOnWiFiOnlyDescription": "Scarica automaticamente solo quando connesso a WiFi per risparmiare dati mobili"
     },
+    "hints": {
+      "title": "Suggerimenti",
+      "description": "Configura la visualizzazione dei suggerimenti e delle guide nell'app",
+      "showHintsTitle": "Mostra Suggerimenti"
+    },
     "gqlCache": {
       "title": "Cache notifiche",
       "notificationsCount": "Notifiche salvate",
@@ -1089,6 +1094,38 @@
     },
     "markAsUnread": {
       "label": "Non letta"
+    }
+  },
+  "help": {
+    "hideHintsLabel": "Non mostrare più gli hints",
+    "hideHintsHelperText": "Gli hint possono essere riabilitati nella pagina delle impostazioni dell'app"
+  },
+  "notificationsHelp": {
+    "title": "Guida alle Notifiche",
+    "swipeActions": {
+      "title": "Azioni di Swipe",
+      "description": "Scorri una notifica per accedere rapidamente alle azioni:",
+      "left": "Swipe a Sinistra",
+      "leftDescription": "Segna come letta/non letta",
+      "right": "Swipe a Destra",
+      "rightDescription": "Elimina la notifica",
+      "menu": "Menu Azioni",
+      "menuDescription": "Tocca l'icona del menu (⋮) per vedere tutte le azioni disponibili per la notifica, come Naviga, Webhook, Chiamata in Background, ecc."
+    },
+    "borderColor": {
+      "title": "Colore del Bordo (Priorità)",
+      "description": "Il colore del bordo indica la priorità della notifica:",
+      "CRITICAL": "Rosso - Notifica critica con priorità massima",
+      "SILENT": "Grigio - Notifica silenziosa, senza suono",
+      "NO_PUSH": "Viola - Notifica salvata solo nel database, senza push"
+    },
+    "unreadSymbol": {
+      "title": "Simbolo Non Letta",
+      "description": "Le notifiche non lette mostrano un piccolo triangolo colorato nell'angolo in alto a destra dell'item."
+    },
+    "bucketIcon": {
+      "title": "Icona Bucket",
+      "description": "Tocca l'icona del bucket per navigare direttamente alla schermata del bucket relativo alla notifica."
     }
   },
   "mediaTypes": {
