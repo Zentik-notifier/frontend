@@ -151,44 +151,40 @@ class NotificationService: UNNotificationServiceExtension {
       return
     }
 
-    // Extract bucket/sender fields
-    let senderId = userInfo["bucketId"] as? String
-    let chatRoomName = userInfo["bucketName"] as? String
+    // Extract bucket/sender fields (support both old and new abbreviated keys)
+    let senderId = userInfo["bid"] as? String ?? userInfo["bucketId"] as? String
     let senderDisplayName = content.title
-    let senderThumbnail = userInfo["bucketIconUrl"] as? String
-    let bucketColor = userInfo["bucketColor"] as? String
+    let defaultBucketColor = "#007AFF"
 
     var senderAvatarImageData: Data?
     
-    // Get bucket icon from cache or download from iconUrl or generate temporary placeholder
-    if let bucketId = senderId, let bucketName = chatRoomName {
+    // Get bucket icon from cache using only bucketId (icon stored as bucketId.png in fileSystem)
+    if let bucketId = senderId {
       senderAvatarImageData = MediaAccess.getBucketIconFromSharedCache(
         bucketId: bucketId,
-        bucketName: bucketName,
-        bucketColor: bucketColor,
-        iconUrl: senderThumbnail
+        bucketName: nil, // No longer needed - icon retrieved from fileSystem
+        bucketColor: defaultBucketColor,
+        iconUrl: nil // No longer needed - icon retrieved from fileSystem
       )
         
       if senderAvatarImageData != nil {
-        print("📱 [NotificationService] 🎭 ✅ Using bucket icon (cached or generated placeholder)")
+        print("📱 [NotificationService] 🎭 ✅ Using bucket icon from fileSystem (bucketId: \(bucketId))")
       }
       
       // Log avatar configuration
-      if let notificationId = content.userInfo["notificationId"] as? String {
-        logToDatabase(
-          level: "info",
-          tag: "Avatar",
-          message: "Avatar configuration for communication style",
-          metadata: [
-            "notificationId": notificationId,
-            "bucketId": bucketId,
-            "bucketName": bucketName,
-            "bucketColor": bucketColor ?? "nil",
-            "hasAvatarData": senderAvatarImageData != nil,
-            "senderDisplayName": senderDisplayName ?? "nil"
-          ]
-        )
-      }
+      let notificationId = userInfo["nid"] as? String ?? userInfo["notificationId"] as? String ?? "unknown"
+      logToDatabase(
+        level: "info",
+        tag: "Avatar",
+        message: "Avatar configuration for communication style",
+        metadata: [
+          "notificationId": notificationId,
+          "bucketId": bucketId,
+          "bucketColor": defaultBucketColor,
+          "hasAvatarData": senderAvatarImageData != nil,
+          "senderDisplayName": senderDisplayName ?? "nil"
+        ]
+      )
     }
     
     // profile picture that will be displayed in the notification (left side)
@@ -246,12 +242,14 @@ class NotificationService: UNNotificationServiceExtension {
     }
 
     // the actual message. We use the OS to send us ourselves a message.
+    // Use bucketId as conversationIdentifier (optimized payload - no bucketName)
+    let conversationId = senderId ?? "unknown"
     let incomingMessagingIntent = INSendMessageIntent(
       recipients: [selfPerson],
       outgoingMessageType: .outgoingMessageText,  // This marks the message as outgoing
       content: content.body,  // use the modified body from content
       speakableGroupName: nil,
-      conversationIdentifier: chatRoomName,  // this will be used as the conversation title
+      conversationIdentifier: conversationId,  // Use bucketId as conversation identifier
       serviceName: nil,
       sender: senderPerson,  // this marks the message sender as the person we defined above
       attachments: []
@@ -346,32 +344,68 @@ class NotificationService: UNNotificationServiceExtension {
       {
         print("📱 [NotificationService] 🔍 Parsed decrypted object keys: \(obj.keys.sorted())")
         
-        if let title = obj["title"] as? String { content.title = title }
-        if let body = obj["body"] as? String { content.body = body }
-        if let subtitle = obj["subtitle"] as? String { content.subtitle = subtitle }
+        // Map abbreviated keys to full keys for content
+        if let title = obj["tit"] as? String { content.title = title } // title
+        else if let title = obj["title"] as? String { content.title = title } // backward compatibility
+        if let body = obj["bdy"] as? String { content.body = body } // body
+        else if let body = obj["body"] as? String { content.body = body } // backward compatibility
+        if let subtitle = obj["stl"] as? String { content.subtitle = subtitle } // subtitle
+        else if let subtitle = obj["subtitle"] as? String { content.subtitle = subtitle } // backward compatibility
 
         var updated = content.userInfo as? [String: Any] ?? [:]
-        if let notificationId = obj["notificationId"] { updated["notificationId"] = notificationId }
-        if let messageId = obj["messageId"] { updated["messageId"] = messageId }
-        if let bucketId = obj["bucketId"] { updated["bucketId"] = bucketId }
-        if let bucketName = obj["bucketName"] { updated["bucketName"] = bucketName }
-        if let bucketIconUrl = obj["bucketIconUrl"] { updated["bucketIconUrl"] = bucketIconUrl }
-        if let bucketColor = obj["bucketColor"] { updated["bucketColor"] = bucketColor }
-        if let deliveryType = obj["deliveryType"] { 
+        // Map abbreviated keys (support both old and new format)
+        if let notificationId = obj["nid"] { updated["notificationId"] = notificationId }
+        else if let notificationId = obj["notificationId"] { updated["notificationId"] = notificationId }
+        if let messageId = obj["mid"] { updated["messageId"] = messageId }
+        else if let messageId = obj["messageId"] { updated["messageId"] = messageId }
+        if let bucketId = obj["bid"] { updated["bucketId"] = bucketId; updated["bid"] = bucketId }
+        else if let bucketId = obj["bucketId"] { updated["bucketId"] = bucketId; updated["bid"] = bucketId }
+        if let deliveryType = obj["dty"] { 
           print("📱 [NotificationService] 🔍 deliveryType FROM BLOB: \(deliveryType)")
-          updated["deliveryType"] = deliveryType 
+          updated["deliveryType"] = deliveryType
+          updated["dty"] = deliveryType
         }
-        if let actions = obj["actions"] as? [[String: Any]] { updated["actions"] = actions }
-        if let attachmentData = obj["attachmentData"] as? [[String: Any]] {
+        else if let deliveryType = obj["deliveryType"] { 
+          print("📱 [NotificationService] 🔍 deliveryType FROM BLOB: \(deliveryType)")
+          updated["deliveryType"] = deliveryType
+          updated["dty"] = deliveryType
+        }
+        // Handle actions (only NAVIGATE/BACKGROUND_CALL in encrypted blob)
+        var sensitiveActions: [[String: Any]] = []
+        if let actions = obj["act"] as? [[String: Any]] { sensitiveActions = actions }
+        else if let actions = obj["actions"] as? [[String: Any]] { sensitiveActions = actions }
+        
+        // Merge with public actions (outside encrypted blob)
+        var publicActions: [[String: Any]] = []
+        if let pubActions = userInfo["act"] as? [[String: Any]] { publicActions = pubActions }
+        else if let pubActions = userInfo["actions"] as? [[String: Any]] { publicActions = pubActions }
+        
+        // Combine sensitive (from enc) + public (from payload) actions
+        let allActions = sensitiveActions + publicActions
+        updated["actions"] = allActions
+        // Handle attachments as string array: ["IMAGE:url1", "VIDEO:url2"]
+        if let attachments = obj["att"] as? [String] {
+          // Convert string array back to object array for compatibility
+          let attachmentObjects = attachments.compactMap { item -> [String: Any]? in
+            let parts = item.split(separator: ":", maxSplits: 1)
+            if parts.count == 2 {
+              return ["mediaType": String(parts[0]), "url": String(parts[1])]
+            }
+            return nil
+          }
+          updated["attachmentData"] = attachmentObjects
+        } else if let attachmentData = obj["attachmentData"] as? [[String: Any]] {
           updated["attachmentData"] = attachmentData
         }
-        if let tapAction = obj["tapAction"] as? [String: Any] {
+        if let tapAction = obj["tap"] as? [String: Any] {
+          updated["tapAction"] = tapAction
+        } else if let tapAction = obj["tapAction"] as? [String: Any] {
           updated["tapAction"] = tapAction
         }
         content.userInfo = updated
         
         // Log complete decrypted payload with all fields
-        let notificationId = obj["notificationId"] as? String ?? "unknown"
+        let notificationId = (obj["nid"] as? String) ?? (obj["notificationId"] as? String) ?? "unknown"
         var decryptedMeta: [String: Any] = [
           "notificationId": notificationId,
           "title": content.title,
@@ -379,28 +413,19 @@ class NotificationService: UNNotificationServiceExtension {
           "subtitle": content.subtitle
         ]
         
-        // Add bucket info
-        if let bucketId = obj["bucketId"] {
+        // Add bucket info (only bucketId now)
+        if let bucketId = obj["bid"] ?? obj["bucketId"] {
           decryptedMeta["bucketId"] = bucketId
         }
-        if let bucketName = obj["bucketName"] {
-          decryptedMeta["bucketName"] = bucketName
-        }
-        if let bucketIconUrl = obj["bucketIconUrl"] {
-          decryptedMeta["bucketIconUrl"] = bucketIconUrl
-        }
-        if let bucketColor = obj["bucketColor"] {
-          decryptedMeta["bucketColor"] = bucketColor
-        }
         
-        // Add actions (as structured array, not stringified)
-        if let actions = obj["actions"] as? [[String: Any]] {
-          decryptedMeta["actions"] = actions
-          decryptedMeta["actionsCount"] = actions.count
+        // Add actions (merged sensitive + public)
+        if let allActions = updated["actions"] as? [[String: Any]] {
+          decryptedMeta["actions"] = allActions
+          decryptedMeta["actionsCount"] = allActions.count
         }
         
         // Add attachments (as structured array, not stringified)
-        if let attachmentData = obj["attachmentData"] as? [[String: Any]] {
+        if let attachmentData = updated["attachmentData"] as? [[String: Any]] {
           decryptedMeta["attachmentData"] = attachmentData
           decryptedMeta["attachmentsCount"] = attachmentData.count
         }
@@ -699,13 +724,18 @@ class NotificationService: UNNotificationServiceExtension {
 
     var actions: [[String: Any]] = []
 
+    // Support both old and new abbreviated keys (after decryption, actions are already merged in "actions")
     if let actionsArray = userInfo["actions"] as? [[String: Any]] {
       actions = actionsArray
       print("📱 [NotificationService] Actions data: \(actions)")
+    } else if let actionsArray = userInfo["act"] as? [[String: Any]] {
+      // Fallback to abbreviated key if "actions" not available
+      actions = actionsArray
+      print("📱 [NotificationService] Actions data (abbreviated key): \(actions)")
     }
 
     if !actions.isEmpty {
-      let notificationId = userInfo["notificationId"] as? String ?? UUID().uuidString
+      let notificationId = (userInfo["nid"] as? String) ?? (userInfo["notificationId"] as? String) ?? UUID().uuidString
       
       // Filter actions to only include allowed types for notification buttons
       // NAVIGATE is excluded from buttons but kept in userInfo for NCE custom UI
@@ -751,9 +781,14 @@ class NotificationService: UNNotificationServiceExtension {
       return false
     }
 
+    // Check new format: array of strings ["IMAGE:url", "VIDEO:url"]
+    if let attachmentStrings = userInfo["att"] as? [String], !attachmentStrings.isEmpty {
+      print("📱 [NotificationService] Found attachments as string array (new format)")
+      return true
+    }
     if let attachmentData = userInfo["attachmentData"] as? [[String: Any]], !attachmentData.isEmpty
     {
-      print("📱 [NotificationService] Found attachments as direct array")
+      print("📱 [NotificationService] Found attachments as direct array (old format)")
       return true
     }
     // Fallback: retry path without encryption may carry attachments under alternative keys
@@ -761,7 +796,6 @@ class NotificationService: UNNotificationServiceExtension {
       print("📱 [NotificationService] Found attachments under 'attachments' key (fallback)")
       return true
     }
-    // Single attachment fallback removed: 'attachments' is always an array
 
     return false
   }
@@ -871,13 +905,39 @@ class NotificationService: UNNotificationServiceExtension {
   private func extractMediaAttachments(from userInfo: [String: Any]) -> [MediaAttachment] {
     var mediaAttachments: [MediaAttachment] = []
 
+    // Handle new format: array of strings ["IMAGE:url", "VIDEO:url"]
+    if let attachmentStrings = userInfo["att"] as? [String] {
+      print("📱 [NotificationService] Extracting attachments from string array (new format)")
+      for (index, attachmentString) in attachmentStrings.enumerated() {
+        let parts = attachmentString.split(separator: ":", maxSplits: 1)
+        if parts.count == 2 {
+          let mediaType = String(parts[0])
+          let url = String(parts[1])
+          
+          // Filter out icons: they should never be used as attachments in NSE
+          if mediaType.uppercased() == "ICON" {
+            print("📱 [NotificationService] 🚫 Filtered out ICON attachment [\(index)]: \(url)")
+            continue
+          }
+          
+          let priority = getCompactPriority(mediaType)
+          mediaAttachments.append(MediaAttachment(mediaType: mediaType, url: url, name: nil))
+          
+          print(
+            "📱 [NotificationService] 📎 Found attachment [\(index)]: \(mediaType) (priority: \(priority)) - \(url)"
+          )
+        }
+      }
+    }
+    
+    // Handle old format: array of objects (backward compatibility)
     if let attachmentData = userInfo["attachmentData"] as? [[String: Any]] {
-      print("📱 [NotificationService] Extracting attachments from direct array")
+      print("📱 [NotificationService] Extracting attachments from object array (old format)")
       for (index, attachment) in attachmentData.enumerated() {
         if let mediaType = attachment["mediaType"] as? String,
           let url = attachment["url"] as? String
         {
-          // Filtra le icone: non devono mai essere usate come attachment nella NSE
+          // Filter out icons: they should never be used as attachments in NSE
           if mediaType.uppercased() == "ICON" {
             print("📱 [NotificationService] 🚫 Filtered out ICON attachment [\(index)]: \(url)")
             continue
@@ -1601,9 +1661,11 @@ class NotificationService: UNNotificationServiceExtension {
       return
     }
     
-    // Extract required fields
-    guard let notificationId = userInfo["notificationId"] as? String,
-          let bucketId = userInfo["bucketId"] as? String else {
+    // Extract required fields (support both old and new abbreviated keys)
+    let notificationId = (userInfo["nid"] as? String) ?? (userInfo["notificationId"] as? String)
+    let bucketId = (userInfo["bid"] as? String) ?? (userInfo["bucketId"] as? String)
+    
+    guard let notificationId = notificationId, let bucketId = bucketId else {
       print("📱 [NotificationService] ⚠️ Missing notificationId or bucketId")
       return
     }
@@ -1621,12 +1683,12 @@ class NotificationService: UNNotificationServiceExtension {
     let now = ISO8601DateFormatter().string(from: Date())
     
     // Build message object
-    let deliveryTypeForDB = userInfo["deliveryType"] as? String ?? "NORMAL"
+    let deliveryTypeForDB = (userInfo["dty"] as? String) ?? (userInfo["deliveryType"] as? String) ?? "NORMAL"
     print("📱 [NotificationService] 💾 Saving to DB with deliveryType: \(deliveryTypeForDB)")
     
     var messageObj: [String: Any] = [
       "__typename": "Message",
-      "id": userInfo["messageId"] as? String ?? UUID().uuidString, // Use messageId from payload or generate fallback
+      "id": (userInfo["mid"] as? String) ?? (userInfo["messageId"] as? String) ?? UUID().uuidString,
       "title": content.title,
       "body": content.body,
       "subtitle": content.subtitle.isEmpty ? NSNull() : content.subtitle,
@@ -1638,9 +1700,29 @@ class NotificationService: UNNotificationServiceExtension {
       "updatedAt": now
     ]
     
-    // Add attachments
-    if let attachmentData = userInfo["attachmentData"] as? [[String: Any]], !attachmentData.isEmpty {
-      let attachments = attachmentData.map { item -> [String: Any] in
+    // Add attachments (handle both new string array format and old object array format)
+    var attachments: [[String: Any]] = []
+    
+    // Handle new format: array of strings ["IMAGE:url", "VIDEO:url"]
+    if let attachmentStrings = userInfo["att"] as? [String] {
+      attachments = attachmentStrings.compactMap { item -> [String: Any]? in
+        let parts = item.split(separator: ":", maxSplits: 1)
+        if parts.count == 2 {
+          return [
+            "__typename": "MessageAttachment",
+            "mediaType": String(parts[0]).uppercased(),
+            "url": String(parts[1]),
+            "name": NSNull() as Any,
+            "attachmentUuid": NSNull() as Any,
+            "saveOnServer": NSNull() as Any
+          ]
+        }
+        return nil
+      }
+    }
+    // Handle old format: array of objects (backward compatibility)
+    else if let attachmentData = userInfo["attachmentData"] as? [[String: Any]] {
+      attachments = attachmentData.map { item -> [String: Any] in
         return [
           "__typename": "MessageAttachment",
           "mediaType": (item["mediaType"] as? String)?.uppercased() ?? "IMAGE",
@@ -1650,10 +1732,9 @@ class NotificationService: UNNotificationServiceExtension {
           "saveOnServer": (item["saveOnServer"] as? Bool) ?? NSNull() as Any
         ]
       }
-      messageObj["attachments"] = attachments
-    } else {
-      messageObj["attachments"] = []
     }
+    
+    messageObj["attachments"] = attachments
     
     // Add tapAction
     if let tapAction = userInfo["tapAction"] as? [String: Any] {
@@ -1684,14 +1765,14 @@ class NotificationService: UNNotificationServiceExtension {
       messageObj["actions"] = []
     }
     
-    // Add bucket
+    // Add bucket (only bucketId, default color, name from bucketId)
     messageObj["bucket"] = [
       "__typename": "Bucket",
       "id": bucketId,
-      "name": userInfo["bucketName"] as? String ?? "Unknown",
+      "name": bucketId, // Use bucketId as name (optimized payload)
       "description": NSNull(),
-      "color": (userInfo["bucketColor"] as? String) ?? NSNull() as Any,
-      "iconUrl": (userInfo["bucketIconUrl"] as? String) ?? NSNull() as Any,
+      "color": "#007AFF", // Default color
+      "iconUrl": NSNull() as Any, // Icon retrieved from fileSystem
       "createdAt": now,
       "updatedAt": now,
       "isProtected": NSNull(),

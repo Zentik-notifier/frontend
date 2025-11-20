@@ -160,26 +160,32 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             initMeta["actionsCount"] = 0
         }
         
-        // Add attachments data (as structured array, not stringified)
-        if let attachmentData = notification.request.content.userInfo["attachmentData"] as? [[String: Any]] {
+        // Add attachments data (handle both new string array format and old object array format)
+        var attachmentsCount = 0
+        if let attachmentStrings = notification.request.content.userInfo["att"] as? [String] {
+            // New format: array of strings ["IMAGE:url", "VIDEO:url"]
+            let attachmentObjects = attachmentStrings.compactMap { item -> [String: Any]? in
+                let parts = item.split(separator: ":", maxSplits: 1)
+                if parts.count == 2 {
+                    return ["mediaType": String(parts[0]), "url": String(parts[1])]
+                }
+                return nil
+            }
+            initMeta["attachmentData"] = attachmentObjects
+            attachmentsCount = attachmentObjects.count
+        } else if let attachmentData = notification.request.content.userInfo["attachmentData"] as? [[String: Any]] {
+            // Old format: array of objects (backward compatibility)
             initMeta["attachmentData"] = attachmentData
-            initMeta["attachmentsCount"] = attachmentData.count
-        } else {
-            initMeta["attachmentsCount"] = 0
+            attachmentsCount = attachmentData.count
         }
+        initMeta["attachmentsCount"] = attachmentsCount
         
-        // Add bucket info
-        if let bucketId = notification.request.content.userInfo["bucketId"] as? String {
+        // Add bucket info (support both old and new abbreviated keys)
+        let bucketId = (notification.request.content.userInfo["bid"] as? String) ?? (notification.request.content.userInfo["bucketId"] as? String)
+        if let bucketId = bucketId {
             initMeta["bucketId"] = bucketId
-        }
-        if let bucketName = notification.request.content.userInfo["bucketName"] as? String {
-            initMeta["bucketName"] = bucketName
-        }
-        if let bucketIconUrl = notification.request.content.userInfo["bucketIconUrl"] as? String {
-            initMeta["bucketIconUrl"] = bucketIconUrl
-            initMeta["hasBucketIcon"] = true
-        } else {
-            initMeta["hasBucketIcon"] = false
+            // Icon retrieved from fileSystem, default color #007AFF
+            initMeta["hasBucketIcon"] = MediaAccess.getBucketIconFromSharedCache(bucketId: bucketId, bucketName: nil, bucketColor: "#007AFF", iconUrl: nil) != nil
         }
         
         logToDatabase(
@@ -307,11 +313,25 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Store current notification data for tap actions
         currentNotificationUserInfo = notification.request.content.userInfo
         
-        // Store attachments and data
+        // Store attachments and data (handle both new string array format and old object array format)
         attachments = notification.request.content.attachments
-        if let data = notification.request.content.userInfo["attachmentData"] as? [[String: Any]] {
+        
+        // Handle new format: array of strings ["IMAGE:url", "VIDEO:url"]
+        if let attachmentStrings = notification.request.content.userInfo["att"] as? [String] {
+            attachmentData = attachmentStrings.compactMap { item -> [String: Any]? in
+                let parts = item.split(separator: ":", maxSplits: 1)
+                if parts.count == 2 {
+                    return ["mediaType": String(parts[0]), "url": String(parts[1])]
+                }
+                return nil
+            }
+            print("📱 [ContentExtension] AttachmentData count (new format): \(attachmentData.count)")
+            print("📱 [ContentExtension] AttachmentData content: \(attachmentData)")
+        }
+        // Handle old format: array of objects (backward compatibility)
+        else if let data = notification.request.content.userInfo["attachmentData"] as? [[String: Any]] {
             attachmentData = data
-            print("📱 [ContentExtension] AttachmentData count: \(attachmentData.count)")
+            print("📱 [ContentExtension] AttachmentData count (old format): \(attachmentData.count)")
             print("📱 [ContentExtension] AttachmentData content: \(attachmentData)")
         } else {
             print("📱 [ContentExtension] ❌ No attachmentData found in userInfo")
@@ -704,27 +724,26 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     private func refreshHeaderIcon() {
         guard let imageView = headerIconImageView else { return }
         
-        // Get bucket icon from cache or generate temporary placeholder
-        if let userInfo = currentNotificationUserInfo,
-           let bucketId = userInfo["bucketId"] as? String,
-           let bucketName = userInfo["bucketName"] as? String {
-            print("📱 [ContentExtension] 🎭 Getting bucket icon...")
-            
-            let bucketColor = userInfo["bucketColor"] as? String
-            let bucketIconUrl = userInfo["bucketIconUrl"] as? String
-            
-            if let bucketIconData = MediaAccess.getBucketIconFromSharedCache(
-                bucketId: bucketId,
-                bucketName: bucketName,
-                bucketColor: bucketColor,
-                iconUrl: bucketIconUrl
-            ),
-               let bucketIcon = UIImage(data: bucketIconData) {
-                imageView.image = bucketIcon
-                imageView.isHidden = false
-                print("📱 [ContentExtension] 🎭 ✅ Using bucket icon (cached or generated placeholder)")
-            } else {
-                print("📱 [ContentExtension] 🎭 ⚠️ Failed to get bucket icon")
+        // Get bucket icon from cache using only bucketId (support both old and new abbreviated keys)
+        if let userInfo = currentNotificationUserInfo {
+            let bucketId = (userInfo["bid"] as? String) ?? (userInfo["bucketId"] as? String)
+            if let bucketId = bucketId {
+                print("📱 [ContentExtension] 🎭 Getting bucket icon for bucketId: \(bucketId)")
+                
+                // Use default color #007AFF, icon retrieved from fileSystem
+                if let bucketIconData = MediaAccess.getBucketIconFromSharedCache(
+                    bucketId: bucketId,
+                    bucketName: nil, // No longer needed - icon retrieved from fileSystem
+                    bucketColor: "#007AFF", // Default color
+                    iconUrl: nil // No longer needed - icon retrieved from fileSystem
+                ),
+                   let bucketIcon = UIImage(data: bucketIconData) {
+                    imageView.image = bucketIcon
+                    imageView.isHidden = false
+                    print("📱 [ContentExtension] 🎭 ✅ Using bucket icon from fileSystem")
+                } else {
+                    print("📱 [ContentExtension] 🎭 ⚠️ Failed to get bucket icon from fileSystem")
+                }
             }
         }
     }
