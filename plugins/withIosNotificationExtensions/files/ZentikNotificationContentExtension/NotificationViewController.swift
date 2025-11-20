@@ -116,9 +116,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         
-        // Content Extension is always expanded - no mode changes
-        print("📱 [ContentExtension] Layout updated. Bounds: \(view.bounds)")
-        
         updateLayout()
     }
     
@@ -138,8 +135,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         cleanupCurrentMedia()
         
         // Log NCE initialization with complete information
-        // Use the real notificationId from userInfo, fallback to request.identifier
-        let notificationId = notification.request.content.userInfo["notificationId"] as? String ?? notification.request.identifier
+        let notificationId = notification.request.identifier
         let categoryId = notification.request.content.categoryIdentifier.lowercased()
         
         var initMeta: [String: Any] = [
@@ -152,7 +148,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             "badge": notification.request.content.badge ?? 0
         ]
         
-        // Add actions data (as structured array, not stringified)
+        // Add actions data
         if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
             initMeta["actions"] = actionsData
             initMeta["actionsCount"] = actionsData.count
@@ -160,10 +156,12 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             initMeta["actionsCount"] = 0
         }
         
-        // Add attachments data (handle both new string array format and old object array format)
+        // Add attachments data (prefer attachmentData from NSE, fallback to att)
         var attachmentsCount = 0
-        if let attachmentStrings = notification.request.content.userInfo["att"] as? [String] {
-            // New format: array of strings ["IMAGE:url", "VIDEO:url"]
+        if let processedAttachmentData = notification.request.content.userInfo["attachmentData"] as? [[String: Any]] {
+            initMeta["attachmentData"] = processedAttachmentData
+            attachmentsCount = processedAttachmentData.count
+        } else if let attachmentStrings = notification.request.content.userInfo["att"] as? [String] {
             let attachmentObjects = attachmentStrings.compactMap { item -> [String: Any]? in
                 let parts = item.split(separator: ":", maxSplits: 1)
                 if parts.count == 2 {
@@ -173,15 +171,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             }
             initMeta["attachmentData"] = attachmentObjects
             attachmentsCount = attachmentObjects.count
-        } else if let attachmentData = notification.request.content.userInfo["attachmentData"] as? [[String: Any]] {
-            // Old format: array of objects (backward compatibility)
-            initMeta["attachmentData"] = attachmentData
-            attachmentsCount = attachmentData.count
         }
         initMeta["attachmentsCount"] = attachmentsCount
         
-        // Add bucket info (support both old and new abbreviated keys)
-        let bucketId = (notification.request.content.userInfo["bid"] as? String) ?? (notification.request.content.userInfo["bucketId"] as? String)
+        // Add bucket info: prefer bid from userInfo, fallback to threadIdentifier
+        let bucketId = (notification.request.content.userInfo["bid"] as? String) ?? (notification.request.content.threadIdentifier as? String)
         if let bucketId = bucketId {
             initMeta["bucketId"] = bucketId
             // Icon retrieved from fileSystem, default color #007AFF
@@ -313,11 +307,16 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Store current notification data for tap actions
         currentNotificationUserInfo = notification.request.content.userInfo
         
-        // Store attachments and data (handle both new string array format and old object array format)
+        // Store attachments and data
         attachments = notification.request.content.attachments
         
-        // Handle new format: array of strings ["IMAGE:url", "VIDEO:url"]
-        if let attachmentStrings = notification.request.content.userInfo["att"] as? [String] {
+        // Prefer attachmentData (already processed by NSE), fallback to att (raw string array)
+        if let processedAttachmentData = notification.request.content.userInfo["attachmentData"] as? [[String: Any]] {
+            attachmentData = processedAttachmentData
+            print("📱 [ContentExtension] AttachmentData count (processed by NSE): \(attachmentData.count)")
+            print("📱 [ContentExtension] AttachmentData content: \(attachmentData)")
+        } else if let attachmentStrings = notification.request.content.userInfo["att"] as? [String] {
+            // Convert raw string array to object array
             attachmentData = attachmentStrings.compactMap { item -> [String: Any]? in
                 let parts = item.split(separator: ":", maxSplits: 1)
                 if parts.count == 2 {
@@ -325,13 +324,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 }
                 return nil
             }
-            print("📱 [ContentExtension] AttachmentData count (new format): \(attachmentData.count)")
-            print("📱 [ContentExtension] AttachmentData content: \(attachmentData)")
-        }
-        // Handle old format: array of objects (backward compatibility)
-        else if let data = notification.request.content.userInfo["attachmentData"] as? [[String: Any]] {
-            attachmentData = data
-            print("📱 [ContentExtension] AttachmentData count (old format): \(attachmentData.count)")
+            print("📱 [ContentExtension] AttachmentData count (from att): \(attachmentData.count)")
             print("📱 [ContentExtension] AttachmentData content: \(attachmentData)")
         } else {
             print("📱 [ContentExtension] ❌ No attachmentData found in userInfo")
@@ -357,8 +350,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         print("📱 [ContentExtension] Category: \(response.notification.request.content.categoryIdentifier)")
         
         let userInfo = response.notification.request.content.userInfo
-        // Use the real notificationId from userInfo, fallback to request.identifier
-        let notificationId = userInfo["notificationId"] as? String ?? response.notification.request.identifier
+        // Use nid from userInfo (new format), fallback to notificationId (old format), then request.identifier
+        let notificationId = (userInfo["nid"] as? String) ?? (userInfo["notificationId"] as? String) ?? response.notification.request.identifier
         print("📱 [ContentExtension] UserInfo keys: \(userInfo.keys.map { String(describing: $0) }.joined(separator: ", "))")
         
         // Check if actions data is available in userInfo
@@ -383,33 +376,27 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         // Try to find the specific action details in the actions array
         if let actionsData = userInfo["actions"] as? [[String: Any]] {
-            // Parse action identifier: "action_TYPE_value"
             if isDynamicAction {
-                let components = response.actionIdentifier.components(separatedBy: "_")
-                if components.count >= 3 {
-                    let actionType = components[1]
-                    let actionValue = components.dropFirst(2).joined(separator: "_")
-                    
-                    // Find matching action in array
-                    if let matchedAction = actionsData.first(where: { action in
-                        guard let type = action["type"] as? String,
-                              let value = action["value"] as? String else { return false }
-                        return type == actionType && value == actionValue
-                    }) {
-                        // Add found action details (as structured object, not stringified)
-                        actionDetails["actionFound"] = true
-                        actionDetails["actionType"] = matchedAction["type"]
-                        actionDetails["actionValue"] = matchedAction["value"]
-                        actionDetails["actionTitle"] = matchedAction["title"]
-                        if let destructive = matchedAction["destructive"] {
-                            actionDetails["actionDestructive"] = destructive
-                        }
-                        if let icon = matchedAction["icon"] {
-                            actionDetails["actionIcon"] = icon
-                        }
-                    } else {
-                        actionDetails["actionFound"] = false
+                // Try exact match first by building the identifier from each action
+                if let matchedAction = actionsData.first(where: { action in
+                    guard let type = action["type"] as? String,
+                          let value = action["value"] as? String else { return false }
+                    let expectedIdentifier = "action_\(type)_\(value)"
+                    return response.actionIdentifier == expectedIdentifier
+                }) {
+                    // Add found action details (as structured object, not stringified)
+                    actionDetails["actionFound"] = true
+                    actionDetails["actionType"] = matchedAction["type"]
+                    actionDetails["actionValue"] = matchedAction["value"]
+                    actionDetails["actionTitle"] = matchedAction["title"]
+                    if let destructive = matchedAction["destructive"] {
+                        actionDetails["actionDestructive"] = destructive
                     }
+                    if let icon = matchedAction["icon"] {
+                        actionDetails["actionIcon"] = icon
+                    }
+                } else {
+                    actionDetails["actionFound"] = false
                 }
             }
         }
@@ -2485,8 +2472,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     // MARK: - Cleanup
     
     private func cleanupAllObservers() {
-        print("📱 [ContentExtension] Force cleaning up all observers")
-        
         // Clean up time observer - handle all possible states with safer approach
         if let token = timeObserverToken {
             if let observerPlayer = timeObserverPlayer {
@@ -3009,7 +2994,10 @@ extension NotificationViewController {
     }
 
     private func extractNotificationId(from userInfo: [AnyHashable: Any]) -> String? {
-        if let notificationId = userInfo["notificationId"] as? String {
+        // Prefer nid from userInfo (new format), fallback to notificationId (old format)
+        if let nid = userInfo["nid"] as? String {
+            return nid
+        } else if let notificationId = userInfo["notificationId"] as? String {
             return notificationId
         } else if let payload = userInfo["payload"] as? [String: Any],
                   let notificationId = payload["notificationId"] as? String {
@@ -3475,14 +3463,6 @@ extension NotificationViewController {
             } catch {
                 print("📱 [ContentExtension] ❌ Failed to create type directory: \(error)")
             }
-        }
-        
-        // List all files in type directory for debugging
-        do {
-            let files = try FileManager.default.contentsOfDirectory(atPath: typeDirectory.path)
-            print("📱 [ContentExtension] 📋 Files in \(mediaType.uppercased()) directory: \(files)")
-        } catch {
-            print("📱 [ContentExtension] ❌ Could not list files in type directory: \(error)")
         }
         
         if FileManager.default.fileExists(atPath: filePath) {

@@ -373,7 +373,7 @@ public class NotificationActionHandler {
                     
                 case "SNOOZE":
                     guard let minutes = Int(value),
-                          let bucketId = userInfo["bucketId"] as? String else {
+                          let bucketId = (userInfo["bid"] as? String) ?? (userInfo["bucketId"] as? String) else {
                         throw NSError(domain: "ActionError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid snooze parameters"])
                     }
                     try await snoozeBucket(bucketId: bucketId, minutes: minutes)
