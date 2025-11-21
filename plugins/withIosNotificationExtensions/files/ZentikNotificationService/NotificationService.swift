@@ -1803,18 +1803,27 @@ class NotificationService: UNNotificationServiceExtension {
       messageObj["actions"] = []
     }
     
-    // Add bucket (only bucketId, default color, name from bucketId)
+    // Load bucket from database to get real name, color, and iconUrl
+    let bucketInfo = DatabaseAccess.getBucketById(bucketId: bucketId, source: "NSE")
+    
+    if let bucketInfo = bucketInfo {
+      print("📱 [NotificationService] ✅ Loaded bucket from DB: name=\(bucketInfo.name), color=\(bucketInfo.color ?? "nil"), iconUrl=\(bucketInfo.iconUrl ?? "nil")")
+    } else {
+      print("📱 [NotificationService] ⚠️ Bucket not found in database: \(bucketId), using defaults")
+    }
+    
+    // Add bucket with real data from database, or use defaults if not found
     messageObj["bucket"] = [
       "__typename": "Bucket",
       "id": bucketId,
-      "name": bucketId, // Use bucketId as name (optimized payload)
-      "description": NSNull(),
-      "color": "#007AFF", // Default color
-      "iconUrl": NSNull() as Any, // Icon retrieved from fileSystem
+      "name": bucketInfo?.name ?? bucketId, // Use real name from DB or bucketId as fallback
+      "description": NSNull(), // Not available in WidgetBucket
+      "color": bucketInfo?.color ?? "#007AFF", // Use real color from DB or default
+      "iconUrl": bucketInfo?.iconUrl ?? NSNull() as Any, // Use real iconUrl from DB or null
       "createdAt": now,
       "updatedAt": now,
-      "isProtected": NSNull(),
-      "isPublic": NSNull()
+      "isProtected": NSNull(), // Not available in WidgetBucket
+      "isPublic": NSNull() // Not available in WidgetBucket
     ]
     
     // Build notification fragment

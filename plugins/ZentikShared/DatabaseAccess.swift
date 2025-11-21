@@ -989,6 +989,77 @@ public class DatabaseAccess {
         }
     }
     
+    /// Get a single bucket by ID from database
+    /// Returns bucket data as WidgetBucket
+    /// - Parameters:
+    ///   - bucketId: Bucket ID to fetch
+    ///   - source: Source identifier for logging (default: "DatabaseAccess")
+    /// - Returns: WidgetBucket with bucket data or nil if not found
+    public static func getBucketById(
+        bucketId: String,
+        source: String = "DatabaseAccess"
+    ) -> WidgetBucket? {
+        var bucket: WidgetBucket? = nil
+        let semaphore = DispatchSemaphore(value: 0)
+        
+        performDatabaseOperation(
+            type: .read,
+            name: "GetBucketById",
+            source: source,
+            operation: { db in
+                let sql = "SELECT name, fragment, updated_at FROM buckets WHERE id = ? LIMIT 1"
+                var stmt: OpaquePointer?
+                
+                let prepareResult = sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+                guard prepareResult == SQLITE_OK else {
+                    let errorMsg = String(cString: sqlite3_errmsg(db))
+                    return .failure("Failed to prepare statement: \(errorMsg) (code: \(prepareResult))")
+                }
+                
+                defer { sqlite3_finalize(stmt) }
+                
+                sqlite3_bind_text(stmt, 1, (bucketId as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    guard let nameCString = sqlite3_column_text(stmt, 0),
+                          let fragmentCString = sqlite3_column_text(stmt, 1) else {
+                        return .success // Not found
+                    }
+                    
+                    let name = String(cString: nameCString)
+                    let fragment = String(cString: fragmentCString)
+                    
+                    // Parse fragment JSON
+                    guard let fragmentData = fragment.data(using: .utf8),
+                          let fragmentJson = try? JSONSerialization.jsonObject(with: fragmentData) as? [String: Any] else {
+                        return .success // Invalid fragment
+                    }
+                    
+                    // Extract fields from fragment
+                    let color = fragmentJson["color"] as? String
+                    let iconUrl = fragmentJson["iconUrl"] as? String
+                    
+                    bucket = WidgetBucket(
+                        id: bucketId,
+                        name: name,
+                        unreadCount: 0, // Not needed for bucket data only
+                        color: color,
+                        iconUrl: iconUrl
+                    )
+                    
+                    return .success
+                } else {
+                    return .success // Not found
+                }
+            }
+        ) { _ in
+            semaphore.signal()
+        }
+        
+        _ = semaphore.wait(timeout: .now() + DB_OPERATION_TIMEOUT)
+        return bucket
+    }
+    
     // MARK: - Widget Notification Operations
     
     /// Get recent notifications for widget display
