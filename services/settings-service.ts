@@ -289,7 +289,8 @@ class SettingsService {
         'locale',
         'timezone',
         'notificationsLastSeenId',
-        'lastCleanup'
+        'lastCleanup',
+        'hideHints'
       ];
 
       // Settings that are stored as JSON objects
@@ -311,8 +312,13 @@ class SettingsService {
         ...stringKeys.map(async (key) => {
           try {
             const stored = await settingsRepository.getSetting(key);
-            if (stored) {
-              settings[key] = stored as any;
+            if (stored !== null && stored !== undefined) {
+              // For boolean values, convert string to boolean
+              if (key === 'hideHints') {
+                settings[key] = (stored === 'true') as any;
+              } else {
+                settings[key] = stored as any;
+              }
             }
           } catch (error) {
             console.error(`Failed to load string setting ${key}:`, error);
@@ -1089,7 +1095,8 @@ class SettingsService {
         'locale',
         'timezone',
         'notificationsLastSeenId',
-        'lastCleanup'
+        'lastCleanup',
+        'hideHints'
       ]);
 
       await Promise.all(
