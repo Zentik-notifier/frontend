@@ -3026,8 +3026,24 @@ extension NotificationViewController {
             
             // Open the main app to process the navigation intent
             DispatchQueue.main.async {
+                // Dismiss extension first
                 self.extensionContext?.dismissNotificationContentExtension()
-                self.extensionContext?.performNotificationDefaultAction()
+                
+                // Use URL scheme to open app (works even when app is closed)
+                if let url = URL(string: "zentik://notification/\(notificationId)") {
+                    print("📱 [ContentExtension] 🔗 Opening app via deep link: \(url.absoluteString)")
+                    self.extensionContext?.open(url, completionHandler: { success in
+                        if success {
+                            print("📱 [ContentExtension] ✅ App opened successfully via deep link")
+                        } else {
+                            print("📱 [ContentExtension] ⚠️ Failed to open app via deep link, falling back to default action")
+                            self.extensionContext?.performNotificationDefaultAction()
+                        }
+                    })
+                } else {
+                    // Fallback to default action
+                    self.extensionContext?.performNotificationDefaultAction()
+                }
             }
             
             completion(true)
@@ -3213,8 +3229,29 @@ extension NotificationViewController {
                     if isNavigationAction {
                         print("📱 [ContentExtension] 🚀 Opening app for navigation action: \(type)")
                         DispatchQueue.main.async {
+                            // Dismiss extension first
                             self?.extensionContext?.dismissNotificationContentExtension()
-                            self?.extensionContext?.performNotificationDefaultAction()
+                            
+                            // Use URL scheme to open app (works even when app is closed)
+                            if type == "OPEN_NOTIFICATION" {
+                                if let url = URL(string: "zentik://notification/\(value)") {
+                                    print("📱 [ContentExtension] 🔗 Opening app via deep link: \(url.absoluteString)")
+                                    self?.extensionContext?.open(url, completionHandler: { success in
+                                        if success {
+                                            print("📱 [ContentExtension] ✅ App opened successfully via deep link")
+                                        } else {
+                                            print("📱 [ContentExtension] ⚠️ Failed to open app via deep link, falling back to default action")
+                                            self?.extensionContext?.performNotificationDefaultAction()
+                                        }
+                                    })
+                                } else {
+                                    // Fallback to default action
+                                    self?.extensionContext?.performNotificationDefaultAction()
+                                }
+                            } else {
+                                // For NAVIGATE actions, use default action
+                                self?.extensionContext?.performNotificationDefaultAction()
+                            }
                         }
                     }
                     completion(true)
@@ -3241,6 +3278,9 @@ extension NotificationViewController {
 
         print("📱 [ContentExtension] 🚀 Executing action in background: \(type) with value: \(value)")
 
+        // Check if this is a navigation action that requires opening the app
+        let isNavigationAction = (type == "NAVIGATE" || type == "OPEN_NOTIFICATION")
+
         // Use shared NotificationActionHandler for action execution
         // NotificationActionHandler already handles DB updates for MARK_AS_READ and DELETE
         NotificationActionHandler.executeAction(
@@ -3249,12 +3289,43 @@ extension NotificationViewController {
             notificationId: notificationId,
             userInfo: userInfo,
             source: "NCE",
-            onComplete: { result in
+            onComplete: { [weak self] result in
                 switch result {
                 case .success:
                     print("📱 [ContentExtension] ✅ Action completed successfully in background: \(type)")
                     // Note: NCE cannot use WatchConnectivity (extension limitation)
                     // Watch will sync when app opens or via background refresh
+                    
+                    // For navigation actions, open the app after storing the intent
+                    if isNavigationAction {
+                        print("📱 [ContentExtension] 🚀 Opening app for navigation action in background: \(type)")
+                        DispatchQueue.main.async {
+                            // Dismiss extension first
+                            self?.extensionContext?.dismissNotificationContentExtension()
+                            
+                            // Use URL scheme to open app (works even when app is closed)
+                            if type == "OPEN_NOTIFICATION" {
+                                if let url = URL(string: "zentik://notification/\(value)") {
+                                    print("📱 [ContentExtension] 🔗 Opening app via deep link in background: \(url.absoluteString)")
+                                    self?.extensionContext?.open(url, completionHandler: { success in
+                                        if success {
+                                            print("📱 [ContentExtension] ✅ App opened successfully via deep link in background")
+                                        } else {
+                                            print("📱 [ContentExtension] ⚠️ Failed to open app via deep link in background, falling back to default action")
+                                            self?.extensionContext?.performNotificationDefaultAction()
+                                        }
+                                    })
+                                } else {
+                                    // Fallback to default action
+                                    print("📱 [ContentExtension] ⚠️ Failed to create URL, falling back to default action")
+                                    self?.extensionContext?.performNotificationDefaultAction()
+                                }
+                            } else {
+                                // For NAVIGATE actions, use default action
+                                self?.extensionContext?.performNotificationDefaultAction()
+                            }
+                        }
+                    }
                     
                 case .failure(let error):
                     print("📱 [ContentExtension] ❌ Action failed in background: \(error)")
