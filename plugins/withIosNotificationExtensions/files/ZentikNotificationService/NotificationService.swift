@@ -1690,7 +1690,8 @@ class NotificationService: UNNotificationServiceExtension {
     }
     
     // Extract required fields: prefer bid from userInfo, fallback to threadIdentifier
-    let notificationId = self.currentRequestIdentifier ?? UUID().uuidString
+    // notificationId: prefer nid from userInfo (real notification ID), fallback to request identifier
+    let notificationId = (userInfo["nid"] as? String) ?? (self.currentRequestIdentifier ?? UUID().uuidString)
     guard let bucketId = (userInfo["bid"] as? String) ?? (content.threadIdentifier as? String) else {
       print("📱 [NotificationService] ⚠️ Missing bucketId (bid and threadIdentifier)")
       return
@@ -1710,11 +1711,13 @@ class NotificationService: UNNotificationServiceExtension {
     
     // Build message object
     let deliveryTypeForDB = userInfo["dty"] as? String ?? "NORMAL"
-    print("📱 [NotificationService] 💾 Saving to DB with deliveryType: \(deliveryTypeForDB)")
+    // messageId: prefer mid from userInfo (real message ID), fallback to new UUID
+    let messageId = (userInfo["mid"] as? String) ?? UUID().uuidString
+    print("📱 [NotificationService] 💾 Saving to DB - notificationId: \(notificationId), messageId: \(messageId), deliveryType: \(deliveryTypeForDB)")
     
     var messageObj: [String: Any] = [
       "__typename": "Message",
-      "id": UUID().uuidString,
+      "id": messageId,
       "title": content.title,
       "body": content.body,
       "subtitle": content.subtitle.isEmpty ? NSNull() : content.subtitle,
@@ -1727,9 +1730,31 @@ class NotificationService: UNNotificationServiceExtension {
     ]
     
     // Add attachments (string array format: ["IMAGE:url", "VIDEO:url"])
+    // Check both "att" (raw format) and "attachmentData" (processed by decryption)
     var attachments: [[String: Any]] = []
     
-    if let attachmentStrings = userInfo["att"] as? [String] {
+    // First check attachmentData (created during decryption from "att")
+    if let attachmentData = userInfo["attachmentData"] as? [[String: Any]] {
+      print("📱 [NotificationService] 💾 Found \(attachmentData.count) attachments in attachmentData")
+      attachments = attachmentData.compactMap { attachment -> [String: Any]? in
+        guard let mediaType = attachment["mediaType"] as? String,
+              let url = attachment["url"] as? String else {
+          return nil
+        }
+        return [
+          "__typename": "MessageAttachment",
+          "mediaType": mediaType.uppercased(),
+          "url": url,
+          "name": (attachment["name"] as? String) ?? NSNull() as Any,
+          "attachmentUuid": NSNull() as Any,
+          "saveOnServer": NSNull() as Any
+        ]
+      }
+    }
+    
+    // Fallback to "att" string array format if attachmentData not available
+    if attachments.isEmpty, let attachmentStrings = userInfo["att"] as? [String] {
+      print("📱 [NotificationService] 💾 Found \(attachmentStrings.count) attachments in 'att' format")
       attachments = attachmentStrings.compactMap { item -> [String: Any]? in
         let parts = item.split(separator: ":", maxSplits: 1)
         if parts.count == 2 {
@@ -1746,6 +1771,7 @@ class NotificationService: UNNotificationServiceExtension {
       }
     }
     
+    print("📱 [NotificationService] 💾 Saving \(attachments.count) attachments to DB")
     messageObj["attachments"] = attachments
     
     // Add tapAction
@@ -1810,8 +1836,8 @@ class NotificationService: UNNotificationServiceExtension {
       return
     }
     
-    // Determine has_attachments
-    let hasAttachments = (userInfo["attachmentData"] as? [[String: Any]])?.isEmpty == false ? 1 : 0
+    // Determine has_attachments based on saved attachments array
+    let hasAttachments = attachments.isEmpty ? 0 : 1
     
     // Insert into database
     let sql = """
