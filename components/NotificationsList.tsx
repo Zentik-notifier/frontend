@@ -586,8 +586,8 @@ export default function NotificationsList({
 
         {customHeader}
 
-        {/* <FlatList */}
-        <FlashList
+        <FlatList
+        // <FlashList
           ref={listRef}
           data={notifications}
           keyExtractor={keyExtractor}
