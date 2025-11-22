@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, forwardRef, useImperativeHandle } from "react";
 import { Alert, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 import {
   Icon,
@@ -10,6 +10,10 @@ import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeabl
 import * as Clipboard from "expo-clipboard";
 import { useI18n } from "@/utils/i18n";
 import PaperMenu, { PaperMenuItem } from "./ui/PaperMenu";
+
+export interface SwipeableItemRef {
+  close: () => void;
+}
 
 export interface SwipeAction {
   icon: string;
@@ -44,7 +48,7 @@ interface SwipeableItemProps {
   menuSize?: "small" | "medium" | "large";
 }
 
-const SwipeableItem: React.FC<SwipeableItemProps> = ({
+const SwipeableItem = forwardRef<SwipeableItemRef, SwipeableItemProps>(({
   children,
   leftAction,
   rightAction,
@@ -59,10 +63,16 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   showMenu = true,
   copyId,
   menuSize = "small",
-}) => {
+}, ref) => {
   const swipeableRef = useRef<any>(null);
   const theme = useTheme();
   const { t } = useI18n();
+
+  useImperativeHandle(ref, () => ({
+    close: () => {
+      swipeableRef.current?.close();
+    },
+  }));
 
   // Enable swipe actions only on touch devices
   // On web, detect touch capability using media queries
@@ -308,7 +318,9 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
       </ReanimatedSwipeable>
     </>
   );
-};
+});
+
+SwipeableItem.displayName = "SwipeableItem";
 
 const styles = StyleSheet.create({
   card: {

@@ -47,7 +47,7 @@ export default function BucketIcon({
       enabled: !!bucket, // Only load when bucket data is available
     }
   );
-  const iconUri = icon ?? iconUriFromBucket;
+  const iconUri = iconUriFromBucket ?? icon;
 
   const { color } = bucket || {};
 

@@ -69,7 +69,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
     appConfig?.publicAppConfig ?? {};
 
   const isProtectedBucket = bucket?.isProtected;
-  const isSharedBucket = isSharedWithMe && !bucket?.isPublic && !bucket?.isAdmin;
+  const isSharedBucket =
+    isSharedWithMe && !bucket?.isPublic && !bucket?.isAdmin;
 
   const [createAccessTokenForBucketMutation] =
     useCreateAccessTokenForBucketMutation({});
@@ -144,10 +145,10 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   useEffect(() => {
     if (bucket && isEditing) {
       // For shared buckets, use customName if available, otherwise use bucket name
-      const displayName = isSharedBucket 
-        ? (bucket.userBucket?.customName || bucket.name)
+      const displayName = isSharedBucket
+        ? bucket.userBucket?.customName || bucket.name
         : bucket.name;
-      
+
       setBucketName(displayName);
       setBucketColor(bucket.color || defaultColor);
       setBucketIcon(bucket.icon || "");
@@ -162,26 +163,26 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   }, [bucket, isEditing, isSharedBucket]);
 
   const saveBucket = async () => {
-    if (!bucketName.trim() || isLoading || offline)
-      return;
+    if (!bucketName.trim() || isLoading || offline) return;
 
     // For shared buckets, only name can be changed (customName)
     if (isEditing && isSharedBucket) {
       if (!bucket?.id) return;
-      
+
       try {
         const trimmedName = bucketName.trim();
         // If name matches original bucket name, set customName to null (remove override)
         // Otherwise, set it to the new name
-        const customNameValue = trimmedName === bucket.name ? null : trimmedName;
-        
+        const customNameValue =
+          trimmedName === bucket.name ? null : trimmedName;
+
         await updateUserBucketCustomNameMutation({
           variables: {
             bucketId: bucket.id,
             customName: customNameValue,
           },
         });
-        
+
         await refreshBucket(bucket.id).catch(console.error);
         router.back();
       } catch (error: any) {
@@ -207,11 +208,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       const bucketData: CreateBucketDto | UpdateBucketDto = {
         name: bucketName.trim(),
         color: bucketColor,
-        // Use iconSourceUrl (original) for the icon field
-        // Only include icon if it's being created or if it changed during edit
-        ...(!isEditing || bucketIconSourceUrl !== originalIconSourceUrl
-          ? { icon: bucketIconSourceUrl.trim() || undefined }
-          : {}),
+        icon: bucketIconSourceUrl.trim(),
         // Only send generateIconWithInitials if attachments are enabled
         ...(uploadEnabled && {
           generateIconWithInitials:
@@ -395,13 +392,23 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                 value={bucketName}
                 onChangeText={setBucketName}
                 placeholder={
-                  isSharedBucket 
+                  isSharedBucket
                     ? t("buckets.form.customNamePlaceholder")
                     : t("buckets.form.namePlaceholder")
                 }
                 maxLength={50}
-                editable={!offline && (!isEditing || isSharedBucket || (canWrite && !isProtectedBucket))}
-                disabled={offline || (isEditing && !isSharedBucket && (!canWrite || !!isProtectedBucket))}
+                editable={
+                  !offline &&
+                  (!isEditing ||
+                    isSharedBucket ||
+                    (canWrite && !isProtectedBucket))
+                }
+                disabled={
+                  offline ||
+                  (isEditing &&
+                    !isSharedBucket &&
+                    (!canWrite || !!isProtectedBucket))
+                }
                 mode="outlined"
                 label={
                   isSharedBucket && bucket?.name !== bucketName
@@ -645,7 +652,9 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                 <Button
                   mode="outlined"
                   onPress={resetForm}
-                  disabled={(isEditing && !isSharedBucket && !canWrite) || offline}
+                  disabled={
+                    (isEditing && !isSharedBucket && !canWrite) || offline
+                  }
                   style={styles.resetButton}
                 >
                   {t("common.reset")}

@@ -302,7 +302,12 @@ export default function NotificationDetail({
           {/* Left side: Bucket info */}
           <View style={styles.headerLeft}>
             <View style={styles.bucketContainer}>
-              <BucketIcon bucketId={bucketId || ""} size="xxl" forceRefetch />
+              <BucketIcon
+                icon={notification.message?.bucket?.iconUrl}
+                bucketId={bucketId || ""}
+                size="xxl"
+                forceRefetch
+              />
               <View style={styles.bucketInfo}>
                 <Text
                   style={[

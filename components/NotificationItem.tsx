@@ -36,7 +36,7 @@ import BucketIcon from "./BucketIcon";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
 import { MediaTypeIcon } from "./MediaTypeIcon";
-import SwipeableItem, { MenuItem, SwipeAction } from "./SwipeableItem";
+import SwipeableItem, { MenuItem, SwipeAction, SwipeableItemRef } from "./SwipeableItem";
 import { SmartTextRenderer } from "./ui";
 
 interface NotificationItemProps {
@@ -62,6 +62,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 }) => {
   const theme = useTheme();
   const mediaPressRef = useRef(false);
+  const swipeableRef = useRef<SwipeableItemRef>(null);
   const { navigateToNotificationDetail } = useNavigationUtils();
   const { t } = useI18n();
   const { formatRelativeTime } = useDateFormat();
@@ -99,6 +100,11 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const [fullScreenIndex, setFullScreenIndex] = useRecyclingState<number>(-1, [
     notification.id,
   ]);
+
+  // Close swipe when notification changes (fixes FlashList recycling issue)
+  useEffect(() => {
+    swipeableRef.current?.close();
+  }, [notification.id]);
   const attachment = attachments[selectedPreviewIndex];
 
   useEffect(() => {
@@ -255,6 +261,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
   return (
     <SwipeableItem
+      ref={swipeableRef}
       marginHorizontal={16}
       leftAction={isMultiSelectionMode ? undefined : toggleReadAction}
       rightAction={isMultiSelectionMode ? undefined : deleteAction}
