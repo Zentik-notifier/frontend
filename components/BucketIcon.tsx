@@ -20,6 +20,7 @@ interface BucketIconProps {
   noRouting?: boolean;
   forceRefetch?: boolean;
   userId?: string | null;
+  icon?: string | null;
 }
 
 export default function BucketIcon({
@@ -28,6 +29,7 @@ export default function BucketIcon({
   noRouting = false,
   userId = null,
   forceRefetch,
+  icon,
 }: BucketIconProps) {
   const theme = useTheme();
 
@@ -37,7 +39,7 @@ export default function BucketIcon({
   });
 
   // Use the new hook to manage bucket icon loading
-  const { iconUri, isLoading } = useBucketIcon(
+  const { iconUri: iconUriFromBucket } = useBucketIcon(
     bucketId,
     bucket?.name || "",
     bucket?.iconUrl ?? undefined,
@@ -45,6 +47,7 @@ export default function BucketIcon({
       enabled: !!bucket, // Only load when bucket data is available
     }
   );
+  const iconUri = icon ?? iconUriFromBucket;
 
   const { color } = bucket || {};
 
@@ -121,7 +124,7 @@ export default function BucketIcon({
                   borderRadius: currentSize.icon / 2,
                 }}
                 contentFit="cover"
-                cachePolicy="memory"
+                cachePolicy="memory-disk"
                 recyclingKey={`${bucketId}-${iconUri}`}
                 priority="high"
               />

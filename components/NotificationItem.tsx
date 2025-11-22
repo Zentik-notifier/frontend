@@ -301,6 +301,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 bucketId={stableBucketId || ""}
                 size={"lg"}
                 noRouting={noBucketRouting}
+                icon={notification.message?.bucket?.iconUrl}
               />
             </View>
           </View>

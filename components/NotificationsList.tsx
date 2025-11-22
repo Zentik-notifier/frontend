@@ -1,8 +1,3 @@
-/**
- * NotificationsList with React Query Integration
- * Maintains existing filter system while using new react-query hooks
- */
-
 import { useAppContext } from "@/contexts/AppContext";
 import {
   NotificationsProvider,
@@ -19,7 +14,7 @@ import {
 import { NotificationQueryResult } from "@/types/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import type { NotificationVisualization as RQFilters } from "@/services/settings-service";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, FlashListRef } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
 import React, {
   useCallback,
@@ -48,6 +43,7 @@ import NotificationItem from "./NotificationItem";
 import NotificationFilters from "./NotificationFilters";
 import { useBadgeSync } from "@/hooks/useBadgeSync";
 import IosBridgeService from "@/services/ios-bridge";
+import { FlatList } from "react-native-gesture-handler";
 
 interface NotificationsListProps {
   bucketId?: string;
@@ -235,7 +231,7 @@ export default function NotificationsList({
   useEffect(() => {
     const currentFiltersStr = JSON.stringify(queryFilters);
     const currentSortStr = JSON.stringify(querySort);
-    
+
     // If filters/sort changed and we have new data
     if (isLoadingNewFilter && notifications.length >= 0) {
       // Clear loading state - data has been updated
@@ -251,7 +247,7 @@ export default function NotificationsList({
     }
   }, [allNotificationIds, handleSetAllNotificationIds]);
 
-    // Reset when filters change - invalidate query instead of changing limit
+  // Reset when filters change - invalidate query instead of changing limit
   useEffect(() => {
     // Query will automatically refetch due to key change
     setIsLoadingNewFilter(true);
@@ -587,9 +583,10 @@ export default function NotificationsList({
             refreshing={isRefreshing || isFetching || isLoadingNewFilter}
           />
         </View>
-        
+
         {customHeader}
 
+        {/* <FlatList */}
         <FlashList
           ref={listRef}
           data={notifications}
@@ -616,115 +613,125 @@ export default function NotificationsList({
             />
           }
           showsVerticalScrollIndicator
-        ListEmptyComponent={renderEmptyState}
-        ListFooterComponent={renderListFooter}
-      />
+          ListEmptyComponent={renderEmptyState}
+          ListFooterComponent={renderListFooter}
+        />
 
-      {showScrollTop && (
-        <TouchableRipple
-          onPress={() => {
-            try {
-              listRef.current?.scrollToOffset({ offset: 0, animated: true });
-            } catch {}
-          }}
-          style={[
-            styles.scrollTopFab,
-            {
-              backgroundColor: theme.colors.primary,
-            },
-          ]}
-        >
-          <Icon source="arrow-up" size={20} color={theme.colors.onPrimary} />
-        </TouchableRipple>
-      )}
+        {showScrollTop && (
+          <TouchableRipple
+            onPress={() => {
+              try {
+                listRef.current?.scrollToOffset({ offset: 0, animated: true });
+              } catch {}
+            }}
+            style={[
+              styles.scrollTopFab,
+              {
+                backgroundColor: theme.colors.primary,
+              },
+            ]}
+          >
+            <Icon source="arrow-up" size={20} color={theme.colors.onPrimary} />
+          </TouchableRipple>
+        )}
 
-      {hasUnreadAbove && (
-        <TouchableRipple
-          onPress={() => {
-            try {
-              const firstUnreadIndex = notifications.findIndex(
-                (n: NotificationFragment, idx: number) =>
-                  idx < firstVisibleIndex && !n.readAt
-              );
-              if (firstUnreadIndex !== -1) {
-                listRef.current?.scrollToIndex({
-                  index: firstUnreadIndex,
-                  animated: true,
-                });
+        {hasUnreadAbove && (
+          <TouchableRipple
+            onPress={() => {
+              try {
+                const firstUnreadIndex = notifications.findIndex(
+                  (n: NotificationFragment, idx: number) =>
+                    idx < firstVisibleIndex && !n.readAt
+                );
+                if (firstUnreadIndex !== -1) {
+                  listRef.current?.scrollToIndex({
+                    index: firstUnreadIndex,
+                    animated: true,
+                  });
+                }
+              } catch (error) {
+                console.error("Error scrolling to unread:", error);
               }
-            } catch (error) {
-              console.error("Error scrolling to unread:", error);
-            }
-          }}
-          style={[
-            styles.unreadBadgeTop,
-            {
-              backgroundColor: theme.colors.primaryContainer,
-              borderColor: theme.colors.primary,
-            },
-          ]}
-        >
-          <View style={styles.unreadBadgeContent}>
-            <Icon source="chevron-up" size={16} color={theme.colors.primary} />
-            <Icon
-              source="email-mark-as-unread"
-              size={16}
-              color={theme.colors.primary}
-            />
-            <Text
-              style={[styles.unreadBadgeText, { color: theme.colors.primary }]}
-            >
-              {t("notifications.unreadAbove")}
-            </Text>
-          </View>
-        </TouchableRipple>
-      )}
+            }}
+            style={[
+              styles.unreadBadgeTop,
+              {
+                backgroundColor: theme.colors.primaryContainer,
+                borderColor: theme.colors.primary,
+              },
+            ]}
+          >
+            <View style={styles.unreadBadgeContent}>
+              <Icon
+                source="chevron-up"
+                size={16}
+                color={theme.colors.primary}
+              />
+              <Icon
+                source="email-mark-as-unread"
+                size={16}
+                color={theme.colors.primary}
+              />
+              <Text
+                style={[
+                  styles.unreadBadgeText,
+                  { color: theme.colors.primary },
+                ]}
+              >
+                {t("notifications.unreadAbove")}
+              </Text>
+            </View>
+          </TouchableRipple>
+        )}
 
-      {hasUnreadBelow && (
-        <TouchableRipple
-          onPress={() => {
-            try {
-              const firstUnreadIndex = notifications.findIndex(
-                (n: NotificationFragment, idx: number) =>
-                  idx > lastVisibleIndex && !n.readAt
-              );
-              if (firstUnreadIndex !== -1) {
-                listRef.current?.scrollToIndex({
-                  index: firstUnreadIndex,
-                  animated: true,
-                });
+        {hasUnreadBelow && (
+          <TouchableRipple
+            onPress={() => {
+              try {
+                const firstUnreadIndex = notifications.findIndex(
+                  (n: NotificationFragment, idx: number) =>
+                    idx > lastVisibleIndex && !n.readAt
+                );
+                if (firstUnreadIndex !== -1) {
+                  listRef.current?.scrollToIndex({
+                    index: firstUnreadIndex,
+                    animated: true,
+                  });
+                }
+              } catch (error) {
+                console.error("Error scrolling to unread:", error);
               }
-            } catch (error) {
-              console.error("Error scrolling to unread:", error);
-            }
-          }}
-          style={[
-            styles.unreadBadgeBottom,
-            {
-              backgroundColor: theme.colors.primaryContainer,
-              borderColor: theme.colors.primary,
-            },
-          ]}
-        >
-          <View style={styles.unreadBadgeContent}>
-            <Icon
-              source="email-mark-as-unread"
-              size={16}
-              color={theme.colors.primary}
-            />
-            <Text
-              style={[styles.unreadBadgeText, { color: theme.colors.primary }]}
-            >
-              {t("notifications.unreadBelow")}
-            </Text>
-            <Icon
-              source="chevron-down"
-              size={16}
-              color={theme.colors.primary}
-            />
-          </View>
-        </TouchableRipple>
-      )}
+            }}
+            style={[
+              styles.unreadBadgeBottom,
+              {
+                backgroundColor: theme.colors.primaryContainer,
+                borderColor: theme.colors.primary,
+              },
+            ]}
+          >
+            <View style={styles.unreadBadgeContent}>
+              <Icon
+                source="email-mark-as-unread"
+                size={16}
+                color={theme.colors.primary}
+              />
+              <Text
+                style={[
+                  styles.unreadBadgeText,
+                  { color: theme.colors.primary },
+                ]}
+              >
+                {t("notifications.unreadBelow")}
+              </Text>
+              <Icon
+                source="chevron-down"
+                size={16}
+                color={theme.colors.primary}
+              />
+            </View>
+          </TouchableRipple>
+        )}
       </Surface>
     </View>
   );
@@ -733,7 +740,7 @@ export default function NotificationsList({
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
-    position: 'relative',
+    position: "relative",
   },
   container: {
     flex: 1,
