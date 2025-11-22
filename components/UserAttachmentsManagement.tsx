@@ -1,22 +1,44 @@
 import { useI18n } from "@/hooks/useI18n";
 import React, { useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View, Dimensions } from "react-native";
 import { Icon, Text, useTheme } from "react-native-paper";
+import { Image } from "expo-image";
 import PaperScrollView from "./ui/PaperScrollView";
-import { useUserAttachmentsQuery } from "@/generated/gql-operations-generated";
+import {
+  useUserAttachmentsQuery,
+  useDeleteAttachmentMutation,
+  MediaType,
+  AttachmentFragment,
+  UserAttachmentsDocument,
+} from "@/generated/gql-operations-generated";
 import { useAppContext } from "@/contexts/AppContext";
 import { SwipeableAttachmentItem } from "./SwipeableAttachmentItem";
+import DetailModal from "./ui/DetailModal";
+import { settingsService } from "@/services/settings-service";
 
 export function UserAttachmentsManagement() {
   const { t } = useI18n();
   const theme = useTheme();
   const { userId } = useAppContext();
+  const [previewAttachment, setPreviewAttachment] =
+    useState<AttachmentFragment | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [previewHeaders, setPreviewHeaders] = useState<Record<string, string>>(
+    {}
+  );
 
   const { data, loading, refetch } = useUserAttachmentsQuery({
     variables: { userId: userId || "" },
     skip: !userId,
     fetchPolicy: "network-only",
   });
+
+  const [deleteAttachmentMutation, { loading: deleting }] =
+    useDeleteAttachmentMutation({
+      refetchQueries: [
+        { query: UserAttachmentsDocument, variables: { userId: userId || "" } },
+      ],
+    });
 
   const attachments = data?.userAttachments || [];
   const loadingState = loading;
@@ -39,23 +61,70 @@ export function UserAttachmentsManagement() {
           style: "destructive",
           onPress: async () => {
             try {
-              // TODO: Implementare la mutation GraphQL per eliminare l'attachment
-              Alert.alert(
-                t("common.success") as string,
-                t("userAttachments.deleteSuccess") as string
-              );
-              await refetch();
-            } catch (error) {
+              await deleteAttachmentMutation({
+                variables: { id: attachmentId },
+              });
+            } catch (error: any) {
               console.error("Error deleting attachment:", error);
               Alert.alert(
                 t("common.error") as string,
-                t("userAttachments.deleteFailed") as string
+                error?.message || (t("userAttachments.deleteFailed") as string)
               );
             }
           },
         },
       ]
     );
+  };
+
+  const handleAttachmentPress = async (attachment: AttachmentFragment) => {
+    const mediaType = getMediaType(attachment.mediaType);
+
+    // Mostra il modal solo per immagini e GIF
+    if (mediaType !== MediaType.Image && mediaType !== MediaType.Gif) {
+      return;
+    }
+
+    try {
+      const apiUrl = await settingsService.getApiUrl();
+      const token = settingsService.getAuthData().accessToken;
+
+      if (!apiUrl || !token) {
+        Alert.alert(
+          t("common.error") as string,
+          t("userAttachments.unableToDownload") as string
+        );
+        return;
+      }
+
+      const downloadUrl = `${apiUrl}/api/v1/attachments/${attachment.id}/download`;
+      setPreviewUrl(downloadUrl);
+      setPreviewHeaders({
+        Authorization: `Bearer ${token}`,
+      });
+      setPreviewAttachment(attachment);
+    } catch (error) {
+      console.error("Error opening attachment preview:", error);
+      Alert.alert(
+        t("common.error") as string,
+        t("userAttachments.unableToDownload") as string
+      );
+    }
+  };
+
+  const handleClosePreview = () => {
+    setPreviewAttachment(null);
+    setPreviewUrl("");
+    setPreviewHeaders({});
+  };
+
+  const getMediaType = (mediaType: string | null): MediaType => {
+    if (!mediaType) return MediaType.Image;
+    if (mediaType.startsWith("image/")) return MediaType.Image;
+    if (mediaType.startsWith("video/")) return MediaType.Video;
+    if (mediaType.startsWith("audio/")) return MediaType.Audio;
+    if (mediaType.includes("gif")) return MediaType.Gif;
+    return MediaType.Image;
   };
 
   return (
@@ -98,9 +167,42 @@ export function UserAttachmentsManagement() {
               key={attachment.id}
               attachment={attachment}
               onDelete={handleDeleteAttachment}
+              onPress={handleAttachmentPress}
             />
           ))}
         </View>
+      )}
+
+      {/* Image Preview Modal */}
+      {previewAttachment && previewUrl && (
+        <DetailModal
+          visible={!!previewAttachment}
+          onDismiss={handleClosePreview}
+          title={
+            previewAttachment.originalFilename ||
+            previewAttachment.filename ||
+            (t("userAttachments.attachments") as string)
+          }
+          icon="image"
+          actions={{
+            cancel: {
+              label: t("common.close") as string,
+              onPress: handleClosePreview,
+            },
+          }}
+        >
+          <View style={styles.imageContainer}>
+            <Image
+              source={{
+                uri: previewUrl,
+                headers: previewHeaders,
+              }}
+              style={styles.previewImage}
+              contentFit="contain"
+              transition={200}
+            />
+          </View>
+        </DetailModal>
       )}
     </PaperScrollView>
   );
@@ -134,5 +236,18 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: "center",
+  },
+  imageContainer: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+  },
+  previewImage: {
+    width: Dimensions.get("window").width - 64,
+    maxWidth: 600,
+    height: Dimensions.get("window").height * 0.5,
+    maxHeight: 600,
+    borderRadius: 8,
   },
 });

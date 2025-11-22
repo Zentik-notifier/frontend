@@ -586,6 +586,7 @@ export type Mutation = {
   createWebhook: UserWebhook;
   declineSystemAccessTokenRequest: SystemAccessTokenRequest;
   deleteAccount: Scalars['Boolean']['output'];
+  deleteAttachment: Scalars['Boolean']['output'];
   /** Delete a specific backup file */
   deleteBackup: Scalars['Boolean']['output'];
   deleteBucket: Scalars['Boolean']['output'];
@@ -768,6 +769,11 @@ export type MutationCreateWebhookArgs = {
 export type MutationDeclineSystemAccessTokenRequestArgs = {
   id: Scalars['String']['input'];
   input?: InputMaybe<DeclineSystemAccessTokenRequestDto>;
+};
+
+
+export type MutationDeleteAttachmentArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -2950,6 +2956,13 @@ export type DeleteBackupMutationVariables = Exact<{
 
 
 export type DeleteBackupMutation = { __typename?: 'Mutation', deleteBackup: boolean };
+
+export type DeleteAttachmentMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAttachmentMutation = { __typename?: 'Mutation', deleteAttachment: boolean };
 
 export type TriggerBackupMutationVariables = Exact<{ [key: string]: never; }>;
 
@@ -6737,6 +6750,33 @@ export function useDeleteBackupMutation(baseOptions?: ApolloReactHooks.MutationH
 export type DeleteBackupMutationHookResult = ReturnType<typeof useDeleteBackupMutation>;
 export type DeleteBackupMutationResult = Apollo.MutationResult<DeleteBackupMutation>;
 export type DeleteBackupMutationOptions = Apollo.BaseMutationOptions<DeleteBackupMutation, DeleteBackupMutationVariables>;
+export const DeleteAttachmentDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteAttachment"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteAttachment"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode;
+export type DeleteAttachmentMutationFn = Apollo.MutationFunction<DeleteAttachmentMutation, DeleteAttachmentMutationVariables>;
+
+/**
+ * __useDeleteAttachmentMutation__
+ *
+ * To run a mutation, you first call `useDeleteAttachmentMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useDeleteAttachmentMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [deleteAttachmentMutation, { data, loading, error }] = useDeleteAttachmentMutation({
+ *   variables: {
+ *      id: // value for 'id'
+ *   },
+ * });
+ */
+export function useDeleteAttachmentMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<DeleteAttachmentMutation, DeleteAttachmentMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<DeleteAttachmentMutation, DeleteAttachmentMutationVariables>(DeleteAttachmentDocument, options);
+      }
+export type DeleteAttachmentMutationHookResult = ReturnType<typeof useDeleteAttachmentMutation>;
+export type DeleteAttachmentMutationResult = Apollo.MutationResult<DeleteAttachmentMutation>;
+export type DeleteAttachmentMutationOptions = Apollo.BaseMutationOptions<DeleteAttachmentMutation, DeleteAttachmentMutationVariables>;
 export const TriggerBackupDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"TriggerBackup"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"triggerBackup"}}]}}]} as unknown as DocumentNode;
 export type TriggerBackupMutationFn = Apollo.MutationFunction<TriggerBackupMutation, TriggerBackupMutationVariables>;
 
