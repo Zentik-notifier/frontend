@@ -113,7 +113,8 @@ FirebaseApp.configure()
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
     let userInfo = notification.request.content.userInfo
-    let notificationId = userInfo["notificationId"] as? String ?? notification.request.identifier
+    // Use nid from userInfo (new format), fallback to notificationId (old format), then request.identifier
+    let notificationId = (userInfo["nid"] as? String) ?? (userInfo["notificationId"] as? String) ?? notification.request.identifier
     
     // Single log for foreground notification
     LoggingSystem.shared.info(
@@ -148,7 +149,24 @@ FirebaseApp.configure()
   private func handleNotificationAction(response: UNNotificationResponse) {
     let actionIdentifier = response.actionIdentifier
     let userInfo = response.notification.request.content.userInfo
-    let notificationId = userInfo["notificationId"] as? String ?? ""
+    
+    // Use nid from userInfo (new format), fallback to notificationId (old format), then request.identifier
+    let notificationId = (userInfo["nid"] as? String) ?? (userInfo["notificationId"] as? String) ?? response.notification.request.identifier
+    
+    // Validate notificationId is not empty
+    guard !notificationId.isEmpty else {
+      LoggingSystem.shared.error(
+        tag: "Action",
+        message: "Notification ID is empty, cannot execute action",
+        metadata: [
+          "actionIdentifier": actionIdentifier,
+          "userInfoKeys": Array(userInfo.keys.map { String(describing: $0) }),
+          "requestIdentifier": response.notification.request.identifier
+        ],
+        source: "AppDelegate"
+      )
+      return
+    }
     
     // Parse action using shared handler
     guard let action = NotificationActionHandler.parseActionIdentifier(actionIdentifier, from: userInfo) else {

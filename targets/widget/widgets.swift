@@ -8,6 +8,26 @@ enum WidgetType {
     case unread
 }
 
+// Helper function to format notification date
+// Shows only time if today, otherwise short date format
+func formatNotificationDate(_ date: Date) -> String {
+    let calendar = Calendar.current
+    let now = Date()
+    
+    if calendar.isDateInToday(date) {
+        // Show only time if today
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    } else {
+        // Show short date format for other days
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
+    }
+}
+
 struct NotificationEntry: TimelineEntry {
     let date: Date
     let notifications: [WidgetNotificationData]
@@ -162,11 +182,20 @@ struct SmallNotificationView: View {
                                 }
                                 
                                 VStack(alignment: .leading, spacing: 1) {
-                                    Text(notificationData.notification.title)
-                                        .font(.system(size: 10))
-                                        .fontWeight(!notificationData.notification.isRead ? .bold : .semibold)
-                                        .foregroundColor(!notificationData.notification.isRead ? .primary : .primary)
-                                        .lineLimit(1)
+                                    HStack {
+                                        Text(notificationData.notification.title)
+                                            .font(.system(size: 10))
+                                            .fontWeight(!notificationData.notification.isRead ? .bold : .semibold)
+                                            .foregroundColor(!notificationData.notification.isRead ? .primary : .primary)
+                                            .lineLimit(1)
+                                        
+                                        Spacer()
+                                        
+                                        Text(formatNotificationDate(notificationData.notification.createdAtDate))
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                    }
                                     
                                     Text(notificationData.notification.body)
                                         .font(.system(size: 9))
@@ -260,7 +289,14 @@ struct MediumNotificationView: View {
                                             .fontWeight(!notificationData.notification.isRead ? .bold : .semibold)
                                             .foregroundColor(!notificationData.notification.isRead ? .primary : .primary)
                                             .lineLimit(1)
+                                        
                                         Spacer()
+                                        
+                                        Text(formatNotificationDate(notificationData.notification.createdAtDate))
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                        
                                         if !notificationData.notification.isRead {
                                             Circle()
                                                 .fill(Color.blue)
@@ -362,7 +398,14 @@ struct LargeNotificationView: View {
                                             .fontWeight(!notificationData.notification.isRead ? .bold : .semibold)
                                             .foregroundColor(!notificationData.notification.isRead ? .primary : .primary)
                                             .lineLimit(1)
+                                        
                                         Spacer()
+                                        
+                                        Text(formatNotificationDate(notificationData.notification.createdAtDate))
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                        
                                         if !notificationData.notification.isRead {
                                             Circle()
                                                 .fill(Color.blue)

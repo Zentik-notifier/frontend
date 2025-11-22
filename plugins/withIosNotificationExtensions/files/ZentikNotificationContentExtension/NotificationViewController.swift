@@ -95,6 +95,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     
     // Current notification data for tap actions
     private var currentNotificationUserInfo: [AnyHashable: Any]?
+    private var currentNotificationRequestIdentifier: String?
     
     // Outlets (if you use Storyboard)
     @IBOutlet weak var bodyLabel: UILabel?
@@ -306,6 +307,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         // Store current notification data for tap actions
         currentNotificationUserInfo = notification.request.content.userInfo
+        currentNotificationRequestIdentifier = notification.request.identifier
         
         // Store attachments and data
         attachments = notification.request.content.attachments
@@ -2933,7 +2935,10 @@ extension NotificationViewController {
         let userInfo = response.notification.request.content.userInfo
 
         // Extract notification ID and payload
-        guard let notificationId = extractNotificationId(from: userInfo) else {
+        // Use nid from userInfo (new format), fallback to notificationId (old format), then request.identifier
+        let notificationId = extractNotificationId(from: userInfo, fallback: response.notification.request.identifier) ?? response.notification.request.identifier
+        
+        guard !notificationId.isEmpty else {
             print("📱 [ContentExtension] ❌ No notification ID found")
             return
         }
@@ -2955,7 +2960,10 @@ extension NotificationViewController {
         let userInfo = response.notification.request.content.userInfo
         
         // Extract notification ID and payload
-        guard let notificationId = extractNotificationId(from: userInfo) else {
+        // Use nid from userInfo (new format), fallback to notificationId (old format), then request.identifier
+        let notificationId = extractNotificationId(from: userInfo, fallback: response.notification.request.identifier) ?? response.notification.request.identifier
+        
+        guard !notificationId.isEmpty else {
             print("📱 [ContentExtension] ❌ No notification ID found")
             completion(false)
             return
@@ -2993,8 +3001,8 @@ extension NotificationViewController {
         }
     }
 
-    private func extractNotificationId(from userInfo: [AnyHashable: Any]) -> String? {
-        // Prefer nid from userInfo (new format), fallback to notificationId (old format)
+    private func extractNotificationId(from userInfo: [AnyHashable: Any], fallback: String? = nil) -> String? {
+        // Prefer nid from userInfo (new format), fallback to notificationId (old format), then fallback parameter
         if let nid = userInfo["nid"] as? String {
             return nid
         } else if let notificationId = userInfo["notificationId"] as? String {
@@ -3002,6 +3010,8 @@ extension NotificationViewController {
         } else if let payload = userInfo["payload"] as? [String: Any],
                   let notificationId = payload["notificationId"] as? String {
             return notificationId
+        } else if let fallback = fallback {
+            return fallback
         }
         return nil
     }
@@ -3054,9 +3064,14 @@ extension NotificationViewController {
         print("📱 [ContentExtension] 👆 Header tapped - triggering default tap action")
         
         // Get current notification data
-        guard let userInfo = currentNotificationUserInfo,
-              let notificationId = extractNotificationId(from: userInfo) else {
+        guard let userInfo = currentNotificationUserInfo else {
             print("📱 [ContentExtension] ❌ No notification data available for header tap")
+            return
+        }
+        // Use nid from userInfo (new format), fallback to notificationId (old format), then request identifier
+        let notificationId = extractNotificationId(from: userInfo, fallback: currentNotificationRequestIdentifier) ?? currentNotificationRequestIdentifier ?? ""
+        guard !notificationId.isEmpty else {
+            print("📱 [ContentExtension] ❌ No notification ID found for header tap")
             return
         }
         
@@ -3076,9 +3091,14 @@ extension NotificationViewController {
         }
         
         // Get current notification data
-        guard let userInfo = currentNotificationUserInfo,
-              let notificationId = extractNotificationId(from: userInfo) else {
+        guard let userInfo = currentNotificationUserInfo else {
             print("📱 [ContentExtension] ❌ No notification data available for media container tap")
+            return
+        }
+        // Use nid from userInfo (new format), fallback to notificationId (old format), then request identifier
+        let notificationId = extractNotificationId(from: userInfo, fallback: currentNotificationRequestIdentifier) ?? currentNotificationRequestIdentifier ?? ""
+        guard !notificationId.isEmpty else {
+            print("📱 [ContentExtension] ❌ No notification ID found for media container tap")
             return
         }
         
