@@ -44,6 +44,15 @@ export default function SettingsSidebar() {
       selectionSegment: "app-settings",
     },
     {
+      id: "notifications-settings",
+      title: t("notifications.title"),
+      description: t("notifications.description"),
+      icon: "bell",
+      iconColor: "#EA580C", // Orange
+      onPress: nav.navigateToNotificationsSettings,
+      selectionSegment: "notifications",
+    },
+    {
       id: "buckets-settings",
       title: t("buckets.title"),
       description: t("buckets.description"),
@@ -88,33 +97,24 @@ export default function SettingsSidebar() {
       onPress: nav.navigateToPayloadMappersSettings,
       selectionSegment: "payload-mapper",
     },
-    {
-      id: "devices-settings",
-      title: t("devices.title"),
-      description: t("devices.description"),
-      icon: "cellphone",
-      iconColor: "#DC2626", // Red
-      onPress: nav.navigateToDevicesSettings,
-      selectionSegment: "devices",
-    },
-    {
-      id: "user-sessions-settings",
-      title: t("userSessions.title"),
-      description: t("userSessions.description"),
-      icon: "account-clock",
-      iconColor: "#7C3AED", // Violet
-      onPress: nav.navigateToUserSessionsSettings,
-      selectionSegment: "user-sessions",
-    },
-    {
-      id: "notifications-settings",
-      title: t("notifications.title"),
-      description: t("notifications.description"),
-      icon: "bell",
-      iconColor: "#EA580C", // Orange
-      onPress: nav.navigateToNotificationsSettings,
-      selectionSegment: "notifications",
-    },
+    // {
+    //   id: "devices-settings",
+    //   title: t("devices.title"),
+    //   description: t("devices.description"),
+    //   icon: "cellphone",
+    //   iconColor: "#DC2626", // Red
+    //   onPress: nav.navigateToDevicesSettings,
+    //   selectionSegment: "devices",
+    // },
+    // {
+    //   id: "user-sessions-settings",
+    //   title: t("userSessions.title"),
+    //   description: t("userSessions.description"),
+    //   icon: "account-clock",
+    //   iconColor: "#7C3AED", // Violet
+    //   onPress: nav.navigateToUserSessionsSettings,
+    //   selectionSegment: "user-sessions",
+    // },
     {
       id: "app-logs",
       title: t("appLogs.title"),

@@ -624,6 +624,7 @@ export interface Translation {
     description: string;
     registerDevice: string;
     unregisterDevice: string;
+    registerThisDevice: string;
     registering: string;
     unregistering: string;
     noDevicesTitle: string;
@@ -840,6 +841,7 @@ export interface Translation {
   notifications: {
     title: string;
     description: string;
+    createNew: string;
     sending: string;
     sendButton: string;
     resetForm: string;

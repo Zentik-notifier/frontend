@@ -621,6 +621,7 @@
     "description": "Manage devices that can receive push notifications. Register this device to receive notifications.",
     "registerDevice": "Register This Device",
     "unregisterDevice": "Unregister This Device",
+    "registerThisDevice": "Register This Device",
     "registering": "Registering...",
     "unregistering": "Unregistering...",
     "noDevicesTitle": "No devices registered",
@@ -837,6 +838,7 @@
   "notifications": {
     "title": "Push Notifications",
     "description": "Create and send custom push notifications to your devices with rich content and interactive actions",
+    "createNew": "Create New Notification",
     "sending": "Sending...",
     "sendButton": "Send Notification",
     "resetForm": "Reset Form",

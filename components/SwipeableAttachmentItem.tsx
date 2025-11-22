@@ -152,12 +152,14 @@ export const SwipeableAttachmentItem: React.FC<
 
   return (
     <SwipeableItem rightAction={rightAction} menuItems={menuItems}>
-      <Pressable style={styles.container} onPress={handlePress}>
-        <Icon
-          source={getFileIcon(attachment.mediaType)}
-          size={40}
-          color={theme.colors.primary}
-        />
+      <View style={styles.container}>
+        <Pressable onPress={handlePress} style={styles.iconContainer}>
+          <Icon
+            source={getFileIcon(attachment.mediaType)}
+            size={40}
+            color={theme.colors.primary}
+          />
+        </Pressable>
 
         <View style={styles.contentContainer}>
           <Text variant="bodyLarge" style={styles.filename} numberOfLines={1}>
@@ -190,7 +192,7 @@ export const SwipeableAttachmentItem: React.FC<
             )}
           </View>
         </View>
-      </Pressable>
+      </View>
     </SwipeableItem>
   );
 };
@@ -201,6 +203,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     gap: 12,
+  },
+  iconContainer: {
+    padding: 4,
   },
   contentContainer: {
     flex: 1,

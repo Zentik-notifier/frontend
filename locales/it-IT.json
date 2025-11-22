@@ -656,6 +656,7 @@
     "description": "Gestisci i dispositivi che possono ricevere notifiche push. Registra questo dispositivo per ricevere notifiche.",
     "registerDevice": "Registra Questo Dispositivo",
     "unregisterDevice": "Deregistra Questo Dispositivo",
+    "registerThisDevice": "Registra questo dispositivo",
     "registering": "Registrazione...",
     "unregistering": "Deregistrazione...",
     "noDevicesTitle": "Nessun dispositivo registrato",
@@ -872,6 +873,7 @@
   "notifications": {
     "title": "Notifiche Push",
     "description": "Crea e invia notifiche push personalizzate ai tuoi dispositivi con contenuti ricchi e azioni interattive",
+    "createNew": "Crea nuova notifica",
     "sending": "Invio...",
     "sendButton": "Invia Notifica",
     "resetForm": "Ripristina Form",
