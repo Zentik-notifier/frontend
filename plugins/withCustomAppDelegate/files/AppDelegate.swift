@@ -69,14 +69,6 @@ FirebaseApp.configure()
     return result
   }
   
-  public override func application(
-    _ application: UIApplication,
-    didReceiveRemoteNotification userInfo: [AnyHashable: Any],
-    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
-  ) {
-    super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
-  }
-  
   // MARK: - UNUserNotificationCenterDelegate
   
   /// Called when user taps a notification action

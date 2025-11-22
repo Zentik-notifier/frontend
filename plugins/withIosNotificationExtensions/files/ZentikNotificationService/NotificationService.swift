@@ -74,11 +74,14 @@ class NotificationService: UNNotificationServiceExtension {
       // Store notificationId for media tracking
       self.currentNotificationId = request.identifier
       
-      // Update badge count before setting up actions
+      // Update badge count before setting up actions (fast operation)
       updateBadgeCount(content: bestAttemptContent)
       
-      // Save notification to SQLite database (replaces savePendingNotification)
-      self.saveNotificationToDatabase(content: bestAttemptContent)
+      // Save notification to SQLite database in background (non-blocking)
+      // This allows contentHandler to be called immediately without waiting for DB write
+      DispatchQueue.global(qos: .utility).async { [weak self] in
+        self?.saveNotificationToDatabase(content: bestAttemptContent)
+      }
       
       // Setup custom actions in a synchronized manner
       setupNotificationActions(content: bestAttemptContent) { [weak self] in
