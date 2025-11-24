@@ -1,0 +1,310 @@
+/**
+ * Hook for network sync and cache merging
+ * Handles fetching from network and merging with local cache
+ */
+
+import {
+    BucketData,
+    getAllBuckets,
+    getBucketsUpdatedAt,
+    saveBuckets
+} from '@/db/repositories/buckets-repository';
+import {
+    getNotificationStats,
+} from '@/db/repositories/notifications-query-repository';
+import {
+    GetBucketsQuery,
+    NotificationFragment,
+    useGetBucketsLazyQuery,
+    useGetNotificationsLazyQuery
+} from '@/generated/gql-operations-generated';
+import {
+    getAllNotificationsFromCache,
+    upsertNotificationsBatch,
+} from '@/services/notifications-repository';
+import {
+    BucketWithStats,
+    NotificationStats,
+} from '@/types/notifications';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
+
+// Type for bucket from GetBucketsQuery (includes userBucket)
+type BucketWithUserData = NonNullable<GetBucketsQuery['buckets']>[number];
+
+export interface NetworkSyncResult {
+    networkTime: number;
+    mergeTime: number;
+}
+
+export function useNetworkSync() {
+    const queryClient = useQueryClient();
+    
+    // Use lazy queries for manual control
+    const [fetchBuckets] = useGetBucketsLazyQuery({
+        fetchPolicy: 'network-only',
+    });
+    const [fetchNotifications] = useGetNotificationsLazyQuery({
+        fetchPolicy: 'network-only',
+    });
+
+    const syncFromNetwork = useCallback(async (): Promise<NetworkSyncResult> => {
+        let networkTime = 0;
+        let mergeTime = 0;
+
+        try {
+            // ============================================================
+            // PHASE 1: FETCH FROM NETWORK
+            // ============================================================
+            const networkStart = performance.now();
+            const [notificationsResult, bucketsResult] = await Promise.allSettled([
+                fetchNotifications(),
+                fetchBuckets(),
+            ]);
+            networkTime = performance.now() - networkStart;
+
+            // Process notifications from API
+            let apiNotifications: NotificationFragment[] = [];
+            if (notificationsResult.status === 'fulfilled' && notificationsResult.value.data?.notifications) {
+                apiNotifications = notificationsResult.value.data.notifications as NotificationFragment[];
+                
+                // Save notifications to local cache
+                if (apiNotifications.length > 0) {
+                    await upsertNotificationsBatch(apiNotifications);
+                }
+            }
+
+            // Process buckets from API
+            let apiBuckets: BucketWithUserData[] = [];
+            let apiSuccess = false;
+
+            if (bucketsResult.status === 'fulfilled' && bucketsResult.value.data?.buckets) {
+                apiBuckets = bucketsResult.value.data.buckets as BucketWithUserData[];
+                apiSuccess = true;
+            }
+
+            // ============================================================
+            // PHASE 2: MERGE WITH CACHE
+            // ============================================================
+            if (apiSuccess && apiBuckets.length > 0) {
+                const mergeStart = performance.now();
+                
+                // Load current cache state
+                const cachedBuckets = await getAllBuckets();
+                
+                // Recalculate stats after API sync
+                const updatedStats = await getNotificationStats([]);
+                const updatedBucketFromNotifications = updatedStats.byBucket ?? [];
+
+                // API is available: merge API buckets with orphans
+                const apiBucketIds = new Set(apiBuckets.map(b => b.id));
+
+                // Identify orphans: buckets in cache but NOT in API
+                const orphanedCachedBuckets = cachedBuckets.filter(b => !apiBucketIds.has(b.id));
+
+                // Also check notification stats for buckets not in API (true orphans)
+                const orphanedFromNotifications = updatedBucketFromNotifications
+                    .filter(bucket => !apiBucketIds.has(bucket.bucketId))
+                    .map(bucket => bucket.bucketId);
+
+                const allOrphanIds = new Set([
+                    ...orphanedCachedBuckets.map(b => b.id),
+                    ...orphanedFromNotifications
+                ]);
+
+                // Convert API buckets to BucketWithStats
+                const apiBucketsWithStats: BucketWithStats[] = apiBuckets.map((bucket) => {
+                    const bucketStat = updatedStats.byBucket?.find(s => s.bucketId === bucket.id);
+                    const snoozeUntil = bucket.userBucket?.snoozeUntil;
+                    const isSnoozed = snoozeUntil
+                        ? new Date().getTime() < new Date(snoozeUntil).getTime()
+                        : false;
+
+                    return {
+                        id: bucket.id,
+                        name: bucket.name,
+                        description: bucket.description,
+                        icon: bucket.icon,
+                        iconAttachmentUuid: bucket.iconAttachmentUuid,
+                        iconUrl: bucket.iconUrl,
+                        color: bucket.color,
+                        createdAt: bucket.createdAt,
+                        updatedAt: bucket.updatedAt,
+                        isProtected: bucket.isProtected,
+                        isPublic: bucket.isPublic,
+                        isAdmin: bucket.isAdmin,
+                        totalMessages: bucketStat?.totalCount ?? 0,
+                        unreadCount: bucketStat?.unreadCount ?? 0,
+                        lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                        isSnoozed,
+                        snoozeUntil: snoozeUntil ?? null,
+                        user: bucket.user,
+                        permissions: bucket.permissions,
+                        userPermissions: bucket.userPermissions,
+                        userBucket: bucket.userBucket,
+                        magicCode: bucket.userBucket?.magicCode ?? null,
+                        isOrphan: false,
+                    };
+                });
+
+                // Create orphaned bucket entries
+                const orphanedBuckets: BucketWithStats[] = Array.from(allOrphanIds).map(orphanId => {
+                    const cachedBucket = cachedBuckets.find(b => b.id === orphanId);
+                    const bucketStat = updatedStats.byBucket?.find(s => s.bucketId === orphanId);
+                    const notificationBucket = updatedBucketFromNotifications.find(b => b.bucketId === orphanId);
+
+                    if (cachedBucket) {
+                        return {
+                            id: cachedBucket.id,
+                            name: cachedBucket.name,
+                            description: cachedBucket.description,
+                            icon: cachedBucket.icon,
+                            iconAttachmentUuid: cachedBucket.iconAttachmentUuid,
+                            iconUrl: cachedBucket.iconUrl,
+                            color: cachedBucket.color,
+                            createdAt: cachedBucket.createdAt,
+                            updatedAt: cachedBucket.updatedAt,
+                            isProtected: cachedBucket.isProtected ?? false,
+                            isPublic: cachedBucket.isPublic ?? false,
+                            isAdmin: cachedBucket.isAdmin ?? false,
+                            totalMessages: bucketStat?.totalCount ?? 0,
+                            unreadCount: bucketStat?.unreadCount ?? 0,
+                            lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                            isSnoozed: false,
+                            snoozeUntil: null,
+                            user: cachedBucket.user,
+                            permissions: cachedBucket.permissions ?? [],
+                            userPermissions: cachedBucket.userPermissions,
+                            userBucket: cachedBucket.userBucket,
+                            magicCode: cachedBucket.userBucket?.magicCode ?? null,
+                            isOrphan: true,
+                        };
+                    } else {
+                        return {
+                            id: orphanId,
+                            name: notificationBucket?.bucketName ?? `Bucket ${orphanId.slice(0, 8)}`,
+                            description: null,
+                            icon: null,
+                            iconAttachmentUuid: null,
+                            iconUrl: null,
+                            color: null,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                            isProtected: false,
+                            isPublic: false,
+                            isAdmin: false,
+                            totalMessages: bucketStat?.totalCount ?? 0,
+                            unreadCount: bucketStat?.unreadCount ?? 0,
+                            lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                            isSnoozed: false,
+                            snoozeUntil: null,
+                            user: null,
+                            permissions: [],
+                            userBucket: null,
+                            isOrphan: true,
+                        };
+                    }
+                });
+
+                // Save API buckets + orphans to cache
+                const bucketsToSave: BucketData[] = [
+                    ...apiBuckets.map(bucket => ({
+                        id: bucket.id,
+                        name: bucket.name,
+                        icon: bucket.icon,
+                        iconAttachmentUuid: bucket.iconAttachmentUuid,
+                        iconUrl: bucket.iconUrl,
+                        description: bucket.description,
+                        updatedAt: bucket.updatedAt,
+                        color: bucket.color,
+                        createdAt: bucket.createdAt,
+                        isProtected: bucket.isProtected,
+                        isPublic: bucket.isPublic,
+                        isAdmin: bucket.isAdmin,
+                        userBucket: bucket.userBucket,
+                        user: bucket.user,
+                        permissions: bucket.permissions,
+                        userPermissions: bucket.userPermissions,
+                        isOrphan: false,
+                    })),
+                    ...orphanedBuckets.map(bucket => ({
+                        id: bucket.id,
+                        name: bucket.name,
+                        icon: bucket.icon,
+                        iconAttachmentUuid: bucket.iconAttachmentUuid,
+                        iconUrl: bucket.iconUrl,
+                        description: bucket.description,
+                        updatedAt: bucket.updatedAt,
+                        color: bucket.color,
+                        createdAt: bucket.createdAt,
+                        isProtected: bucket.isProtected,
+                        isPublic: bucket.isPublic,
+                        isAdmin: bucket.isAdmin ?? false,
+                        userBucket: bucket.userBucket,
+                        user: bucket.user,
+                        permissions: bucket.permissions,
+                        userPermissions: bucket.userPermissions,
+                        isOrphan: true,
+                    }))
+                ];
+
+                // Get existing buckets' updatedAt timestamps to avoid unnecessary writes
+                const bucketIds = bucketsToSave.map(b => b.id);
+                const existingUpdatedAt = await getBucketsUpdatedAt(bucketIds);
+
+                // Filter buckets that actually need updating (new or changed)
+                const bucketsNeedingUpdate = bucketsToSave.filter(bucket => {
+                    const existingDate = existingUpdatedAt.get(bucket.id);
+                    if (!existingDate) {
+                        return true;
+                    }
+                    const remoteDate = new Date(bucket.updatedAt).getTime();
+                    const localDate = new Date(existingDate).getTime();
+                    return remoteDate > localDate;
+                });
+
+                if (bucketsNeedingUpdate.length > 0) {
+                    await saveBuckets(bucketsNeedingUpdate);
+                }
+
+                // Combine all buckets
+                const mergedBuckets = [...apiBucketsWithStats, ...orphanedBuckets];
+                mergedBuckets.sort((a, b) => {
+                    if (a.unreadCount !== b.unreadCount) {
+                        return b.unreadCount - a.unreadCount;
+                    }
+                    const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
+                    const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
+                    if (aTime !== bTime) {
+                        return bTime - aTime;
+                    }
+                    return a.name.localeCompare(b.name);
+                });
+
+                // Re-fetch notifications from cache after API sync
+                const cachedNotifications = await getAllNotificationsFromCache();
+                const finalNotifications = apiNotifications.length > 0
+                    ? await getAllNotificationsFromCache()
+                    : cachedNotifications;
+
+                // Update React Query cache with merged data
+                queryClient.setQueryData(['app-state'], {
+                    buckets: mergedBuckets,
+                    notifications: finalNotifications,
+                    stats: updatedStats,
+                    lastSync: new Date().toISOString(),
+                });
+                
+                mergeTime = performance.now() - mergeStart;
+            }
+
+            return { networkTime, mergeTime };
+        } catch (error) {
+            console.error('[useNetworkSync] Error syncing from network:', error);
+            throw error;
+        }
+    }, [fetchBuckets, fetchNotifications, queryClient]);
+
+    return { syncFromNetwork };
+}
+

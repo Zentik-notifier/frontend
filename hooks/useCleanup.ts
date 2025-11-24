@@ -18,7 +18,8 @@ const requestIdleCallbackPolyfill = (callback: () => void) => {
 };
 
 interface CleanupProps {
-    force?: boolean,
+    force?: boolean;
+    skipNetwork?: boolean;
 }
 
 export const useCleanup = () => {
@@ -29,10 +30,9 @@ export const useCleanup = () => {
     const isCleanupRunningRef = useRef(false);
 
     const cleanup = useCallback(async (props?: CleanupProps) => {
-        const { force } = props || {};
+        const { force, skipNetwork = false } = props || {};
         // Prevent multiple concurrent cleanup operations
         if (isCleanupRunningRef.current) {
-            console.log('[Cleanup] ⏭️ Cleanup already running, skipping duplicate call');
             return;
         }
 
@@ -40,6 +40,11 @@ export const useCleanup = () => {
 
         try {
             const shouldCleanup = !!settingsService.shouldRunCleanup();
+            
+            const formatTime = (ms: number): string => {
+                if (ms < 1000) return `${ms.toFixed(0)}ms`;
+                return `${(ms / 1000).toFixed(2)}s`;
+            };
 
             const executeWithRAF = <T>(fn: () => Promise<T>, label: string): Promise<T> => {
                 return new Promise((resolve, reject) => {
@@ -98,61 +103,83 @@ export const useCleanup = () => {
             //     console.error('[Cleanup] Error loading buckets from local DB', e);
             // });
 
-            // 1. Sync complete app state with BACKEND (single unified call)
+            // 1. Load buckets from cache
+            const bucketsCacheStart = performance.now();
             await executeWithRAF(
                 async () => {
-                    console.log('[Cleanup] Syncing complete app state with backend...');
-                    await refreshAll();
-                    console.log('[Cleanup] Complete app state synced with backend');
+                    await getAllBuckets();
                 },
-                'syncing complete app state with backend'
-            ).catch((e) => {
-                console.error('[Cleanup] Error during sync of complete app state with backend', e);
-            });
+                'loading buckets from cache'
+            ).catch(() => {});
+            const bucketsCacheTime = performance.now() - bucketsCacheStart;
+            console.log(`[Cleanup] ✓ Loading buckets from cache: ${formatTime(bucketsCacheTime)}`);
             await waitRAF();
 
-            // 6. THIRD: Now cleanup local notifications by settings
+            // 2. Load notifications from cache
+            const notificationsCacheStart = performance.now();
+            await executeWithRAF(
+                async () => {
+                    await getAllNotificationsFromCache();
+                },
+                'loading notifications from cache'
+            ).catch(() => {});
+            const notificationsCacheTime = performance.now() - notificationsCacheStart;
+            console.log(`[Cleanup] ✓ Loading notifications from cache: ${formatTime(notificationsCacheTime)}`);
+            await waitRAF();
+
+            // 3. Load data from network and merging (if not skipped)
+            if (!skipNetwork) {
+                const timings = await executeWithRAF(
+                    async () => {
+                        return await refreshAll(false);
+                    },
+                    'loading data from network and merging'
+                ).catch(() => ({ networkTime: 0, mergeTime: 0 }));
+                
+                if (timings) {
+                    console.log(`[Cleanup] ✓ Loading data from network: ${formatTime(timings.networkTime)}`);
+                    console.log(`[Cleanup] ✓ Combined merging: ${formatTime(timings.mergeTime)}`);
+                }
+            } else {
+                await executeWithRAF(
+                    async () => {
+                        await refreshAll(true);
+                    },
+                    'skipping network, using cache only'
+                ).catch(() => {});
+                console.log(`[Cleanup] ✓ Network skip, using cache only`);
+            }
+            await waitRAF();
+
+            // 5. Cleanup local notifications by settings
             if (shouldCleanup || force) {
                 await executeWithRAF(
                     async () => {
-                        console.log('[Cleanup] 🧹 Starting local cleanup...');
                         await cleanupNotificationsBySettings();
-                        console.log('[Cleanup] 🧹 Cleaned up notifications');
                     },
                     'cleaning notifications'
-                ).catch(() => {
-                    console.error('[Cleanup] Error during cleanup of notifications');
-                });
+                ).catch(() => {});
 
                 await waitRAF();
 
-                // 7. Cleanup gallery by settings
+                // 6. Cleanup gallery by settings
                 await executeWithRAF(
                     async () => {
                         await cleanupGalleryBySettings();
-                        console.log('[Cleanup] Cleaned up gallery');
                     },
                     'cleaning gallery'
-                ).catch((e) => {
-                    console.error('[Cleanup] Error during gallery cleanup', e);
-                });
+                ).catch(() => {});
                 await settingsService.setLastCleanup(new Date().toISOString());
-                console.log('[Cleanup] Updated last cleanup timestamp');
                 await waitRAF();
             }
 
-            // 8. Reload media cache metadata
+            // 7. Reload media cache metadata
             await executeWithRAF(
                 async () => {
                     await mediaCache.reloadMetadata();
-                    console.log('[Cleanup] Reloaded media cache metadata');
                 },
                 'reloading media cache'
-            ).catch((e) => {
-                console.error('[Cleanup] Error reloading media cache metadata', e);
-            });
-
-            console.log('[Cleanup] Cleanup completed');
+            ).catch(() => {});
         } finally {
             // Always release the lock when cleanup completes or fails
             isCleanupRunningRef.current = false;
