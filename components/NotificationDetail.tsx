@@ -90,7 +90,7 @@ export default function NotificationDetail({
     if (notification && !notification.readAt) {
       markAsReadMutation.mutate({ notificationId: notification.id });
     }
-  }, [notification, markAsReadMutation]);
+  }, [notification]);
 
   // Get bucket name from hook (from cache) or fallback to notification bucket name
   const bucketName = bucket?.name || message?.bucket?.name || "";
