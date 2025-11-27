@@ -12,12 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  Icon,
-  Surface,
-  Text,
-  useTheme,
-} from "react-native-paper";
+import { Icon, Surface, Text, useTheme } from "react-native-paper";
 import {
   useGetServerLogsQuery,
   useTriggerLogCleanupMutation,
@@ -43,22 +38,19 @@ export default function ServerLogs() {
   const [selectedLog, setSelectedLog] = useState<ServerLog | null>(null);
   const [showLogDialog, setShowLogDialog] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [levelFilter, setLevelFilter] = useState<string | null>(null);
 
   // GraphQL queries
-  const { data, loading, refetch } =
-    useGetServerLogsQuery({
-      variables: {
-        input: {
-          page: 1,
-          limit: 500,
-          search: query || undefined,
-          level: levelFilter as any,
-        },
+  const { data, refetch } = useGetServerLogsQuery({
+    variables: {
+      input: {
+        page: 1,
+        limit: 500,
+        search: query || undefined,
       },
-      fetchPolicy: "cache-and-network",
-      notifyOnNetworkStatusChange: true,
-    });
+    },
+    fetchPolicy: "cache-and-network",
+    notifyOnNetworkStatusChange: true,
+  });
 
   const [triggerCleanup] = useTriggerLogCleanupMutation();
 
@@ -127,13 +119,12 @@ export default function ServerLogs() {
           page: 1,
           limit: 500,
           search: query || undefined,
-          level: levelFilter as any,
         },
       });
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetch, query, levelFilter]);
+  }, [refetch, query]);
 
   const filteredLogs = useMemo(() => {
     return logs.filter((l) => l.message && l.message.trim() !== "");
@@ -151,24 +142,24 @@ export default function ServerLogs() {
       const minutes = date.getMinutes();
       const roundedMinutes = Math.floor(minutes / 5) * 5;
       date.setMinutes(roundedMinutes, 0, 0);
-      
+
       const timeKey = date.toISOString();
-      
+
       // Check if the log is from today
       const logDate = new Date(log.timestamp);
       logDate.setHours(0, 0, 0, 0);
       const isToday = logDate.getTime() === today.getTime();
-      
+
       // Format time label with date if not today
-      let timeLabel = date.toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      let timeLabel = date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
       });
-      
+
       if (!isToday) {
         const dateLabel = date.toLocaleDateString([], {
-          month: 'short',
-          day: 'numeric'
+          month: "short",
+          day: "numeric",
         });
         timeLabel = `${dateLabel}, ${timeLabel}`;
       }
@@ -201,7 +192,12 @@ export default function ServerLogs() {
             <View
               style={[
                 styles.levelIndicator,
-                { backgroundColor: levelToColor[log.level as keyof typeof levelToColor] || theme.colors.onSurfaceVariant },
+                {
+                  backgroundColor:
+                    levelToColor[
+                      log.level.toLowerCase() as keyof typeof levelToColor
+                    ] || theme.colors.onSurfaceVariant,
+                },
               ]}
             />
             <Text
@@ -225,10 +221,19 @@ export default function ServerLogs() {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: { id: string; timeLabel: string; logs: ServerLog[] } }) => {
+    ({
+      item,
+    }: {
+      item: { id: string; timeLabel: string; logs: ServerLog[] };
+    }) => {
       return (
         <View style={styles.logGroup}>
-          <Text style={[styles.timeGroupLabel, { color: theme.colors.onSurfaceVariant }]}>
+          <Text
+            style={[
+              styles.timeGroupLabel,
+              { color: theme.colors.onSurfaceVariant },
+            ]}
+          >
             {item.timeLabel}
           </Text>
           {item.logs.map((log) => renderLogItem(log))}
@@ -327,7 +332,7 @@ export default function ServerLogs() {
                         {
                           color:
                             levelToColor[
-                              selectedLog.level as keyof typeof levelToColor
+                              selectedLog.level?.toLowerCase() as keyof typeof levelToColor
                             ] || theme.colors.onSurface,
                           fontWeight: "bold",
                         },
