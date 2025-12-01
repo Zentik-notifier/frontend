@@ -91,6 +91,13 @@ export function useNetworkSync() {
 
                             // Only call backend if we have a newer ID than what we've already reported
                             if (!lastSeenId || latestNotificationId > lastSeenId) {
+                                console.log(
+                                    '[useNetworkSync] Updating received notifications up to ID:',
+                                    latestNotificationId,
+                                    '(previous lastSeenId:',
+                                    lastSeenId,
+                                    ')'
+                                );
                                 await updateReceivedNotifications({
                                     variables: { id: latestNotificationId },
                                 });
