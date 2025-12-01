@@ -16,15 +16,16 @@ import {
     GetBucketsQuery,
     NotificationFragment,
     useGetBucketsLazyQuery,
-    useGetNotificationsLazyQuery
+    useGetNotificationsLazyQuery,
+    useUpdateReceivedNotificationsMutation
 } from '@/generated/gql-operations-generated';
 import {
     getAllNotificationsFromCache,
     upsertNotificationsBatch,
 } from '@/services/notifications-repository';
+import { settingsService } from '@/services/settings-service';
 import {
-    BucketWithStats,
-    NotificationStats,
+    BucketWithStats
 } from '@/types/notifications';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
@@ -39,6 +40,7 @@ export interface NetworkSyncResult {
 
 export function useNetworkSync() {
     const queryClient = useQueryClient();
+    const [updateReceivedNotifications] = useUpdateReceivedNotificationsMutation();
     
     // Use lazy queries for manual control
     const [fetchBuckets] = useGetBucketsLazyQuery({
@@ -79,6 +81,24 @@ export function useNetworkSync() {
 
                     if (newNotifications.length > 0) {
                         await upsertNotificationsBatch(newNotifications);
+                    }
+
+                    // Client-side receivedAt sync: inform backend up to the newest notification
+                    try {
+                        const latestNotificationId = apiNotifications[0]?.id;
+                        if (latestNotificationId) {
+                            const lastSeenId = settingsService.getSettings().notificationsLastSeenId;
+
+                            // Only call backend if we have a newer ID than what we've already reported
+                            if (!lastSeenId || latestNotificationId > lastSeenId) {
+                                await updateReceivedNotifications({
+                                    variables: { id: latestNotificationId },
+                                });
+                                await settingsService.setNotificationsLastSeenId(latestNotificationId);
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('[useNetworkSync] Failed to update received notifications on backend:', error);
                     }
                 }
             }
