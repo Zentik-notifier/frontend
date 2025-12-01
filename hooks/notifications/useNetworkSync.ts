@@ -68,9 +68,18 @@ export function useNetworkSync() {
             if (notificationsResult.status === 'fulfilled' && notificationsResult.value.data?.notifications) {
                 apiNotifications = notificationsResult.value.data.notifications as NotificationFragment[];
                 
-                // Save notifications to local cache
                 if (apiNotifications.length > 0) {
-                    await upsertNotificationsBatch(apiNotifications);
+                    // Load existing notifications once and only persist new ones
+                    const existingNotifications = await getAllNotificationsFromCache();
+                    const existingIds = new Set(existingNotifications.map((n) => n.id));
+
+                    const newNotifications = apiNotifications.filter(
+                        (n) => !existingIds.has(n.id)
+                    );
+
+                    if (newNotifications.length > 0) {
+                        await upsertNotificationsBatch(newNotifications);
+                    }
                 }
             }
 
