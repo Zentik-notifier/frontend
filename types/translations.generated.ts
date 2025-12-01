@@ -1799,6 +1799,7 @@ export interface Translation {
       confirmDeleteMessage: string;
       uploadSuccess: string;
       uploadError: string;
+      downloadError: string;
     };
     serverStatus: string;
     logs: string;

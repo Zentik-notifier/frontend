@@ -1853,7 +1853,8 @@
       "confirmDeleteTitle": "Conferma",
       "confirmDeleteMessage": "Eliminare il file \"{name}\"?",
       "uploadSuccess": "File caricato con successo",
-      "uploadError": "Caricamento file non riuscito"
+      "uploadError": "Caricamento file non riuscito",
+      "downloadError": "Download del file non riuscito"
     },
     "serverStatus": "Stato del Server",
     "logs": "Log di Sistema",

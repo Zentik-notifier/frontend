@@ -1,6 +1,13 @@
 import React, { useMemo, useState } from "react";
-import { Alert, FlatList, StyleSheet, View, Platform, RefreshControl } from "react-native";
-import { Card, IconButton, Text, ActivityIndicator, useTheme } from "react-native-paper";
+import {
+  Alert,
+  FlatList,
+  StyleSheet,
+  View,
+  Platform,
+  RefreshControl,
+} from "react-native";
+import { IconButton, Text, ActivityIndicator, useTheme } from "react-native-paper";
 import * as DocumentPicker from "expo-document-picker";
 import { useI18n } from "@/hooks/useI18n";
 import { settingsService } from "@/services/settings-service";
@@ -8,6 +15,7 @@ import {
   useServerFilesQuery,
   useDeleteServerFileMutation,
 } from "@/generated/gql-operations-generated";
+import PaperScrollView from "./ui/PaperScrollView";
 
 export default function AdminServerFiles() {
   const { t } = useI18n();
@@ -47,12 +55,14 @@ export default function AdminServerFiles() {
     try {
       const apiBase = settingsService.getApiBaseWithPrefix();
       const url = `${apiBase}/server-manager/files/${encodeURIComponent(name)}/download${path ? `?path=${encodeURIComponent(path)}` : ''}`;
-      if (Platform.OS === 'web') {
+      if (Platform.OS === "web") {
         const token = settingsService.getAuthData().accessToken;
-        const resp = await fetch(url, { headers: { Authorization: token ? `Bearer ${token}` : '' } });
-        if (!resp.ok) throw new Error('Download failed');
+        const resp = await fetch(url, {
+          headers: { Authorization: token ? `Bearer ${token}` : "" },
+        });
+        if (!resp.ok) throw new Error("Download failed");
         const blob = await resp.blob();
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         const href = URL.createObjectURL(blob);
         a.href = href;
         a.download = name;
@@ -63,10 +73,13 @@ export default function AdminServerFiles() {
       } else {
         // Basic fallback for native
         // @ts-ignore
-        window.open(url, '_blank');
+        window.open(url, "_blank");
       }
     } catch (e) {
-      Alert.alert(t('common.error'), 'Download failed');
+      Alert.alert(
+        t("common.error"),
+        t("administration.serverFiles.downloadError")
+      );
     }
   };
 
@@ -124,11 +137,19 @@ export default function AdminServerFiles() {
   );
 
   const renderHeader = () => (
-    <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
-      <Text variant="titleMedium" style={{ marginBottom: 8 }}>
+    <View
+      style={[
+        styles.headerContainer,
+        { backgroundColor: theme.colors.surface },
+      ]}
+    >
+      <Text
+        variant="titleMedium"
+        style={[styles.headerTitle, { color: theme.colors.onSurface }]}
+      >
         {t("administration.serverFiles.title")}
       </Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+      <View style={styles.breadcrumbsRow}>
         <IconButton
           icon="home"
           mode="contained-tonal"
@@ -144,14 +165,14 @@ export default function AdminServerFiles() {
         {breadcrumbs.map((seg, idx) => {
           const newPath = breadcrumbs.slice(0, idx + 1).join("/");
           return (
-            <View
-              key={`${seg}-${idx}`}
-              style={{ flexDirection: "row", alignItems: "center" }}
-            >
+          <View key={`${seg}-${idx}`} style={styles.breadcrumbItem}>
               <IconButton icon="chevron-right" size={16} disabled />
               <Text
                 onPress={() => setPath(newPath)}
-                style={{ textDecorationLine: "underline" }}
+              style={[
+                styles.breadcrumbText,
+                { color: theme.colors.primary },
+              ]}
               >
                 {seg}
               </Text>
@@ -162,76 +183,128 @@ export default function AdminServerFiles() {
     </View>
   );
 
-  if (loading && !data) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
   return (
-    <FlatList
-      data={data?.serverFiles || []}
-      keyExtractor={(item) => item.name}
-      ListHeaderComponent={renderHeader}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          colors={[theme.colors.primary]}
-          tintColor={theme.colors.primary}
-        />
-      }
-      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
-      renderItem={({ item }) => (
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <Text
-              variant="bodyMedium"
-              onPress={() => {
-                if (item.isDir) {
-                  const next = path ? `${path}/${item.name}` : item.name;
-                  setPath(next);
-                }
-              }}
-              style={{
-                textDecorationLine: item.isDir ? "underline" : "none",
-              }}
-            >
-              {item.isDir ? `📁 ${item.name}` : item.name}
-            </Text>
-            <Text variant="bodySmall" style={{ opacity: 0.7 }}>
-              {item.isDir ? "—" : (item.size || 0) + " bytes"} ·{" "}
-              {new Date(item.mtime).toLocaleString()}
-            </Text>
-          </View>
-          {!item.isDir && (
-            <View style={{ flexDirection: 'row', gap: 4 }}>
-              <IconButton
-                icon="download"
-                mode="contained-tonal"
-                onPress={() => onDownload(item.name)}
-              />
-              <IconButton
-                icon="delete"
-                mode="contained-tonal"
-                onPress={() => onDelete(item.name)}
-                disabled={deleting}
-              />
+    <PaperScrollView
+      withScroll={false}
+      loading={loading && !data}
+      onRefresh={handleRefresh}
+      contentContainerStyle={styles.listContent}
+    >
+      <FlatList
+        data={data?.serverFiles || []}
+        keyExtractor={(item) => item.name}
+        ListHeaderComponent={renderHeader}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
+        renderItem={({ item }) => (
+          <View
+            style={[
+              styles.row,
+              { borderBottomColor: theme.colors.surfaceVariant },
+            ]}
+          >
+            <View style={styles.rowMain}>
+              <Text
+                variant="bodyMedium"
+                onPress={() => {
+                  if (item.isDir) {
+                    const next = path ? `${path}/${item.name}` : item.name;
+                    setPath(next);
+                  }
+                }}
+                style={[
+                  styles.fileName,
+                  {
+                    color: theme.colors.onSurface,
+                    textDecorationLine: item.isDir ? "underline" : "none",
+                  },
+                ]}
+              >
+                {item.isDir ? `📁 ${item.name}` : item.name}
+              </Text>
+              <Text
+                variant="bodySmall"
+                style={[
+                  styles.metaText,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                {item.isDir ? "—" : (item.size || 0) + " bytes"} ·{" "}
+                {new Date(item.mtime).toLocaleString()}
+              </Text>
             </View>
-          )}
-        </View>
-      )}
-    />
+            {!item.isDir && (
+              <View style={styles.actionsRow}>
+                <IconButton
+                  icon="download"
+                  mode="contained-tonal"
+                  onPress={() => onDownload(item.name)}
+                />
+                <IconButton
+                  icon="delete"
+                  mode="contained-tonal"
+                  onPress={() => onDelete(item.name)}
+                  disabled={deleting}
+                />
+              </View>
+            )}
+          </View>
+        )}
+      />
+    </PaperScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  headerContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  headerTitle: {
+    marginBottom: 8,
+  },
+  breadcrumbsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    alignItems: "center",
+  },
+  breadcrumbItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  breadcrumbText: {
+    textDecorationLine: "underline",
+  },
+  listContent: {
+    paddingHorizontal: 0,
+    paddingBottom: 16,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 8,
     gap: 8,
+    borderBottomWidth: 1,
+  },
+  rowMain: {
+    flex: 1,
+  },
+  fileName: {
+    // font handled by Text variant
+  },
+  metaText: {
+    marginTop: 2,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    gap: 4,
   },
 });

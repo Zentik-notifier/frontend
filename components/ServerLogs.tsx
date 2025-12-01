@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Icon, Surface, Text, useTheme } from "react-native-paper";
+import { ActivityIndicator, Icon, Surface, Text, useTheme } from "react-native-paper";
 import {
   useGetServerLogsQuery,
   useTriggerLogCleanupMutation,
@@ -31,6 +31,8 @@ interface ServerLog {
   createdAt: string;
 }
 
+const MAX_GROUP_SIZE_PER_BUCKET = 50;
+
 export default function ServerLogs() {
   const { t } = useI18n();
   const theme = useTheme();
@@ -38,13 +40,14 @@ export default function ServerLogs() {
   const [selectedLog, setSelectedLog] = useState<ServerLog | null>(null);
   const [showLogDialog, setShowLogDialog] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
 
   // GraphQL queries
-  const { data, refetch } = useGetServerLogsQuery({
+  const { data, refetch, fetchMore } = useGetServerLogsQuery({
     variables: {
       input: {
         page: 1,
-        limit: 500,
+        limit: 100,
         search: query || undefined,
       },
     },
@@ -117,7 +120,7 @@ export default function ServerLogs() {
       await refetch({
         input: {
           page: 1,
-          limit: 500,
+          limit: 100,
           search: query || undefined,
         },
       });
@@ -126,52 +129,120 @@ export default function ServerLogs() {
     }
   }, [refetch, query]);
 
+  const handleEndReached = useCallback(async () => {
+    if (isLoadingMore || !data?.logs) {
+      return;
+    }
+
+    const { page: currentPage, totalPages, limit } = data.logs;
+    if (currentPage >= totalPages) {
+      return;
+    }
+
+    try {
+      setIsLoadingMore(true);
+      const nextPage = currentPage + 1;
+      await fetchMore({
+        variables: {
+          input: {
+            page: nextPage,
+            limit,
+            search: query || undefined,
+          },
+        },
+        updateQuery: (prev, { fetchMoreResult }) => {
+          if (!fetchMoreResult?.logs) {
+            return prev;
+          }
+
+          const existingIds = new Set(prev.logs.logs.map((log) => log.id));
+          const newLogs = fetchMoreResult.logs.logs.filter(
+            (log) => !existingIds.has(log.id)
+          );
+
+          return {
+            ...prev,
+            logs: {
+              ...fetchMoreResult.logs,
+              logs: [...prev.logs.logs, ...newLogs],
+            },
+          };
+        },
+      });
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [data, fetchMore, isLoadingMore, query]);
+
   const filteredLogs = useMemo(() => {
     return logs.filter((l) => l.message && l.message.trim() !== "");
   }, [logs]);
 
-  // Group logs by 5-minute intervals (same as AppLogs)
   const groupedLogs = useMemo(() => {
-    const groups: { id: string; timeLabel: string; logs: ServerLog[] }[] = [];
-    const groupMap = new Map<string, ServerLog[]>();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    filteredLogs.forEach((log) => {
-      const date = new Date(log.timestamp);
-      const minutes = date.getMinutes();
-      const roundedMinutes = Math.floor(minutes / 5) * 5;
-      date.setMinutes(roundedMinutes, 0, 0);
+    const buildGroups = (bucketMinutes: number) => {
+      const groups: { id: string; timeLabel: string; logs: ServerLog[] }[] = [];
+      const groupMap = new Map<string, ServerLog[]>();
+      let maxGroupSize = 0;
 
-      const timeKey = date.toISOString();
+      filteredLogs.forEach((log) => {
+        const date = new Date(log.timestamp);
+        const minutes = date.getMinutes();
+        const roundedMinutes =
+          Math.floor(minutes / bucketMinutes) * bucketMinutes;
+        date.setMinutes(roundedMinutes, 0, 0);
 
-      // Check if the log is from today
-      const logDate = new Date(log.timestamp);
-      logDate.setHours(0, 0, 0, 0);
-      const isToday = logDate.getTime() === today.getTime();
+        const timeKey = date.toISOString();
 
-      // Format time label with date if not today
-      let timeLabel = date.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
+        const logDate = new Date(log.timestamp);
+        logDate.setHours(0, 0, 0, 0);
+        const isToday = logDate.getTime() === today.getTime();
+
+        let timeLabel = date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+        if (!isToday) {
+          const dateLabel = date.toLocaleDateString([], {
+            month: "short",
+            day: "numeric",
+          });
+          timeLabel = `${dateLabel}, ${timeLabel}`;
+        }
+
+        if (!groupMap.has(timeKey)) {
+          groupMap.set(timeKey, []);
+          groups.push({
+            id: timeKey,
+            timeLabel,
+            logs: groupMap.get(timeKey)!,
+          });
+        }
+        const arr = groupMap.get(timeKey)!;
+        arr.push(log);
+        if (arr.length > maxGroupSize) {
+          maxGroupSize = arr.length;
+        }
       });
 
-      if (!isToday) {
-        const dateLabel = date.toLocaleDateString([], {
-          month: "short",
-          day: "numeric",
-        });
-        timeLabel = `${dateLabel}, ${timeLabel}`;
-      }
+      return { groups, maxGroupSize };
+    };
 
-      if (!groupMap.has(timeKey)) {
-        groupMap.set(timeKey, []);
-        groups.push({ id: timeKey, timeLabel, logs: groupMap.get(timeKey)! });
-      }
-      groupMap.get(timeKey)!.push(log);
-    });
+    let bucketMinutes = 5;
+    let result = buildGroups(bucketMinutes);
 
-    return groups;
+    while (
+      result.maxGroupSize > MAX_GROUP_SIZE_PER_BUCKET &&
+      bucketMinutes > 1
+    ) {
+      bucketMinutes = Math.max(1, Math.floor(bucketMinutes / 2));
+      result = buildGroups(bucketMinutes);
+    }
+
+    return result.groups;
   }, [filteredLogs]);
 
   const renderLogItem = useCallback(
@@ -282,6 +353,8 @@ export default function ServerLogs() {
         data={groupedLogs}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.5}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -291,6 +364,13 @@ export default function ServerLogs() {
           />
         }
         contentContainerStyle={styles.listContent}
+        ListFooterComponent={
+          isLoadingMore ? (
+            <View style={styles.footerLoading}>
+              <ActivityIndicator size="small" animating color={theme.colors.primary} />
+            </View>
+          ) : null
+        }
       />
 
       {/* Log Detail Modal */}
@@ -568,5 +648,10 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     padding: 12,
     textAlignVertical: "top",
+  },
+  footerLoading: {
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

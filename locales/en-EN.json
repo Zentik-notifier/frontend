@@ -1795,7 +1795,8 @@
       "confirmDeleteTitle": "Confirm",
       "confirmDeleteMessage": "Delete file \"{name}\"?",
       "uploadSuccess": "File uploaded successfully",
-      "uploadError": "Failed to upload file"
+      "uploadError": "Failed to upload file",
+      "downloadError": "Failed to download file"
     },
     "serverStatus": "Server Status",
     "logs": "System Logs",
