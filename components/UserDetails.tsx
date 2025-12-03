@@ -131,10 +131,6 @@ export default function UserDetails({ userId }: UserDetailsProps) {
     await Promise.all([refetchUser(), refetchStats()]);
   };
 
-  if (!user) {
-    return null;
-  }
-
   return (
     <PaperScrollView
       onRefresh={handleRefresh}
@@ -143,206 +139,230 @@ export default function UserDetails({ userId }: UserDetailsProps) {
       error={!!userError}
     >
       {/* User Info Section */}
-      <Card style={styles.section} mode="outlined">
-        <Card.Content>
-          {/* User Details */}
-          <View style={styles.userDetails}>
-            <View style={styles.detailRow}>
-              <Text variant="bodyMedium" style={styles.detailLabel}>
-                {t("administration.userId")}
-              </Text>
-              <Text variant="bodyMedium" style={styles.detailValue}>
-                {user.id}
-              </Text>
-            </View>
+      {user && (
+        <>
+          <Card style={styles.section} mode="outlined">
+            <Card.Content>
+              {/* User Details */}
+              <View style={styles.userDetails}>
+                <View style={styles.detailRow}>
+                  <Text variant="bodyMedium" style={styles.detailLabel}>
+                    {t("administration.userId")}
+                  </Text>
+                  <Text variant="bodyMedium" style={styles.detailValue}>
+                    {user.id}
+                  </Text>
+                </View>
 
-            {user.username && (
-              <>
+                {user.username && (
+                  <>
+                    <Divider style={styles.divider} />
+                    <View style={styles.detailRow}>
+                      <Text variant="bodyMedium" style={styles.detailLabel}>
+                        {t("administration.username")}
+                      </Text>
+                      <Text variant="bodyMedium" style={styles.detailValue}>
+                        {user.username}
+                      </Text>
+                    </View>
+                  </>
+                )}
+
+                {user.email && (
+                  <>
+                    <Divider style={styles.divider} />
+                    <View style={styles.detailRow}>
+                      <Text variant="bodyMedium" style={styles.detailLabel}>
+                        {t("administration.email")}
+                      </Text>
+                      <Text variant="bodyMedium" style={styles.detailValue}>
+                        {user.email}
+                      </Text>
+                    </View>
+                  </>
+                )}
+
                 <Divider style={styles.divider} />
                 <View style={styles.detailRow}>
                   <Text variant="bodyMedium" style={styles.detailLabel}>
-                    {t("administration.username")}
+                    {t("administration.createdAt")}
                   </Text>
                   <Text variant="bodyMedium" style={styles.detailValue}>
-                    {user.username}
+                    {new Date(user.createdAt).toLocaleDateString()}
                   </Text>
                 </View>
-              </>
-            )}
 
-            {user.email && (
-              <>
                 <Divider style={styles.divider} />
                 <View style={styles.detailRow}>
                   <Text variant="bodyMedium" style={styles.detailLabel}>
-                    {t("administration.email")}
+                    {t("administration.lastUpdated")}
                   </Text>
                   <Text variant="bodyMedium" style={styles.detailValue}>
-                    {user.email}
+                    {new Date(user.updatedAt).toLocaleDateString()}
                   </Text>
                 </View>
-              </>
-            )}
+              </View>
 
-            <Divider style={styles.divider} />
-            <View style={styles.detailRow}>
-              <Text variant="bodyMedium" style={styles.detailLabel}>
-                {t("administration.createdAt")}
-              </Text>
-              <Text variant="bodyMedium" style={styles.detailValue}>
-                {new Date(user.createdAt).toLocaleDateString()}
-              </Text>
-            </View>
+              <Divider style={styles.sectionDivider} />
 
-            <Divider style={styles.divider} />
-            <View style={styles.detailRow}>
-              <Text variant="bodyMedium" style={styles.detailLabel}>
-                {t("administration.lastUpdated")}
-              </Text>
-              <Text variant="bodyMedium" style={styles.detailValue}>
-                {new Date(user.updatedAt).toLocaleDateString()}
-              </Text>
-            </View>
-          </View>
+              {/* Role Management */}
+              <View style={styles.roleSection}>
+                <Text variant="titleMedium" style={styles.roleLabel}>
+                  {t("administration.currentRole", { role: "" }).replace(
+                    ": ",
+                    ""
+                  )}
+                </Text>
+                <Selector
+                  selectedValue={user.role}
+                  placeholder={t("administration.selectNewRole")}
+                  options={roleOptions}
+                  onValueChange={handleRoleChange}
+                  isSearchable={false}
+                />
+              </View>
+            </Card.Content>
+          </Card>
 
-          <Divider style={styles.sectionDivider} />
+          {/* User Buckets Section */}
+          <Card style={styles.section} mode="outlined">
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                {t("administration.userBuckets")}
+              </Text>
 
-          {/* Role Management */}
-          <View style={styles.roleSection}>
-            <Text variant="titleMedium" style={styles.roleLabel}>
-              {t("administration.currentRole", { role: "" }).replace(": ", "")}
-            </Text>
-            <Selector
-              selectedValue={user.role}
-              placeholder={t("administration.selectNewRole")}
-              options={roleOptions}
-              onValueChange={handleRoleChange}
-              isSearchable={false}
+              {user.buckets && user.buckets.length > 0 ? (
+                <View style={styles.bucketsList}>
+                  {user.buckets.map((bucket) => (
+                    <Card
+                      key={bucket.id}
+                      style={styles.bucketItem}
+                      mode="outlined"
+                    >
+                      <Card.Content>
+                        <View style={styles.bucketInfo}>
+                          <Text variant="titleSmall" style={styles.bucketName}>
+                            {bucket.name}
+                          </Text>
+                          <Text variant="bodySmall" style={styles.bucketId}>
+                            ID: {bucket.id}
+                          </Text>
+                        </View>
+                      </Card.Content>
+                    </Card>
+                  ))}
+                </View>
+              ) : (
+                <Text variant="bodyMedium" style={styles.noDataText}>
+                  {t("administration.noBucketsFound")}
+                </Text>
+              )}
+            </Card.Content>
+          </Card>
+
+          {/* User Devices Section */}
+          <Card style={styles.section} mode="outlined">
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                {t("administration.userDevices")}
+              </Text>
+
+              {user.devices && user.devices.length > 0 ? (
+                <View style={styles.devicesList}>
+                  {user.devices.map((device) => (
+                    <Card
+                      key={device.id}
+                      style={styles.deviceItem}
+                      mode="outlined"
+                    >
+                      <Card.Content>
+                        <View style={styles.deviceInfo}>
+                          <View style={styles.deviceHeader}>
+                            <Text
+                              variant="titleSmall"
+                              style={styles.deviceName}
+                            >
+                              {device.deviceName || device.platform}
+                            </Text>
+                            <Chip
+                              mode="flat"
+                              compact
+                              style={[
+                                {
+                                  backgroundColor:
+                                    device.platform === "IOS"
+                                      ? theme.colors.primary
+                                      : device.platform === "ANDROID"
+                                      ? "#3DDC84"
+                                      : device.platform === "WEB"
+                                      ? theme.colors.secondary
+                                      : theme.colors.outline,
+                                },
+                              ]}
+                              textStyle={styles.chipText}
+                            >
+                              {device.platform}
+                            </Chip>
+                          </View>
+
+                          {device.deviceModel && (
+                            <Text
+                              variant="bodySmall"
+                              style={styles.deviceDetail}
+                            >
+                              📱 {device.deviceModel}
+                            </Text>
+                          )}
+
+                          {device.osVersion && (
+                            <Text
+                              variant="bodySmall"
+                              style={styles.deviceDetail}
+                            >
+                              💿 {device.osVersion}
+                            </Text>
+                          )}
+
+                          {device.onlyLocal && (
+                            <Chip
+                              mode="outlined"
+                              compact
+                              style={styles.localChip}
+                              textStyle={styles.localChipText}
+                            >
+                              🏠 {t("administration.localOnly")}
+                            </Chip>
+                          )}
+
+                          <Text variant="bodySmall" style={styles.deviceDate}>
+                            {t("administration.lastUsed")}:{" "}
+                            {new Date(device.lastUsed).toLocaleString()}
+                          </Text>
+
+                          <Text variant="bodySmall" style={styles.deviceId}>
+                            ID: {device.id}
+                          </Text>
+                        </View>
+                      </Card.Content>
+                    </Card>
+                  ))}
+                </View>
+              ) : (
+                <Text variant="bodyMedium" style={styles.noDataText}>
+                  {t("administration.noDevicesFound")}
+                </Text>
+              )}
+            </Card.Content>
+          </Card>
+
+          {/* Notification Statistics Section */}
+          {statsData?.userNotificationStats && (
+            <NotificationStats
+              dateStats={statsData.userNotificationStats}
+              showAcked
             />
-          </View>
-        </Card.Content>
-      </Card>
-
-      {/* User Buckets Section */}
-      <Card style={styles.section} mode="outlined">
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            {t("administration.userBuckets")}
-          </Text>
-
-          {user.buckets && user.buckets.length > 0 ? (
-            <View style={styles.bucketsList}>
-              {user.buckets.map((bucket) => (
-                <Card key={bucket.id} style={styles.bucketItem} mode="outlined">
-                  <Card.Content>
-                    <View style={styles.bucketInfo}>
-                      <Text variant="titleSmall" style={styles.bucketName}>
-                        {bucket.name}
-                      </Text>
-                      <Text variant="bodySmall" style={styles.bucketId}>
-                        ID: {bucket.id}
-                      </Text>
-                    </View>
-                  </Card.Content>
-                </Card>
-              ))}
-            </View>
-          ) : (
-            <Text variant="bodyMedium" style={styles.noDataText}>
-              {t("administration.noBucketsFound")}
-            </Text>
           )}
-        </Card.Content>
-      </Card>
-
-      {/* User Devices Section */}
-      <Card style={styles.section} mode="outlined">
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            {t("administration.userDevices")}
-          </Text>
-
-          {user.devices && user.devices.length > 0 ? (
-            <View style={styles.devicesList}>
-              {user.devices.map((device) => (
-                <Card key={device.id} style={styles.deviceItem} mode="outlined">
-                  <Card.Content>
-                    <View style={styles.deviceInfo}>
-                      <View style={styles.deviceHeader}>
-                        <Text variant="titleSmall" style={styles.deviceName}>
-                          {device.deviceName || device.platform}
-                        </Text>
-                        <Chip
-                          mode="flat"
-                          compact
-                          style={[
-                            {
-                              backgroundColor:
-                                device.platform === "IOS"
-                                  ? theme.colors.primary
-                                  : device.platform === "ANDROID"
-                                  ? "#3DDC84"
-                                  : device.platform === "WEB"
-                                  ? theme.colors.secondary
-                                  : theme.colors.outline,
-                            },
-                          ]}
-                          textStyle={styles.chipText}
-                        >
-                          {device.platform}
-                        </Chip>
-                      </View>
-
-                      {device.deviceModel && (
-                        <Text variant="bodySmall" style={styles.deviceDetail}>
-                          📱 {device.deviceModel}
-                        </Text>
-                      )}
-
-                      {device.osVersion && (
-                        <Text variant="bodySmall" style={styles.deviceDetail}>
-                          💿 {device.osVersion}
-                        </Text>
-                      )}
-
-                      {device.onlyLocal && (
-                        <Chip
-                          mode="outlined"
-                          compact
-                          style={styles.localChip}
-                          textStyle={styles.localChipText}
-                        >
-                          🏠 {t("administration.localOnly")}
-                        </Chip>
-                      )}
-
-                      <Text variant="bodySmall" style={styles.deviceDate}>
-                        {t("administration.lastUsed")}:{" "}
-                        {new Date(device.lastUsed).toLocaleString()}
-                      </Text>
-
-                      <Text variant="bodySmall" style={styles.deviceId}>
-                        ID: {device.id}
-                      </Text>
-                    </View>
-                  </Card.Content>
-                </Card>
-              ))}
-            </View>
-          ) : (
-            <Text variant="bodyMedium" style={styles.noDataText}>
-              {t("administration.noDevicesFound")}
-            </Text>
-          )}
-        </Card.Content>
-      </Card>
-
-      {/* Notification Statistics Section */}
-      {statsData?.userNotificationStats && (
-        <NotificationStats
-          dateStats={statsData.userNotificationStats}
-          showAcked
-        />
+        </>
       )}
     </PaperScrollView>
   );
