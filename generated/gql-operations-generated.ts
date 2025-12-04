@@ -225,6 +225,12 @@ export type CreateSystemAccessTokenRequestDto = {
   maxRequests: Scalars['Int']['input'];
 };
 
+export type CreateUserLogInput = {
+  payload: Scalars['JSON']['input'];
+  type: UserLogType;
+  userId?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type CreateWebhookDto = {
   body?: InputMaybe<Scalars['JSON']['input']>;
   headers: Array<WebhookHeaderDto>;
@@ -324,7 +330,8 @@ export enum EventType {
   Register = 'REGISTER',
   SystemTokenRequestApproved = 'SYSTEM_TOKEN_REQUEST_APPROVED',
   SystemTokenRequestCreated = 'SYSTEM_TOKEN_REQUEST_CREATED',
-  SystemTokenRequestDeclined = 'SYSTEM_TOKEN_REQUEST_DECLINED'
+  SystemTokenRequestDeclined = 'SYSTEM_TOKEN_REQUEST_DECLINED',
+  UserFeedback = 'USER_FEEDBACK'
 }
 
 export type EventsQueryDto = {
@@ -583,6 +590,7 @@ export type Mutation = {
   createPayloadMapper: PayloadMapper;
   createSystemAccessTokenRequest: SystemAccessTokenRequest;
   createSystemToken: SystemAccessTokenDto;
+  createUserLog: UserLog;
   createWebhook: UserWebhook;
   declineSystemAccessTokenRequest: SystemAccessTokenRequest;
   deleteAccount: Scalars['Boolean']['output'];
@@ -758,6 +766,11 @@ export type MutationCreateSystemTokenArgs = {
   maxCalls: Scalars['Float']['input'];
   requesterId?: InputMaybe<Scalars['String']['input']>;
   scopes?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+
+export type MutationCreateUserLogArgs = {
+  input: CreateUserLogInput;
 };
 
 
@@ -1940,6 +1953,21 @@ export type UserIdentity = {
   userId: Scalars['String']['output'];
 };
 
+export type UserLog = {
+  __typename?: 'UserLog';
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['String']['output'];
+  payload: Scalars['JSON']['output'];
+  type: UserLogType;
+  userId: Maybe<Scalars['String']['output']>;
+};
+
+/** Type of user log entry */
+export enum UserLogType {
+  AppLog = 'APP_LOG',
+  Feedback = 'FEEDBACK'
+}
+
 export type UserNotificationStats = {
   __typename?: 'UserNotificationStats';
   last7Days: Scalars['Float']['output'];
@@ -2794,6 +2822,13 @@ export type UpdateSystemAccessTokenMutationVariables = Exact<{
 
 
 export type UpdateSystemAccessTokenMutation = { __typename?: 'Mutation', updateSystemToken: { __typename?: 'SystemAccessTokenDto', id: string, maxCalls: number, calls: number, totalCalls: number, expiresAt: string | null, lastResetAt: string | null, description: string | null, scopes: Array<string> | null, token: string | null, createdAt: string, updatedAt: string, requester: { __typename?: 'User', id: string, username: string, email: string, firstName: string | null, lastName: string | null } | null } };
+
+export type CreateUserLogMutationVariables = Exact<{
+  input: CreateUserLogInput;
+}>;
+
+
+export type CreateUserLogMutation = { __typename?: 'Mutation', createUserLog: { __typename?: 'UserLog', id: string, type: UserLogType, userId: string | null, payload: any, createdAt: string } };
 
 export type RevokeSystemAccessTokenMutationVariables = Exact<{
   id: Scalars['String']['input'];
@@ -6055,6 +6090,33 @@ export function useUpdateSystemAccessTokenMutation(baseOptions?: ApolloReactHook
 export type UpdateSystemAccessTokenMutationHookResult = ReturnType<typeof useUpdateSystemAccessTokenMutation>;
 export type UpdateSystemAccessTokenMutationResult = Apollo.MutationResult<UpdateSystemAccessTokenMutation>;
 export type UpdateSystemAccessTokenMutationOptions = Apollo.BaseMutationOptions<UpdateSystemAccessTokenMutation, UpdateSystemAccessTokenMutationVariables>;
+export const CreateUserLogDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateUserLog"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateUserLogInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createUserLog"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"payload"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode;
+export type CreateUserLogMutationFn = Apollo.MutationFunction<CreateUserLogMutation, CreateUserLogMutationVariables>;
+
+/**
+ * __useCreateUserLogMutation__
+ *
+ * To run a mutation, you first call `useCreateUserLogMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useCreateUserLogMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [createUserLogMutation, { data, loading, error }] = useCreateUserLogMutation({
+ *   variables: {
+ *      input: // value for 'input'
+ *   },
+ * });
+ */
+export function useCreateUserLogMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<CreateUserLogMutation, CreateUserLogMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<CreateUserLogMutation, CreateUserLogMutationVariables>(CreateUserLogDocument, options);
+      }
+export type CreateUserLogMutationHookResult = ReturnType<typeof useCreateUserLogMutation>;
+export type CreateUserLogMutationResult = Apollo.MutationResult<CreateUserLogMutation>;
+export type CreateUserLogMutationOptions = Apollo.BaseMutationOptions<CreateUserLogMutation, CreateUserLogMutationVariables>;
 export const RevokeSystemAccessTokenDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RevokeSystemAccessToken"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"revokeSystemToken"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode;
 export type RevokeSystemAccessTokenMutationFn = Apollo.MutationFunction<RevokeSystemAccessTokenMutation, RevokeSystemAccessTokenMutationVariables>;
 

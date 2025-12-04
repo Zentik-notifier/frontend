@@ -1155,7 +1155,8 @@
     "ACCOUNT_DELETE": "Eliminazione Account",
     "SYSTEM_TOKEN_REQUEST_CREATED": "Richiesta Token di Sistema Creata",
     "SYSTEM_TOKEN_REQUEST_APPROVED": "Richiesta Token di Sistema Approvata",
-    "SYSTEM_TOKEN_REQUEST_DECLINED": "Richiesta Token di Sistema Rifiutata"
+    "SYSTEM_TOKEN_REQUEST_DECLINED": "Richiesta Token di Sistema Rifiutata",
+    "USER_FEEDBACK": "Feedback utente"
   },
   "adminSubscriptions": {
     "title": "Sottoscrizioni Eventi Admin",

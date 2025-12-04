@@ -40,6 +40,18 @@ enum UserSettingType {
   GithubEventsFilter
 }
 
+# User Logs
+enum UserLogType {
+  FEEDBACK
+  APP_LOG
+}
+
+input CreateUserLogInput {
+  type: UserLogType!
+  payload: JSON!
+  userId: String
+}
+
 # Password Reset Mutations
 mutation RequestPasswordReset($input: RequestPasswordResetDto!) {
   requestPasswordReset(input: $input) {
@@ -1152,6 +1164,17 @@ mutation UpdateSystemAccessToken(
     scopes: $scopes
   ) {
     ...SystemAccessTokenFragment
+  }
+}
+
+# User Logs / Feedback
+mutation CreateUserLog($input: CreateUserLogInput!) {
+  createUserLog(input: $input) {
+    id
+    type
+    userId
+    payload
+    createdAt
   }
 }
 

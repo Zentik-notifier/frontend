@@ -2158,7 +2158,8 @@
     "ACCOUNT_DELETE": "Account Delete",
     "SYSTEM_TOKEN_REQUEST_CREATED": "System Token Request Created",
     "SYSTEM_TOKEN_REQUEST_APPROVED": "System Token Request Approved",
-    "SYSTEM_TOKEN_REQUEST_DECLINED": "System Token Request Declined"
+    "SYSTEM_TOKEN_REQUEST_DECLINED": "System Token Request Declined",
+    "USER_FEEDBACK": "User feedback"
   },
   "adminSubscriptions": {
     "title": "Admin Subscriptions",

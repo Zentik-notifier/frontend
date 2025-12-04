@@ -203,6 +203,12 @@ input CreateSystemAccessTokenRequestDto {
   maxRequests: Int!
 }
 
+input CreateUserLogInput {
+  payload: JSON!
+  type: UserLogType!
+  userId: String
+}
+
 input CreateWebhookDto {
   body: JSON
   headers: [WebhookHeaderDto!]!
@@ -303,6 +309,7 @@ enum EventType {
   SYSTEM_TOKEN_REQUEST_APPROVED
   SYSTEM_TOKEN_REQUEST_CREATED
   SYSTEM_TOKEN_REQUEST_DECLINED
+  USER_FEEDBACK
 }
 
 input EventsQueryDto {
@@ -554,6 +561,7 @@ type Mutation {
   createPayloadMapper(input: CreatePayloadMapperDto!): PayloadMapper!
   createSystemAccessTokenRequest(input: CreateSystemAccessTokenRequestDto!): SystemAccessTokenRequest!
   createSystemToken(description: String, expiresAt: String, maxCalls: Float!, requesterId: String, scopes: [String!]): SystemAccessTokenDto!
+  createUserLog(input: CreateUserLogInput!): UserLog!
   createWebhook(input: CreateWebhookDto!): UserWebhook!
   declineSystemAccessTokenRequest(id: String!, input: DeclineSystemAccessTokenRequestDto): SystemAccessTokenRequest!
   deleteAccount: Boolean!
@@ -1322,6 +1330,20 @@ type UserIdentity {
   updatedAt: DateTime!
   user: User!
   userId: String!
+}
+
+type UserLog {
+  createdAt: DateTime!
+  id: String!
+  payload: JSON!
+  type: UserLogType!
+  userId: String
+}
+
+"""Type of user log entry"""
+enum UserLogType {
+  APP_LOG
+  FEEDBACK
 }
 
 type UserNotificationStats {

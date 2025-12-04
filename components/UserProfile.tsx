@@ -30,11 +30,7 @@ import DetailSectionCard from "./ui/DetailSectionCard";
 import PaperScrollView from "./ui/PaperScrollView";
 import OAuthProviderIcon from "./OAuthProviderIcon";
 import SwipeableItem from "./SwipeableItem";
-import {
-  Dialog,
-  Icon,
-  Portal,
-} from "react-native-paper";
+import { Dialog, Icon, Portal } from "react-native-paper";
 
 export default function UserProfile() {
   const { logout, refreshUserData } = useAppContext();
@@ -89,7 +85,11 @@ export default function UserProfile() {
 
   const user = userData?.me;
 
-  const { data: sessionsData, loading: sessionsLoading, refetch: refetchSessions } = useGetUserSessionsQuery();
+  const {
+    data: sessionsData,
+    loading: sessionsLoading,
+    refetch: refetchSessions,
+  } = useGetUserSessionsQuery();
   const [revokeSession] = useRevokeSessionMutation();
   const [revokeAllOtherSessions] = useRevokeAllOtherSessionsMutation();
   const [showErrorDialog, setShowErrorDialog] = useState(false);
@@ -496,172 +496,192 @@ export default function UserProfile() {
         )} */}
 
         {/* Action Buttons */}
-        <View style={styles.section}>
-          <DetailSectionCard
-            items={[{ key: "actions" }]}
-            renderItem={() => (
-              <View style={styles.actionButtonsRow}>
-                <Button
-                  mode="outlined"
-                  onPress={navigateToChangePassword}
-                  icon="lock"
-                  style={styles.halfWidthButton}
-                >
-                  {t("userProfile.changePassword")}
-                </Button>
-                <Button
-                  mode="outlined"
-                  onPress={logout}
-                  icon="logout"
-                  style={styles.halfWidthButton}
-                  buttonColor={theme.colors.errorContainer}
-                  textColor={theme.colors.onErrorContainer}
-                >
-                  {t("userProfile.logout")}
-                </Button>
-              </View>
-            )}
-          />
-        </View>
-
-        {/* Active Sessions Section */}
         <DetailSectionCard
-          title={t("userSessions.title")}
-          description={t("userSessions.description")}
-          actionButtons={
-            sortedSessions.length > 1
-              ? [
-                  {
-                    icon: "logout",
-                    onPress: () => setShowConfirmDialog(true),
-                    disabled: isOfflineAuth || isBackendUnreachable,
-                  },
-                ]
-              : undefined
-          }
-          loading={sessionsLoading}
-          emptyState={{
-            icon: "web",
-            text: t("userSessions.noSessionsTitle") as string,
-          }}
-          items={sortedSessions}
-          renderItem={(session) => {
-            const isExpired = session.expiresAt && new Date(session.expiresAt) < new Date();
-            return (
-              <SwipeableItem
-                key={session.id}
-                rightAction={
-                  !(isOfflineAuth || isBackendUnreachable) && !session.isCurrent
-                    ? {
-                        icon: "logout",
-                        label: t("userSessions.item.revoke") as string,
-                        backgroundColor: "#ff6b6b",
-                        onPress: () => deleteSession(session.id),
-                        showAlert: {
-                          title: t("userSessions.item.revokeSessionTitle") as string,
-                          message: t("userSessions.item.revokeSessionMessage") as string,
-                          confirmText: t("userSessions.item.revokeSessionConfirm") as string,
-                          cancelText: t("common.cancel") as string,
-                        },
-                      }
-                    : undefined
-                }
+          items={[{ key: "actions" }]}
+          renderItem={() => (
+            <View style={styles.actionButtonsRow}>
+              <Button
+                mode="outlined"
+                onPress={navigateToChangePassword}
+                icon="lock"
+                style={styles.halfWidthButton}
               >
-                <View
-                  style={[
-                    styles.sessionItem,
-                    isExpired && styles.expiredSession,
-                    session.isCurrent && styles.currentSession,
-                  ]}
-                >
-                  <View style={styles.sessionHeader}>
-                    <View style={styles.deviceInfo}>
-                      <Icon
-                        source={getDeviceIcon(session.deviceName, session.operatingSystem)}
-                        size={20}
-                        color={theme.colors.onSurface}
-                      />
-                      <View style={styles.deviceTextInfo}>
-                        <Text variant="titleMedium" style={styles.deviceName}>
-                          {getDeviceDescription(session)}
-                        </Text>
-                        {getLocationDisplay(session) && (
-                          <Text variant="bodySmall" style={styles.locationText}>
-                            📍 {getLocationDisplay(session)}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-
-                    <View style={styles.headerRight}>
-                      {session.loginProvider && (
-                        <View style={styles.providerInfo}>
-                          <OAuthProviderIcon
-                            providerType={session.loginProvider}
-                            size={40}
-                            iconSize={30}
-                          />
-                        </View>
-                      )}
-
-                      <View style={styles.badges}>
-                        {session.isCurrent && (
-                          <View style={[styles.badge, styles.currentBadge]}>
-                            <Text variant="bodySmall" style={styles.currentText}>
-                              {t("userSessions.item.current") as string}
-                            </Text>
-                          </View>
-                        )}
-                        {isExpired && (
-                          <View style={[styles.badge, styles.expiredBadge]}>
-                            <Text variant="bodySmall" style={styles.expiredText}>
-                              {t("userSessions.item.expired") as string}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={styles.sessionDetails}>
-                    {session.ipAddress && (
-                      <Text variant="bodySmall" style={styles.sessionDetail}>
-                        {t("userSessions.item.ipAddress") as string}: {session.ipAddress}
-                      </Text>
-                    )}
-
-                    <Text variant="bodySmall" style={styles.sessionDetail}>
-                      {t("userSessions.item.created") as string}:{" "}
-                      {formatSessionDate(session.createdAt)}
-                    </Text>
-
-                    {session.lastActivity && (
-                      <Text variant="bodySmall" style={styles.sessionDetail}>
-                        {t("userSessions.item.lastActivity") as string}:{" "}
-                        {formatSessionDate(session.lastActivity)}
-                      </Text>
-                    )}
-
-                    {session.expiresAt && (
-                      <Text
-                        variant="bodySmall"
-                        style={[
-                          styles.sessionDetail,
-                          isExpired && styles.expiredDetail,
-                        ]}
-                      >
-                        {t("userSessions.item.expires") as string}:{" "}
-                        {formatSessionDate(session.expiresAt)}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              </SwipeableItem>
-            );
-          }}
-          maxHeight={500}
+                {t("userProfile.changePassword")}
+              </Button>
+              <Button
+                mode="outlined"
+                onPress={logout}
+                icon="logout"
+                style={styles.halfWidthButton}
+                buttonColor={theme.colors.errorContainer}
+                textColor={theme.colors.onErrorContainer}
+              >
+                {t("userProfile.logout")}
+              </Button>
+            </View>
+          )}
         />
 
+        {/* Active Sessions Section */}
+        <View style={styles.section}>
+          <DetailSectionCard
+            title={t("userSessions.title")}
+            description={t("userSessions.description")}
+            actionButtons={
+              sortedSessions.length > 1
+                ? [
+                    {
+                      icon: "logout",
+                      onPress: () => setShowConfirmDialog(true),
+                      disabled: isOfflineAuth || isBackendUnreachable,
+                    },
+                  ]
+                : undefined
+            }
+            loading={sessionsLoading}
+            emptyState={{
+              icon: "web",
+              text: t("userSessions.noSessionsTitle") as string,
+            }}
+            items={sortedSessions}
+            renderItem={(session) => {
+              const isExpired =
+                session.expiresAt && new Date(session.expiresAt) < new Date();
+              return (
+                <SwipeableItem
+                  key={session.id}
+                  rightAction={
+                    !(isOfflineAuth || isBackendUnreachable) &&
+                    !session.isCurrent
+                      ? {
+                          icon: "logout",
+                          label: t("userSessions.item.revoke") as string,
+                          backgroundColor: "#ff6b6b",
+                          onPress: () => deleteSession(session.id),
+                          showAlert: {
+                            title: t(
+                              "userSessions.item.revokeSessionTitle"
+                            ) as string,
+                            message: t(
+                              "userSessions.item.revokeSessionMessage"
+                            ) as string,
+                            confirmText: t(
+                              "userSessions.item.revokeSessionConfirm"
+                            ) as string,
+                            cancelText: t("common.cancel") as string,
+                          },
+                        }
+                      : undefined
+                  }
+                >
+                  <View
+                    style={[
+                      styles.sessionItem,
+                      isExpired && styles.expiredSession,
+                      session.isCurrent && styles.currentSession,
+                    ]}
+                  >
+                    <View style={styles.sessionHeader}>
+                      <View style={styles.deviceInfo}>
+                        <Icon
+                          source={getDeviceIcon(
+                            session.deviceName,
+                            session.operatingSystem
+                          )}
+                          size={20}
+                          color={theme.colors.onSurface}
+                        />
+                        <View style={styles.deviceTextInfo}>
+                          <Text variant="titleMedium" style={styles.deviceName}>
+                            {getDeviceDescription(session)}
+                          </Text>
+                          {getLocationDisplay(session) && (
+                            <Text
+                              variant="bodySmall"
+                              style={styles.locationText}
+                            >
+                              📍 {getLocationDisplay(session)}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+
+                      <View style={styles.headerRight}>
+                        {session.loginProvider && (
+                          <View style={styles.providerInfo}>
+                            <OAuthProviderIcon
+                              providerType={session.loginProvider}
+                              size={40}
+                              iconSize={30}
+                            />
+                          </View>
+                        )}
+
+                        <View style={styles.badges}>
+                          {session.isCurrent && (
+                            <View style={[styles.badge, styles.currentBadge]}>
+                              <Text
+                                variant="bodySmall"
+                                style={styles.currentText}
+                              >
+                                {t("userSessions.item.current") as string}
+                              </Text>
+                            </View>
+                          )}
+                          {isExpired && (
+                            <View style={[styles.badge, styles.expiredBadge]}>
+                              <Text
+                                variant="bodySmall"
+                                style={styles.expiredText}
+                              >
+                                {t("userSessions.item.expired") as string}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={styles.sessionDetails}>
+                      {session.ipAddress && (
+                        <Text variant="bodySmall" style={styles.sessionDetail}>
+                          {t("userSessions.item.ipAddress") as string}:{" "}
+                          {session.ipAddress}
+                        </Text>
+                      )}
+
+                      <Text variant="bodySmall" style={styles.sessionDetail}>
+                        {t("userSessions.item.created") as string}:{" "}
+                        {formatSessionDate(session.createdAt)}
+                      </Text>
+
+                      {session.lastActivity && (
+                        <Text variant="bodySmall" style={styles.sessionDetail}>
+                          {t("userSessions.item.lastActivity") as string}:{" "}
+                          {formatSessionDate(session.lastActivity)}
+                        </Text>
+                      )}
+
+                      {session.expiresAt && (
+                        <Text
+                          variant="bodySmall"
+                          style={[
+                            styles.sessionDetail,
+                            isExpired && styles.expiredDetail,
+                          ]}
+                        >
+                          {t("userSessions.item.expires") as string}:{" "}
+                          {formatSessionDate(session.expiresAt)}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </SwipeableItem>
+              );
+            }}
+            maxHeight={500}
+          />
+        </View>
         {/* OAuth Connections Section */}
         <View style={styles.section}>
           <OAuthConnections />
@@ -673,9 +693,7 @@ export default function UserProfile() {
         </View> */}
 
         {/* Admin Subscriptions Section - Only for admins */}
-        <View style={styles.section}>
-          {user.role === "ADMIN" && <AdminSubscriptions />}
-        </View>
+        {user.role === "ADMIN" && <AdminSubscriptions />}
 
         {/* Delete Account Section */}
         <DetailSectionCard
