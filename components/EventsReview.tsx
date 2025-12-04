@@ -79,7 +79,13 @@ export default function EventsReview() {
         targetId: filters.targetId || undefined,
       },
     }),
-    [filters.selectedType, filters.userId, filters.objectId, filters.targetId, pageSize]
+    [
+      filters.selectedType,
+      filters.userId,
+      filters.objectId,
+      filters.targetId,
+      pageSize,
+    ]
   );
 
   const {
@@ -141,7 +147,13 @@ export default function EventsReview() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [hasNextPage, isLoadingMore, currentPage, queryVariables.query, fetchMore]);
+  }, [
+    hasNextPage,
+    isLoadingMore,
+    currentPage,
+    queryVariables.query,
+    fetchMore,
+  ]);
 
   const { data: usersData } = useGetAllUsersQuery({});
 
@@ -245,18 +257,17 @@ export default function EventsReview() {
         onPress={() => handleShowEvent(item)}
       >
         <View style={styles.logRowHeader}>
-          <Text
-            style={[styles.logMainLine, { color: theme.colors.onSurface }]}
-            numberOfLines={1}
-          >
-            <Text style={[styles.logEventType, { color: theme.colors.primary }]}>
+          <Text style={[{ color: theme.colors.onSurface }]} numberOfLines={1}>
+            <Text
+              style={[styles.logEventType, { color: theme.colors.primary }]}
+            >
               {item.type}
             </Text>
-            {userDisplay !== "-" && (
-              <Text>{` - ${userDisplay}`}</Text>
-            )}
+            {userDisplay !== "-" && <Text>{` - ${userDisplay}`}</Text>}
           </Text>
-          <Text style={[styles.logDate, { color: theme.colors.onSurfaceVariant }]}>
+          <Text
+            style={[styles.logDate, { color: theme.colors.onSurfaceVariant }]}
+          >
             {new Date(item.createdAt).toLocaleString()}
           </Text>
         </View>
@@ -346,7 +357,9 @@ export default function EventsReview() {
             ]}
           >
             <View style={styles.dialogHeader}>
-              <Text style={[styles.dialogTitle, { color: theme.colors.onSurface }]}>
+              <Text
+                style={[styles.dialogTitle, { color: theme.colors.onSurface }]}
+              >
                 Event details
               </Text>
               <TouchableOpacity onPress={handleCloseEventDialog}>
@@ -359,7 +372,9 @@ export default function EventsReview() {
                 <>
                   <View style={styles.dialogMetaRow}>
                     <Text style={styles.dialogMetaLabel}>Type:</Text>
-                    <Text style={styles.dialogMetaValue}>{selectedEvent.type}</Text>
+                    <Text style={styles.dialogMetaValue}>
+                      {selectedEvent.type}
+                    </Text>
                   </View>
 
                   <View style={styles.dialogMetaRow}>
@@ -373,7 +388,8 @@ export default function EventsReview() {
                     <View style={styles.dialogMetaRow}>
                       <Text style={styles.dialogMetaLabel}>User:</Text>
                       <Text style={styles.dialogMetaValue}>
-                        {userIdToName[selectedEvent.userId] || selectedEvent.userId}
+                        {userIdToName[selectedEvent.userId] ||
+                          selectedEvent.userId}
                       </Text>
                     </View>
                   )}
@@ -384,7 +400,10 @@ export default function EventsReview() {
                         {getObjectIdLabel(selectedEvent.type)}
                       </Text>
                       <Text style={styles.dialogMetaValue}>
-                        {formatObjectId(selectedEvent.objectId, selectedEvent.type)}
+                        {formatObjectId(
+                          selectedEvent.objectId,
+                          selectedEvent.type
+                        )}
                       </Text>
                     </View>
                   )}
@@ -395,7 +414,10 @@ export default function EventsReview() {
                         {getTargetIdLabel(selectedEvent.type)}
                       </Text>
                       <Text style={styles.dialogMetaValue}>
-                        {formatTargetId(selectedEvent.targetId, selectedEvent.type)}
+                        {formatTargetId(
+                          selectedEvent.targetId,
+                          selectedEvent.type
+                        )}
                       </Text>
                     </View>
                   )}
