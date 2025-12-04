@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
-import { Button, Icon, Text } from "react-native-paper";
+import { Icon, IconButton, useTheme } from "react-native-paper";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 
@@ -11,6 +11,7 @@ export default function StatusBadge() {
     connectionStatus: { isUpdating, isCheckingUpdate, status },
   } = useAppContext();
   const { t } = useI18n();
+  const theme = useTheme();
   const [isRegistering, setIsRegistering] = useState(false);
 
   if (!status) return null;
@@ -38,31 +39,6 @@ export default function StatusBadge() {
     }
   };
 
-  const getStatusLabel = () => {
-    switch (status.type) {
-      case "push-notifications":
-        return isRegistering
-          ? t("common.loading")
-          : t("common.deviceNotRegistered");
-      case "update":
-        return t("common.updateAvailable");
-      case "push-permissions":
-        return t("common.notificationsDisabled");
-      case "push-needs-pwa":
-        return t("common.installApp");
-      case "filesystem-permission":
-        return t("common.filesystemPermissionDenied");
-      case "offline":
-        return t("common.offline");
-      case "backend":
-        return t("common.backendUnreachable");
-      case "network":
-        return t("common.noConnection");
-      default:
-        return "";
-    }
-  };
-
   const getStatusIcon = () => {
     if (status.type === "push-needs-pwa") return "progress-download";
     if (status.type === "update") {
@@ -81,22 +57,42 @@ export default function StatusBadge() {
     status.type === "push-needs-pwa" ||
     status.type === "filesystem-permission";
 
+  const isNegativeStatus =
+    status.type === "push-notifications" ||
+    status.type === "push-permissions" ||
+    status.type === "push-needs-pwa" ||
+    status.type === "filesystem-permission" ||
+    status.type === "offline" ||
+    status.type === "backend" ||
+    status.type === "network";
+
+  const containerColor = isNegativeStatus
+    ? theme.colors.errorContainer
+    : theme.colors.primaryContainer;
+
+  const iconColor = isNegativeStatus
+    ? theme.colors.onErrorContainer
+    : theme.colors.onPrimaryContainer;
+
   return (
-    <Button
-      mode="contained"
-      onPress={handlePress}
-      disabled={!isClickable}
-      style={styles.statusBadge}
-      buttonColor={status.color}
-    >
-      <Icon source={getStatusIcon() as any} size={16} color="#fff" />
-      <Text variant="labelSmall" style={styles.statusText}>
-        {getStatusLabel()}
-      </Text>
+    <View style={styles.statusBadgeContainer}>
+      <IconButton
+        icon={getStatusIcon()}
+        size={20}
+        iconColor={iconColor}
+        containerColor={containerColor}
+        onPress={handlePress}
+        disabled={!isClickable}
+        style={styles.statusBadge}
+      />
 
       {status.type === "update" && (isCheckingUpdate || isUpdating) && (
         <View style={styles.loadingIndicator}>
-          <Icon source="dots-horizontal" size={12} color="#fff" />
+          <Icon
+            source="dots-horizontal"
+            size={12}
+            color={iconColor}
+          />
         </View>
       )}
 
@@ -105,25 +101,22 @@ export default function StatusBadge() {
           <Icon
             source={isRegistering ? "clock" : "alert"}
             size={12}
-            color="#fff"
+            color={iconColor}
           />
         </View>
       )}
-    </Button>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  statusBadge: {
-    marginRight: 8,
-    minHeight: 28,
+  statusBadgeContainer: {
     flexDirection: "row",
     alignItems: "center",
+    marginRight: 8,
   },
-  statusText: {
-    color: "#fff",
-    fontWeight: "600",
-    marginLeft: 6,
+  statusBadge: {
+    margin: 0,
   },
   loadingIndicator: {
     marginLeft: 4,

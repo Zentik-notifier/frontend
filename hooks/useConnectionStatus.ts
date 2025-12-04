@@ -130,7 +130,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
     } else if (isBackendUnreachable) {
       newStatus = {
         type: 'backend',
-        icon: 'server',
+        icon: 'cloud-off',
         action: null,
         color: '#FF9500'
       };
@@ -144,7 +144,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
     } else if (isOfflineAuth) {
       newStatus = {
         type: 'offline',
-        icon: 'cloud-off',
+        icon: 'account-off',
         action: null,
         color: '#FF3B30'
       };
