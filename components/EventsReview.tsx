@@ -10,11 +10,14 @@ import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
+  ScrollView,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
   View,
 } from "react-native";
-import { Card, FAB, Icon, Portal, Text, useTheme } from "react-native-paper";
+import { FAB, Icon, Portal, Text, useTheme } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
 import EventsReviewFiltersModal from "./EventsReviewFiltersModal";
 import { uniqBy } from "lodash";
@@ -58,6 +61,9 @@ export default function EventsReview() {
   } = useEventsReviewContext();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+  const [showEventDialog, setShowEventDialog] = useState(false);
   const pageSize = 20;
 
   const disabledActions = isOfflineAuth || isBackendUnreachable;
@@ -103,34 +109,39 @@ export default function EventsReview() {
     }
   }, [refetch]);
 
-  const handleLoadMore = useCallback(() => {
-    if (!hasNextPage || isLoading) return;
+  const handleLoadMore = useCallback(async () => {
+    if (!hasNextPage || isLoadingMore) return;
 
     const nextPage = currentPage + 1;
 
-    fetchMore({
-      variables: {
-        query: {
-          ...queryVariables.query,
-          page: nextPage,
-        },
-      },
-      updateQuery: (prev, { fetchMoreResult }) => {
-        if (!fetchMoreResult?.events) return prev;
-        const allEvents = uniqBy(
-          [...prev.events.events, ...fetchMoreResult.events.events],
-          "id"
-        );
-        return {
-          ...prev,
-          events: {
-            ...fetchMoreResult.events,
-            events: allEvents,
+    try {
+      setIsLoadingMore(true);
+      await fetchMore({
+        variables: {
+          query: {
+            ...queryVariables.query,
+            page: nextPage,
           },
-        } as any;
-      },
-    });
-  }, [hasNextPage, isLoading, currentPage, queryVariables.query, fetchMore]);
+        },
+        updateQuery: (prev, { fetchMoreResult }) => {
+          if (!fetchMoreResult?.events) return prev;
+          const allEvents = uniqBy(
+            [...prev.events.events, ...fetchMoreResult.events.events],
+            "id"
+          );
+          return {
+            ...prev,
+            events: {
+              ...fetchMoreResult.events,
+              events: allEvents,
+            },
+          } as any;
+        },
+      });
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [hasNextPage, isLoadingMore, currentPage, queryVariables.query, fetchMore]);
 
   const { data: usersData } = useGetAllUsersQuery({});
 
@@ -209,61 +220,47 @@ export default function EventsReview() {
     }
   }, []);
 
+  const handleShowEvent = useCallback((event: any) => {
+    setSelectedEvent(event);
+    setShowEventDialog(true);
+  }, []);
+
+  const handleCloseEventDialog = useCallback(() => {
+    setShowEventDialog(false);
+    setSelectedEvent(null);
+  }, []);
+
   const renderItem = ({ item }: any) => {
     const userDisplay = item.userId
       ? userIdToName[item.userId] || item.userId
       : "-";
+
     return (
-      <Card style={styles.eventItem}>
-        <Card.Content>
-          <View style={styles.eventHeader}>
-            <Text variant="titleMedium" style={styles.eventType}>
+      <TouchableOpacity
+        style={[
+          styles.logRow,
+          { borderBottomColor: theme.colors.surfaceVariant },
+        ]}
+        activeOpacity={0.7}
+        onPress={() => handleShowEvent(item)}
+      >
+        <View style={styles.logRowHeader}>
+          <Text
+            style={[styles.logMainLine, { color: theme.colors.onSurface }]}
+            numberOfLines={1}
+          >
+            <Text style={[styles.logEventType, { color: theme.colors.primary }]}>
               {item.type}
             </Text>
-            <Text variant="bodySmall" style={styles.eventDate}>
-              {new Date(item.createdAt).toLocaleString()}
-            </Text>
-          </View>
-          <View style={styles.eventMeta}>
-            <View style={styles.metaRow}>
-              <Text variant="bodySmall" style={styles.metaLabel}>
-                user:
-              </Text>
-              <Text variant="bodySmall" style={styles.metaValue}>
-                {userDisplay}
-              </Text>
-            </View>
-            {item.objectId && (
-              <View style={styles.metaRow}>
-                <Text variant="bodySmall" style={styles.metaLabel}>
-                  {getObjectIdLabel(item.type)}
-                </Text>
-                <Text variant="bodySmall" style={styles.metaValue}>
-                  {formatObjectId(item.objectId, item.type)}
-                </Text>
-              </View>
+            {userDisplay !== "-" && (
+              <Text>{` - ${userDisplay}`}</Text>
             )}
-            {item.targetId && (
-              <View style={styles.metaRow}>
-                <Text variant="bodySmall" style={styles.metaLabel}>
-                  {getTargetIdLabel(item.type)}
-                </Text>
-                <Text variant="bodySmall" style={styles.metaValue}>
-                  {formatTargetId(item.targetId, item.type)}
-                </Text>
-              </View>
-            )}
-            <View style={styles.metaRow}>
-              <Text variant="bodySmall" style={styles.metaLabel}>
-                id:
-              </Text>
-              <Text variant="bodySmall" style={styles.metaValue}>
-                {item.id}
-              </Text>
-            </View>
-          </View>
-        </Card.Content>
-      </Card>
+          </Text>
+          <Text style={[styles.logDate, { color: theme.colors.onSurfaceVariant }]}>
+            {new Date(item.createdAt).toLocaleString()}
+          </Text>
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -324,39 +321,107 @@ export default function EventsReview() {
           refreshing={isRefreshing}
           contentContainerStyle={styles.listContent}
           onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.1}
-          ListFooterComponent={() =>
-            hasNextPage ? (
-              <View style={styles.loadMoreContainer}>
-                {isLoading ? (
-                  <ActivityIndicator color={theme.colors.primary} />
-                ) : (
-                  <TouchableOpacity
-                    style={[
-                      styles.loadMoreButton,
-                      {
-                        backgroundColor: theme.colors.surface,
-                      },
-                    ]}
-                    onPress={handleLoadMore}
-                    disabled={disabledActions}
-                  >
-                    <Text variant="bodyMedium" style={styles.loadMoreText}>
-                      {t("common.loadMore")}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ) : events.length > 0 ? (
-              <View style={styles.endOfListContainer}>
-                <Text variant="bodySmall" style={styles.endOfListText}>
-                  {t("common.endOfResults")}
-                </Text>
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            hasNextPage && isLoadingMore ? (
+              <View style={styles.footerLoading}>
+                <ActivityIndicator size="small" color={theme.colors.primary} />
               </View>
             ) : null
           }
         />
       )}
+
+      <Modal
+        visible={showEventDialog}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseEventDialog}
+      >
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.dialogContainer,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
+            <View style={styles.dialogHeader}>
+              <Text style={[styles.dialogTitle, { color: theme.colors.onSurface }]}>
+                Event details
+              </Text>
+              <TouchableOpacity onPress={handleCloseEventDialog}>
+                <Icon source="close" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.dialogContent}>
+              {selectedEvent && (
+                <>
+                  <View style={styles.dialogMetaRow}>
+                    <Text style={styles.dialogMetaLabel}>Type:</Text>
+                    <Text style={styles.dialogMetaValue}>{selectedEvent.type}</Text>
+                  </View>
+
+                  <View style={styles.dialogMetaRow}>
+                    <Text style={styles.dialogMetaLabel}>Created at:</Text>
+                    <Text style={styles.dialogMetaValue}>
+                      {new Date(selectedEvent.createdAt).toLocaleString()}
+                    </Text>
+                  </View>
+
+                  {selectedEvent.userId && (
+                    <View style={styles.dialogMetaRow}>
+                      <Text style={styles.dialogMetaLabel}>User:</Text>
+                      <Text style={styles.dialogMetaValue}>
+                        {userIdToName[selectedEvent.userId] || selectedEvent.userId}
+                      </Text>
+                    </View>
+                  )}
+
+                  {selectedEvent.objectId && (
+                    <View style={styles.dialogMetaRow}>
+                      <Text style={styles.dialogMetaLabel}>
+                        {getObjectIdLabel(selectedEvent.type)}
+                      </Text>
+                      <Text style={styles.dialogMetaValue}>
+                        {formatObjectId(selectedEvent.objectId, selectedEvent.type)}
+                      </Text>
+                    </View>
+                  )}
+
+                  {selectedEvent.targetId && (
+                    <View style={styles.dialogMetaRow}>
+                      <Text style={styles.dialogMetaLabel}>
+                        {getTargetIdLabel(selectedEvent.type)}
+                      </Text>
+                      <Text style={styles.dialogMetaValue}>
+                        {formatTargetId(selectedEvent.targetId, selectedEvent.type)}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.dialogMetaRow}>
+                    <Text style={styles.dialogMetaLabel}>Event id:</Text>
+                    <TextInput
+                      value={selectedEvent.id}
+                      editable={false}
+                      multiline
+                      style={[
+                        styles.fieldInput,
+                        {
+                          backgroundColor: theme.colors.surfaceVariant,
+                          borderColor: theme.colors.outline,
+                          color: theme.colors.onSurface,
+                        },
+                      ]}
+                    />
+                  </View>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* FAB for filters */}
       <Portal>
@@ -457,67 +522,97 @@ const styles = StyleSheet.create({
   listContent: {
     paddingVertical: 8,
   },
-  eventItem: {
-    marginBottom: 12,
+  logRow: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
   },
-  eventHeader: {
+  logRowHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  typePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  typePillText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  logDate: {
+    fontSize: 11,
+    opacity: 0.7,
+  },
+  logRowBody: {
+    gap: 2,
+  },
+  logEventType: {
+    fontWeight: "600",
+  },
+  logLine: {
+    fontSize: 12,
+  },
+  logLineId: {
+    fontSize: 11,
+  },
+  footerLoading: {
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  dialogContainer: {
+    width: "100%",
+    maxWidth: 600,
+    maxHeight: "80%",
+    borderRadius: 16,
+  },
+  dialogHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  eventType: {
-    fontWeight: "700",
-    fontSize: 16,
-  },
-  eventDate: {
-    opacity: 0.7,
-    fontSize: 14,
-  },
-  eventMeta: {
-    gap: 6,
-  },
-  metaRow: {
-    flexDirection: "row",
-    gap: 8,
     alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.1)",
   },
-  metaLabel: {
+  dialogTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  dialogContent: {
+    padding: 16,
+  },
+  dialogMetaRow: {
+    marginBottom: 12,
+  },
+  dialogMetaLabel: {
+    fontSize: 13,
     fontWeight: "600",
-    opacity: 0.8,
-    fontSize: 14,
-    minWidth: 70,
+    marginBottom: 4,
+    opacity: 0.7,
   },
-  metaValue: {
+  dialogMetaValue: {
+    fontSize: 13,
     opacity: 0.9,
-    fontSize: 14,
-    flex: 1,
   },
-  loadMoreContainer: {
-    paddingVertical: 20,
-    alignItems: "center",
-  },
-  loadMoreButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+  fieldInput: {
     borderRadius: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-  },
-  loadMoreText: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  endOfListContainer: {
-    paddingVertical: 20,
-    alignItems: "center",
-  },
-  endOfListText: {
-    fontSize: 14,
-    opacity: 0.6,
-    textAlign: "center",
+    borderWidth: 1,
+    minHeight: 40,
+    maxHeight: 120,
+    fontSize: 12,
+    lineHeight: 18,
+    padding: 10,
+    textAlignVertical: "top",
   },
   fab: {
     position: "absolute",
