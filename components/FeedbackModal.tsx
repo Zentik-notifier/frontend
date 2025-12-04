@@ -3,7 +3,7 @@ import { Alert, StyleSheet, TextInput, View } from "react-native";
 import { Checkbox, HelperText, Text, useTheme } from "react-native-paper";
 import { useI18n } from "@/hooks/useI18n";
 import DetailModal from "./ui/DetailModal";
-import { useSendFeedback } from "@/hooks/useSendFeedback";
+import { useAppLog } from "@/hooks/useAppLog";
 import { useGetMeQuery } from "@/generated/gql-operations-generated";
 
 interface FeedbackModalProps {
@@ -17,21 +17,24 @@ export default function FeedbackModal({
 }: FeedbackModalProps) {
   const theme = useTheme();
   const { t } = useI18n();
-  const { sendFeedback, loading } = useSendFeedback();
+  const { sendFeedback, loading } = useAppLog();
   const { data: meData } = useGetMeQuery({
     fetchPolicy: "cache-first",
   });
   const userEmail = meData?.me?.email ?? null;
+  const hasUser = !!meData?.me;
 
   const [text, setText] = useState("");
   const [isAnonymous, setIsAnonymous] = useState<boolean>(true);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [manualEmail, setManualEmail] = useState("");
 
   const handleClose = () => {
     if (loading) return;
     setText("");
     setValidationError(null);
     setIsAnonymous(true);
+    setManualEmail("");
     onDismiss();
   };
 
@@ -42,8 +45,20 @@ export default function FeedbackModal({
       return;
     }
 
+    let emailForPayload: string | undefined;
+    if (!isAnonymous && !hasUser) {
+      const emailTrimmed = manualEmail.trim();
+      if (!emailTrimmed) {
+        setValidationError(
+          t("feedbackModal.validation.requiredEmail") as string
+        );
+        return;
+      }
+      emailForPayload = emailTrimmed;
+    }
+
     try {
-      await sendFeedback(trimmed, isAnonymous);
+      await sendFeedback(trimmed, isAnonymous, emailForPayload);
 
       Alert.alert(
         t("feedbackModal.successTitle") as string,
@@ -103,7 +118,7 @@ export default function FeedbackModal({
           </Text>
         </View>
 
-        {!isAnonymous && userEmail && (
+        {!isAnonymous && hasUser && userEmail && (
           <View style={styles.userInfo}>
             <Text
               variant="bodySmall"
@@ -120,6 +135,38 @@ export default function FeedbackModal({
                   backgroundColor: theme.colors.surfaceVariant,
                   color: theme.colors.onSurface,
                   borderColor: theme.colors.outline,
+                },
+              ]}
+            />
+          </View>
+        )}
+
+        {!isAnonymous && !hasUser && (
+          <View style={styles.userInfo}>
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onSurfaceVariant, marginBottom: 4 }}
+            >
+              {t("feedbackModal.emailLabel") as string}
+            </Text>
+            <TextInput
+              value={manualEmail}
+              onChangeText={(value) => {
+                setManualEmail(value);
+                if (validationError) setValidationError(null);
+              }}
+              placeholder={t("feedbackModal.emailPlaceholder") as string}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={[
+                styles.emailInput,
+                {
+                  backgroundColor: theme.colors.surfaceVariant,
+                  color: theme.colors.onSurface,
+                  borderColor: validationError
+                    ? theme.colors.error
+                    : theme.colors.outline,
                 },
               ]}
             />

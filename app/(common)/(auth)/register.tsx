@@ -1,6 +1,7 @@
 import { useAppContext } from "@/contexts/AppContext";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
+import { FeedbackButton } from "@/components/ui";
 import { Stack } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -267,6 +268,8 @@ export default function RegisterScreen() {
               {t("register.login")}
             </Button>
           </View>
+
+          <FeedbackButton variant="text" />
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

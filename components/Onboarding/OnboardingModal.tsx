@@ -3,6 +3,7 @@ import { Platform, StyleSheet, View } from "react-native";
 import { Button, Modal, Portal, Text, useTheme } from "react-native-paper";
 import { OnboardingProvider, useOnboarding } from "./OnboardingContext";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
+import { useAppLog } from "@/hooks/useAppLog";
 import { useSettings } from "@/hooks/useSettings";
 import Step1 from "./Step1";
 import Step2 from "./Step2";
@@ -76,6 +77,7 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
   } = useOnboarding();
   const { completeOnboarding, skipOnboarding } = useSettings();
   const [isApplying, setIsApplying] = React.useState(false);
+  const { logAppEvent } = useAppLog();
 
   const handleNext = useCallback(async () => {
     if (currentStep === 4) {
@@ -103,6 +105,14 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
         onClose();
       } catch (error) {
         console.error("[Onboarding] Error applying settings:", error);
+        logAppEvent({
+          event: "onboarding_complete_error",
+          level: "error",
+          message: "Error while completing onboarding",
+          context: "OnboardingModal.NavigationButtons.handleNext",
+          error,
+          data: { currentStep },
+        }).catch(() => {});
         // Still close and mark as completed even if there's an error
         await completeOnboarding();
         resetOnboarding(); // Reset to step 1 for next time
@@ -187,12 +197,21 @@ const OnboardingModalV2Content: React.FC<OnboardingModalProps> = memo(
   ({ onClose, push }) => {
     const theme = useTheme();
     const { skipOnboarding } = useSettings();
+    const { currentStep } = useOnboarding();
+    const { logAppEvent } = useAppLog();
 
     const handleSkip = useCallback(async () => {
       console.log("[Onboarding] Skipped by user");
+      logAppEvent({
+        event: "onboarding_skipped",
+        level: "info",
+        message: "User skipped onboarding",
+        context: "OnboardingModal.OnboardingModalV2Content.handleSkip",
+        data: { currentStep },
+      }).catch(() => {});
       await skipOnboarding();
       onClose();
-    }, [onClose, skipOnboarding]);
+    }, [onClose, skipOnboarding, logAppEvent, currentStep]);
 
     return (
       <Modal visible onDismiss={handleSkip}>

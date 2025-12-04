@@ -8,6 +8,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
 import { Platform, View, StyleSheet } from "react-native";
 import { Text, Button, useTheme, ActivityIndicator } from "react-native-paper";
+import { useAppLog } from "@/hooks/useAppLog";
 
 export default function OAuthCallbackPage() {
   const { refreshUserData, completeAuth, setUserId } = useAppContext();
@@ -22,6 +23,7 @@ export default function OAuthCallbackPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [flow, setFlow] = useState<string | null>(null);
   const theme = useTheme();
+  const { logAppEvent } = useAppLog();
 
   useEffect(() => {
     const handleOAuthCallback = async () => {
@@ -86,7 +88,16 @@ export default function OAuthCallbackPage() {
               await WebBrowser.dismissBrowser();
               await WebBrowser.maybeCompleteAuthSession();
             }
-          } catch {}
+          } catch (e) {
+            logAppEvent({
+              event: "auth_oauth_flow_error",
+              level: "error",
+              message: message,
+              context: "OAuthCallbackPage.handleOAuthCallback(errorParam)",
+              error: e,
+              data: { provider, errorParam, errorDescription: errorDescriptionParam, flow: flowParam },
+            }).catch(() => {});
+          }
           // If the error originates from a login flow, redirect immediately to login
           if (flowParam === "login") {
             navigateToLogin();
@@ -133,6 +144,17 @@ export default function OAuthCallbackPage() {
           hasCode: !!codeParam,
         });
         if (!connected && !hasTokens) {
+          await logAppEvent({
+            event: "auth_oauth_missing_tokens",
+            level: "error",
+            message: "OAuth callback without tokens or code",
+            context: "OAuthCallbackPage.handleOAuthCallback(gate-check)",
+            data: {
+              connected,
+              provider,
+              hasCode: !!codeParam,
+            },
+          }).catch(() => {});
           return;
         }
         console.log("🔗 OAuth callback page loaded with params:", searchParams);
@@ -151,6 +173,13 @@ export default function OAuthCallbackPage() {
             console.log("🔗 Browser forcefully dismissed");
           } catch (e) {
             console.log("🔗 Browser dismiss error (continuing anyway):", e);
+            logAppEvent({
+              event: "auth_oauth_browser_dismiss_error",
+              level: "warn",
+              message: (e as any)?.message,
+              context: "OAuthCallbackPage.handleOAuthCallback(dismissBrowser)",
+              error: e,
+            }).catch(() => {});
           }
         }
 
@@ -233,10 +262,28 @@ export default function OAuthCallbackPage() {
           navigateToHome();
         } else {
           console.error("🔗 Missing tokens in OAuth callback");
+          await logAppEvent({
+            event: "auth_oauth_missing_tokens_after_exchange",
+            level: "error",
+            message: "Missing tokens in OAuth callback after exchange",
+            context: "OAuthCallbackPage.handleOAuthCallback(final)",
+            data: {
+              connected,
+              provider,
+              hasCode: !!codeParam,
+            },
+          }).catch(() => {});
           router.back();
         }
       } catch (e) {
         console.error("🔗 Error handling OAuth callback:", e);
+        logAppEvent({
+          event: "auth_oauth_callback_error",
+          level: "error",
+          message: (e as any)?.message,
+          context: "OAuthCallbackPage.handleOAuthCallback(catch)",
+          error: e,
+        }).catch(() => {});
         router.back();
       }
     };

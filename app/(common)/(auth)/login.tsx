@@ -1,6 +1,8 @@
 import LoginForm from "@/components/LoginForm";
+import { useAppContext } from "@/contexts/AppContext";
 import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { FeedbackButton } from "@/components/ui";
 import { useNavigationUtils } from "@/utils/navigation";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
@@ -21,7 +23,12 @@ export default function LoginScreen() {
   const router = useRouter();
   const { data } = usePublicAppConfigQuery({ fetchPolicy: 'cache-first' });
   const { emailEnabled, localRegistrationEnabled } = data?.publicAppConfig || ({} as any);
-  const { email, error, errorTitle } = useLocalSearchParams<{ email?: string, error?: string, errorTitle?: string }>();
+  const { email, error, errorTitle } =
+    useLocalSearchParams<{
+      email?: string;
+      error?: string;
+      errorTitle?: string;
+    }>();
   const { navigateToRegister, navigateToHome, navigateToForgotPassword } =
     useNavigationUtils();
 
@@ -143,6 +150,8 @@ export default function LoginScreen() {
               </Button>
             </View>
           )}
+
+          <FeedbackButton variant="text" />
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

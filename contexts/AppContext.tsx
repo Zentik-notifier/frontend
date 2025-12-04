@@ -1,4 +1,5 @@
 import OnboardingModal from "@/components/Onboarding/OnboardingModal";
+import FeedbackModal from "@/components/FeedbackModal";
 import {
   DeviceInfoDto,
   LoginDto,
@@ -12,6 +13,7 @@ import { useMarkAllAsRead } from "@/hooks/notifications/useNotificationMutations
 import { useCleanup } from "@/hooks/useCleanup";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { Locale, localeToDatePickerLocale, useI18n } from "@/hooks/useI18n";
+import { useAppLog } from "@/hooks/useAppLog";
 import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
 import {
   UsePushNotifications,
@@ -73,6 +75,9 @@ interface AppContextProps {
   showOnboarding: () => void;
   isOnboardingOpen: boolean;
   hideOnboarding: () => void;
+  openFeedbackModal: () => void;
+  closeFeedbackModal: () => void;
+  isFeedbackModalOpen: boolean;
   userSettings: ReturnType<typeof useSettings>;
   connectionStatus: ReturnType<typeof useConnectionStatus>;
   deviceToken: string | null;
@@ -88,6 +93,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [lastUserId, setLastUserId] = useState<string | null>(null);
   const push = usePushNotifications();
   const { t } = useI18n();
+  const { logAppEvent } = useAppLog();
   const { navigateToBucketDetail } = useNavigationUtils();
   const [fetchMe] = useGetMeLazyQuery();
   const [logoutMutation] = useLogoutMutation();
@@ -97,6 +103,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const userSettings = useSettings();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const { mutateAsync: markAllAsRead } = useMarkAllAsRead();
   const { cleanup } = useCleanup();
   const { processPendingNavigationIntent } = usePendingNotificationIntents();
@@ -216,7 +223,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.error("Error during login:", e);
 
-      // Show appropriate error message based on error type
       let errorMessage = t("login.errors.unexpectedError");
 
       if (e instanceof Error) {
@@ -231,6 +237,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
           errorMessage = e.message;
         }
       }
+
+      // Send app log for failed login
+      logAppEvent({
+        event: "auth_login_failed",
+        level: "error",
+        message: errorMessage,
+        context: "AppContext.login",
+        error: e,
+        data: {
+          inputType: isEmail ? "email" : "username",
+        },
+      }).catch(() => {});
 
       throw e;
     }
@@ -317,6 +335,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const registerRes = response.data?.register;
       if (!registerRes) {
+        await logAppEvent({
+          event: "auth_register_failed",
+          level: "error",
+          message: "Missing register response",
+          context: "AppContext.register",
+          data: { email: inputNormalized },
+        }).catch(() => {});
         return "error";
       }
 
@@ -331,10 +356,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (ok) {
           return "ok";
         } else {
+          await logAppEvent({
+            event: "auth_register_completeAuth_failed",
+            level: "error",
+            message: "completeAuth returned false after register",
+            context: "AppContext.register",
+            data: { email: inputNormalized },
+          }).catch(() => {});
           return "error";
         }
       }
-    } catch {
+    } catch (e) {
+      // Network / GraphQL or unexpected errors during registration
+      await logAppEvent({
+        event: "auth_register_error",
+        level: "error",
+        message: (e as any)?.message,
+        context: "AppContext.register",
+        error: e,
+        data: { email: inputNormalized },
+      }).catch(() => {});
       return "error";
     }
   };
@@ -505,6 +546,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         showOnboarding: () => setIsOnboardingOpen(true),
         isOnboardingOpen,
         hideOnboarding: () => setIsOnboardingOpen(false),
+        openFeedbackModal: () => setIsFeedbackModalOpen(true),
+        closeFeedbackModal: () => setIsFeedbackModalOpen(false),
+        isFeedbackModalOpen,
         userSettings,
         connectionStatus,
         deviceToken: push.deviceToken,
@@ -520,6 +564,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           push={push}
         />
       )}
+      <FeedbackModal
+        visible={isFeedbackModalOpen}
+        onDismiss={() => setIsFeedbackModalOpen(false)}
+      />
     </AppContext.Provider>
   );
 }

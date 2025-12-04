@@ -17,6 +17,7 @@ import { ThemePreset } from "@/services/theme-presets";
 import { Locale, useI18n } from "@/hooks/useI18n";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
 import { detectRetentionPreset } from "./utils";
+import { useAppLog } from "@/hooks/useAppLog";
 import { useGetBucketLazyQuery } from "@/generated/gql-operations-generated";
 import { useCreateBucket } from "@/hooks/notifications";
 import { useQuery } from "@tanstack/react-query";
@@ -126,6 +127,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
   push,
 }) => {
   const { t } = useI18n();
+  const { logAppEvent } = useAppLog();
 
   // Navigation
   const [currentStep, setCurrentStep] = useState<Step>(1);
@@ -270,10 +272,18 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
         success: false,
         message: "Connection failed",
       });
+      logAppEvent({
+        event: "onboarding_test_server_connection_error",
+        level: "error",
+        message: "Failed to test server connection",
+        context: "OnboardingContext.testServerConnection",
+        error,
+        data: { url: customServerUrl },
+      }).catch(() => {});
     } finally {
       setTestingServer(false);
     }
-  }, [customServerUrl]);
+  }, [customServerUrl, logAppEvent]);
 
   const sendTestNotification = useCallback(
     async (
@@ -281,9 +291,16 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
       body: string
     ): Promise<{ success: boolean; message: string }> => {
       if (!step4MagicCode) {
+        const msg = "Missing magic code";
+        logAppEvent({
+          event: "onboarding_send_test_notification_missing_magic_code",
+          level: "warn",
+          message: msg,
+          context: "OnboardingContext.sendTestNotification",
+        }).catch(() => {});
         return {
           success: false,
-          message: "Missing magic code",
+          message: msg,
         };
       }
 
@@ -335,6 +352,16 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
             response.status,
             errorText
           );
+          logAppEvent({
+            event: "onboarding_send_test_notification_failed",
+            level: "error",
+            message: "Failed to send test notification",
+            context: "OnboardingContext.sendTestNotification",
+            data: {
+              status: response.status,
+              errorText,
+            },
+          }).catch(() => {});
           return {
             success: false,
             message: "Failed to send test notification",
@@ -342,13 +369,20 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
         }
       } catch (error) {
         console.error("[Onboarding] Failed to send test notification:", error);
+        logAppEvent({
+          event: "onboarding_send_test_notification_error",
+          level: "error",
+          message: "Exception while sending test notification",
+          context: "OnboardingContext.sendTestNotification",
+          error,
+        }).catch(() => {});
         return {
           success: false,
           message: "Failed to send test notification",
         };
       }
     },
-    [step4MagicCode]
+    [step4MagicCode, logAppEvent]
   );
 
   const bucketId = useMemo(() => {
@@ -412,6 +446,13 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
       console.log("[Onboarding] All settings applied successfully");
     } catch (error) {
       console.error("[Onboarding] Error applying settings:", error);
+      logAppEvent({
+        event: "onboarding_apply_settings_error",
+        level: "error",
+        message: "Error applying onboarding settings",
+        context: "OnboardingContext.applySettings",
+        error,
+      }).catch(() => {});
       throw error;
     }
   }, [
@@ -471,6 +512,16 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
           }
         } catch (error) {
           console.error("[Onboarding] Error creating bucket:", error);
+          logAppEvent({
+            event: "onboarding_create_bucket_error",
+            level: "error",
+            message: "Error creating onboarding bucket",
+            context: "OnboardingContext.createStep4Resources",
+            error,
+            data: {
+              step4BucketName,
+            },
+          }).catch(() => {});
           throw error; // Re-throw to prevent onboarding completion
         }
       } else if (step4BucketSelectionMode === "existing" && step4SelectedBucketId) {
@@ -496,6 +547,18 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
       console.log("[Onboarding] Step 4 resources created successfully");
     } catch (error) {
       console.error("[Onboarding] Error creating Step 4 resources:", error);
+      logAppEvent({
+        event: "onboarding_create_step4_resources_error",
+        level: "error",
+        message: "Error creating Step 4 resources",
+        context: "OnboardingContext.createStep4Resources",
+        error,
+        data: {
+          step4BucketSelectionMode,
+          step4BucketName,
+          step4SelectedBucketId,
+        },
+      }).catch(() => {});
       throw error;
     }
   }, [
@@ -509,6 +572,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     setStep4BucketGenerated,
     setStep4MagicCode,
     setMagicCode,
+    logAppEvent,
   ]);
 
   const resetOnboarding = useCallback(() => {

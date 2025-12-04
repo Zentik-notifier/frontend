@@ -23,6 +23,7 @@ import { LoginModal } from "./LoginModal";
 import StatusBadge from "./StatusBadge";
 import UserDropdown from "./UserDropdown";
 import { HelpModal } from "./Help";
+import { FeedbackButton } from "./ui";
 
 const ROUTES_WITH_HOME_BUTTON: string[] = [
   "/(phone)/(settings)",
@@ -183,7 +184,7 @@ export default function Header() {
   const isSelfService = segments[0] === "self-service";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isHelpModalVisible, setIsHelpModalVisible] = useState(false);
-  
+
   const hideHints = settings.hideHints ?? false;
 
   // Pulsating animations for icons only (not the entire badge)
@@ -247,9 +248,8 @@ export default function Header() {
   const shouldShowBackButton = ROUTES_WITH_BACK_BUTTON.some((route) =>
     currentRoute.startsWith(route)
   );
-  const shouldShowStatusBadges = HOME_ROUTES.some((route) =>
-    currentRoute.startsWith(route)
-  );
+  const isHome = HOME_ROUTES.some((route) => currentRoute.startsWith(route));
+  const showFeedbackButton = isPublic || isSelfService || isHome;
 
   const currentTitle = ROUTE_TITLES[currentRoute];
 
@@ -291,8 +291,10 @@ export default function Header() {
           }}
         >
           <View style={styles.leftSection}>
+            {/* Feedback Button - always visible */}
+            {showFeedbackButton && <FeedbackButton variant="header" />}
             {/* Help Button - Only on home routes and if hints are not hidden */}
-            {shouldShowStatusBadges && !hideHints && (
+            {isHome && !hideHints && (
               <Surface
                 style={[
                   styles.buttonWrapper,
@@ -385,7 +387,7 @@ export default function Header() {
             )}
 
             {/* Mark All as Read Button */}
-            {shouldShowStatusBadges && hasUnreadNotifications && (
+            {isHome && hasUnreadNotifications && (
               <View style={styles.markAllButtonContainer}>
                 <TouchableRipple
                   onPress={handleMarkAllAsRead}
@@ -446,7 +448,7 @@ export default function Header() {
             )}
 
             {/* Download Queue Progress Icon */}
-            {shouldShowStatusBadges && itemsInQueue > 0 && (
+            {isHome && itemsInQueue > 0 && (
               <View style={styles.downloadQueueContainer}>
                 <TouchableRipple
                   disabled
@@ -497,7 +499,7 @@ export default function Header() {
             )}
 
             {/* Status Badge */}
-            {shouldShowStatusBadges && <StatusBadge />}
+            {isHome && <StatusBadge />}
           </View>
 
           {/* SEZIONE CENTRO: Titolo sempre centrato */}
@@ -664,6 +666,11 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: "center",
   },
+  authButtonsContainer: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+  },
   unauthButtonWrapper: {
     borderRadius: 22,
   },
@@ -721,6 +728,20 @@ const styles = StyleSheet.create({
   buttonWrapper: {
     borderRadius: 20,
     marginRight: 8,
+  },
+  feedbackButtonWrapper: {
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  feedbackButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  feedbackButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   backButton: {
     paddingHorizontal: 12,

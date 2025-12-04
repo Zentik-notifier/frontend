@@ -5,6 +5,7 @@ import {
   usePublicAppConfigQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { useAppLog } from "@/hooks/useAppLog";
 import { settingsService } from "@/services/settings-service";
 import { useNavigationUtils } from "@/utils/navigation";
 import { createOAuthRedirectLink } from "@/utils/universal-links";
@@ -34,6 +35,7 @@ export default function LoginForm({
     password?: string;
   }>({});
   const { login } = useAppContext();
+  const { logAppEvent } = useAppLog();
   const { navigateToEmailConfirmation } = useNavigationUtils();
   const { data: appConfigData } = usePublicAppConfigQuery({
     fetchPolicy: "cache-first",
@@ -74,6 +76,16 @@ export default function LoginForm({
       }
 
       const errorMessage = error?.message || t("login.errors.connectionError");
+      logAppEvent({
+        event: "auth_login_failed",
+        level: "error",
+        message: errorMessage,
+        context: "LoginForm.handleLogin",
+        error,
+        data: {
+          emailOrUsername,
+        },
+      }).catch(() => {});
       Alert.alert(t("login.errors.loginFailed"), errorMessage);
     } finally {
       setIsLoading(false);

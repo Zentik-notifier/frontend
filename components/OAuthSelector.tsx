@@ -7,6 +7,7 @@ import {
   usePublicAppConfigQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { useAppLog } from "@/hooks/useAppLog";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Device from "expo-device";
 import React, { useEffect, useState } from "react";
@@ -35,6 +36,7 @@ export function OAuthSelector({ onProviderSelect, disabled, onSuccess }: Props) 
   const { completeAuth } = useAppContext();
   const [appleLoginMobile] = useAppleLoginMobileMutation();
   const [providers, setProviders] = useState<OAuthProviderPublicFragment[]>([]);
+  const { logAppEvent } = useAppLog();
 
   useEffect(() => {
     const func = async () => {
@@ -122,7 +124,6 @@ export function OAuthSelector({ onProviderSelect, disabled, onSuccess }: Props) 
     } catch (e: any) {
       if (e?.code === "ERR_REQUEST_CANCELED") return;
       try {
-        // Apollo GraphQL error structure
         const graphQLErrors = (e?.graphQLErrors || []).map((err: any) => ({
           message: err?.message,
           locations: err?.locations,
@@ -133,7 +134,23 @@ export function OAuthSelector({ onProviderSelect, disabled, onSuccess }: Props) 
           graphQLErrors,
           networkError: e?.networkError?.message,
         });
-      } catch {}
+        logAppEvent({
+          event: "auth_oauth_apple_login_failed",
+          level: "error",
+          message: e?.message,
+          context: "OAuthSelector.handleAppleSignIn",
+          error: e,
+          data: { graphQLErrors },
+        }).catch(() => {});
+      } catch {
+        logAppEvent({
+          event: "auth_oauth_apple_login_failed",
+          level: "error",
+          message: (e as any)?.message,
+          context: "OAuthSelector.handleAppleSignIn",
+          error: e,
+        }).catch(() => {});
+      }
       console.error("Apple SignIn failed:", e);
     }
   };

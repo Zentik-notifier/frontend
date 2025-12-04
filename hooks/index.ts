@@ -6,6 +6,7 @@ export { useNotificationActions } from './useNotificationActions';
 export { useNotificationFilters } from './useNotificationFilters';
 export { useNotificationUtils } from './useNotificationUtils';
 export { useScreenFocus } from './useScreenFocus';
+export { useAppLog } from './useAppLog';
 
 // Export cleanup utilities
 export { cleanupNotificationsBySettings } from '@/services/notifications-repository';
