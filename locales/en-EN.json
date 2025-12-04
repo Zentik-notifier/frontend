@@ -1839,6 +1839,21 @@
     "allDocuments": "Legal Documents",
     "version": "Version {{version}}"
   },
+  "feedbackModal": {
+    "title": "Send feedback",
+    "description": "Share your feedback about the app or report an issue. The more details you provide, the better we can improve.",
+    "anonymousLabel": "Send anonymously",
+    "sendingAs": "You are sending as",
+    "placeholder": "Write your feedback here (you can also paste JSON or logs)...",
+    "submitLabel": "Send",
+    "successTitle": "Thank you for your feedback",
+    "successMessage": "Your feedback has been sent successfully.",
+    "errorTitle": "Error",
+    "errorMessage": "Something went wrong while sending your feedback. Please try again.",
+    "validation": {
+      "requiredText": "Please enter a feedback message before sending."
+    }
+  },
   "navigation": {
     "title": "Zentik",
     "notifications": "Notifications",

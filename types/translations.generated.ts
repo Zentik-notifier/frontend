@@ -1709,6 +1709,9 @@ export interface Translation {
     deleteUserConfirmMsg: string;
     deleteUserFinalTitle: string;
     deleteUserFinalMsg: string;
+    userIdentities: string;
+    noIdentitiesFound: string;
+    identityMetadata: string;
     systemSettings: string;
     systemTokensTitle: string;
     systemTokensDescription: string;
@@ -1838,6 +1841,21 @@ export interface Translation {
     acceptanceFooterText: string;
     allDocuments: string;
     version: string;
+  };
+  feedbackModal: {
+    title: string;
+    description: string;
+    anonymousLabel: string;
+    sendingAs: string;
+    placeholder: string;
+    submitLabel: string;
+    successTitle: string;
+    successMessage: string;
+    errorTitle: string;
+    errorMessage: string;
+    validation: {
+      requiredText: string;
+    };
   };
   navigation: {
     title: string;
@@ -2162,6 +2180,7 @@ export interface Translation {
     SYSTEM_TOKEN_REQUEST_CREATED: string;
     SYSTEM_TOKEN_REQUEST_APPROVED: string;
     SYSTEM_TOKEN_REQUEST_DECLINED: string;
+    USER_FEEDBACK: string;
   };
   adminSubscriptions: {
     title: string;

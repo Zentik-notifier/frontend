@@ -1890,6 +1890,21 @@
     "allDocuments": "Documenti Legali",
     "version": "Versione {{version}}"
   },
+  "feedbackModal": {
+    "title": "Invia feedback",
+    "description": "Condividi il tuo feedback sull'app o segnala un problema. I dettagli ci aiutano a migliorare il servizio.",
+    "anonymousLabel": "Invia in modo anonimo",
+    "sendingAs": "Stai inviando come",
+    "placeholder": "Scrivi qui il tuo feedback (puoi incollare anche JSON o log)...",
+    "submitLabel": "Invia",
+    "successTitle": "Grazie per il tuo feedback",
+    "successMessage": "Il tuo feedback è stato inviato con successo.",
+    "errorTitle": "Errore",
+    "errorMessage": "Si è verificato un errore durante l'invio del feedback. Riprova.",
+    "validation": {
+      "requiredText": "Per favore inserisci un messaggio di feedback prima di inviare."
+    }
+  },
   "navigation": {
     "title": "Zentik",
     "notifications": "Notifiche",

@@ -1,0 +1,192 @@
+import React, { useState } from "react";
+import { Alert, StyleSheet, TextInput, View } from "react-native";
+import { Checkbox, HelperText, Text, useTheme } from "react-native-paper";
+import { useI18n } from "@/hooks/useI18n";
+import DetailModal from "./ui/DetailModal";
+import { useSendFeedback } from "@/hooks/useSendFeedback";
+import { useGetMeQuery } from "@/generated/gql-operations-generated";
+
+interface FeedbackModalProps {
+  visible: boolean;
+  onDismiss: () => void;
+}
+
+export default function FeedbackModal({
+  visible,
+  onDismiss,
+}: FeedbackModalProps) {
+  const theme = useTheme();
+  const { t } = useI18n();
+  const { sendFeedback, loading } = useSendFeedback();
+  const { data: meData } = useGetMeQuery({
+    fetchPolicy: "cache-first",
+  });
+  const userEmail = meData?.me?.email ?? null;
+
+  const [text, setText] = useState("");
+  const [isAnonymous, setIsAnonymous] = useState<boolean>(true);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const handleClose = () => {
+    if (loading) return;
+    setText("");
+    setValidationError(null);
+    setIsAnonymous(true);
+    onDismiss();
+  };
+
+  const handleConfirm = async () => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      setValidationError(t("feedbackModal.validation.requiredText") as string);
+      return;
+    }
+
+    try {
+      await sendFeedback(trimmed, isAnonymous);
+
+      Alert.alert(
+        t("feedbackModal.successTitle") as string,
+        t("feedbackModal.successMessage") as string
+      );
+
+      handleClose();
+    } catch (error: any) {
+      console.error("Error sending feedback:", error);
+      Alert.alert(
+        t("feedbackModal.errorTitle") as string,
+        error?.message ||
+          (t("feedbackModal.errorMessage") as string)
+      );
+    }
+  };
+
+  const canSend = !loading && text.trim().length > 0;
+
+  return (
+    <DetailModal
+      visible={visible}
+      onDismiss={handleClose}
+      title={t("feedbackModal.title") as string}
+      icon="comment-quote"
+      actions={{
+        cancel: {
+          label: t("common.cancel") as string,
+          onPress: handleClose,
+        },
+        confirm: {
+          label: t("feedbackModal.submitLabel") as string,
+          onPress: handleConfirm,
+          loading,
+          disabled: !canSend,
+        },
+      }}
+    >
+      <View style={styles.container}>
+        <Text
+          variant="bodyMedium"
+          style={[styles.description, { color: theme.colors.onSurface }]}
+        >
+          {t("feedbackModal.description") as string}
+        </Text>
+
+        <View style={styles.row}>
+          <Checkbox
+            status={isAnonymous ? "checked" : "unchecked"}
+            onPress={() => setIsAnonymous(!isAnonymous)}
+          />
+          <Text
+            variant="bodyMedium"
+            style={{ color: theme.colors.onSurface }}
+          >
+            {t("feedbackModal.anonymousLabel") as string}
+          </Text>
+        </View>
+
+        {!isAnonymous && userEmail && (
+          <View style={styles.userInfo}>
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onSurfaceVariant, marginBottom: 4 }}
+            >
+              {t("feedbackModal.sendingAs") as string}
+            </Text>
+            <TextInput
+              value={userEmail}
+              editable={false}
+              style={[
+                styles.emailInput,
+                {
+                  backgroundColor: theme.colors.surfaceVariant,
+                  color: theme.colors.onSurface,
+                  borderColor: theme.colors.outline,
+                },
+              ]}
+            />
+          </View>
+        )}
+
+        <TextInput
+          value={text}
+          onChangeText={(value) => {
+            setText(value);
+            if (validationError) setValidationError(null);
+          }}
+          placeholder={t("feedbackModal.placeholder") as string}
+          multiline
+          numberOfLines={5}
+          textAlignVertical="top"
+          style={[
+            styles.textArea,
+            {
+              backgroundColor: theme.colors.surfaceVariant,
+              color: theme.colors.onSurface,
+              borderColor: validationError
+                ? theme.colors.error
+                : theme.colors.outline,
+            },
+          ]}
+        />
+        {validationError && (
+          <HelperText type="error" visible={true}>
+            {validationError}
+          </HelperText>
+        )}
+      </View>
+    </DetailModal>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    gap: 16,
+  },
+  description: {
+    marginBottom: 8,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  userInfo: {
+    marginTop: 4,
+  },
+  emailInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    fontSize: 14,
+  },
+  textArea: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    minHeight: 120,
+    maxHeight: 260,
+  },
+});
+
+
