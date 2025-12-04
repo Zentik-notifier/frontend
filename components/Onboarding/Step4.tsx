@@ -2,6 +2,7 @@ import BucketSelector from "@/components/BucketSelector";
 import { useNotificationsState } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
+import { useAppLog } from "@/hooks/useAppLog";
 import React, { memo, useCallback, useEffect } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import {
@@ -23,6 +24,7 @@ interface Step4Props {
 const Step4 = memo(({ push }: Step4Props) => {
   const theme = useTheme();
   const { t } = useI18n();
+  const { logAppEvent } = useAppLog();
   const {
     step4SelectedBucketId: selectedBucketId,
     step4BucketName: bucketName,
@@ -75,6 +77,12 @@ const Step4 = memo(({ push }: Step4Props) => {
       const success = await push.registerDevice();
       if (success) {
         console.log("[Step4] Device registered successfully");
+        logAppEvent({
+          event: "onboarding_device_registered",
+          level: "info",
+          message: "Device registered during onboarding",
+          context: "Onboarding.Step4.handleRegisterDevice",
+        }).catch(() => {});
         // Buckets will be automatically loaded from appState
       }
     } catch (error) {

@@ -341,6 +341,15 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
             "[Onboarding] Test notification sent successfully:",
             data.id
           );
+          logAppEvent({
+            event: "onboarding_test_notification_sent",
+            level: "info",
+            message: "Test notification sent successfully during onboarding",
+            context: "OnboardingContext.sendTestNotification",
+            data: {
+              notificationId: data.id,
+            },
+          }).catch(() => {});
           return {
             success: true,
             message: "Test notification sent successfully!",
@@ -509,6 +518,17 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
               "with magicCode:",
               finalMagicCode
             );
+            logAppEvent({
+              event: "onboarding_bucket_created",
+              level: "info",
+              message: "Bucket created during onboarding",
+              context: "OnboardingContext.createStep4Resources",
+              data: {
+                bucketId: finalBucketId,
+                bucketName: step4BucketName.trim(),
+                hasMagicCode: !!finalMagicCode,
+              },
+            }).catch(() => {});
           }
         } catch (error) {
           console.error("[Onboarding] Error creating bucket:", error);

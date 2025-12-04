@@ -466,6 +466,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!onboardingSettings.hasCompletedOnboarding) {
         console.log("[AppContext] Auto-showing onboarding for first-time user");
         setIsOnboardingOpen(true);
+        logAppEvent({
+          event: "onboarding_opened",
+          level: "info",
+          message: "Onboarding modal opened",
+          context: "AppContext.checkOnboarding",
+        }).catch(() => {});
       }
     };
 
@@ -543,6 +549,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   //   debouncedRefetchBuckets();
   // };
 
+  const showOnboarding = () => {
+    setIsOnboardingOpen(true);
+    logAppEvent({
+      event: "onboarding_opened",
+      level: "info",
+      message: "Onboarding modal opened",
+      context: "AppContext.showOnboarding",
+    }).catch(() => {});
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -556,7 +572,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         openLoginModal: () => setIsLoginModalOpen(true),
         isLoginModalOpen,
         closeLoginModal: () => setIsLoginModalOpen(false),
-        showOnboarding: () => setIsOnboardingOpen(true),
+        showOnboarding,
         isOnboardingOpen,
         hideOnboarding: () => setIsOnboardingOpen(false),
         openFeedbackModal: () => setIsFeedbackModalOpen(true),

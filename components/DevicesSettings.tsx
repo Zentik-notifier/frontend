@@ -2,6 +2,7 @@ import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useAppContext } from "@/contexts/AppContext";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
+import { useAppLog } from "@/hooks/useAppLog";
 import { settingsService } from "@/services/settings-service";
 import React, { useEffect, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
@@ -12,6 +13,7 @@ import SwipeableDeviceItem from "./SwipeableDeviceItem";
 export default function DevicesSettings() {
   const { t } = useI18n();
   const theme = useTheme();
+  const { logAppEvent } = useAppLog();
   const [managingDevice, setManagingDevice] = useState(false);
   const [storedDeviceId, setStoredDeviceId] = useState<string | null>(null);
 
@@ -46,6 +48,16 @@ export default function DevicesSettings() {
       const success = await push.registerDevice();
       if (success) {
         await refetch();
+        logAppEvent({
+          event: "device_registered",
+          level: "info",
+          message: "Device registered from devices settings",
+          context: "DevicesSettings.handleRegisterDevice",
+          data: {
+            deviceToken: deviceToken || null,
+            deviceId: storedDeviceId || null,
+          },
+        }).catch(() => {});
       }
     } catch (error) {
       console.error("Error registering device:", error);
@@ -76,6 +88,17 @@ export default function DevicesSettings() {
 
       try {
         await push.unregisterDevice();
+        logAppEvent({
+          event: "device_unregistered",
+          level: "info",
+          message: "Device unregistered from devices settings",
+          context: "DevicesSettings.handleUnregisterDevice",
+          data: {
+            deviceId: currentDevice.id,
+            deviceToken: currentDevice.deviceToken || null,
+            deviceName: currentDevice.deviceName || null,
+          },
+        }).catch(() => {});
       } catch (error) {}
 
       // Refresh the devices list

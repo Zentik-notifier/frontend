@@ -4,6 +4,7 @@ import {
   FlatList,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -270,11 +271,7 @@ export default function UserLogs() {
   );
 
   return (
-    <PaperScrollView
-      withScroll={false}
-      onRefresh={refreshFromDb}
-      loading={isRefreshing}
-    >
+    <PaperScrollView withScroll={false}>
       <Surface style={[styles.searchContainer]}>
         <Icon source="magnify" size={20} color="#666" />
         <TextInput
@@ -302,6 +299,14 @@ export default function UserLogs() {
         renderItem={renderItem}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={refreshFromDb}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
         contentContainerStyle={styles.listContent}
         ListFooterComponent={
           isLoadingMore ? (

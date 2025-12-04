@@ -4,6 +4,10 @@ import {
   UserLogType,
   useGetMeQuery,
 } from "@/generated/gql-operations-generated";
+import Constants from "expo-constants";
+import * as Updates from "expo-updates";
+import { Platform } from "react-native";
+import packageJson from "../package.json";
 
 export type AppLogLevel = "debug" | "info" | "warn" | "error";
 
@@ -14,6 +18,46 @@ export interface AppLogPayload {
   context?: string;
   error?: unknown;
   data?: Record<string, any>;
+}
+
+/**
+ * Get all app version information
+ */
+function getAppVersions() {
+  const versions: Record<string, any> = {
+    appVersion: packageJson.version || null,
+    dockerVersion: packageJson.dockerVersion || null,
+    platform: Platform.OS,
+  };
+
+  // Expo version info
+  if (Constants.expoConfig?.version) {
+    versions.expoVersion = Constants.expoConfig.version;
+  }
+  if (Constants.expoConfig?.sdkVersion) {
+    versions.expoSdkVersion = Constants.expoConfig.sdkVersion;
+  }
+
+  // OTA Update info
+  if (Updates.updateId) {
+    versions.otaUpdateId = Updates.updateId;
+  }
+  if (Updates.createdAt) {
+    versions.otaCreatedAt = Updates.createdAt.toISOString();
+  }
+  if (Updates.runtimeVersion) {
+    versions.otaRuntimeVersion = Updates.runtimeVersion;
+  }
+
+  // Native version (if available)
+  if (Constants.nativeAppVersion) {
+    versions.nativeVersion = Constants.nativeAppVersion;
+  }
+  if (Constants.nativeBuildVersion) {
+    versions.nativeBuildVersion = Constants.nativeBuildVersion;
+  }
+
+  return versions;
 }
 
 /**
@@ -51,11 +95,16 @@ export function useAppLog() {
             ? { message: error }
             : undefined;
 
+        const appVersions = getAppVersions();
+
         const payload: Record<string, any> = {
           event,
           level,
           message,
           context,
+          versions: {
+            ...appVersions
+          },
           ...(safeError ? { error: safeError } : {}),
           ...(data ? { data } : {}),
         };

@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import { Button, IconButton, useTheme, Text } from "react-native-paper";
+import { Button, Icon, Surface, TouchableRipple, useTheme, Text } from "react-native-paper";
 import { useI18n } from "@/hooks/useI18n";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { useAppContext } from "@/contexts/AppContext";
@@ -37,42 +37,53 @@ export function FeedbackButton({ variant = "header" }: FeedbackButtonProps) {
   }
 
   return (
-    <View style={styles.headerContainer}>
-      <IconButton
-        icon="comment-quote"
-        size={20}
-        iconColor={theme.colors.onSecondaryContainer}
-        containerColor={theme.colors.secondaryContainer}
+    <Surface
+      style={[
+        styles.buttonWrapper,
+        { backgroundColor: theme.colors.surface },
+      ]}
+      elevation={2}
+    >
+      <TouchableRipple
+        style={styles.feedbackButton}
         onPress={openFeedbackModal}
         accessibilityLabel={label}
-        style={styles.headerButton}
-      />
-      {!isMobile && (
-        <Text
-          variant="labelLarge"
-          style={[
-            styles.headerLabel,
-            { color: theme.colors.onSecondaryContainer },
-          ]}
-        >
-          {label}
-        </Text>
-      )}
-    </View>
+        accessibilityRole="button"
+      >
+        <View style={styles.feedbackButtonContent}>
+          <Icon
+            source="comment-quote"
+            size={24}
+            color={theme.colors.onSurface}
+          />
+          {!isMobile && (
+            <Text
+              variant="titleMedium"
+              style={{ color: theme.colors.onSurface }}
+            >
+              {label}
+            </Text>
+          )}
+        </View>
+      </TouchableRipple>
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
-  headerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+  buttonWrapper: {
+    borderRadius: 20,
     marginRight: 8,
   },
-  headerButton: {
-    margin: 0,
+  feedbackButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
-  headerLabel: {
-    marginLeft: 4,
+  feedbackButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   textContainer: {
     alignItems: "center",

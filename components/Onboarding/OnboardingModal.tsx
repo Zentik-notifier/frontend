@@ -101,6 +101,12 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
         // Mark onboarding as completed
         await completeOnboarding();
         console.log("[Onboarding] Completed successfully");
+        logAppEvent({
+          event: "onboarding_completed",
+          level: "info",
+          message: "Onboarding completed successfully with all settings",
+          context: "OnboardingModal.NavigationButtons.handleNext",
+        }).catch(() => {});
         resetOnboarding(); // Reset to step 1 for next time
         onClose();
       } catch (error) {

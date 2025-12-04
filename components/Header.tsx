@@ -71,6 +71,7 @@ const ROUTES_WITH_BACK_BUTTON: string[] = [
   "/(phone)/(admin)/server-logs",
   "/(phone)/(admin)/server-files",
   "/(phone)/(admin)/events-review",
+  "/(phone)/(admin)/user-logs",
   "/(phone)/(settings)/payload-mapper/",
   "/(common)/(auth)/app-settings",
 ];
