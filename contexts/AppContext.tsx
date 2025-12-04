@@ -200,9 +200,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     emailOrUsername: string,
     password: string
   ): Promise<boolean> => {
+    const inputNormalized = emailOrUsername.toLowerCase().trim();
+    const isEmail = /\S+@\S+\.\S+/.test(inputNormalized);
     try {
-      const inputNormalized = emailOrUsername.toLowerCase().trim();
-      const isEmail = /\S+@\S+\.\S+/.test(inputNormalized);
       const deviceInfo: DeviceInfoDto = push.getBasicDeviceInfo();
       const gqlInput: LoginDto = isEmail
         ? { email: inputNormalized, password, deviceInfo }

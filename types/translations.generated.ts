@@ -1847,6 +1847,8 @@ export interface Translation {
     description: string;
     anonymousLabel: string;
     sendingAs: string;
+    emailLabel: string;
+    emailPlaceholder: string;
     placeholder: string;
     submitLabel: string;
     successTitle: string;
@@ -1855,6 +1857,7 @@ export interface Translation {
     errorMessage: string;
     validation: {
       requiredText: string;
+      requiredEmail: string;
     };
   };
   navigation: {
