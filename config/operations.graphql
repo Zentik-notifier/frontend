@@ -206,6 +206,13 @@ fragment UserFragment on User {
   avatar
   hasPassword
   role
+  identities {
+    id
+    email
+    providerType
+    metadata
+    createdAt
+  }
   buckets {
     id
     name

@@ -7,7 +7,7 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View, TextInput } from "react-native";
 import {
   ActivityIndicator,
   Card,
@@ -17,6 +17,7 @@ import {
   Text,
   useTheme,
 } from "react-native-paper";
+import OAuthProviderIcon from "./OAuthProviderIcon";
 import PaperScrollView from "./ui/PaperScrollView";
 import Selector from "./ui/Selector";
 import NotificationStats from "./NotificationStats";
@@ -255,6 +256,117 @@ export default function UserDetails({ userId }: UserDetailsProps) {
               ) : (
                 <Text variant="bodyMedium" style={styles.noDataText}>
                   {t("administration.noBucketsFound")}
+                </Text>
+              )}
+            </Card.Content>
+          </Card>
+
+          {/* User Identities Section */}
+          <Card style={styles.section} mode="outlined">
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                {t("administration.userIdentities" as any) as string}
+              </Text>
+
+              {user.identities && user.identities.length > 0 ? (
+                <View style={styles.identitiesList}>
+                  {user.identities.map((identity) => {
+                    const metadataText = (() => {
+                      if (!identity.metadata) return null;
+                      try {
+                        const parsed = JSON.parse(identity.metadata);
+                        return JSON.stringify(parsed, null, 2);
+                      } catch {
+                        return identity.metadata;
+                      }
+                    })();
+
+                    return (
+                      <Card
+                        key={identity.id}
+                        style={styles.identityItem}
+                        mode="outlined"
+                      >
+                        <Card.Content>
+                          <View style={styles.identityHeader}>
+                            <View style={styles.identityProvider}>
+                              <OAuthProviderIcon
+                                providerType={identity.providerType as any}
+                                size={32}
+                                iconSize={22}
+                              />
+                            </View>
+                            <View style={styles.identityMainInfo}>
+                              <Text
+                                variant="titleSmall"
+                                style={styles.identityEmail}
+                              >
+                                {identity.email || "—"}
+                              </Text>
+                              <Text
+                                variant="bodySmall"
+                                style={styles.identityProviderType}
+                              >
+                                {identity.providerType || "LOCAL"}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <Divider style={styles.divider} />
+
+                          <Text
+                            variant="bodySmall"
+                            style={styles.identityId}
+                            selectable
+                          >
+                            ID: {identity.id}
+                          </Text>
+                          <Text
+                            variant="bodySmall"
+                            style={styles.identityCreatedAt}
+                          >
+                            {t("administration.createdAt") as string}:{" "}
+                            {new Date(identity.createdAt).toLocaleString()}
+                          </Text>
+
+                          {metadataText && (
+                            <>
+                              <Divider style={styles.divider} />
+                              <Text
+                                variant="bodySmall"
+                                style={styles.metadataLabel}
+                              >
+                                {
+                                  t(
+                                    "administration.identityMetadata" as any
+                                  ) as string
+                                }
+                              </Text>
+                              <TextInput
+                                value={metadataText}
+                                multiline
+                                editable={false}
+                                scrollEnabled
+                                style={[
+                                  styles.metadataInput,
+                                  {
+                                    backgroundColor: theme.colors.surfaceVariant,
+                                    color: theme.colors.onSurface,
+                                    borderColor: theme.colors.outline,
+                                    borderWidth: 1,
+                                  },
+                                ]}
+                              />
+                            </>
+                          )}
+                        </Card.Content>
+                      </Card>
+                    );
+                  })}
+                </View>
+              ) : (
+                <Text variant="bodyMedium" style={styles.noDataText}>
+                  {t("administration.noIdentitiesFound" as any) as string}
                 </Text>
               )}
             </Card.Content>
@@ -503,5 +615,50 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#ff6b6b",
     padding: 20,
+  },
+  identitiesList: {
+    gap: 12,
+  },
+  identityItem: {
+    marginBottom: 8,
+  },
+  identityHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  identityProvider: {
+    marginRight: 12,
+  },
+  identityMainInfo: {
+    flex: 1,
+  },
+  identityEmail: {
+    marginBottom: 2,
+  },
+  identityProviderType: {
+    opacity: 0.7,
+  },
+  identityId: {
+    fontFamily: "monospace",
+    opacity: 0.8,
+    marginBottom: 4,
+  },
+  identityCreatedAt: {
+    opacity: 0.8,
+    marginBottom: 4,
+  },
+  metadataLabel: {
+    opacity: 0.8,
+    marginBottom: 4,
+  },
+  metadataInput: {
+    fontFamily: "monospace",
+    fontSize: 12,
+    padding: 8,
+    borderRadius: 6,
+    minHeight: 80,
+    maxHeight: 200,
+    textAlignVertical: "top",
   },
 });
