@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, StyleSheet, TextInput, View } from "react-native";
 import { Checkbox, HelperText, Text, useTheme } from "react-native-paper";
 import { useI18n } from "@/hooks/useI18n";
@@ -25,9 +25,16 @@ export default function FeedbackModal({
   const hasUser = !!meData?.me;
 
   const [text, setText] = useState("");
-  const [isAnonymous, setIsAnonymous] = useState<boolean>(true);
+  const [isAnonymous, setIsAnonymous] = useState<boolean>(!hasUser);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [manualEmail, setManualEmail] = useState("");
+
+  useEffect(() => {
+    // Default to non-anonymous when a logged user is available
+    if (hasUser) {
+      setIsAnonymous(false);
+    }
+  }, [hasUser]);
 
   const handleClose = () => {
     if (loading) return;
@@ -108,7 +115,10 @@ export default function FeedbackModal({
         <View style={styles.row}>
           <Checkbox
             status={isAnonymous ? "checked" : "unchecked"}
-            onPress={() => setIsAnonymous(!isAnonymous)}
+            onPress={() => {
+              setIsAnonymous(!isAnonymous);
+              setValidationError(null);
+            }}
           />
           <Text
             variant="bodyMedium"

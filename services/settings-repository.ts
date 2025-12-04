@@ -127,20 +127,49 @@ export class SettingsRepository {
   async setSetting(key: string, value: string): Promise<void> {
     await this.ensureInitialized();
 
-    try {
-      if (this.isWeb()) {
-        const webDb = this.db as IDBPDatabase<WebStorageDB>;
-        await webDb.put('keyvalue', value, `app_setting:${key}`);
-      } else {
-        const sqliteDb = this.db as SQLiteDatabase;
-        await sqliteDb.runAsync(
-          'INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)',
-          [key, value, Date.now()]
+    const maxRetries = 3;
+    let attempt = 0;
+
+    // Simple retry loop to mitigate transient "database is locked" errors
+    // on mobile SQLite. On web (IndexedDB) we retry only once.
+    // This is especially important during authentication flows.
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      try {
+        if (this.isWeb()) {
+          const webDb = this.db as IDBPDatabase<WebStorageDB>;
+          await webDb.put('keyvalue', value, `app_setting:${key}`);
+        } else {
+          const sqliteDb = this.db as SQLiteDatabase;
+          await sqliteDb.runAsync(
+            'INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)',
+            [key, value, Date.now()]
+          );
+        }
+        return;
+      } catch (error: any) {
+        const message = String(error?.message || "");
+        const isLocked =
+          !this.isWeb() &&
+          (message.includes("database is locked") ||
+            message.includes("SQLITE_BUSY"));
+
+        if (isLocked && attempt < maxRetries) {
+          attempt += 1;
+          const delayMs = 100 * attempt;
+          console.warn(
+            `[SettingsRepository] Failed to set setting ${key} due to locked database (attempt ${attempt}/${maxRetries}), retrying in ${delayMs}ms...`
+          );
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+
+        console.error(
+          `[SettingsRepository] Failed to set setting ${key}:`,
+          error
         );
+        throw error;
       }
-    } catch (error) {
-      console.error(`[SettingsRepository] Failed to set setting ${key}:`, error);
-      throw error;
     }
   }
 

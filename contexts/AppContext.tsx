@@ -286,6 +286,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.error("Error during completeAuth:", e);
 
+      if (e instanceof Error) {
+        const msg = e.message || "";
+        // If the error is just a local SQLite "database is locked" issue,
+        // avoid showing an alert to the user and log only to console.
+        if (
+          msg.includes("database is locked") ||
+          msg.includes("finalizeAsync")
+        ) {
+          setIsInitializing(false);
+          return false;
+        }
+      }
+
       // Show appropriate error message based on error type
       let errorMessage = t("login.errors.unexpectedError");
 
