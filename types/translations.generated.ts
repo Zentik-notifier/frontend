@@ -1813,6 +1813,8 @@ export interface Translation {
     };
     serverSettings: string;
     serverSettingsDescription: string;
+    userLogsTitle: string;
+    userLogsDescription: string;
     backupManagement: string;
     backupManagementDescription: string;
     userDevices: string;

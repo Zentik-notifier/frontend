@@ -1470,6 +1470,22 @@ mutation TriggerLogCleanup {
   triggerLogCleanup
 }
 
+query GetUserLogs($input: GetUserLogsInput!) {
+  userLogs(input: $input) {
+    logs {
+      id
+      type
+      userId
+      payload
+      createdAt
+    }
+    total
+    page
+    limit
+    totalPages
+  }
+}
+
 # Server Files (Admin)
 fragment ServerFileFragment on FileInfoDto {
   name

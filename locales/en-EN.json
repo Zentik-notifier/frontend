@@ -1810,6 +1810,8 @@
     },
     "serverSettings": "Server Settings",
     "serverSettingsDescription": "Configure server settings and management",
+    "userLogsTitle": "User Logs",
+    "userLogsDescription": "Inspect user feedback and application logs for troubleshooting and auditing",
     "backupManagement": "Backup Management",
     "backupManagementDescription": "Create and manage system backups",
     "userDevices": "User Devices",

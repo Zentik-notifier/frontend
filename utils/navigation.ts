@@ -292,6 +292,14 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToUserLogs: () => {
+            if (isMobile) {
+                router.push(`/(phone)/(admin)/user-logs`);
+            } else {
+                router.push(`/(desktop)/(admin)/user-logs`);
+            }
+        },
+
         navigateToServerFiles: () => {
             if (isMobile) {
                 router.push(`/(phone)/(admin)/server-files`);

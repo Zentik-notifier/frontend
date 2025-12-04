@@ -91,6 +91,15 @@ export default function AdminSidebar() {
       selectionSegment: "server-logs",
     },
     {
+      id: "user-logs",
+      title: t("administration.userLogsTitle"),
+      description: t("administration.userLogsDescription"),
+      icon: "account-eye",
+      iconColor: "#0ea5e9", // Sky
+      onPress: (nav as any).navigateToUserLogs,
+      selectionSegment: "user-logs",
+    },
+    {
       id: "server-files",
       title: t("administration.serverFiles.title"),
       description: t("administration.serverFiles.description"),

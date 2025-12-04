@@ -397,6 +397,14 @@ export type GetResourcePermissionsInput = {
   resourceType: ResourceType;
 };
 
+export type GetUserLogsInput = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  search?: InputMaybe<Scalars['String']['input']>;
+  type?: InputMaybe<UserLogType>;
+  userId?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type GrantEntityPermissionInput = {
   expiresAt?: InputMaybe<Scalars['String']['input']>;
   permissions: Array<Permission>;
@@ -1236,6 +1244,15 @@ export type PaginatedLogs = {
   totalPages: Scalars['Int']['output'];
 };
 
+export type PaginatedUserLogs = {
+  __typename?: 'PaginatedUserLogs';
+  limit: Scalars['Int']['output'];
+  logs: Array<UserLogEntry>;
+  page: Scalars['Int']['output'];
+  total: Scalars['Int']['output'];
+  totalPages: Scalars['Int']['output'];
+};
+
 export type PasswordResetResponseDto = {
   __typename?: 'PasswordResetResponseDto';
   message: Scalars['String']['output'];
@@ -1355,6 +1372,8 @@ export type Query = {
   userAttachments: Array<Attachment>;
   userDevice: Maybe<UserDevice>;
   userDevices: Array<UserDevice>;
+  /** Get user logs with pagination and filtering */
+  userLogs: PaginatedUserLogs;
   userNotificationStats: UserNotificationStats;
   userSettings: Array<UserSetting>;
   userWebhooks: Array<UserWebhook>;
@@ -1476,6 +1495,11 @@ export type QueryUserArgs = {
 
 export type QueryUserAttachmentsArgs = {
   userId: Scalars['ID']['input'];
+};
+
+
+export type QueryUserLogsArgs = {
+  input: GetUserLogsInput;
 };
 
 
@@ -1957,6 +1981,15 @@ export type UserLog = {
   __typename?: 'UserLog';
   createdAt: Scalars['DateTime']['output'];
   id: Scalars['String']['output'];
+  payload: Scalars['JSON']['output'];
+  type: UserLogType;
+  userId: Maybe<Scalars['String']['output']>;
+};
+
+export type UserLogEntry = {
+  __typename?: 'UserLogEntry';
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
   payload: Scalars['JSON']['output'];
   type: UserLogType;
   userId: Maybe<Scalars['String']['output']>;
@@ -3020,6 +3053,13 @@ export type TriggerLogCleanupMutationVariables = Exact<{ [key: string]: never; }
 
 
 export type TriggerLogCleanupMutation = { __typename?: 'Mutation', triggerLogCleanup: boolean };
+
+export type GetUserLogsQueryVariables = Exact<{
+  input: GetUserLogsInput;
+}>;
+
+
+export type GetUserLogsQuery = { __typename?: 'Query', userLogs: { __typename?: 'PaginatedUserLogs', total: number, page: number, limit: number, totalPages: number, logs: Array<{ __typename?: 'UserLogEntry', id: string, type: UserLogType, userId: string | null, payload: any, createdAt: string }> } };
 
 export type ServerFileFragment = { __typename?: 'FileInfoDto', name: string, size: number, mtime: string, isDir: boolean };
 
@@ -6958,6 +6998,40 @@ export function useTriggerLogCleanupMutation(baseOptions?: ApolloReactHooks.Muta
 export type TriggerLogCleanupMutationHookResult = ReturnType<typeof useTriggerLogCleanupMutation>;
 export type TriggerLogCleanupMutationResult = Apollo.MutationResult<TriggerLogCleanupMutation>;
 export type TriggerLogCleanupMutationOptions = Apollo.BaseMutationOptions<TriggerLogCleanupMutation, TriggerLogCleanupMutationVariables>;
+export const GetUserLogsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetUserLogs"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"GetUserLogsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userLogs"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"logs"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"payload"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"page"}},{"kind":"Field","name":{"kind":"Name","value":"limit"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}}]}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetUserLogsQuery__
+ *
+ * To run a query within a React component, call `useGetUserLogsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetUserLogsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetUserLogsQuery({
+ *   variables: {
+ *      input: // value for 'input'
+ *   },
+ * });
+ */
+export function useGetUserLogsQuery(baseOptions: ApolloReactHooks.QueryHookOptions<GetUserLogsQuery, GetUserLogsQueryVariables> & ({ variables: GetUserLogsQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetUserLogsQuery, GetUserLogsQueryVariables>(GetUserLogsDocument, options);
+      }
+export function useGetUserLogsLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetUserLogsQuery, GetUserLogsQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetUserLogsQuery, GetUserLogsQueryVariables>(GetUserLogsDocument, options);
+        }
+export function useGetUserLogsSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetUserLogsQuery, GetUserLogsQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetUserLogsQuery, GetUserLogsQueryVariables>(GetUserLogsDocument, options);
+        }
+export type GetUserLogsQueryHookResult = ReturnType<typeof useGetUserLogsQuery>;
+export type GetUserLogsLazyQueryHookResult = ReturnType<typeof useGetUserLogsLazyQuery>;
+export type GetUserLogsSuspenseQueryHookResult = ReturnType<typeof useGetUserLogsSuspenseQuery>;
+export type GetUserLogsQueryResult = Apollo.QueryResult<GetUserLogsQuery, GetUserLogsQueryVariables>;
 export const ServerFilesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ServerFiles"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"path"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"serverFiles"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"path"},"value":{"kind":"Variable","name":{"kind":"Name","value":"path"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ServerFileFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerFileFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"FileInfoDto"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"size"}},{"kind":"Field","name":{"kind":"Name","value":"mtime"}},{"kind":"Field","name":{"kind":"Name","value":"isDir"}}]}}]} as unknown as DocumentNode;
 
 /**

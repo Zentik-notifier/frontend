@@ -1771,6 +1771,8 @@
     "oauthProvidersDescription": "Configura i provider di autenticazione OAuth",
     "serverSettings": "Impostazioni Server",
     "serverSettingsDescription": "Configura le impostazioni del server e gestisci l'istanza",
+    "userLogsTitle": "Log utente",
+    "userLogsDescription": "Esamina i feedback e i log applicativi degli utenti per debug e auditing",
     "backupManagement": "Gestione Backup",
     "backupManagementDescription": "Gestisci i backup del database e i punti di ripristino",
     "errorLoadingOAuthProviders": "Errore nel Caricamento dei Provider",
