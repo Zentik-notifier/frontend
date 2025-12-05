@@ -2,12 +2,14 @@ import {
   UpdateUserRoleInput,
   UserRole,
   useGetUserByIdQuery,
+  useGetUserLogsQuery,
   useUpdateUserRoleMutation,
   useUserNotificationStatsByUserIdQuery,
+  UserLogType,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import React from "react";
-import { Alert, StyleSheet, View, TextInput } from "react-native";
+import React, { useMemo } from "react";
+import { Alert, StyleSheet, View, TextInput, Platform, ScrollView } from "react-native";
 import {
   ActivityIndicator,
   Card,
@@ -49,6 +51,33 @@ export default function UserDetails({ userId }: UserDetailsProps) {
     skip: !userId,
     fetchPolicy: "cache-first",
   });
+
+  const {
+    data: appLogsData,
+    loading: appLogsLoading,
+    refetch: refetchAppLogs,
+  } = useGetUserLogsQuery({
+    variables: {
+      input: {
+        page: 1,
+        limit: 50,
+        type: UserLogType.AppLog,
+        userId: userId || undefined,
+      },
+    },
+    skip: !userId,
+    fetchPolicy: "cache-first",
+  });
+
+  const appLogs = useMemo(() => {
+    return (appLogsData?.userLogs?.logs || []) as Array<{
+      id: string;
+      type: UserLogType;
+      userId: string | null;
+      payload: any;
+      createdAt: string;
+    }>;
+  }, [appLogsData]);
 
   const [updateUserRole] = useUpdateUserRoleMutation({
     onCompleted: () => {
@@ -129,13 +158,13 @@ export default function UserDetails({ userId }: UserDetailsProps) {
   ];
 
   const handleRefresh = async () => {
-    await Promise.all([refetchUser(), refetchStats()]);
+    await Promise.all([refetchUser(), refetchStats(), refetchAppLogs()]);
   };
 
   return (
     <PaperScrollView
       onRefresh={handleRefresh}
-      loading={userLoading || statsLoading}
+      loading={userLoading || statsLoading || appLogsLoading}
       onRetry={handleRefresh}
       error={!!userError}
     >
@@ -474,6 +503,125 @@ export default function UserDetails({ userId }: UserDetailsProps) {
               showAcked
             />
           )}
+
+          {/* App Logs Section */}
+          <Card style={styles.section} mode="outlined">
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                App Logs
+              </Text>
+
+              {appLogsLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" />
+                  <Text variant="bodySmall" style={styles.loadingText}>
+                    {t("common.loading")}
+                  </Text>
+                </View>
+              ) : appLogs.length > 0 ? (
+                <ScrollView
+                  style={styles.logsScrollView}
+                  contentContainerStyle={styles.logsList}
+                  nestedScrollEnabled
+                >
+                  {appLogs.map((log) => {
+                    const payloadText = (() => {
+                      try {
+                        return JSON.stringify(log.payload, null, 2);
+                      } catch {
+                        return String(log.payload);
+                      }
+                    })();
+
+                    return (
+                      <Card
+                        key={log.id}
+                        style={styles.logItem}
+                        mode="outlined"
+                      >
+                        <Card.Content>
+                          <View style={styles.logHeader}>
+                            <Text
+                              variant="titleSmall"
+                              style={[
+                                styles.logEvent,
+                                {
+                                  color:
+                                    log.payload?.level === "error"
+                                      ? theme.colors.error
+                                      : log.payload?.level === "warn"
+                                      ? theme.colors.errorContainer
+                                      : theme.colors.primary,
+                                },
+                              ]}
+                            >
+                              {log.payload?.event || "unknown"}
+                            </Text>
+                            <Text variant="bodySmall" style={styles.logDate}>
+                              {new Date(log.createdAt).toLocaleString()}
+                            </Text>
+                          </View>
+
+                          {log.payload?.message && (
+                            <Text
+                              variant="bodySmall"
+                              style={styles.logMessage}
+                            >
+                              {log.payload.message}
+                            </Text>
+                          )}
+
+                          {log.payload?.context && (
+                            <Text
+                              variant="bodySmall"
+                              style={styles.logContext}
+                            >
+                              Context: {log.payload.context}
+                            </Text>
+                          )}
+
+                          {log.payload?.level && (
+                            <View style={styles.logMetaRow}>
+                              <Text variant="bodySmall" style={styles.logMetaLabel}>
+                                Level:
+                              </Text>
+                              <Text variant="bodySmall" style={styles.logMetaValue}>
+                                {log.payload.level}
+                              </Text>
+                            </View>
+                          )}
+
+                          <TextInput
+                            value={payloadText}
+                            multiline
+                            editable={false}
+                            scrollEnabled
+                            style={[
+                              styles.logPayload,
+                              {
+                                backgroundColor: theme.colors.surfaceVariant,
+                                color: theme.colors.onSurface,
+                                borderColor: theme.colors.outline,
+                                borderWidth: 1,
+                              },
+                            ]}
+                          />
+
+                          <Text variant="bodySmall" style={styles.logId}>
+                            ID: {log.id}
+                          </Text>
+                        </Card.Content>
+                      </Card>
+                    );
+                  })}
+                </ScrollView>
+              ) : (
+                <Text variant="bodyMedium" style={styles.noDataText}>
+                  No app logs found
+                </Text>
+              )}
+            </Card.Content>
+          </Card>
         </>
       )}
     </PaperScrollView>
@@ -660,5 +808,67 @@ const styles = StyleSheet.create({
     minHeight: 80,
     maxHeight: 200,
     textAlignVertical: "top",
+  },
+  logsScrollView: {
+    maxHeight: 600,
+  },
+  logsList: {
+    gap: 12,
+  },
+  logItem: {
+    marginBottom: 8,
+  },
+  logHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  logEvent: {
+    fontWeight: "600",
+    flex: 1,
+  },
+  logDate: {
+    opacity: 0.7,
+    fontSize: 11,
+  },
+  logMessage: {
+    marginBottom: 4,
+    opacity: 0.9,
+  },
+  logContext: {
+    marginBottom: 4,
+    opacity: 0.7,
+    fontSize: 11,
+    fontFamily: "monospace",
+  },
+  logMetaRow: {
+    flexDirection: "row",
+    marginBottom: 4,
+    gap: 8,
+  },
+  logMetaLabel: {
+    opacity: 0.7,
+    fontWeight: "600",
+  },
+  logMetaValue: {
+    opacity: 0.9,
+  },
+  logPayload: {
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+    fontSize: 11,
+    padding: 8,
+    borderRadius: 6,
+    minHeight: 60,
+    maxHeight: 150,
+    textAlignVertical: "top",
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  logId: {
+    fontFamily: "monospace",
+    opacity: 0.5,
+    fontSize: 10,
+    marginTop: 4,
   },
 });

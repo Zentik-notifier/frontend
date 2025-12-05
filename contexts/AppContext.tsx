@@ -449,6 +449,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Log when app is opened (initialization complete)
+  useEffect(() => {
+    if (!isInitializing) {
+      logAppEvent({
+        event: "app_opened",
+        level: "info",
+        message: "App opened and initialized",
+        context: "AppContext.useEffect.isInitializing",
+        data: {
+          userId: userId || null,
+        },
+      }).catch(() => {});
+    }
+  }, [isInitializing, logAppEvent, userId]);
+
   // Auto-show onboarding for first-time users
   useEffect(() => {
     const checkOnboarding = async () => {
@@ -487,6 +502,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
         console.log("[AppContext] App is active, cleaning up and syncing");
+        logAppEvent({
+          event: "app_opened",
+          level: "info",
+          message: "App opened or returned to foreground",
+          context: "AppContext.handleAppStateChange",
+          data: {
+            appState: nextAppState,
+            userId: userId || null,
+          },
+        }).catch(() => {});
         await processPendingNavigationIntent();
         await openSharedCacheDb();
 
@@ -503,10 +528,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         );
         await markAllAsRead();
       } else if (nextAppState === "background") {
-        return;
         console.log(
           "[AppContext] App going to background, flushing logs and closing database..."
         );
+        logAppEvent({
+          event: "app_closed",
+          level: "info",
+          message: "App closed or sent to background",
+          context: "AppContext.handleAppStateChange",
+          data: {
+            appState: nextAppState,
+            userId: userId || null,
+          },
+        }).catch(() => {});
         try {
           // Flush pending logs before closing database
           await logger.flush();
@@ -523,6 +557,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         } catch (error) {
           console.error("[AppContext] Error during background cleanup:", error);
         }
+        return;
       }
     };
 
