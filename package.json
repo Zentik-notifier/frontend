@@ -2,7 +2,7 @@
   "name": "zentik-mobile",
   "main": "index.js",
   "version": "0.1.146",
-  "dockerVersion": "0.0.112",
+  "dockerVersion": "0.0.113",
   "scripts": {
     "start": "expo start",
     "eas-build-post-install": "node scripts/post-build-ios.js",
