@@ -89,6 +89,9 @@ export default function NotificationDetail({
 
   const { logAppEvent } = useAppLog();
 
+  // Get bucket name from hook (from cache) or fallback to notification bucket name
+  const bucketName = bucket?.name || message?.bucket?.name || "";
+
   useEffect(() => {
     if (notification) {
       logAppEvent({
@@ -104,15 +107,12 @@ export default function NotificationDetail({
           hasAttachments: (notification.message?.attachments?.length || 0) > 0,
         },
       }).catch(() => {});
-      
+
       if (!notification.readAt) {
         markAsReadMutation.mutate({ notificationId: notification.id });
       }
     }
   }, [notification, bucketId, bucketName, logAppEvent]);
-
-  // Get bucket name from hook (from cache) or fallback to notification bucket name
-  const bucketName = bucket?.name || message?.bucket?.name || "";
 
   // Get filtered notification actions
   const notificationActions = useMemo(() => {
