@@ -162,9 +162,27 @@ class NotificationService: UNNotificationServiceExtension {
     let defaultBucketColor = "#007AFF"
 
     var senderAvatarImageData: Data?
+    var iconFoundInCache = false
+    var iconUrlFromPayload: String? = nil
+    var iconCachePath: String? = nil
     
     // Get bucket icon from cache using only bucketId (icon stored as bucketId.png in fileSystem)
     if let bucketId = senderId {
+      // Try to get iconUrl from payload (bic = bucket icon URL)
+      iconUrlFromPayload = userInfo["bic"] as? String
+      
+      // Get cache directory path for logging
+      let cacheDirectory = MediaAccess.getSharedMediaCacheDirectory()
+      let bucketIconDirectory = cacheDirectory.appendingPathComponent("BUCKET_ICON")
+      let fileName = "\(bucketId).png"
+      let fileURL = bucketIconDirectory.appendingPathComponent(fileName)
+      iconCachePath = fileURL.path
+      
+      // Check if icon exists in cache before calling getBucketIconFromSharedCache
+      let iconExistsInCache = FileManager.default.fileExists(atPath: fileURL.path)
+      iconFoundInCache = iconExistsInCache
+      
+      // Get bucket icon from cache (iconUrl not passed - will only use cache or generate placeholder)
       senderAvatarImageData = MediaAccess.getBucketIconFromSharedCache(
         bucketId: bucketId,
         bucketName: nil,
@@ -173,19 +191,25 @@ class NotificationService: UNNotificationServiceExtension {
       )
         
       if senderAvatarImageData != nil {
-        print("📱 [NotificationService] 🎭 ✅ Using bucket icon from fileSystem (bucketId: \(bucketId))")
+        print("📱 [NotificationService] 🎭 ✅ Using bucket icon from fileSystem (bucketId: \(bucketId), foundInCache: \(iconFoundInCache))")
+      } else {
+        print("📱 [NotificationService] 🎭 ⚠️ Bucket icon not available (bucketId: \(bucketId), foundInCache: \(iconFoundInCache), hasIconUrlInPayload: \(iconUrlFromPayload != nil), cachePath: \(iconCachePath ?? "nil"))")
       }
       
-      // Log avatar configuration
+      // Log avatar configuration with detailed icon information
       logToDatabase(
-        level: "info",
+        level: iconFoundInCache || senderAvatarImageData != nil ? "info" : "warn",
         tag: "Avatar",
-        message: "Avatar configuration for communication style",
+        message: iconFoundInCache || senderAvatarImageData != nil ? "Avatar configuration for communication style - icon found" : "Avatar configuration for communication style - icon not found",
         metadata: [
           "notificationId": notificationId,
           "bucketId": bucketId,
           "bucketColor": defaultBucketColor,
           "hasAvatarData": senderAvatarImageData != nil,
+          "iconFoundInCache": iconFoundInCache,
+          "hasIconUrlInPayload": iconUrlFromPayload != nil,
+          "iconUrlFromPayload": iconUrlFromPayload ?? "nil",
+          "iconCachePath": iconCachePath ?? "nil",
           "senderDisplayName": senderDisplayName ?? "nil"
         ]
       )
