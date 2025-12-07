@@ -117,6 +117,15 @@ export function useNetworkSync() {
             if (bucketsResult.status === 'fulfilled' && bucketsResult.value.data?.buckets) {
                 apiBuckets = bucketsResult.value.data.buckets as BucketWithUserData[];
                 apiSuccess = true;
+                
+                // Debug: check iconUrl for shared buckets
+                const sharedBuckets = apiBuckets.filter(b => b.userPermissions?.isSharedWithMe === true);
+                if (sharedBuckets.length > 0) {
+                    console.log(`[useNetworkSync] Found ${sharedBuckets.length} shared buckets`);
+                    sharedBuckets.forEach(bucket => {
+                        console.log(`[useNetworkSync] Shared bucket ${bucket.id} (${bucket.name}): iconUrl=${bucket.iconUrl ?? 'MISSING'}, icon=${bucket.icon ?? 'null'}, iconAttachmentUuid=${bucket.iconAttachmentUuid ?? 'null'}`);
+                    });
+                }
             }
 
             // ============================================================
@@ -244,25 +253,31 @@ export function useNetworkSync() {
 
                 // Save API buckets + orphans to cache
                 const bucketsToSave: BucketData[] = [
-                    ...apiBuckets.map(bucket => ({
-                        id: bucket.id,
-                        name: bucket.name,
-                        icon: bucket.icon,
-                        iconAttachmentUuid: bucket.iconAttachmentUuid,
-                        iconUrl: bucket.iconUrl,
-                        description: bucket.description,
-                        updatedAt: bucket.updatedAt,
-                        color: bucket.color,
-                        createdAt: bucket.createdAt,
-                        isProtected: bucket.isProtected,
-                        isPublic: bucket.isPublic,
-                        isAdmin: bucket.isAdmin,
-                        userBucket: bucket.userBucket,
-                        user: bucket.user,
-                        permissions: bucket.permissions,
-                        userPermissions: bucket.userPermissions,
-                        isOrphan: false,
-                    })),
+                    ...apiBuckets.map(bucket => {
+                        // Debug: log if iconUrl is missing for shared buckets
+                        if (bucket.userPermissions?.isSharedWithMe === true && !bucket.iconUrl) {
+                            console.warn(`[useNetworkSync] ⚠️ Shared bucket ${bucket.id} (${bucket.name}) missing iconUrl from GraphQL`);
+                        }
+                        return {
+                            id: bucket.id,
+                            name: bucket.name,
+                            icon: bucket.icon,
+                            iconAttachmentUuid: bucket.iconAttachmentUuid,
+                            iconUrl: bucket.iconUrl,
+                            description: bucket.description,
+                            updatedAt: bucket.updatedAt,
+                            color: bucket.color,
+                            createdAt: bucket.createdAt,
+                            isProtected: bucket.isProtected,
+                            isPublic: bucket.isPublic,
+                            isAdmin: bucket.isAdmin,
+                            userBucket: bucket.userBucket,
+                            user: bucket.user,
+                            permissions: bucket.permissions,
+                            userPermissions: bucket.userPermissions,
+                            isOrphan: false,
+                        };
+                    }),
                     ...orphanedBuckets.map(bucket => ({
                         id: bucket.id,
                         name: bucket.name,
