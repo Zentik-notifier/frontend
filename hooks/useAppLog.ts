@@ -30,31 +30,8 @@ function getAppVersions() {
     platform: Platform.OS,
   };
 
-  // Expo version info
   if (Constants.expoConfig?.version) {
     versions.expoVersion = Constants.expoConfig.version;
-  }
-  if (Constants.expoConfig?.sdkVersion) {
-    versions.expoSdkVersion = Constants.expoConfig.sdkVersion;
-  }
-
-  // OTA Update info
-  if (Updates.updateId) {
-    versions.otaUpdateId = Updates.updateId;
-  }
-  if (Updates.createdAt) {
-    versions.otaCreatedAt = Updates.createdAt.toISOString();
-  }
-  if (Updates.runtimeVersion) {
-    versions.otaRuntimeVersion = Updates.runtimeVersion;
-  }
-
-  // Native version (if available)
-  if (Constants.nativeAppVersion) {
-    versions.nativeVersion = Constants.nativeAppVersion;
-  }
-  if (Constants.nativeBuildVersion) {
-    versions.nativeBuildVersion = Constants.nativeBuildVersion;
   }
 
   return versions;
@@ -101,6 +78,7 @@ export function useAppLog() {
           event,
           level,
           message,
+          username: me?.username ?? null,
           context,
           versions: {
             ...appVersions

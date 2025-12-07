@@ -1,8 +1,11 @@
 import { useAppContext } from "@/contexts/AppContext";
 import { mediaCache } from "@/services/media-cache-service";
+import { saveMediaToGallery } from "@/services/media-gallery";
 import { Icon } from "react-native-paper";
 import { useEvent } from "expo";
 import { useAudioPlayer } from "expo-audio";
+import * as Clipboard from "expo-clipboard";
+import * as Sharing from "expo-sharing";
 import {
   Image as ExpoImage,
   ImageContentFit,
@@ -10,9 +13,12 @@ import {
   ImageStyle,
 } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
   PanResponder,
   StyleProp,
   StyleSheet,
@@ -26,6 +32,7 @@ import { MediaType } from "../generated/gql-operations-generated";
 import { useI18n } from "../hooks/useI18n";
 import { useCachedItem } from "../hooks/useMediaCache";
 import { MediaTypeIcon } from "./MediaTypeIcon";
+import { List, Surface, TouchableRipple } from "react-native-paper";
 
 interface CachedMediaProps {
   url: string;
@@ -92,6 +99,7 @@ export const CachedMedia = React.memo(function CachedMedia({
     width: number;
     height: number;
   } | null>(null);
+  const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
 
   const {
     item: mediaSource,
@@ -157,17 +165,23 @@ export const CachedMedia = React.memo(function CachedMedia({
   // Auto-generate thumbnail if using thumbnail mode but thumbnail doesn't exist
   useEffect(() => {
     if (useThumbnail && supportsThumbnail) {
-      mediaCache.tryGenerateThumbnail({ 
-        url, 
-        mediaType, 
-        notificationId: mediaSource?.notificationId 
-      }).then(queued => {
-        if (queued) {
-          console.log('[CachedMedia] Auto-generating missing thumbnail for:', url);
-        }
-      }).catch(e => {
-        console.warn('[CachedMedia] Failed to auto-generate thumbnail:', e);
-      });
+      mediaCache
+        .tryGenerateThumbnail({
+          url,
+          mediaType,
+          notificationId: mediaSource?.notificationId,
+        })
+        .then((queued) => {
+          if (queued) {
+            console.log(
+              "[CachedMedia] Auto-generating missing thumbnail for:",
+              url
+            );
+          }
+        })
+        .catch((e) => {
+          console.warn("[CachedMedia] Failed to auto-generate thumbnail:", e);
+        });
     }
   }, [
     useThumbnail,
@@ -195,10 +209,117 @@ export const CachedMedia = React.memo(function CachedMedia({
 
   const handleFrameClick = useCallback(
     async (event?: any) => {
-      onPressParent?.();
+      if (!isContextMenuOpen) {
+        onPressParent?.();
+      }
     },
-    [onPressParent]
+    [onPressParent, isContextMenuOpen]
   );
+
+  const handleLongPress = useCallback(() => {
+    setIsContextMenuOpen(true);
+  }, []);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setIsContextMenuOpen(false);
+  }, []);
+
+  const handleCopyUrl = useCallback(async () => {
+    try {
+      await Clipboard.setStringAsync(url);
+      handleCloseContextMenu();
+    } catch (error) {
+      console.error("Failed to copy URL:", error);
+    }
+  }, [url, t, handleCloseContextMenu]);
+
+  const handleShare = useCallback(async () => {
+    try {
+      if (Platform.OS === "web") {
+        Alert.alert(t("common.error"), t("common.notAvailableOnWeb"));
+        handleCloseContextMenu();
+        return;
+      }
+
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        Alert.alert(t("common.error"), t("common.shareNotAvailable"));
+        handleCloseContextMenu();
+        return;
+      }
+
+      const localPath = mediaSource?.localPath;
+      if (localPath) {
+        await Sharing.shareAsync(localPath);
+      } else {
+        Alert.alert(t("common.error"), t("common.unableToShare"));
+      }
+      handleCloseContextMenu();
+    } catch (error) {
+      console.error("Failed to share:", error);
+      Alert.alert(t("common.error"), t("common.unableToShare"));
+      handleCloseContextMenu();
+    }
+  }, [mediaSource?.localPath, t, handleCloseContextMenu]);
+
+  const handleSaveToGallery = useCallback(async () => {
+    try {
+      await saveMediaToGallery(url, mediaType, originalFileName);
+      handleCloseContextMenu();
+    } catch (error) {
+      console.error("Failed to save to gallery:", error);
+      handleCloseContextMenu();
+    }
+  }, [url, mediaType, originalFileName, t, handleCloseContextMenu]);
+
+  const contextMenuItems = useMemo(() => {
+    const items: Array<{
+      id: string;
+      label: string;
+      icon: string;
+      onPress: () => void;
+    }> = [
+      {
+        id: "copy",
+        label: t("common.copy"),
+        icon: "content-copy",
+        onPress: handleCopyUrl,
+      },
+    ];
+
+    // Only add Share and Save for images, icons, gifs, and videos
+    if (
+      mediaType === MediaType.Image ||
+      mediaType === MediaType.Icon ||
+      mediaType === MediaType.Gif ||
+      mediaType === MediaType.Video
+    ) {
+      if (Platform.OS !== "web" && mediaSource?.localPath) {
+        items.push({
+          id: "share",
+          label: t("buckets.sharing.share"),
+          icon: "share",
+          onPress: handleShare,
+        });
+      }
+
+      // items.push({
+      //   id: "save",
+      //   label: Platform.OS === "ios" ? "Salva nella galleria" : "Save to Gallery",
+      //   icon: "download",
+      //   onPress: handleSaveToGallery,
+      // });
+    }
+
+    return items;
+  }, [
+    mediaType,
+    mediaSource?.localPath,
+    t,
+    handleCopyUrl,
+    handleShare,
+    handleSaveToGallery,
+  ]);
 
   const handleDeleteCachedMedia = useCallback(
     async (event?: any) => {
@@ -483,7 +604,11 @@ export const CachedMedia = React.memo(function CachedMedia({
       const thumbPath = mediaSource?.localThumbPath;
       if (thumbPath) {
         return (
-          <Pressable onPress={handleFrameClick}>
+          <TouchableOpacity
+            onPress={handleFrameClick}
+            onLongPress={handleLongPress}
+            activeOpacity={0.9}
+          >
             <ExpoImage
               source={{ uri: thumbPath }}
               style={
@@ -500,7 +625,7 @@ export const CachedMedia = React.memo(function CachedMedia({
               transition={imageProps?.transition ?? 150}
               cachePolicy={imageProps?.cachePolicy || "memory"}
             />
-          </Pressable>
+          </TouchableOpacity>
         );
       }
 
@@ -524,7 +649,11 @@ export const CachedMedia = React.memo(function CachedMedia({
         case MediaType.Icon:
         case MediaType.Gif:
           return (
-            <Pressable onPress={handleFrameClick}>
+            <TouchableOpacity
+              onPress={handleFrameClick}
+              onLongPress={handleLongPress}
+              activeOpacity={0.9}
+            >
               <ExpoImage
                 source={{ uri: mediaSource.localPath }}
                 style={
@@ -551,7 +680,7 @@ export const CachedMedia = React.memo(function CachedMedia({
                   );
                 }}
               />
-            </Pressable>
+            </TouchableOpacity>
           );
 
         case MediaType.Video:
@@ -608,6 +737,7 @@ export const CachedMedia = React.memo(function CachedMedia({
                     backgroundColor: "transparent",
                   }}
                   onPress={handleFrameClick}
+                  onLongPress={handleLongPress}
                   activeOpacity={1}
                 />
               )}
@@ -696,11 +826,75 @@ export const CachedMedia = React.memo(function CachedMedia({
     }
   };
 
+  const canShowContextMenu = useMemo(() => {
+    // Only show context menu for images, icons, gifs, and videos that are loaded
+    return (
+      (mediaType === MediaType.Image ||
+        mediaType === MediaType.Icon ||
+        mediaType === MediaType.Gif ||
+        mediaType === MediaType.Video) &&
+      (mediaSource?.localPath || mediaSource?.localThumbPath)
+    );
+  }, [mediaType, mediaSource?.localPath, mediaSource?.localThumbPath]);
+
   return (
     <View style={style}>
       {renderMedia()}
       {showMediaIndicator &&
         (isCompact ? renderSmallTypeIndicator() : renderTypeIndicator())}
+      {canShowContextMenu && (
+        <Modal
+          visible={isContextMenuOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseContextMenu}
+        >
+          <View style={defaultStyles.modalContent}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={handleCloseContextMenu}
+            />
+            <Surface
+              style={[
+                defaultStyles.contextMenu,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.outlineVariant,
+                },
+              ]}
+              elevation={4}
+            >
+              <View style={defaultStyles.contextMenuInner}>
+                {contextMenuItems.map((item) => (
+                  <TouchableRipple
+                    key={item.id}
+                    onPress={() => {
+                      item.onPress();
+                    }}
+                    style={defaultStyles.contextMenuItem}
+                  >
+                    <View style={defaultStyles.contextMenuItemContent}>
+                      <List.Icon
+                        icon={item.icon}
+                        color={theme.colors.onSurface}
+                      />
+                      <Text
+                        style={[
+                          defaultStyles.contextMenuItemText,
+                          { color: theme.colors.onSurface },
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+                    </View>
+                  </TouchableRipple>
+                ))}
+              </View>
+            </Surface>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 });
@@ -922,5 +1116,35 @@ const defaultStyles = StyleSheet.create({
   buttonText: {
     fontSize: 12,
     fontWeight: "600",
+  },
+
+  // Context menu styles
+  modalContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  contextMenu: {
+    borderRadius: 8,
+    borderWidth: 1,
+    minWidth: 180,
+  },
+  contextMenuInner: {
+    overflow: "hidden",
+    borderRadius: 8,
+  },
+  contextMenuItem: {
+    borderBottomWidth: 0,
+  },
+  contextMenuItemContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  contextMenuItemText: {
+    marginLeft: 12,
+    fontSize: 16,
   },
 });
