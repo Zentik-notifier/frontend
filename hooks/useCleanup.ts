@@ -180,6 +180,21 @@ export const useCleanup = () => {
                 },
                 'reloading media cache'
             ).catch(() => {});
+
+            // 8. Preload bucket icons (especially for shared buckets)
+            await executeWithRAF(
+                async () => {
+                    // Get buckets from React Query cache
+                    const appState = queryClient.getQueryData(['app-state']) as any;
+                    const buckets = appState?.buckets || [];
+                    
+                    if (buckets.length > 0) {
+                        await mediaCache.preloadBucketIcons(buckets);
+                        console.log(`[Cleanup] ✓ Preloaded icons for ${buckets.length} buckets`);
+                    }
+                },
+                'preloading bucket icons'
+            ).catch(() => {});
         } finally {
             // Always release the lock when cleanup completes or fails
             isCleanupRunningRef.current = false;

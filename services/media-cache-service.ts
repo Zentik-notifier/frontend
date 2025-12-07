@@ -732,6 +732,36 @@ class MediaCacheService {
         await this.loadMetadata();
     }
 
+    /**
+     * Preload bucket icons for all buckets (especially shared buckets)
+     * This ensures icons are available in shared cache for NSE/NCE extensions
+     * @param buckets - Array of buckets with id, name, and iconUrl
+     */
+    async preloadBucketIcons(
+        buckets: Array<{ id: string; name: string; iconUrl?: string | null }>
+    ): Promise<void> {
+        await this.initialize();
+        if (!this.repo) return;
+
+        // Preload icons for all buckets that have an iconUrl
+        const preloadPromises = buckets
+            .filter(bucket => bucket.iconUrl && bucket.name)
+            .map(bucket => {
+                // Preload icon asynchronously (don't await to avoid blocking)
+                return this.getBucketIcon(
+                    bucket.id,
+                    bucket.name,
+                    bucket.iconUrl!
+                ).catch((error) => {
+                    // Silently fail - icon will be loaded on-demand by BucketIcon component
+                    console.debug(`[MediaCache] Failed to preload icon for bucket ${bucket.name}:`, error);
+                });
+            });
+
+        // Wait for all preloads to complete (or fail silently)
+        await Promise.allSettled(preloadPromises);
+    }
+
     async downloadMedia(
         props: {
             url: string,
