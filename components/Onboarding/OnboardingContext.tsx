@@ -273,7 +273,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
         message: "Connection failed",
       });
       logAppEvent({
-        event: "onboarding_test_server_connection_error",
+        event: "onboarding_test_connection_error",
         level: "error",
         message: "Failed to test server connection",
         context: "OnboardingContext.testServerConnection",
@@ -293,7 +293,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
       if (!step4MagicCode) {
         const msg = "Missing magic code";
         logAppEvent({
-          event: "onboarding_send_test_notification_missing_magic_code",
+          event: "onboarding_test_missing_code",
           level: "warn",
           message: msg,
           context: "OnboardingContext.sendTestNotification",
@@ -362,7 +362,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
             errorText
           );
           logAppEvent({
-            event: "onboarding_send_test_notification_failed",
+            event: "onboarding_test_failed",
             level: "error",
             message: "Failed to send test notification",
             context: "OnboardingContext.sendTestNotification",
@@ -379,7 +379,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
       } catch (error) {
         console.error("[Onboarding] Failed to send test notification:", error);
         logAppEvent({
-          event: "onboarding_send_test_notification_error",
+          event: "onboarding_test_error",
           level: "error",
           message: "Exception while sending test notification",
           context: "OnboardingContext.sendTestNotification",
@@ -568,7 +568,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     } catch (error) {
       console.error("[Onboarding] Error creating Step 4 resources:", error);
       logAppEvent({
-        event: "onboarding_create_step4_resources_error",
+        event: "onboarding_step4_error",
         level: "error",
         message: "Error creating Step 4 resources",
         context: "OnboardingContext.createStep4Resources",

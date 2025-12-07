@@ -263,7 +263,7 @@ export default function OAuthCallbackPage() {
         } else {
           console.error("🔗 Missing tokens in OAuth callback");
           await logAppEvent({
-            event: "auth_oauth_missing_tokens_after_exchange",
+            event: "auth_oauth_tokens_missing",
             level: "error",
             message: "Missing tokens in OAuth callback after exchange",
             context: "OAuthCallbackPage.handleOAuthCallback(final)",

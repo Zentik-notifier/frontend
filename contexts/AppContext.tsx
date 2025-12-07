@@ -370,7 +370,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return "ok";
         } else {
           await logAppEvent({
-            event: "auth_register_completeAuth_failed",
+            event: "auth_register_complete_failed",
             level: "error",
             message: "completeAuth returned false after register",
             context: "AppContext.register",

@@ -227,6 +227,25 @@ export default function UserLogs() {
                 {log.type}
               </Text>
             </View>
+            {log.type === UserLogType.AppLog && log.payload?.event && (
+              <View
+                style={[
+                  styles.eventPill,
+                  {
+                    backgroundColor: theme.colors.tertiaryContainer,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.eventPillText,
+                    { color: theme.colors.onTertiaryContainer },
+                  ]}
+                >
+                  {log.payload.event}
+                </Text>
+              </View>
+            )}
             <Text
               style={[
                 styles.logText,
@@ -386,6 +405,26 @@ export default function UserLogs() {
                     </View>
                   )}
 
+                  {selectedLog.type === UserLogType.AppLog && selectedLog.payload?.event && (
+                    <View style={styles.dialogMetaRow}>
+                      <Text style={styles.dialogMetaLabel}>
+                        Event:
+                      </Text>
+                      <Text
+                        selectable
+                        style={[
+                          styles.dialogMetaValue,
+                          {
+                            color: theme.colors.tertiary,
+                            fontWeight: "600",
+                          },
+                        ]}
+                      >
+                        {selectedLog.payload.event}
+                      </Text>
+                    </View>
+                  )}
+
                   <View style={styles.metadataSection}>
                     <View style={styles.metadataHeader}>
                       <Text style={styles.dialogMetaLabel}>
@@ -466,6 +505,15 @@ const styles = StyleSheet.create({
   typePillText: {
     fontSize: 10,
     fontWeight: "600",
+  },
+  eventPill: {
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  eventPillText: {
+    fontSize: 9,
+    fontWeight: "500",
   },
   logText: {
     flex: 1,

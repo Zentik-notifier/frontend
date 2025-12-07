@@ -1,9 +1,9 @@
 import { useAppContext } from "@/contexts/AppContext";
 import { useBadgeSync } from "@/hooks";
-import { useSettings } from "@/hooks/useSettings";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { TranslationKeyPath, useI18n } from "@/hooks/useI18n";
 import { useDownloadQueue } from "@/hooks/useMediaCache";
+import { useSettings } from "@/hooks/useSettings";
 import { useAppTheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useSegments } from "expo-router";
@@ -19,11 +19,11 @@ import {
   useTheme,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { HelpModal } from "./Help";
 import { LoginModal } from "./LoginModal";
 import StatusBadge from "./StatusBadge";
-import UserDropdown from "./UserDropdown";
-import { HelpModal } from "./Help";
 import { FeedbackButton } from "./ui";
+import UserDropdown from "./UserDropdown";
 
 const ROUTES_WITH_HOME_BUTTON: string[] = [
   "/(phone)/(settings)",

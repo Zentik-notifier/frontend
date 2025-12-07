@@ -3,12 +3,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { useAppState, useMarkAllAsRead } from './notifications';
 import { useI18n } from './useI18n';
+import { useAppLog } from './useAppLog';
 
 /**
  * Hook to sync app badge count with unread notifications
  */
 export function useBadgeSync() {
     const { t } = useI18n();
+    const { logAppEvent } = useAppLog();
     const [isMarkingAllAsRead, setIsMarkingAllAsRead] = useState(false);
 
     // Use React Query stats hook
@@ -31,9 +33,24 @@ export function useBadgeSync() {
         setIsMarkingAllAsRead(true);
 
         try {
+            await logAppEvent({
+                event: "ui_mark_all_read",
+                level: "info",
+                message: "User triggered mark all as read",
+                context: "useBadgeSync.handleMarkAllAsRead",
+                data: { unreadCount },
+            }).catch(() => {});
             await markAllAsReadMutation.mutateAsync();
         } catch (error) {
             console.error("Error marking all notifications as read:", error);
+            await logAppEvent({
+                event: "ui_mark_all_failed",
+                level: "error",
+                message: "Failed to mark all notifications as read",
+                context: "useBadgeSync.handleMarkAllAsRead",
+                error,
+                data: { unreadCount },
+            }).catch(() => {});
             Alert.alert(
                 t("common.error"),
                 t("notifications.errors.markAllAsReadFailed"),
@@ -42,7 +59,7 @@ export function useBadgeSync() {
         } finally {
             setIsMarkingAllAsRead(false);
         }
-    }, [hasUnreadNotifications, isMarkingAllAsRead, markAllAsReadMutation, t]);
+    }, [hasUnreadNotifications, isMarkingAllAsRead, markAllAsReadMutation, t, logAppEvent, unreadCount]);
 
     return {
         unreadCount,

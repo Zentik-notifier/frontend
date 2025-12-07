@@ -19,6 +19,7 @@ import {
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import { useNotificationUtils } from "@/hooks/useNotificationUtils";
+import { useAppLog } from "@/hooks/useAppLog";
 import * as Clipboard from "expo-clipboard";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -86,11 +87,29 @@ export default function NotificationDetail({
     setFullScreenImageVisible(true);
   };
 
+  const { logAppEvent } = useAppLog();
+
   useEffect(() => {
-    if (notification && !notification.readAt) {
-      markAsReadMutation.mutate({ notificationId: notification.id });
+    if (notification) {
+      logAppEvent({
+        event: "ui_notification_open",
+        level: "info",
+        message: "User opened notification detail",
+        context: "NotificationDetail.useEffect",
+        data: {
+          notificationId: notification.id,
+          bucketId: bucketId,
+          bucketName: bucketName,
+          isRead: !!notification.readAt,
+          hasAttachments: (notification.message?.attachments?.length || 0) > 0,
+        },
+      }).catch(() => {});
+      
+      if (!notification.readAt) {
+        markAsReadMutation.mutate({ notificationId: notification.id });
+      }
     }
-  }, [notification]);
+  }, [notification, bucketId, bucketName, logAppEvent]);
 
   // Get bucket name from hook (from cache) or fallback to notification bucket name
   const bucketName = bucket?.name || message?.bucket?.name || "";

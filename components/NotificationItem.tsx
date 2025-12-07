@@ -13,6 +13,7 @@ import {
 } from "@/hooks/notifications";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
+import { useAppLog } from "@/hooks/useAppLog";
 import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useRecyclingState } from "@shopify/flash-list";

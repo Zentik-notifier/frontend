@@ -9,6 +9,7 @@ import {
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import * as Clipboard from "expo-clipboard";
 import { useI18n } from "@/utils/i18n";
+import { useAppLog } from "@/hooks/useAppLog";
 import PaperMenu, { PaperMenuItem } from "./ui/PaperMenu";
 
 export interface SwipeableItemRef {
@@ -67,6 +68,7 @@ const SwipeableItem = forwardRef<SwipeableItemRef, SwipeableItemProps>(({
   const swipeableRef = useRef<any>(null);
   const theme = useTheme();
   const { t } = useI18n();
+  const { logAppEvent } = useAppLog();
 
   useImperativeHandle(ref, () => ({
     close: () => {
@@ -101,6 +103,21 @@ const SwipeableItem = forwardRef<SwipeableItemRef, SwipeableItemProps>(({
   const handleActionPress = async (action?: SwipeAction) => {
     if (!action) return;
 
+    const logSwipeAction = async (confirmed: boolean) => {
+      await logAppEvent({
+        event: "ui_swipe_action",
+        level: "info",
+        message: `User triggered swipeable action: ${action.label}`,
+        context: "SwipeableItem.handleActionPress",
+        data: {
+          actionLabel: action.label,
+          actionIcon: action.icon,
+          isDestructive: action.destructive || false,
+          confirmed,
+        },
+      }).catch(() => {});
+    };
+
     if (action.showAlert) {
       Alert.alert(
         action.showAlert.title,
@@ -109,13 +126,17 @@ const SwipeableItem = forwardRef<SwipeableItemRef, SwipeableItemProps>(({
           {
             text: action.showAlert.cancelText || "Cancel",
             style: "cancel",
-            onPress: closeSwipeable,
+            onPress: () => {
+              logSwipeAction(false).catch(() => {});
+              closeSwipeable();
+            },
           },
           {
             text: action.showAlert.confirmText || "Confirm",
             style: "destructive",
             onPress: async () => {
               try {
+                await logSwipeAction(true);
                 action.onPress()?.catch(console.error);
                 closeSwipeable();
               } catch (error) {
@@ -125,10 +146,14 @@ const SwipeableItem = forwardRef<SwipeableItemRef, SwipeableItemProps>(({
             },
           },
         ],
-        { cancelable: true, onDismiss: closeSwipeable }
+        { cancelable: true, onDismiss: () => {
+          logSwipeAction(false).catch(() => {});
+          closeSwipeable();
+        } }
       );
     } else {
       try {
+        await logSwipeAction(true);
         action.onPress()?.catch(console.error);
         closeSwipeable();
       } catch (error) {
@@ -139,6 +164,21 @@ const SwipeableItem = forwardRef<SwipeableItemRef, SwipeableItemProps>(({
   };
 
   const handleMenuItemPress = async (item: MenuItem) => {
+    const logMenuAction = async (confirmed: boolean) => {
+      await logAppEvent({
+        event: "ui_menu_action",
+        level: "info",
+        message: `User triggered menu action: ${item.label}`,
+        context: "SwipeableItem.handleMenuItemPress",
+        data: {
+          actionLabel: item.label,
+          actionId: item.id,
+          actionType: item.type || "normal",
+          confirmed,
+        },
+      }).catch(() => {});
+    };
+
     if (item.showAlert) {
       Alert.alert(
         item.showAlert.title,
@@ -147,12 +187,16 @@ const SwipeableItem = forwardRef<SwipeableItemRef, SwipeableItemProps>(({
           {
             text: item.showAlert.cancelText || "Cancel",
             style: "cancel",
+            onPress: () => {
+              logMenuAction(false).catch(() => {});
+            },
           },
           {
             text: item.showAlert.confirmText || "Confirm",
             style: item.type === "destructive" ? "destructive" : "default",
             onPress: async () => {
               try {
+                await logMenuAction(true);
                 item.onPress()?.catch(console.error);
               } catch (error) {
                 console.error("Error during menu action:", error);
@@ -160,10 +204,13 @@ const SwipeableItem = forwardRef<SwipeableItemRef, SwipeableItemProps>(({
             },
           },
         ],
-        { cancelable: true }
+        { cancelable: true, onDismiss: () => {
+          logMenuAction(false).catch(() => {});
+        } }
       );
     } else {
       try {
+        await logMenuAction(true);
         item.onPress()?.catch(console.error);
       } catch (error) {
         console.error("Error during menu action:", error);

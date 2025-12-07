@@ -1,6 +1,7 @@
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import { useNotificationsContext } from "@/contexts/NotificationsContext";
+import { useAppLog } from "@/hooks/useAppLog";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import {
@@ -32,6 +33,7 @@ export default function NotificationVisualization({
 }: NotificationVisualizationProps) {
   const { t } = useI18n();
   const theme = useTheme();
+  const { logAppEvent } = useAppLog();
   const {
     userSettings: { settings, setNotificationVisualization, setIsCompactMode },
   } = useAppContext();
@@ -309,7 +311,16 @@ export default function NotificationVisualization({
                   backgroundColor: theme.colors.surfaceVariant,
                 },
               ]}
-              onPress={onRefresh}
+              onPress={async () => {
+                await logAppEvent({
+                  event: "ui_notifications_refresh",
+                  level: "info",
+                  message: "User triggered notifications refresh",
+                  context: "NotificationFilters.refreshButton",
+                  data: { totalNotifications },
+                }).catch(() => {});
+                await onRefresh();
+              }}
               disabled={refreshing}
             >
               {refreshing ? (

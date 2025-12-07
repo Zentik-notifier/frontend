@@ -16,6 +16,7 @@ import {
   useTheme,
 } from "react-native-paper";
 import { useI18n } from "../../hooks/useI18n";
+import { useAppLog } from "@/hooks/useAppLog";
 
 export interface CustomFabAction {
   icon: string;
@@ -64,6 +65,7 @@ export default function PaperScrollView({
 }: PaperScrollViewProps) {
   const theme = useTheme();
   const { t } = useI18n();
+  const { logAppEvent } = useAppLog();
 
   const [refreshing, setRefreshing] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
@@ -71,8 +73,17 @@ export default function PaperScrollView({
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await onRefresh?.();
-    setRefreshing(false);
+    try {
+      await logAppEvent({
+        event: "ui_refresh",
+        level: "info",
+        message: "User triggered refresh",
+        context: "PaperScrollView.handleRefresh",
+      }).catch(() => {});
+      await onRefresh?.();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const scrollViewContent = withScroll ? (
@@ -139,7 +150,15 @@ export default function PaperScrollView({
     fabActions.push({
       icon: "refresh",
       label: t("common.refresh"),
-      onPress: () => refetch(),
+      onPress: async () => {
+      await logAppEvent({
+        event: "ui_refetch",
+        level: "info",
+        message: "User triggered refetch",
+        context: "PaperScrollView.refetch",
+      }).catch(() => {});
+        await refetch();
+      },
       style: { backgroundColor: theme.colors.tertiaryContainer },
     });
   }
