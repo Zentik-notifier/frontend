@@ -47,7 +47,9 @@ export default function CreateUserTemplateForm({
   const [fieldErrors, setFieldErrors] = useState<{
     name?: string;
     description?: string;
-    template?: string;
+    title?: string;
+    subtitle?: string;
+    body?: string;
     testInput?: string;
   }>({});
 
@@ -70,7 +72,9 @@ export default function CreateUserTemplateForm({
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [template, setTemplate] = useState("");
+  const [title, setTitle] = useState("");
+  const [subtitle, setSubtitle] = useState("");
+  const [body, setBody] = useState("");
 
   // Test section states
   const [testInput, setTestInput] = useState(`{
@@ -81,27 +85,21 @@ export default function CreateUserTemplateForm({
   const [testOutput, setTestOutput] = useState("");
   const [isTesting, setIsTesting] = useState(false);
 
-  const defaultTemplate = `Hello {{user}}!
-
-{{title}}
-
-{{message}}
-
-Thank you!
-
-You can use Handlebars syntax:
-- {{variable}} for simple variables
-- {{object.property}} for nested properties
-- {{#if condition}}...{{/if}} for conditionals
-- {{#each items}}...{{/each}} for loops`;
+  const defaultTitle = `Hello {{user}}!`;
+  const defaultSubtitle = `Subtitle: {{subtitle}}`;
+  const defaultBody = `Body content with {{title}}`;
 
   useEffect(() => {
     if (userTemplate) {
       setName(userTemplate.name || "");
       setDescription(userTemplate.description || "");
-      setTemplate(userTemplate.template || "");
+      setTitle(userTemplate.title || "");
+      setSubtitle(userTemplate.subtitle || "");
+      setBody(userTemplate.body || "");
     } else if (!isEditing) {
-      setTemplate(defaultTemplate);
+      setTitle(defaultTitle);
+      setSubtitle(defaultSubtitle);
+      setBody(defaultBody);
     }
   }, [userTemplate, isEditing]);
 
@@ -109,11 +107,15 @@ You can use Handlebars syntax:
     if (isEditing && userTemplate) {
       setName(userTemplate.name || "");
       setDescription(userTemplate.description || "");
-      setTemplate(userTemplate.template || "");
+      setTitle(userTemplate.title || "");
+      setSubtitle(userTemplate.subtitle || "");
+      setBody(userTemplate.body || "");
     } else {
       setName("");
       setDescription("");
-      setTemplate(defaultTemplate);
+      setTitle(defaultTitle);
+      setSubtitle(defaultSubtitle);
+      setBody(defaultBody);
     }
     setFieldErrors({});
     setTestOutput("");
@@ -123,7 +125,9 @@ You can use Handlebars syntax:
     const errors: {
       name?: string;
       description?: string;
-      template?: string;
+      title?: string;
+      subtitle?: string;
+      body?: string;
       testInput?: string;
     } = {};
 
@@ -131,8 +135,8 @@ You can use Handlebars syntax:
       errors.name = t("userTemplates.form.nameRequired");
     }
 
-    if (!template.trim()) {
-      errors.template = t("userTemplates.form.templateRequired");
+    if (!body.trim()) {
+      errors.body = t("userTemplates.form.bodyRequired");
     }
 
     setFieldErrors(errors);
@@ -140,7 +144,7 @@ You can use Handlebars syntax:
   };
 
   const testTemplate = () => {
-    if (!testInput.trim() || !template.trim()) {
+    if (!testInput.trim() || (!body.trim() && !subtitle.trim() && !title.trim())) {
       return;
     }
 
@@ -162,10 +166,25 @@ You can use Handlebars syntax:
         return;
       }
 
-      // Process template with input data using Handlebars
-      const compiledTemplate = Handlebars.compile(template);
-      const result = compiledTemplate(parsedInput);
-      setTestOutput(result);
+      // Process all templates with input data using Handlebars
+      const results: any = {};
+      
+      if (title.trim()) {
+        const compiledTitle = Handlebars.compile(title);
+        results.title = compiledTitle(parsedInput);
+      }
+      
+      if (subtitle.trim()) {
+        const compiledSubtitle = Handlebars.compile(subtitle);
+        results.subtitle = compiledSubtitle(parsedInput);
+      }
+      
+      if (body.trim()) {
+        const compiledBody = Handlebars.compile(body);
+        results.body = compiledBody(parsedInput);
+      }
+
+      setTestOutput(JSON.stringify(results, null, 2));
     } catch (error: any) {
       setTestOutput(
         t("userTemplates.form.testExecutionError") + ": " + error.message
@@ -232,7 +251,9 @@ You can use Handlebars syntax:
       const userTemplateInput = {
         name: name.trim(),
         description: description.trim() || undefined,
-        template: template.trim(),
+        title: title.trim() || undefined,
+        subtitle: subtitle.trim() || undefined,
+        body: body.trim(),
       };
 
       if (isEditing && userTemplateId) {
@@ -329,20 +350,72 @@ You can use Handlebars syntax:
         <Text style={styles.errorText}>{fieldErrors.description}</Text>
       )}
 
+      <Text variant="bodyLarge" style={styles.sectionTitle}>
+        {t("userTemplates.form.title")}
+      </Text>
       <CodeEditor
-        value={template}
+        value={title}
         onChange={(text: string) => {
-          setTemplate(text);
-          if (fieldErrors.template) {
-            setFieldErrors({ ...fieldErrors, template: undefined });
+          setTitle(text);
+          if (fieldErrors.title) {
+            setFieldErrors({ ...fieldErrors, title: undefined });
           }
         }}
-        placeholder={t("userTemplates.form.templatePlaceholder")}
-        label={t("userTemplates.form.template")}
+        placeholder={t("userTemplates.form.titlePlaceholder")}
+        label={t("userTemplates.form.title")}
         language="handlebars"
-        error={!!fieldErrors.template}
-        errorText={fieldErrors.template}
+        error={!!fieldErrors.title}
+        errorText={fieldErrors.title}
+        height={72}
+        numberOfLines={3}
       />
+      {fieldErrors.title && (
+        <Text style={styles.errorText}>{fieldErrors.title}</Text>
+      )}
+
+      <Text variant="bodyLarge" style={styles.sectionTitle}>
+        {t("userTemplates.form.subtitle")}
+      </Text>
+      <CodeEditor
+        value={subtitle}
+        onChange={(text: string) => {
+          setSubtitle(text);
+          if (fieldErrors.subtitle) {
+            setFieldErrors({ ...fieldErrors, subtitle: undefined });
+          }
+        }}
+        placeholder={t("userTemplates.form.subtitlePlaceholder")}
+        label={t("userTemplates.form.subtitle")}
+        language="handlebars"
+        error={!!fieldErrors.subtitle}
+        errorText={fieldErrors.subtitle}
+        height={72}
+        numberOfLines={3}
+      />
+      {fieldErrors.subtitle && (
+        <Text style={styles.errorText}>{fieldErrors.subtitle}</Text>
+      )}
+
+      <Text variant="bodyLarge" style={styles.sectionTitle}>
+        {t("userTemplates.form.body")}
+      </Text>
+      <CodeEditor
+        value={body}
+        onChange={(text: string) => {
+          setBody(text);
+          if (fieldErrors.body) {
+            setFieldErrors({ ...fieldErrors, body: undefined });
+          }
+        }}
+        placeholder={t("userTemplates.form.bodyPlaceholder")}
+        label={t("userTemplates.form.body")}
+        language="handlebars"
+        error={!!fieldErrors.body}
+        errorText={fieldErrors.body}
+      />
+      {fieldErrors.body && (
+        <Text style={styles.errorText}>{fieldErrors.body}</Text>
+      )}
 
       {/* Test Section */}
       <View style={styles.testSection}>
@@ -376,9 +449,10 @@ You can use Handlebars syntax:
           disabled={
             isTesting ||
             !testInput.trim() ||
-            !template.trim() ||
+            (!body.trim() && !subtitle.trim() && !title.trim()) ||
             !!fieldErrors.name ||
-            !!fieldErrors.template
+            !!fieldErrors.body ||
+            !!fieldErrors.subtitle
           }
           style={styles.testButton}
         >
@@ -419,7 +493,8 @@ You can use Handlebars syntax:
             updatingUserTemplate ||
             isOffline ||
             !!fieldErrors.name ||
-            !!fieldErrors.template
+            !!fieldErrors.body ||
+            !!fieldErrors.subtitle
           }
           style={styles.saveButton}
         >

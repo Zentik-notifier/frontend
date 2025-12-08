@@ -98,9 +98,12 @@ const SwipeableUserTemplateItem: React.FC<SwipeableUserTemplateItemProps> = ({
       }
     : undefined;
 
-  const templatePreview = userTemplate.template
-    ? userTemplate.template.substring(0, 100) +
-      (userTemplate.template.length > 100 ? "..." : "")
+  const templatePreview = userTemplate.body
+    ? userTemplate.body.substring(0, 100) +
+      (userTemplate.body.length > 100 ? "..." : "")
+    : userTemplate.subtitle
+    ? userTemplate.subtitle.substring(0, 100) +
+      (userTemplate.subtitle.length > 100 ? "..." : "")
     : "";
 
   return (

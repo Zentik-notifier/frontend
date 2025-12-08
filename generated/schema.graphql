@@ -210,11 +210,11 @@ input CreateUserLogInput {
 }
 
 input CreateUserTemplateDto {
+  body: String!
   description: String
-  input: String
   name: String!
-  output: String
-  template: String!
+  subtitle: String
+  title: String
 }
 
 input CreateWebhookDto {
@@ -1272,11 +1272,11 @@ input UpdateUserRoleInput {
 }
 
 input UpdateUserTemplateDto {
+  body: String
   description: String
-  input: String
   name: String
-  output: String
-  template: String
+  subtitle: String
+  title: String
 }
 
 input UpdateWebhookDto {
@@ -1474,13 +1474,15 @@ enum UserSettingType {
 }
 
 type UserTemplate {
+  body: String!
   createdAt: DateTime!
   description: String
   id: ID!
   input: String
   name: String!
   output: String
-  template: String!
+  subtitle: String
+  title: String
   updatedAt: DateTime!
   user: User!
   userId: String!

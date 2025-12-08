@@ -116,6 +116,7 @@ interface CodeEditorProps {
   language?: string;
   readOnly?: boolean;
   height?: string | number;
+  numberOfLines?: number;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -128,6 +129,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   language = "typescript",
   readOnly = false,
   height = "300px",
+  numberOfLines,
 }) => {
   // Use Monaco Editor on web
   if (Platform.OS === "web" && MonacoEditor) {
@@ -267,7 +269,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         placeholder={placeholder}
         error={!!error}
         multiline
-        numberOfLines={12}
+        numberOfLines={numberOfLines || 12}
         style={[styles.codeInput, { height: typeof height === 'number' ? height : parseInt(height) || 300 }]}
         mode="outlined"
         editable={!readOnly}

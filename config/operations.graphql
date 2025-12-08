@@ -1524,20 +1524,26 @@ query UserAttachments($userId: ID!) {
 input CreateUserTemplateDto {
   name: String!
   description: String
-  template: String!
+  title: String
+  subtitle: String
+  body: String!
 }
 
 input UpdateUserTemplateDto {
   name: String
   description: String
-  template: String
+  title: String
+  subtitle: String
+  body: String
 }
 
 fragment UserTemplateFragment on UserTemplate {
   id
   name
   description
-  template
+  title
+  subtitle
+  body
   input
   output
   userId

@@ -1643,9 +1643,13 @@ export interface Translation {
       nameRequired: string;
       description: string;
       descriptionPlaceholder: string;
-      template: string;
-      templatePlaceholder: string;
-      templateRequired: string;
+      title: string;
+      titlePlaceholder: string;
+      body: string;
+      bodyPlaceholder: string;
+      bodyRequired: string;
+      subtitle: string;
+      subtitlePlaceholder: string;
       test: string;
       testInput: string;
       testInputPlaceholder: string;
