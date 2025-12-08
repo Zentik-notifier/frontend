@@ -190,6 +190,8 @@ export type CreateMessageDto = {
   subtitle?: InputMaybe<Scalars['String']['input']>;
   tapAction?: InputMaybe<NotificationActionDto>;
   tapUrl?: InputMaybe<Scalars['String']['input']>;
+  template?: InputMaybe<Scalars['String']['input']>;
+  templateData?: InputMaybe<Scalars['JSON']['input']>;
   title: Scalars['String']['input'];
   userIds?: InputMaybe<Array<Scalars['String']['input']>>;
   videoUrl?: InputMaybe<Scalars['String']['input']>;

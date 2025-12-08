@@ -1,6 +1,7 @@
 import { useAppContext } from "@/contexts/AppContext";
 import {
   CreateUserTemplateDto,
+  ExecutionType,
   GetUserTemplatesDocument,
   GetUserTemplatesQuery,
   UpdateUserTemplateDto,
@@ -24,6 +25,7 @@ import {
   useTheme,
 } from "react-native-paper";
 import CodeEditor from "./CodeEditor";
+import EntityExecutionsSection from "./EntityExecutionsSection";
 import PaperScrollView from "./ui/PaperScrollView";
 
 interface CreateUserTemplateFormProps {
@@ -520,6 +522,17 @@ export default function CreateUserTemplateForm({
               ? t("userTemplates.form.deleting")
               : t("userTemplates.delete")}
           </Button>
+        </View>
+      )}
+
+      {/* Entity Executions Section */}
+      {userTemplateId && (
+        <View style={{ marginBottom: 100 }}>
+          <EntityExecutionsSection
+            entityId={userTemplateId}
+            entityType={ExecutionType.MessageTemplate}
+            entityName={userTemplate?.name}
+          />
         </View>
       )}
 
