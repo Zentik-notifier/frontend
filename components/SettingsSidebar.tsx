@@ -97,6 +97,15 @@ export default function SettingsSidebar() {
       onPress: nav.navigateToPayloadMappersSettings,
       selectionSegment: "payload-mapper",
     },
+    {
+      id: "user-templates-settings",
+      title: t("userTemplates.title"),
+      description: t("userTemplates.description"),
+      icon: "file-document-edit",
+      iconColor: "#A855F7", // Purple/Violet
+      onPress: nav.navigateToUserTemplatesSettings,
+      selectionSegment: "user-template",
+    },
     // {
     //   id: "devices-settings",
     //   title: t("devices.title"),

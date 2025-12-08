@@ -231,6 +231,14 @@ export type CreateUserLogInput = {
   userId?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type CreateUserTemplateDto = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  input?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  output?: InputMaybe<Scalars['String']['input']>;
+  template: Scalars['String']['input'];
+};
+
 export type CreateWebhookDto = {
   body?: InputMaybe<Scalars['JSON']['input']>;
   headers: Array<WebhookHeaderDto>;
@@ -364,6 +372,7 @@ export enum ExecutionStatus {
 
 /** Types of executions that are tracked */
 export enum ExecutionType {
+  MessageTemplate = 'MESSAGE_TEMPLATE',
   Notification = 'NOTIFICATION',
   PayloadMapper = 'PAYLOAD_MAPPER',
   Webhook = 'WEBHOOK'
@@ -599,6 +608,8 @@ export type Mutation = {
   createSystemAccessTokenRequest: SystemAccessTokenRequest;
   createSystemToken: SystemAccessTokenDto;
   createUserLog: UserLog;
+  /** Create a new user template */
+  createUserTemplate: UserTemplate;
   createWebhook: UserWebhook;
   declineSystemAccessTokenRequest: SystemAccessTokenRequest;
   deleteAccount: Scalars['Boolean']['output'];
@@ -613,6 +624,8 @@ export type Mutation = {
   deleteOAuthProvider: Scalars['Boolean']['output'];
   deletePayloadMapper: Scalars['Boolean']['output'];
   deleteServerFile: Scalars['Boolean']['output'];
+  /** Delete user template by ID */
+  deleteUserTemplate: Scalars['Boolean']['output'];
   deleteWebhook: Scalars['Boolean']['output'];
   deviceReportNotificationReceived: Notification;
   executeWebhook: Scalars['Boolean']['output'];
@@ -674,6 +687,8 @@ export type Mutation = {
   updateUserBucketCustomName: UserBucket;
   updateUserDevice: UserDevice;
   updateUserRole: User;
+  /** Update user template by ID */
+  updateUserTemplate: UserTemplate;
   updateWebhook: UserWebhook;
   upsertMyAdminSubscription: Array<Scalars['String']['output']>;
   upsertUserSetting: UserSetting;
@@ -782,6 +797,11 @@ export type MutationCreateUserLogArgs = {
 };
 
 
+export type MutationCreateUserTemplateArgs = {
+  input: CreateUserTemplateDto;
+};
+
+
 export type MutationCreateWebhookArgs = {
   input: CreateWebhookDto;
 };
@@ -836,6 +856,11 @@ export type MutationDeletePayloadMapperArgs = {
 export type MutationDeleteServerFileArgs = {
   name: Scalars['String']['input'];
   path?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type MutationDeleteUserTemplateArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -1081,6 +1106,12 @@ export type MutationUpdateUserDeviceArgs = {
 
 export type MutationUpdateUserRoleArgs = {
   input: UpdateUserRoleInput;
+};
+
+
+export type MutationUpdateUserTemplateArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateUserTemplateDto;
 };
 
 
@@ -1376,6 +1407,10 @@ export type Query = {
   userLogs: PaginatedUserLogs;
   userNotificationStats: UserNotificationStats;
   userSettings: Array<UserSetting>;
+  /** Get user template by ID */
+  userTemplate: UserTemplate;
+  /** Get all user templates for the authenticated user */
+  userTemplates: Array<UserTemplate>;
   userWebhooks: Array<UserWebhook>;
   users: Array<User>;
   webhook: UserWebhook;
@@ -1510,6 +1545,11 @@ export type QueryUserNotificationStatsArgs = {
 
 export type QueryUserSettingsArgs = {
   deviceId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QueryUserTemplateArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -1874,6 +1914,14 @@ export type UpdateUserRoleInput = {
   userId: Scalars['String']['input'];
 };
 
+export type UpdateUserTemplateDto = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  input?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  output?: InputMaybe<Scalars['String']['input']>;
+  template?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type UpdateWebhookDto = {
   body?: InputMaybe<Scalars['JSON']['input']>;
   headers?: InputMaybe<Array<WebhookHeaderDto>>;
@@ -1909,6 +1957,7 @@ export type User = {
   resetTokenRequestedAt: Maybe<Scalars['DateTime']['output']>;
   role: UserRole;
   sessions: Maybe<Array<UserSession>>;
+  templates: Maybe<Array<UserTemplate>>;
   updatedAt: Scalars['DateTime']['output'];
   userBuckets: Maybe<Array<UserBucket>>;
   username: Scalars['String']['output'];
@@ -2076,6 +2125,20 @@ export enum UserSettingType {
   Timezone = 'Timezone',
   UnencryptOnBigPayload = 'UnencryptOnBigPayload'
 }
+
+export type UserTemplate = {
+  __typename?: 'UserTemplate';
+  createdAt: Scalars['DateTime']['output'];
+  description: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  input: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  output: Maybe<Scalars['String']['output']>;
+  template: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  user: User;
+  userId: Scalars['String']['output'];
+};
 
 export type UserWebhook = {
   __typename?: 'UserWebhook';
@@ -3097,6 +3160,42 @@ export type UserAttachmentsQueryVariables = Exact<{
 
 export type UserAttachmentsQuery = { __typename?: 'Query', userAttachments: Array<{ __typename?: 'Attachment', id: string, filename: string, originalFilename: string | null, size: number | null, filepath: string, mediaType: MediaType | null, createdAt: string, userId: string }> };
 
+export type UserTemplateFragment = { __typename?: 'UserTemplate', id: string, name: string, description: string | null, template: string, input: string | null, output: string | null, userId: string, createdAt: string, updatedAt: string, user: { __typename?: 'User', id: string, email: string, username: string, firstName: string | null, lastName: string | null, avatar: string | null, hasPassword: boolean, role: UserRole, createdAt: string, updatedAt: string, identities: Array<{ __typename?: 'UserIdentity', id: string, email: string | null, providerType: OAuthProviderType | null, metadata: string | null, createdAt: string }> | null, buckets: Array<{ __typename?: 'Bucket', id: string, name: string, description: string | null, icon: string | null, color: string | null, createdAt: string, updatedAt: string }> | null, devices: Array<{ __typename?: 'UserDevice', id: string, platform: string, deviceName: string | null, deviceModel: string | null, osVersion: string | null, onlyLocal: boolean, lastUsed: string, createdAt: string, updatedAt: string }> | null } };
+
+export type GetUserTemplatesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetUserTemplatesQuery = { __typename?: 'Query', userTemplates: Array<{ __typename?: 'UserTemplate', id: string, name: string, description: string | null, template: string, input: string | null, output: string | null, userId: string, createdAt: string, updatedAt: string, user: { __typename?: 'User', id: string, email: string, username: string, firstName: string | null, lastName: string | null, avatar: string | null, hasPassword: boolean, role: UserRole, createdAt: string, updatedAt: string, identities: Array<{ __typename?: 'UserIdentity', id: string, email: string | null, providerType: OAuthProviderType | null, metadata: string | null, createdAt: string }> | null, buckets: Array<{ __typename?: 'Bucket', id: string, name: string, description: string | null, icon: string | null, color: string | null, createdAt: string, updatedAt: string }> | null, devices: Array<{ __typename?: 'UserDevice', id: string, platform: string, deviceName: string | null, deviceModel: string | null, osVersion: string | null, onlyLocal: boolean, lastUsed: string, createdAt: string, updatedAt: string }> | null } }> };
+
+export type GetUserTemplateQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type GetUserTemplateQuery = { __typename?: 'Query', userTemplate: { __typename?: 'UserTemplate', id: string, name: string, description: string | null, template: string, input: string | null, output: string | null, userId: string, createdAt: string, updatedAt: string, user: { __typename?: 'User', id: string, email: string, username: string, firstName: string | null, lastName: string | null, avatar: string | null, hasPassword: boolean, role: UserRole, createdAt: string, updatedAt: string, identities: Array<{ __typename?: 'UserIdentity', id: string, email: string | null, providerType: OAuthProviderType | null, metadata: string | null, createdAt: string }> | null, buckets: Array<{ __typename?: 'Bucket', id: string, name: string, description: string | null, icon: string | null, color: string | null, createdAt: string, updatedAt: string }> | null, devices: Array<{ __typename?: 'UserDevice', id: string, platform: string, deviceName: string | null, deviceModel: string | null, osVersion: string | null, onlyLocal: boolean, lastUsed: string, createdAt: string, updatedAt: string }> | null } } };
+
+export type CreateUserTemplateMutationVariables = Exact<{
+  input: CreateUserTemplateDto;
+}>;
+
+
+export type CreateUserTemplateMutation = { __typename?: 'Mutation', createUserTemplate: { __typename?: 'UserTemplate', id: string, name: string, description: string | null, template: string, input: string | null, output: string | null, userId: string, createdAt: string, updatedAt: string, user: { __typename?: 'User', id: string, email: string, username: string, firstName: string | null, lastName: string | null, avatar: string | null, hasPassword: boolean, role: UserRole, createdAt: string, updatedAt: string, identities: Array<{ __typename?: 'UserIdentity', id: string, email: string | null, providerType: OAuthProviderType | null, metadata: string | null, createdAt: string }> | null, buckets: Array<{ __typename?: 'Bucket', id: string, name: string, description: string | null, icon: string | null, color: string | null, createdAt: string, updatedAt: string }> | null, devices: Array<{ __typename?: 'UserDevice', id: string, platform: string, deviceName: string | null, deviceModel: string | null, osVersion: string | null, onlyLocal: boolean, lastUsed: string, createdAt: string, updatedAt: string }> | null } } };
+
+export type UpdateUserTemplateMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateUserTemplateDto;
+}>;
+
+
+export type UpdateUserTemplateMutation = { __typename?: 'Mutation', updateUserTemplate: { __typename?: 'UserTemplate', id: string, name: string, description: string | null, template: string, input: string | null, output: string | null, userId: string, createdAt: string, updatedAt: string, user: { __typename?: 'User', id: string, email: string, username: string, firstName: string | null, lastName: string | null, avatar: string | null, hasPassword: boolean, role: UserRole, createdAt: string, updatedAt: string, identities: Array<{ __typename?: 'UserIdentity', id: string, email: string | null, providerType: OAuthProviderType | null, metadata: string | null, createdAt: string }> | null, buckets: Array<{ __typename?: 'Bucket', id: string, name: string, description: string | null, icon: string | null, color: string | null, createdAt: string, updatedAt: string }> | null, devices: Array<{ __typename?: 'UserDevice', id: string, platform: string, deviceName: string | null, deviceModel: string | null, osVersion: string | null, onlyLocal: boolean, lastUsed: string, createdAt: string, updatedAt: string }> | null } } };
+
+export type DeleteUserTemplateMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteUserTemplateMutation = { __typename?: 'Mutation', deleteUserTemplate: boolean };
+
 export const AttachmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"AttachmentFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Attachment"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"filename"}},{"kind":"Field","name":{"kind":"Name","value":"originalFilename"}},{"kind":"Field","name":{"kind":"Name","value":"size"}},{"kind":"Field","name":{"kind":"Name","value":"filepath"}},{"kind":"Field","name":{"kind":"Name","value":"mediaType"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}}]}}]} as unknown as DocumentNode;
 export const MessageAttachmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageAttachmentFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MessageAttachment"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaType"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"attachmentUuid"}},{"kind":"Field","name":{"kind":"Name","value":"saveOnServer"}}]}}]} as unknown as DocumentNode;
 export const NotificationActionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"NotificationActionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationAction"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"destructive"}}]}}]} as unknown as DocumentNode;
@@ -3128,6 +3227,7 @@ export const PayloadMapperFragmentDoc = {"kind":"Document","definitions":[{"kind
 export const EntityExecutionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EntityExecutionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EntityExecution"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"entityName"}},{"kind":"Field","name":{"kind":"Name","value":"entityId"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"input"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"errors"}},{"kind":"Field","name":{"kind":"Name","value":"durationMs"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
 export const ServerSettingFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerSettingFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ServerSetting"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"configType"}},{"kind":"Field","name":{"kind":"Name","value":"valueText"}},{"kind":"Field","name":{"kind":"Name","value":"valueBool"}},{"kind":"Field","name":{"kind":"Name","value":"valueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"possibleValues"}}]}}]} as unknown as DocumentNode;
 export const ServerFileFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerFileFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"FileInfoDto"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"size"}},{"kind":"Field","name":{"kind":"Name","value":"mtime"}},{"kind":"Field","name":{"kind":"Name","value":"isDir"}}]}}]} as unknown as DocumentNode;
+export const UserTemplateFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserTemplateFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UserTemplate"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"template"}},{"kind":"Field","name":{"kind":"Name","value":"input"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"User"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"avatar"}},{"kind":"Field","name":{"kind":"Name","value":"hasPassword"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"identities"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"providerType"}},{"kind":"Field","name":{"kind":"Name","value":"metadata"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"buckets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"devices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"deviceModel"}},{"kind":"Field","name":{"kind":"Name","value":"osVersion"}},{"kind":"Field","name":{"kind":"Name","value":"onlyLocal"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsed"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
 export const RequestPasswordResetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RequestPasswordReset"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RequestPasswordResetDto"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"requestPasswordReset"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode;
 export type RequestPasswordResetMutationFn = Apollo.MutationFunction<RequestPasswordResetMutation, RequestPasswordResetMutationVariables>;
 
@@ -7188,3 +7288,152 @@ export type UserAttachmentsQueryHookResult = ReturnType<typeof useUserAttachment
 export type UserAttachmentsLazyQueryHookResult = ReturnType<typeof useUserAttachmentsLazyQuery>;
 export type UserAttachmentsSuspenseQueryHookResult = ReturnType<typeof useUserAttachmentsSuspenseQuery>;
 export type UserAttachmentsQueryResult = Apollo.QueryResult<UserAttachmentsQuery, UserAttachmentsQueryVariables>;
+export const GetUserTemplatesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetUserTemplates"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userTemplates"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserTemplateFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"User"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"avatar"}},{"kind":"Field","name":{"kind":"Name","value":"hasPassword"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"identities"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"providerType"}},{"kind":"Field","name":{"kind":"Name","value":"metadata"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"buckets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"devices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"deviceModel"}},{"kind":"Field","name":{"kind":"Name","value":"osVersion"}},{"kind":"Field","name":{"kind":"Name","value":"onlyLocal"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsed"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserTemplateFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UserTemplate"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"template"}},{"kind":"Field","name":{"kind":"Name","value":"input"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetUserTemplatesQuery__
+ *
+ * To run a query within a React component, call `useGetUserTemplatesQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetUserTemplatesQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetUserTemplatesQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useGetUserTemplatesQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<GetUserTemplatesQuery, GetUserTemplatesQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetUserTemplatesQuery, GetUserTemplatesQueryVariables>(GetUserTemplatesDocument, options);
+      }
+export function useGetUserTemplatesLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetUserTemplatesQuery, GetUserTemplatesQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetUserTemplatesQuery, GetUserTemplatesQueryVariables>(GetUserTemplatesDocument, options);
+        }
+export function useGetUserTemplatesSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetUserTemplatesQuery, GetUserTemplatesQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetUserTemplatesQuery, GetUserTemplatesQueryVariables>(GetUserTemplatesDocument, options);
+        }
+export type GetUserTemplatesQueryHookResult = ReturnType<typeof useGetUserTemplatesQuery>;
+export type GetUserTemplatesLazyQueryHookResult = ReturnType<typeof useGetUserTemplatesLazyQuery>;
+export type GetUserTemplatesSuspenseQueryHookResult = ReturnType<typeof useGetUserTemplatesSuspenseQuery>;
+export type GetUserTemplatesQueryResult = Apollo.QueryResult<GetUserTemplatesQuery, GetUserTemplatesQueryVariables>;
+export const GetUserTemplateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetUserTemplate"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userTemplate"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserTemplateFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"User"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"avatar"}},{"kind":"Field","name":{"kind":"Name","value":"hasPassword"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"identities"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"providerType"}},{"kind":"Field","name":{"kind":"Name","value":"metadata"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"buckets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"devices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"deviceModel"}},{"kind":"Field","name":{"kind":"Name","value":"osVersion"}},{"kind":"Field","name":{"kind":"Name","value":"onlyLocal"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsed"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserTemplateFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UserTemplate"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"template"}},{"kind":"Field","name":{"kind":"Name","value":"input"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetUserTemplateQuery__
+ *
+ * To run a query within a React component, call `useGetUserTemplateQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetUserTemplateQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetUserTemplateQuery({
+ *   variables: {
+ *      id: // value for 'id'
+ *   },
+ * });
+ */
+export function useGetUserTemplateQuery(baseOptions: ApolloReactHooks.QueryHookOptions<GetUserTemplateQuery, GetUserTemplateQueryVariables> & ({ variables: GetUserTemplateQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetUserTemplateQuery, GetUserTemplateQueryVariables>(GetUserTemplateDocument, options);
+      }
+export function useGetUserTemplateLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetUserTemplateQuery, GetUserTemplateQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetUserTemplateQuery, GetUserTemplateQueryVariables>(GetUserTemplateDocument, options);
+        }
+export function useGetUserTemplateSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetUserTemplateQuery, GetUserTemplateQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetUserTemplateQuery, GetUserTemplateQueryVariables>(GetUserTemplateDocument, options);
+        }
+export type GetUserTemplateQueryHookResult = ReturnType<typeof useGetUserTemplateQuery>;
+export type GetUserTemplateLazyQueryHookResult = ReturnType<typeof useGetUserTemplateLazyQuery>;
+export type GetUserTemplateSuspenseQueryHookResult = ReturnType<typeof useGetUserTemplateSuspenseQuery>;
+export type GetUserTemplateQueryResult = Apollo.QueryResult<GetUserTemplateQuery, GetUserTemplateQueryVariables>;
+export const CreateUserTemplateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateUserTemplate"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateUserTemplateDto"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createUserTemplate"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserTemplateFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"User"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"avatar"}},{"kind":"Field","name":{"kind":"Name","value":"hasPassword"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"identities"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"providerType"}},{"kind":"Field","name":{"kind":"Name","value":"metadata"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"buckets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"devices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"deviceModel"}},{"kind":"Field","name":{"kind":"Name","value":"osVersion"}},{"kind":"Field","name":{"kind":"Name","value":"onlyLocal"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsed"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserTemplateFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UserTemplate"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"template"}},{"kind":"Field","name":{"kind":"Name","value":"input"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
+export type CreateUserTemplateMutationFn = Apollo.MutationFunction<CreateUserTemplateMutation, CreateUserTemplateMutationVariables>;
+
+/**
+ * __useCreateUserTemplateMutation__
+ *
+ * To run a mutation, you first call `useCreateUserTemplateMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useCreateUserTemplateMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [createUserTemplateMutation, { data, loading, error }] = useCreateUserTemplateMutation({
+ *   variables: {
+ *      input: // value for 'input'
+ *   },
+ * });
+ */
+export function useCreateUserTemplateMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<CreateUserTemplateMutation, CreateUserTemplateMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<CreateUserTemplateMutation, CreateUserTemplateMutationVariables>(CreateUserTemplateDocument, options);
+      }
+export type CreateUserTemplateMutationHookResult = ReturnType<typeof useCreateUserTemplateMutation>;
+export type CreateUserTemplateMutationResult = Apollo.MutationResult<CreateUserTemplateMutation>;
+export type CreateUserTemplateMutationOptions = Apollo.BaseMutationOptions<CreateUserTemplateMutation, CreateUserTemplateMutationVariables>;
+export const UpdateUserTemplateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUserTemplate"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateUserTemplateDto"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUserTemplate"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}},{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserTemplateFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"User"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"avatar"}},{"kind":"Field","name":{"kind":"Name","value":"hasPassword"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"identities"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"providerType"}},{"kind":"Field","name":{"kind":"Name","value":"metadata"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"buckets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"devices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"deviceModel"}},{"kind":"Field","name":{"kind":"Name","value":"osVersion"}},{"kind":"Field","name":{"kind":"Name","value":"onlyLocal"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsed"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserTemplateFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UserTemplate"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"template"}},{"kind":"Field","name":{"kind":"Name","value":"input"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
+export type UpdateUserTemplateMutationFn = Apollo.MutationFunction<UpdateUserTemplateMutation, UpdateUserTemplateMutationVariables>;
+
+/**
+ * __useUpdateUserTemplateMutation__
+ *
+ * To run a mutation, you first call `useUpdateUserTemplateMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useUpdateUserTemplateMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [updateUserTemplateMutation, { data, loading, error }] = useUpdateUserTemplateMutation({
+ *   variables: {
+ *      id: // value for 'id'
+ *      input: // value for 'input'
+ *   },
+ * });
+ */
+export function useUpdateUserTemplateMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<UpdateUserTemplateMutation, UpdateUserTemplateMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<UpdateUserTemplateMutation, UpdateUserTemplateMutationVariables>(UpdateUserTemplateDocument, options);
+      }
+export type UpdateUserTemplateMutationHookResult = ReturnType<typeof useUpdateUserTemplateMutation>;
+export type UpdateUserTemplateMutationResult = Apollo.MutationResult<UpdateUserTemplateMutation>;
+export type UpdateUserTemplateMutationOptions = Apollo.BaseMutationOptions<UpdateUserTemplateMutation, UpdateUserTemplateMutationVariables>;
+export const DeleteUserTemplateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteUserTemplate"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteUserTemplate"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode;
+export type DeleteUserTemplateMutationFn = Apollo.MutationFunction<DeleteUserTemplateMutation, DeleteUserTemplateMutationVariables>;
+
+/**
+ * __useDeleteUserTemplateMutation__
+ *
+ * To run a mutation, you first call `useDeleteUserTemplateMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useDeleteUserTemplateMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [deleteUserTemplateMutation, { data, loading, error }] = useDeleteUserTemplateMutation({
+ *   variables: {
+ *      id: // value for 'id'
+ *   },
+ * });
+ */
+export function useDeleteUserTemplateMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<DeleteUserTemplateMutation, DeleteUserTemplateMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<DeleteUserTemplateMutation, DeleteUserTemplateMutationVariables>(DeleteUserTemplateDocument, options);
+      }
+export type DeleteUserTemplateMutationHookResult = ReturnType<typeof useDeleteUserTemplateMutation>;
+export type DeleteUserTemplateMutationResult = Apollo.MutationResult<DeleteUserTemplateMutation>;
+export type DeleteUserTemplateMutationOptions = Apollo.BaseMutationOptions<DeleteUserTemplateMutation, DeleteUserTemplateMutationVariables>;

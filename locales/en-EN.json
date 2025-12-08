@@ -1622,6 +1622,41 @@
       "generatedUrl": "Generated URL"
     }
   },
+  "userTemplates": {
+    "title": "User Templates",
+    "description": "Create and manage message templates",
+    "create": "Create Template",
+    "template": "Template",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirmTitle": "Delete Template",
+    "deleteConfirmMessage": "Are you sure you want to delete this template? This action cannot be undone.",
+    "deleteErrorMessage": "Failed to delete template",
+    "noTemplatesTitle": "No Templates",
+    "noTemplatesSubtext": "Create your first template to get started",
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "Enter template name",
+      "nameRequired": "Name is required",
+      "description": "Description",
+      "descriptionPlaceholder": "Enter template description (optional)",
+      "template": "Template",
+      "templatePlaceholder": "Enter template content",
+      "templateRequired": "Template is required",
+      "test": "Test Template",
+      "testInput": "Test Input",
+      "testInputPlaceholder": "Enter JSON test input",
+      "testInputHelp": "Enter a JSON object to test your template. The template uses Handlebars syntax ({{variable}}, {{#if}}, {{#each}}, etc.).",
+      "testInputInvalidJson": "Invalid JSON in test input",
+      "testOutput": "Test Output",
+      "testExecutionError": "Template execution failed",
+      "save": "Save",
+      "saving": "Saving...",
+      "deleting": "Deleting...",
+      "resetToDefault": "Reset to Default",
+      "resetToSaved": "Reset to Saved"
+    }
+  },
   "userSettings": {
     "Timezone": "Timezone",
     "Timezone_description": "User timezone setting",

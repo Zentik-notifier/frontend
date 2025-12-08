@@ -95,6 +95,7 @@
     "fast-glob": "^3.3.3",
     "graphql": "^16.11.0",
     "graphql-ws": "^6.0.6",
+    "handlebars": "^4.7.8",
     "idb": "^8.0.3",
     "lodash": "^4.17.21",
     "monaco-editor": "^0.53.0",

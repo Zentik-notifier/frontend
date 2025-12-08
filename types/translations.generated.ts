@@ -1625,6 +1625,41 @@ export interface Translation {
       generatedUrl: string;
     };
   };
+  userTemplates: {
+    title: string;
+    description: string;
+    create: string;
+    template: string;
+    edit: string;
+    delete: string;
+    deleteConfirmTitle: string;
+    deleteConfirmMessage: string;
+    deleteErrorMessage: string;
+    noTemplatesTitle: string;
+    noTemplatesSubtext: string;
+    form: {
+      name: string;
+      namePlaceholder: string;
+      nameRequired: string;
+      description: string;
+      descriptionPlaceholder: string;
+      template: string;
+      templatePlaceholder: string;
+      templateRequired: string;
+      test: string;
+      testInput: string;
+      testInputPlaceholder: string;
+      testInputHelp: string;
+      testInputInvalidJson: string;
+      testOutput: string;
+      testExecutionError: string;
+      save: string;
+      saving: string;
+      deleting: string;
+      resetToDefault: string;
+      resetToSaved: string;
+    };
+  };
   userSettings: {
     Timezone: string;
     Timezone_description: string;

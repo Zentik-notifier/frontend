@@ -73,6 +73,7 @@ const ROUTES_WITH_BACK_BUTTON: string[] = [
   "/(phone)/(admin)/events-review",
   "/(phone)/(admin)/user-logs",
   "/(phone)/(settings)/payload-mapper/",
+  "/(phone)/(settings)/user-template/",
   "/(common)/(auth)/app-settings",
 ];
 
@@ -150,8 +151,8 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(desktop)/(admin)/events-review": "eventsReview.title",
   "/(desktop)/(admin)/server-logs": "serverLogs.title",
   "/(phone)/(admin)/server-logs": "serverLogs.title",
-  "/(phone)/(admin)/server-files": "administration.serverFiles.title" as any,
-  "/(desktop)/(admin)/server-files": "administration.serverFiles.title" as any,
+  "/(phone)/(admin)/server-files": "administration.serverFiles.title",
+  "/(desktop)/(admin)/server-files": "administration.serverFiles.title",
   "/(phone)/(settings)/bucket/link/[id]": "buckets.danglingBucketTitle",
   "/(desktop)/(settings)/bucket/link/[id]": "buckets.danglingBucketTitle",
   "/(phone)/(home)/bucket/link/[id]": "buckets.danglingBucketTitle",
@@ -161,6 +162,12 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(desktop)/(settings)/payload-mapper/create": "payloadMappers.create",
   "/(desktop)/(settings)/payload-mapper/[id]": "payloadMappers.edit",
   "/(desktop)/(settings)/payload-mapper/list": "payloadMappers.title",
+  "/(phone)/(settings)/user-template/create": "userTemplates.create",
+  "/(phone)/(settings)/user-template/[id]": "userTemplates.edit",
+  "/(phone)/(settings)/user-template/list": "userTemplates.title",
+  "/(desktop)/(settings)/user-template/create": "userTemplates.create",
+  "/(desktop)/(settings)/user-template/[id]": "userTemplates.edit",
+  "/(desktop)/(settings)/user-template/list": "userTemplates.title",
 };
 
 export default function Header() {
@@ -306,7 +313,7 @@ export default function Header() {
                 <TouchableRipple
                   style={styles.helpButton}
                   onPress={() => setIsHelpModalVisible(true)}
-                  accessibilityLabel={t("notificationsHelp.title" as any)}
+                  accessibilityLabel={t("notificationsHelp.title")}
                   accessibilityRole="button"
                 >
                   <View style={styles.helpButtonContent}>
@@ -511,7 +518,7 @@ export default function Header() {
                 style={[styles.titleText, { color: theme.colors.onPrimary }]}
                 numberOfLines={1}
               >
-                {t(currentTitle as any)}
+                {t(currentTitle) as string}
               </Text>
             )}
           </View>

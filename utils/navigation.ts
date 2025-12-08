@@ -180,6 +180,30 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToUserTemplatesSettings: () => {
+            if (isMobile) {
+                router.push(`/(phone)/(settings)/user-template/list`);
+            } else {
+                router.push(`/(desktop)/(settings)/user-template/list`);
+            }
+        },
+
+        navigateToCreateUserTemplate: () => {
+            if (isMobile) {
+                router.push(`/(phone)/(settings)/user-template/create`);
+            } else {
+                router.push(`/(desktop)/(settings)/user-template/create`);
+            }
+        },
+
+        navigateToEditUserTemplate: (userTemplateId: string) => {
+            if (isMobile) {
+                router.push(`/(phone)/(settings)/user-template/${userTemplateId}`);
+            } else {
+                router.push(`/(desktop)/(settings)/user-template/${userTemplateId}`);
+            }
+        },
+
         navigateToDevicesSettings: () => {
             if (isMobile) {
                 router.push(`/(phone)/(settings)/devices`);

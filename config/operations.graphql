@@ -1519,3 +1519,59 @@ query UserAttachments($userId: ID!) {
     ...AttachmentFragment
   }
 }
+
+# User Templates Operations
+input CreateUserTemplateDto {
+  name: String!
+  description: String
+  template: String!
+}
+
+input UpdateUserTemplateDto {
+  name: String
+  description: String
+  template: String
+}
+
+fragment UserTemplateFragment on UserTemplate {
+  id
+  name
+  description
+  template
+  input
+  output
+  userId
+  user {
+    ...UserFragment
+  }
+  createdAt
+  updatedAt
+}
+
+query GetUserTemplates {
+  userTemplates {
+    ...UserTemplateFragment
+  }
+}
+
+query GetUserTemplate($id: ID!) {
+  userTemplate(id: $id) {
+    ...UserTemplateFragment
+  }
+}
+
+mutation CreateUserTemplate($input: CreateUserTemplateDto!) {
+  createUserTemplate(input: $input) {
+    ...UserTemplateFragment
+  }
+}
+
+mutation UpdateUserTemplate($id: ID!, $input: UpdateUserTemplateDto!) {
+  updateUserTemplate(id: $id, input: $input) {
+    ...UserTemplateFragment
+  }
+}
+
+mutation DeleteUserTemplate($id: ID!) {
+  deleteUserTemplate(id: $id)
+}

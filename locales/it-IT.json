@@ -1673,6 +1673,41 @@
       "generatedUrl": "URL Generato"
     }
   },
+  "userTemplates": {
+    "title": "Template Utente",
+    "description": "Crea e gestisci template di messaggi",
+    "create": "Crea Template",
+    "template": "Template",
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "deleteConfirmTitle": "Elimina Template",
+    "deleteConfirmMessage": "Sei sicuro di voler eliminare questo template? Questa azione non può essere annullata.",
+    "deleteErrorMessage": "Errore nell'eliminazione del template",
+    "noTemplatesTitle": "Nessun Template",
+    "noTemplatesSubtext": "Crea il tuo primo template per iniziare",
+    "form": {
+      "name": "Nome",
+      "namePlaceholder": "Inserisci il nome del template",
+      "nameRequired": "Il nome è obbligatorio",
+      "description": "Descrizione",
+      "descriptionPlaceholder": "Inserisci la descrizione del template (opzionale)",
+      "template": "Template",
+      "templatePlaceholder": "Inserisci il contenuto del template",
+      "templateRequired": "Il template è obbligatorio",
+      "test": "Testa Template",
+      "testInput": "Input di Test",
+      "testInputPlaceholder": "Inserisci input JSON di test",
+      "testInputHelp": "Inserisci un oggetto JSON per testare il tuo template. Il template usa la sintassi Handlebars ({{variabile}}, {{#if}}, {{#each}}, ecc.).",
+      "testInputInvalidJson": "JSON non valido nell'input di test",
+      "testOutput": "Output di Test",
+      "testExecutionError": "Esecuzione del template fallita",
+      "save": "Salva",
+      "saving": "Salvataggio...",
+      "deleting": "Eliminazione...",
+      "resetToDefault": "Ripristina Predefinito",
+      "resetToSaved": "Ripristina Salvato"
+    }
+  },
   "userSettings": {
     "Timezone": "Fuso Orario",
     "Timezone_description": "Impostazione fuso orario utente",
