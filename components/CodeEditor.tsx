@@ -263,7 +263,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   return (
     <View style={styles.codeEditor}>
       <TextInput
-        label={label}
+        // label={label}
         value={value}
         onChangeText={readOnly ? undefined : onChange}
         placeholder={placeholder}
