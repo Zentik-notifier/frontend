@@ -547,8 +547,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // console.log("[AppContext] Logs flushed successfully");
 
           // Close database connection
-          await closeSharedCacheDb();
-          console.log("[AppContext] Database closed successfully");
+          // await closeSharedCacheDb();
+          // console.log("[AppContext] Database closed successfully");
 
           // Notify all repositories that database is closed
           // This prevents race conditions and allows automatic reopening on next operation
