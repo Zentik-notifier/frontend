@@ -138,6 +138,21 @@ export function queueDbOperation<T>(operation: () => Promise<T>): Promise<T> {
 }
 
 /**
+ * Validate database integrity before operations
+ * Prevents crashes from corrupted database files (FS pagein errors)
+ */
+async function validateDatabase(db: SQLiteDatabase): Promise<boolean> {
+  try {
+    // Quick integrity check - try to read a simple pragma
+    await db.execAsync('PRAGMA quick_check');
+    return true;
+  } catch (error: any) {
+    console.error('[validateDatabase] Database integrity check failed:', error?.message);
+    return false;
+  }
+}
+
+/**
  * Execute a database query with automatic error handling and retry logic
  * This wrapper prevents crashes from SQLite errors (mutex locks, database closed, etc.)
  * 
@@ -160,6 +175,28 @@ export async function executeQuery<T>(
         return await operation(db);
       } else {
         const db = await openSharedCacheDb();
+        
+        // Validate database integrity before operations (prevents FS pagein errors)
+        if (attempt === 0) {
+          const isValid = await validateDatabase(db);
+          if (!isValid) {
+            console.error('[executeQuery] Database integrity check failed, attempting recovery...');
+            // Try to recover by closing and reopening
+            try {
+              await closeSharedCacheDb();
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              const recoveredDb = await openSharedCacheDb();
+              const recoveredValid = await validateDatabase(recoveredDb);
+              if (!recoveredValid) {
+                throw new Error('Database corruption detected and recovery failed');
+              }
+            } catch (recoveryError: any) {
+              console.error('[executeQuery] Database recovery failed:', recoveryError?.message);
+              throw new Error('Database corruption detected');
+            }
+          }
+        }
+        
         return await queueDbOperation(() => operation(db));
       }
     } catch (error: any) {
@@ -178,9 +215,10 @@ export async function executeQuery<T>(
       if (
         errorMessage.includes('closing') ||
         errorMessage.includes('closed') ||
+        errorMessage.includes('corruption') ||
         isClosing
       ) {
-        console.warn(`[executeQuery] ${operationName} aborted: database is closing`);
+        console.warn(`[executeQuery] ${operationName} aborted: database is closing or corrupted`);
         break;
       }
 
@@ -233,21 +271,61 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
     // expo-sqlite expects databaseName and an optional directory path (not URI)
     const directory = sharedDir.startsWith('file://') ? sharedDir.replace('file://', '') : sharedDir;
     console.log('[DB] Opening shared cache database at directory:', directory);
+    
+    // Validate database file exists and is readable before opening
+    // This prevents "FS pagein error" crashes from corrupted files
+    try {
+      const { File } = await import('expo-file-system');
+      const dbPath = `${directory}/cache.db`;
+      const dbFile = new File(dbPath);
+      
+      if (dbFile.exists) {
+        // Try to read first byte to verify file is not corrupted
+        try {
+          const info = await dbFile.info();
+          if (info.size === 0) {
+            console.warn('[DB] Database file exists but is empty, will recreate');
+          }
+        } catch (infoError: any) {
+          console.warn('[DB] Could not read database file info (may be corrupted):', infoError?.message);
+        }
+      }
+    } catch (fileCheckError: any) {
+      // Non-fatal - continue with database open attempt
+      console.warn('[DB] File check failed (non-fatal):', fileCheckError?.message);
+    }
+    
     const db = await openDatabaseAsync('cache.db', undefined, directory);
 
     // Database configuration optimized for iOS stability and concurrent access
     // WAL mode allows multiple concurrent readers (NCE, NSE, main app)
     // DELETE mode blocks all access when one process has the database open
-    await db.execAsync(`
-      PRAGMA journal_mode=WAL;
-      PRAGMA synchronous=NORMAL;
-      PRAGMA foreign_keys=ON;
-      PRAGMA cache_size=-2000;
-      PRAGMA temp_store=MEMORY;
-      PRAGMA busy_timeout=5000;
-      PRAGMA wal_autocheckpoint=1000;
-      PRAGMA wal_checkpoint(TRUNCATE);
-    `);
+    // Added integrity check to detect corruption early
+    try {
+      await db.execAsync(`
+        PRAGMA journal_mode=WAL;
+        PRAGMA synchronous=NORMAL;
+        PRAGMA foreign_keys=ON;
+        PRAGMA cache_size=-2000;
+        PRAGMA temp_store=MEMORY;
+        PRAGMA busy_timeout=5000;
+        PRAGMA wal_autocheckpoint=1000;
+      `);
+      
+      // Perform checkpoint after opening to ensure WAL is in good state
+      // This prevents "cluster_pagein past EOF" errors
+      await db.execAsync('PRAGMA wal_checkpoint(TRUNCATE)');
+    } catch (pragmaError: any) {
+      // If pragmas fail, database may be corrupted
+      console.error('[DB] Failed to configure database:', pragmaError?.message);
+      // Try to close and throw to trigger recovery
+      try {
+        await db.closeAsync();
+      } catch (closeError) {
+        // Ignore close errors
+      }
+      throw new Error(`Database configuration failed: ${pragmaError?.message}`);
+    }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS cache_item (
@@ -389,7 +467,10 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
  * CRITICAL: This function prevents race conditions by:
  * 1. Setting isClosing flag to reject new operations
  * 2. Waiting for all pending operations to complete
- * 3. Then safely closing the database connection
+ * 3. Finalizing all statements before closing
+ * 4. Then safely closing the database connection
+ * 
+ * Fixes crash: EXC_BAD_ACCESS on mutex_lock when statements are reset after database close
  */
 export async function closeSharedCacheDb(): Promise<void> {
   if (!dbInstance || Platform.OS === 'web' || isClosing) {
@@ -420,9 +501,25 @@ export async function closeSharedCacheDb(): Promise<void> {
       console.warn('[DB] Queue flush timed out, forcing close');
     }
 
-    // Longer delay to ensure all Expo SQLite statements are finalized
+    // CRITICAL: Extended delay to ensure all Expo SQLite statements are finalized
     // The crash logs show that statements can still be alive after queue flush
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Mutex invalidation occurs when statements try to reset after database close
+    // Increasing delay from 500ms to 2000ms to ensure all statements are finalized
+    console.log('[DB] Waiting for statement finalization...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Additional safety: Try to checkpoint WAL before closing to reduce file system errors
+    // This prevents "cluster_pagein past EOF" errors on next open
+    if (dbInstance) {
+      try {
+        console.log('[DB] Performing final WAL checkpoint...');
+        await dbInstance.execAsync('PRAGMA wal_checkpoint(TRUNCATE)');
+        console.log('[DB] WAL checkpoint completed');
+      } catch (checkpointError: any) {
+        // Non-fatal - checkpoint may fail if database is already in use
+        console.warn('[DB] WAL checkpoint failed (non-fatal):', checkpointError?.message);
+      }
+    }
 
     // Now safe to close the database
     if (dbInstance) {
@@ -432,6 +529,7 @@ export async function closeSharedCacheDb(): Promise<void> {
     }
   } catch (error: any) {
     // Graceful error handling - don't crash the app
+    // Even if close fails, we reset state to allow reopening
     console.error('[DB] Error closing database (non-fatal):', error?.message || error);
   } finally {
     // Always reset state

@@ -250,16 +250,7 @@ export default function NotificationDetail({
               await deleteNotificationMutation.mutateAsync({
                 notificationId: notification.id,
               });
-              Alert.alert(
-                t("common.success"),
-                t("notificationDetail.deleteSuccess"),
-                [
-                  {
-                    text: t("common.ok"),
-                    onPress: onBack,
-                  },
-                ]
-              );
+              onBack?.();
             } catch (error) {
               console.error("Error deleting notification:", error);
               Alert.alert(
