@@ -352,9 +352,6 @@ export default function CreateUserTemplateForm({
         <Text style={styles.errorText}>{fieldErrors.description}</Text>
       )}
 
-      <Text variant="bodyLarge" style={styles.sectionTitle}>
-        {t("userTemplates.form.title")}
-      </Text>
       <CodeEditor
         value={title}
         onChange={(text: string) => {
@@ -375,9 +372,6 @@ export default function CreateUserTemplateForm({
         <Text style={styles.errorText}>{fieldErrors.title}</Text>
       )}
 
-      <Text variant="bodyLarge" style={styles.sectionTitle}>
-        {t("userTemplates.form.subtitle")}
-      </Text>
       <CodeEditor
         value={subtitle}
         onChange={(text: string) => {
@@ -398,9 +392,6 @@ export default function CreateUserTemplateForm({
         <Text style={styles.errorText}>{fieldErrors.subtitle}</Text>
       )}
 
-      <Text variant="bodyLarge" style={styles.sectionTitle}>
-        {t("userTemplates.form.body")}
-      </Text>
       <CodeEditor
         value={body}
         onChange={(text: string) => {

@@ -29,7 +29,7 @@ const Step6 = memo(() => {
     loadApiUrl();
   }, []);
 
-  const curlCommand = `curl -X POST ${apiUrl}/api/v1/messages \\
+  const curlCommand = `curl -X POST ${apiUrl}/message \\
   -H "Content-Type: application/json" \\
   -d '{
     "title": "Test Notification",
@@ -89,12 +89,12 @@ const Step6 = memo(() => {
                     style={styles.infoValue}
                     selectable
                   >
-                    {apiUrl}/api/v1/messages
+                    {apiUrl}/message
                   </Text>
                 </View>
                 <TouchableOpacity
                   onPress={() =>
-                    copyToClipboard(`${apiUrl}/api/v1/messages`, "API URL")
+                    copyToClipboard(`${apiUrl}/message`, "API URL")
                   }
                 >
                   <Icon

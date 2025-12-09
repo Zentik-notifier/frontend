@@ -261,9 +261,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   // Fallback to TextInput on mobile
   return (
-    <View style={styles.codeEditor}>
+    <View style={[styles.codeEditor, { borderWidth: 0 }]}>
       <TextInput
-        // label={label}
+        label={label}
         value={value}
         onChangeText={readOnly ? undefined : onChange}
         placeholder={placeholder}

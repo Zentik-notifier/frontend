@@ -259,7 +259,7 @@ function ShareExtensionContent(props: InitialProps) {
         attachmentUuids: successfulUploads.map((result) => result.uuid),
       };
 
-      const response = await fetch(`${apiUrl}/api/v1/messages`, {
+      const response = await fetch(`${apiUrl}/message`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

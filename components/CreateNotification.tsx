@@ -293,7 +293,7 @@ export default function CreateNotification() {
 
   // Generate cURL command
   const generateCurlCommand = () => {
-    const apiUrl = settingsService.getApiBaseWithPrefix();
+    const apiUrl = settingsService.getApiUrl();
     const payload = buildMessagePayload();
     const jsonPayload = JSON.stringify(payload, null, 2);
 
@@ -309,7 +309,7 @@ export default function CreateNotification() {
     }
 
     const curlLines = [
-      `curl -X POST "${apiUrl}/messages" \\`,
+      `curl -X POST "${apiUrl}/message" \\`,
       '  -H "Content-Type: application/json" \\',
       ...(authHeader ? [authHeader.trim()] : []),
       `  -d '${jsonPayload}'`,

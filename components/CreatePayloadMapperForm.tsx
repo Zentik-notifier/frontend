@@ -133,7 +133,7 @@ export default function CreatePayloadMapperForm({
     const token = selectedToken?.token ?? "zat_<TOKEN>";
 
     const parserIdentifier = payloadMapper.builtInName || payloadMapper.id;
-    return `${apiUrl}/api/v1/messages/transform?parser=${parserIdentifier}&token=${token}&bucketId=${selectedBucketId}`;
+    return `${apiUrl}/transform?parser=${parserIdentifier}&token=${token}&bucketId=${selectedBucketId}`;
   }, [selectedBucketId, selectedTokenId, payloadMapper, availableTokens, apiUrl]);
 
   // Load user settings

@@ -29,11 +29,11 @@ export default function BucketApiExamples({
     ? [
         {
           title: t("buckets.apiExamples.getRequest" as any),
-          code: `curl "${apiUrl}/messages?magicCode=${magicCode}&title=Hello&body=Test message"`,
+          code: `curl "${apiUrl}/message?magicCode=${magicCode}&title=Hello&body=Test message"`,
         },
         {
           title: t("buckets.apiExamples.postJson" as any),
-          code: `curl -X POST "${apiUrl}/messages" \\
+          code: `curl -X POST "${apiUrl}/message" \\
   -H "Content-Type: application/json" \\
   -d '{
     "magicCode": "${magicCode}",
@@ -43,7 +43,7 @@ export default function BucketApiExamples({
         },
         {
           title: t("buckets.apiExamples.postForm" as any),
-          code: `curl -X POST "${apiUrl}/messages" \\
+          code: `curl -X POST "${apiUrl}/message" \\
   -H "Content-Type: application/x-www-form-urlencoded" \\
   -d "magicCode=${magicCode}" \\
   -d "title=Hello" \\
@@ -51,7 +51,7 @@ export default function BucketApiExamples({
         },
         {
           title: t("buckets.apiExamples.withHeaders" as any),
-          code: `curl -X POST "${apiUrl}/messages" \\
+          code: `curl -X POST "${apiUrl}/message" \\
   -H "x-message-magicCode: ${magicCode}" \\
   -H "x-message-title: Hello" \\
   -H "x-message-body: Test message"`,
@@ -60,11 +60,11 @@ export default function BucketApiExamples({
     : [
         {
           title: t("buckets.apiExamples.getRequest" as any),
-          code: `curl "${apiUrl}/messages?token=${identifier}&bucketId=${bucketId}&title=Hello&body=Test message"`,
+          code: `curl "${apiUrl}/message?token=${identifier}&bucketId=${bucketId}&title=Hello&body=Test message"`,
         },
         {
           title: t("buckets.apiExamples.postJson" as any),
-          code: `curl -X POST "${apiUrl}/messages" \\
+          code: `curl -X POST "${apiUrl}/message" \\
   -H "Authorization: Bearer ${identifier}" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -75,7 +75,7 @@ export default function BucketApiExamples({
         },
         {
           title: t("buckets.apiExamples.postForm" as any),
-          code: `curl -X POST "${apiUrl}/messages" \\
+          code: `curl -X POST "${apiUrl}/message" \\
   -H "Authorization: Bearer ${identifier}" \\
   -H "Content-Type: application/x-www-form-urlencoded" \\
   -d "bucketId=${bucketId}" \\
@@ -84,7 +84,7 @@ export default function BucketApiExamples({
         },
         {
           title: t("buckets.apiExamples.withHeaders" as any),
-          code: `curl -X POST "${apiUrl}/messages" \\
+          code: `curl -X POST "${apiUrl}/message" \\
   -H "Authorization: Bearer ${identifier}" \\
   -H "x-message-bucketId: ${bucketId}" \\
   -H "x-message-title: Hello" \\
