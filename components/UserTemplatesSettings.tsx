@@ -3,7 +3,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import { Card, Icon, Text, useTheme } from "react-native-paper";
+import { Icon, Text, useTheme } from "react-native-paper";
 import SwipeableUserTemplateItem from "./SwipeableUserTemplateItem";
 import PaperScrollView from "./ui/PaperScrollView";
 
@@ -38,26 +38,19 @@ export default function UserTemplatesSettings() {
       onRetry={handleRefresh}
     >
       {userTemplates.length === 0 ? (
-        <Card style={styles.emptyCard}>
-          <Card.Content style={styles.centered}>
-            <Icon source="file-document" size={48} color={theme.colors.outline} />
-            <Text
-              variant="titleMedium"
-              style={[styles.emptyTitle, { color: theme.colors.outline }]}
-            >
-              {t("userTemplates.noTemplatesTitle")}
-            </Text>
-            <Text
-              variant="bodyMedium"
-              style={[
-                styles.emptySubtitle,
-                { color: theme.colors.outlineVariant },
-              ]}
-            >
-              {t("userTemplates.noTemplatesSubtext")}
-            </Text>
-          </Card.Content>
-        </Card>
+        <View style={styles.emptyState}>
+          <Icon
+            source="file-document"
+            size={64}
+            color={theme.colors.onSurfaceVariant}
+          />
+          <Text variant="headlineSmall" style={styles.emptyText}>
+            {t("userTemplates.noTemplatesTitle")}
+          </Text>
+          <Text variant="bodyMedium" style={styles.emptySubtext}>
+            {t("userTemplates.noTemplatesSubtext")}
+          </Text>
+        </View>
       ) : (
         <View>
           {userTemplates.map((item) => (
@@ -70,19 +63,18 @@ export default function UserTemplatesSettings() {
 }
 
 const styles = StyleSheet.create({
-  centered: {
+  emptyState: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 32,
   },
-  emptyCard: {
-    marginTop: 24,
-  },
-  emptyTitle: {
+  emptyText: {
     marginTop: 16,
-    marginBottom: 8,
     textAlign: "center",
   },
-  emptySubtitle: {
+  emptySubtext: {
+    marginTop: 8,
     textAlign: "center",
   },
 });
