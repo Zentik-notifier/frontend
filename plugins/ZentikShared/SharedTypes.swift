@@ -17,6 +17,33 @@ public enum NotificationActionType: String, CaseIterable {
     case snooze = "SNOOZE"
     case delete = "DELETE"
     
+    public static func stringFrom(int: Int) -> String? {
+        // IMPORTANT: this mapping MUST stay in sync with
+        // backend/src/notifications/ios-push.service.ts ActionTypeMap
+        // to ensure NSE/NCE interpret compact "t" codes correctly.
+        //
+        // ActionTypeMap backend:
+        //   DELETE           -> 1
+        //   MARK_AS_READ     -> 2
+        //   OPEN_NOTIFICATION-> 3
+        //   NAVIGATE         -> 4
+        //   BACKGROUND_CALL  -> 5
+        //   SNOOZE           -> 6
+        //   POSTPONE         -> 7
+        //   WEBHOOK          -> 8
+        switch int {
+        case 1: return "DELETE"
+        case 2: return "MARK_AS_READ"
+        case 3: return "OPEN_NOTIFICATION"
+        case 4: return "NAVIGATE"
+        case 5: return "BACKGROUND_CALL"
+        case 6: return "SNOOZE"
+        case 7: return "POSTPONE"
+        case 8: return "WEBHOOK"
+        default: return nil
+        }
+    }
+    
     /// Check if action type is allowed (watchOS compatibility)
     public static var allowedTypes: [String] {
         return NotificationActionType.allCases.map { $0.rawValue }
@@ -277,11 +304,16 @@ public struct NotificationParser {
         
         var actions: [NotificationAction] = []
         for actionDict in dictArray {
-            if let type = actionDict.getString("type") {
+            var type = actionDict.getString("type")
+            if type == nil, let t = actionDict.getInt("t") {
+                type = NotificationActionType.stringFrom(int: t)
+            }
+            
+            if let type = type {
                 let action = NotificationAction(
                     type: type,
                     label: actionDict.getString("label") ?? actionDict.getString("title") ?? "",
-                    value: actionDict.getString("value"),
+                    value: actionDict.getString("value") ?? actionDict.getString("v"),
                     id: actionDict.getString("id"),
                     url: actionDict.getString("url"),
                     bucketId: actionDict.getString("bucketId"),
@@ -335,5 +367,29 @@ public struct NotificationParser {
             result.append(dict)
         }
         return result
+    }
+}
+
+// MARK: - Shared Utils
+
+public struct SharedUtils {
+    /// Normalize UUID string (add hyphens if missing)
+    public static func normalizeUUID(_ uuid: String?) -> String? {
+        guard let uuid = uuid else { return nil }
+        
+        // If already has hyphens (36 chars), return as is
+        if uuid.count == 36 && uuid.contains("-") { return uuid }
+        
+        // If stripped (32 chars), add hyphens: 8-4-4-4-12
+        if uuid.count == 32 {
+            let p1 = uuid.prefix(8)
+            let p2 = uuid.dropFirst(8).prefix(4)
+            let p3 = uuid.dropFirst(12).prefix(4)
+            let p4 = uuid.dropFirst(16).prefix(4)
+            let p5 = uuid.dropFirst(20)
+            return "\(p1)-\(p2)-\(p3)-\(p4)-\(p5)"
+        }
+        
+        return uuid
     }
 }

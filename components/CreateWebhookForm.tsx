@@ -293,6 +293,8 @@ export default function CreateWebhookForm({
     setHeaders(newHeaders);
   };
 
+
+
   const content = (
     <View>
       {/* Webhook Name */}
@@ -496,7 +498,7 @@ export default function CreateWebhookForm({
             isOffline ||
             !name.trim() ||
             !url.trim() ||
-            Object.keys(fieldErrors).length > 0
+            Object.values(fieldErrors).some((error) => !!error)
           }
           style={styles.saveButton}
         >

@@ -136,7 +136,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         cleanupCurrentMedia()
         
         // Log NCE initialization with complete information
-        let notificationId = notification.request.identifier
+        // Extract notification ID from userInfo (nid/n) or fallback to request identifier
+        let userInfo = notification.request.content.userInfo
+        let rawNid = (userInfo["nid"] as? String) ?? (userInfo["n"] as? String) ?? (userInfo["notificationId"] as? String)
+        let notificationId = SharedUtils.normalizeUUID(rawNid) ?? notification.request.identifier
+        
         let categoryId = notification.request.content.categoryIdentifier.lowercased()
         
         var initMeta: [String: Any] = [
@@ -150,7 +154,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         ]
         
         // Add actions data
-        if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
+        if let actionsData = (notification.request.content.userInfo["actions"] as? [[String: Any]]) ?? (notification.request.content.userInfo["act"] as? [[String: Any]]) ?? (notification.request.content.userInfo["a"] as? [[String: Any]]) {
             initMeta["actions"] = actionsData
             initMeta["actionsCount"] = actionsData.count
         } else {
@@ -176,11 +180,14 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         initMeta["attachmentsCount"] = attachmentsCount
         
         // Add bucket info: prefer bid from userInfo, fallback to threadIdentifier
-        let bucketId = (notification.request.content.userInfo["bid"] as? String) ?? (notification.request.content.threadIdentifier as? String)
+        let rawBucketId = (notification.request.content.userInfo["bid"] as? String) ?? (notification.request.content.userInfo["b"] as? String) ?? (notification.request.content.threadIdentifier as? String)
+        let bucketId = SharedUtils.normalizeUUID(rawBucketId)
+        let bucketIconUrl = notification.request.content.userInfo["bi"] as? String
+        
         if let bucketId = bucketId {
             initMeta["bucketId"] = bucketId
             // Icon retrieved from fileSystem, default color #007AFF
-            initMeta["hasBucketIcon"] = MediaAccess.getBucketIconFromSharedCache(bucketId: bucketId, bucketName: nil, bucketColor: "#007AFF", iconUrl: nil) != nil
+            initMeta["hasBucketIcon"] = MediaAccess.getBucketIconFromSharedCache(bucketId: bucketId, bucketName: nil, bucketColor: "#007AFF", iconUrl: bucketIconUrl) != nil
         }
         
         logToDatabase(
@@ -192,18 +199,35 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         // Log category and actions data received
         print("📱 [ContentExtension] 🎭 Category received: '\(categoryId)'")
-        if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
+        if let actionsData = (notification.request.content.userInfo["actions"] as? [[String: Any]]) ?? (notification.request.content.userInfo["act"] as? [[String: Any]]) ?? (notification.request.content.userInfo["a"] as? [[String: Any]]) {
             print("📱 [ContentExtension] 🎭 Raw actions data received: \(actionsData)")
         } else {
             print("📱 [ContentExtension] 🎭 No actions data in userInfo")
         }
         
-        if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
+        if let actionsData = (notification.request.content.userInfo["actions"] as? [[String: Any]]) ?? (notification.request.content.userInfo["act"] as? [[String: Any]]) ?? (notification.request.content.userInfo["a"] as? [[String: Any]]) {
             print("📱 [ContentExtension] 🎭 Processing \(actionsData.count) actions for dynamic category")
             
             let notificationActions = actionsData.compactMap { actionData -> UNNotificationAction? in
-                guard let type = actionData["type"] as? String,
-                        let value = actionData["value"] as? String else {
+                var type = actionData["type"] as? String
+                if type == nil, let t = actionData["t"] as? Int {
+                    type = NotificationActionType.stringFrom(int: t)
+                }
+                
+                var value = (actionData["value"] as? String) ?? (actionData["v"] as? String)
+                
+                // Handle OPEN_NOTIFICATION optimization (value omitted if same as notificationId)
+                if type == "OPEN_NOTIFICATION" && value == nil {
+                    value = notificationId
+                }
+                
+                // Handle WEBHOOK optimization (value omitted if same as notificationId)
+                if type == "WEBHOOK" && value == nil {
+                    value = notificationId
+                }
+                
+                guard let type = type,
+                        let value = value else {
                     print("📱 [ContentExtension] ⚠️ Invalid action data (missing type/value): \(actionData)")
                     
                     logToDatabase(
@@ -353,7 +377,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         let userInfo = response.notification.request.content.userInfo
         // Use nid from userInfo (new format), fallback to notificationId (old format), then request.identifier
-        let notificationId = (userInfo["nid"] as? String) ?? (userInfo["notificationId"] as? String) ?? response.notification.request.identifier
+        // Normalize just in case NSE didn't run or failed
+        let rawNid = (userInfo["nid"] as? String) ?? (userInfo["n"] as? String) ?? (userInfo["notificationId"] as? String)
+        let notificationId = SharedUtils.normalizeUUID(rawNid) ?? response.notification.request.identifier
         print("📱 [ContentExtension] UserInfo keys: \(userInfo.keys.map { String(describing: $0) }.joined(separator: ", "))")
         
         // Check if actions data is available in userInfo
@@ -715,8 +741,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         // Get bucket icon from cache using only bucketId (support both old and new abbreviated keys)
         if let userInfo = currentNotificationUserInfo {
-            let bucketId = (userInfo["bid"] as? String) ?? (userInfo["bucketId"] as? String)
-            if let bucketId = bucketId {
+            let rawBucketId = (userInfo["bid"] as? String) ?? (userInfo["bucketId"] as? String)
+            if let bucketId = SharedUtils.normalizeUUID(rawBucketId) {
                 print("📱 [ContentExtension] 🎭 Getting bucket icon for bucketId: \(bucketId)")
                 
                 // Use default color #007AFF, icon retrieved from fileSystem
@@ -3168,9 +3194,31 @@ extension NotificationViewController {
         // Try to match by action identifier pattern
         // Format: action_TYPE_VALUE oppure action_TYPE_VALUE_NOTIFICATIONID (vecchio formato)
         for (index, action) in actions.enumerated() {
-            guard let type = action["type"] as? String,
-                  let value = action["value"] as? String else { 
-                print("📱 [ContentExtension] ⚠️ Action \(index) missing type or value")
+            // Handle minified keys (t -> type, v -> value)
+            var type = action["type"] as? String
+            if type == nil, let t = action["t"] as? Int {
+                type = NotificationActionType.stringFrom(int: t)
+            }
+            
+            var value = (action["value"] as? String) ?? (action["v"] as? String)
+            
+            // Handle OPEN_NOTIFICATION optimization (value omitted if same as notificationId)
+            if type == "OPEN_NOTIFICATION" && value == nil {
+                // Extract notification ID from userInfo (nid/n) or fallback to request identifier
+                let rawNid = (userInfo["nid"] as? String) ?? (userInfo["n"] as? String) ?? (userInfo["notificationId"] as? String)
+                value = SharedUtils.normalizeUUID(rawNid)
+            }
+            
+            // Handle WEBHOOK optimization (value omitted if same as notificationId)
+            if type == "WEBHOOK" && value == nil {
+                // Extract notification ID from userInfo (nid/n) or fallback to request identifier
+                let rawNid = (userInfo["nid"] as? String) ?? (userInfo["n"] as? String) ?? (userInfo["notificationId"] as? String)
+                value = SharedUtils.normalizeUUID(rawNid)
+            }
+            
+            guard let type = type,
+                  let value = value else { 
+                print("📱 [ContentExtension] ⚠️ Action \(index) missing type or value (raw: \(action))")
                 continue 
             }
             
@@ -3178,14 +3226,22 @@ extension NotificationViewController {
             let exactMatch = "action_\(type)_\(value)"
             if actionIdentifier == exactMatch {
                 print("📱 [ContentExtension] ✅ Found exact matching action: \(type) with value: \(value)")
-                return action
+                // Return action with restored type/value
+                var resultAction = action
+                resultAction["type"] = type
+                resultAction["value"] = value
+                return resultAction
             }
             
             // Check prefix match for old format: action_TYPE_VALUE_NOTIFICATIONID
             let prefixMatch = "action_\(type)_\(value)_"
             if actionIdentifier.hasPrefix(prefixMatch) {
                 print("📱 [ContentExtension] ✅ Found prefix matching action: \(type) with value: \(value)")
-                return action
+                // Return action with restored type/value
+                var resultAction = action
+                resultAction["type"] = type
+                resultAction["value"] = value
+                return resultAction
             }
             
             print("📱 [ContentExtension] 🔍 No match for '\(actionIdentifier)' with exact: '\(exactMatch)' or prefix: '\(prefixMatch)'")
@@ -3284,10 +3340,23 @@ extension NotificationViewController {
     }
 
     private func executeActionInBackground(action: [String: Any], notificationId: String) {
+        print("📱 [ContentExtension] 🔍 Executing action in background. Keys: \(action.keys), Action: \(action)")
+        
         // Extract action type and value from action dictionary
-        guard let type = action["type"] as? String,
-              let value = action["value"] as? String else {
-            print("📱 [ContentExtension] ❌ Invalid action format in background")
+        guard let type = action["type"] as? String else {
+            print("📱 [ContentExtension] ❌ Invalid action format in background (missing type). Action data: \(action)")
+            return
+        }
+        
+        var value = action["value"] as? String
+        
+        // Handle OPEN_NOTIFICATION/WEBHOOK optimization (value omitted if same as notificationId)
+        if (type == "OPEN_NOTIFICATION" || type == "WEBHOOK") && value == nil {
+            value = notificationId
+        }
+        
+        guard let value = value else {
+            print("📱 [ContentExtension] ❌ Invalid action format in background (missing value)")
             return
         }
 

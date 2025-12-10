@@ -277,9 +277,41 @@ public class NotificationActionHandler {
         
         // Try to match by action identifier pattern
         for (index, action) in actions.enumerated() {
-            guard let type = action["type"] as? String,
-                  let value = action["value"] as? String else {
-                print("🔧 [ActionHandler] ⚠️ Action \(index) missing type or value")
+            // Handle minified keys (t -> type, v -> value)
+            var type = action["type"] as? String
+            if type == nil, let t = action["t"] as? Int {
+                type = NotificationActionType.stringFrom(int: t)
+            }
+            
+            var value = (action["value"] as? String) ?? (action["v"] as? String)
+            
+            // Handle OPEN_NOTIFICATION/WEBHOOK optimization (value omitted if same as notificationId)
+            // Note: We don't have notificationId here easily, but we can try to infer if value is missing
+            // For matching purposes, if value is missing in action dict, we might need to be careful
+            // But usually actionIdentifier contains the value, so we can't match if value is missing in dict
+            // UNLESS the actionIdentifier was constructed using the notificationId as value
+            
+            guard let type = type else {
+                print("🔧 [ActionHandler] ⚠️ Action \(index) missing type")
+                continue
+            }
+            
+            // If value is missing, we can't construct the expected identifier to match against
+            // However, if it's OPEN_NOTIFICATION/WEBHOOK, the value might be implicit
+            // But the actionIdentifier passed here comes from the system, so it MUST contain the value
+            // So we only match if we have a value in the dict OR if we can infer it
+            
+            if value == nil && (type == "OPEN_NOTIFICATION" || type == "WEBHOOK") {
+                // Try to extract value from actionIdentifier if it matches the pattern
+                // action_TYPE_VALUE
+                let prefix = "action_\(type)_"
+                if actionIdentifier.hasPrefix(prefix) {
+                    value = String(actionIdentifier.dropFirst(prefix.count))
+                }
+            }
+            
+            guard let value = value else {
+                print("🔧 [ActionHandler] ⚠️ Action \(index) missing value")
                 continue
             }
             
@@ -287,14 +319,22 @@ public class NotificationActionHandler {
             let exactMatch = "action_\(type)_\(value)"
             if actionIdentifier == exactMatch {
                 print("🔧 [ActionHandler] ✅ Found exact matching action: \(type) with value: \(value)")
-                return action
+                // Return action with restored type/value
+                var resultAction = action
+                resultAction["type"] = type
+                resultAction["value"] = value
+                return resultAction
             }
             
             // Check prefix match for old format: action_TYPE_VALUE_NOTIFICATIONID
             let prefixMatch = "action_\(type)_\(value)_"
             if actionIdentifier.hasPrefix(prefixMatch) {
                 print("🔧 [ActionHandler] ✅ Found prefix matching action: \(type) with value: \(value)")
-                return action
+                // Return action with restored type/value
+                var resultAction = action
+                resultAction["type"] = type
+                resultAction["value"] = value
+                return resultAction
             }
         }
         
@@ -329,7 +369,19 @@ public class NotificationActionHandler {
     ) {
         Task {
             do {
-                switch type.uppercased() {
+                // Normalize type/value and handle legacy/delete aliases
+                var normalizedType = type.uppercased()
+                var normalizedValue = value
+
+                // Safety net for legacy payloads where delete was encoded
+                // as MARK_AS_READ with a special value
+                if normalizedType == "MARK_AS_READ" && normalizedValue == "delete_notification" {
+                    print("🔧 [ActionHandler] 🔄 Normalizing MARK_AS_READ/delete_notification -> DELETE action")
+                    normalizedType = "DELETE"
+                    // For DELETE we operate on notificationId; value is not used
+                }
+
+                switch normalizedType {
                 case "MARK_AS_READ":
                     try await markNotificationAsRead(notificationId: notificationId, userInfo: userInfo)
                     DatabaseAccess.markNotificationAsRead(notificationId: notificationId, source: source)
@@ -344,6 +396,25 @@ public class NotificationActionHandler {
                         source: source
                     )
                     
+                case "WEBHOOK":
+                    // For WEBHOOK, the value is the webhook ID
+                    let webhookId = value
+                    LoggingSystem.shared.info(
+                        tag: source,
+                        message: "[Action] Executing webhook",
+                        metadata: ["webhookId": webhookId],
+                        source: source
+                    )
+                    
+                    try await executeWebhook(webhookId: webhookId)
+                    
+                    LoggingSystem.shared.info(
+                        tag: source,
+                        message: "[Action] Webhook executed successfully",
+                        metadata: ["webhookId": webhookId],
+                        source: source
+                    )
+
                 case "DELETE":
                     try await deleteNotificationFromServer(notificationId: notificationId, userInfo: userInfo)
                     DatabaseAccess.deleteNotification(notificationId: notificationId, source: source)
@@ -359,7 +430,7 @@ public class NotificationActionHandler {
                     )
                     
                 case "POSTPONE":
-                    guard let minutes = Int(value) else {
+                    guard let minutes = Int(normalizedValue) else {
                         throw NSError(domain: "ActionError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid minutes value"])
                     }
                     try await postponeNotification(notificationId: notificationId, minutes: minutes, userInfo: userInfo)
@@ -372,7 +443,7 @@ public class NotificationActionHandler {
                     )
                     
                 case "SNOOZE":
-                    guard let minutes = Int(value),
+                    guard let minutes = Int(normalizedValue),
                           let bucketId = (userInfo["bid"] as? String) ?? (userInfo["bucketId"] as? String) else {
                         throw NSError(domain: "ActionError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid snooze parameters"])
                     }
@@ -387,37 +458,56 @@ public class NotificationActionHandler {
                     
                 case "BACKGROUND_CALL":
                     // Parse format: METHOD::URL
-                    let parts = value.components(separatedBy: "::")
-                    guard parts.count >= 2 else {
-                        let errorMsg = "Invalid API call format. Expected METHOD::URL, got '\(value)' which split into \(parts.count) parts: \(parts.joined(separator: " | "))"
+                    // If value is a simple string (like "mark_as_read_notification"), it might be a fallback
+                    // But BACKGROUND_CALL requires METHOD::URL
+                    
+                    let parts = normalizedValue.components(separatedBy: "::")
+                    if parts.count >= 2 {
+                        let method = parts[0]
+                        let url = parts[1]
+                        try await executeBackgroundCall(method: method, url: url)
                         
-                        LoggingSystem.shared.error(
+                        LoggingSystem.shared.info(
                             tag: source,
-                            message: "[Action] BACKGROUND_CALL parsing failed",
-                            metadata: [
-                                "value": value,
-                                "partsCount": String(parts.count),
-                                "parts": parts.joined(separator: " | "),
-                                "error": errorMsg
-                            ],
+                            message: "[Action] Background call completed",
+                            metadata: ["method": method, "url": url],
                             source: source
                         )
-                        
-                        throw NSError(domain: "ActionError", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg])
+                    } else {
+                        // Fallback: if value is not METHOD::URL, try to interpret it as a predefined action
+                        // For now, we only support mark_as_read_notification as a fallback to MARK_AS_READ
+                        if normalizedValue == "mark_as_read_notification" {
+                            print("🔧 [ActionHandler] ⚠️ BACKGROUND_CALL fallback: treating as MARK_AS_READ")
+                            try await markNotificationAsRead(notificationId: notificationId, userInfo: userInfo)
+                            
+                            // Also mark as read in local DB
+                            DatabaseAccess.markNotificationAsRead(notificationId: notificationId, source: source)
+                            
+                            LoggingSystem.shared.info(
+                                tag: source,
+                                message: "[Action] Background call fallback (mark_as_read) completed",
+                                metadata: ["notificationId": notificationId],
+                                source: source
+                            )
+                        } else {
+                            let errorMsg = "Invalid API call format. Expected METHOD::URL, got '\(normalizedValue)'"
+                            
+                            LoggingSystem.shared.error(
+                                tag: source,
+                                message: "[Action] BACKGROUND_CALL parsing failed",
+                                metadata: [
+                                    "value": value,
+                                    "error": errorMsg
+                                ],
+                                source: source
+                            )
+                            
+                            throw NSError(domain: "ActionError", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg])
+                        }
                     }
-                    let method = parts[0]
-                    let url = parts[1]
-                    try await executeBackgroundCall(method: method, url: url)
-                    
-                    LoggingSystem.shared.info(
-                        tag: source,
-                        message: "[Action] Background call completed",
-                        metadata: ["method": method, "url": url],
-                        source: source
-                    )
                     
                 case "WEBHOOK":
-                    try await executeWebhook(webhookId: value)
+                    try await executeWebhook(webhookId: normalizedValue)
                     
                     LoggingSystem.shared.info(
                         tag: source,
@@ -429,8 +519,8 @@ public class NotificationActionHandler {
                 case "NAVIGATE", "OPEN_NOTIFICATION":
                     // Store intent in database for app to process (matching settings-service format)
                     let navigationData: [String: Any] = [
-                        "type": type,
-                        "value": value
+                        "type": normalizedType,
+                        "value": normalizedValue
                     ]
                     
                     do {

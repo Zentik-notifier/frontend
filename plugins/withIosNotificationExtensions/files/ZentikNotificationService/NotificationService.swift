@@ -122,12 +122,36 @@ class NotificationService: UNNotificationServiceExtension {
       return
     }
 
-    guard let userInfo = content.userInfo as? [String: Any] else {
+    guard var userInfo = content.userInfo as? [String: Any] else {
       print("📱 [NotificationService] 🎭 No userInfo found, skipping Communication Style")
       return
     }
 
+    // Normalize UUIDs (handle stripped format)
+    // Helper to get and normalize
+    func getAndNormalize(_ keys: [String]) -> String? {
+        for key in keys {
+            if let val = userInfo[key] as? String {
+                return SharedUtils.normalizeUUID(val)
+            }
+        }
+        return nil
+    }
+    
+    let normalizedNid = getAndNormalize(["n", "nid", "notificationId"])
+    let normalizedBid = getAndNormalize(["b", "bid", "bucketId"])
+    let normalizedMid = getAndNormalize(["m", "mid", "messageId"])
+    
+    // Update userInfo with normalized values for NCE and app
+    if let nid = normalizedNid { userInfo["nid"] = nid }
+    if let bid = normalizedBid { userInfo["bid"] = bid }
+    if let mid = normalizedMid { userInfo["mid"] = mid }
+    
+    // Update content.userInfo with normalized values
+    content.userInfo = userInfo
+    
     print("📱 [NotificationService] 🎭 UserInfo keys: \(userInfo.keys.sorted())")
+    if let bid = normalizedBid { print("📱 [NotificationService] 🎭 Normalized Bucket ID: \(bid)") }
 
     // Check if skipSendMessageIntent is true
     if let skipSendMessageIntent = userInfo["skipSendMessageIntent"] as? Bool, skipSendMessageIntent {
@@ -168,8 +192,8 @@ class NotificationService: UNNotificationServiceExtension {
     
     // Get bucket icon from cache using only bucketId (icon stored as bucketId.png in fileSystem)
     if let bucketId = senderId {
-      // Try to get iconUrl from payload (bic = bucket icon URL)
-      iconUrlFromPayload = userInfo["bic"] as? String
+      // Try to get iconUrl from payload (bi = bucket icon URL)
+      iconUrlFromPayload = userInfo["bi"] as? String
       
       // Get cache directory path for logging
       let cacheDirectory = MediaAccess.getSharedMediaCacheDirectory()
@@ -182,12 +206,12 @@ class NotificationService: UNNotificationServiceExtension {
       let iconExistsInCache = FileManager.default.fileExists(atPath: fileURL.path)
       iconFoundInCache = iconExistsInCache
       
-      // Get bucket icon from cache (iconUrl not passed - will only use cache or generate placeholder)
+      // Get bucket icon from cache (or download if iconUrl is provided)
       senderAvatarImageData = MediaAccess.getBucketIconFromSharedCache(
         bucketId: bucketId,
         bucketName: nil,
         bucketColor: defaultBucketColor,
-        iconUrl: nil
+        iconUrl: iconUrlFromPayload
       )
         
       if senderAvatarImageData != nil {
@@ -365,13 +389,16 @@ class NotificationService: UNNotificationServiceExtension {
     var updated = content.userInfo as? [String: Any] ?? [:]
     
     // Preserve public fields that are always in payload root
-    if let nid = userInfo["nid"] { updated["nid"] = nid }
-    if let bid = userInfo["bid"] { updated["bid"] = bid }
-    if let mid = userInfo["mid"] { updated["mid"] = mid }
-    if let dty = userInfo["dty"] { updated["dty"] = dty }
+    if let nid = userInfo["nid"] ?? userInfo["n"] as? String { updated["nid"] = nid }
+    if let bid = userInfo["bid"] ?? userInfo["b"] as? String { updated["bid"] = bid }
+    if let mid = userInfo["mid"] ?? userInfo["m"] as? String { updated["mid"] = mid }
+    if let dty = userInfo["dty"] ?? userInfo["y"] { updated["dty"] = dty }
+    if let bi = userInfo["bi"] as? String { updated["bi"] = bi }
     
-    // Check if payload is encrypted (has "enc" field)
-    if let enc = userInfo["enc"] as? String, let jsonString = decryptValue(enc) {
+    // Check if payload is encrypted (has "enc" or "e" field)
+    let encryptedData = (userInfo["enc"] as? String) ?? (userInfo["e"] as? String)
+    
+    if let enc = encryptedData, let jsonString = decryptValue(enc) {
       print("📱 [NotificationService] 🔓 Decrypted blob content: \(jsonString)")
       
       if let data = jsonString.data(using: .utf8),
@@ -386,11 +413,11 @@ class NotificationService: UNNotificationServiceExtension {
         
         // Handle sensitive actions (NAVIGATE/BACKGROUND_CALL from encrypted blob)
         var sensitiveActions: [[String: Any]] = []
-        if let actions = sensitive["act"] as? [[String: Any]] { sensitiveActions = actions }
+        if let actions = (sensitive["act"] as? [[String: Any]]) ?? (sensitive["a"] as? [[String: Any]]) { sensitiveActions = actions }
         
         // Get public actions from payload root (outside encrypted blob)
         var publicActions: [[String: Any]] = []
-        if let pubActions = userInfo["act"] as? [[String: Any]] { publicActions = pubActions }
+        if let pubActions = (userInfo["act"] as? [[String: Any]]) ?? (userInfo["a"] as? [[String: Any]]) { publicActions = pubActions }
         
         // Combine sensitive (from enc) + public (from payload root) actions
         let allActions = sensitiveActions + publicActions
@@ -409,7 +436,7 @@ class NotificationService: UNNotificationServiceExtension {
         }
         
         // Handle tapAction
-        if let tapAction = sensitive["tap"] as? [String: Any] {
+        if let tapAction = (sensitive["tap"] as? [String: Any]) ?? (sensitive["tp"] as? [String: Any]) {
           updated["tapAction"] = tapAction
         }
         
@@ -460,7 +487,7 @@ class NotificationService: UNNotificationServiceExtension {
       
       // Handle actions from payload root (all actions)
       var allActions: [[String: Any]] = []
-      if let actions = userInfo["act"] as? [[String: Any]] { allActions = actions }
+      if let actions = (userInfo["act"] as? [[String: Any]]) ?? (userInfo["a"] as? [[String: Any]]) { allActions = actions }
       updated["actions"] = allActions
       
       // Handle attachments as string array: ["IMAGE:url1", "VIDEO:url2"]
@@ -476,7 +503,7 @@ class NotificationService: UNNotificationServiceExtension {
       }
       
       // Handle tapAction
-      if let tapAction = userInfo["tap"] as? [String: Any] {
+      if let tapAction = (userInfo["tap"] as? [String: Any]) ?? (userInfo["tp"] as? [String: Any]) {
         updated["tapAction"] = tapAction
       }
       
@@ -792,7 +819,7 @@ class NotificationService: UNNotificationServiceExtension {
     if let actionsArray = userInfo["actions"] as? [[String: Any]] {
       actions = actionsArray
       print("📱 [NotificationService] Actions data: \(actions)")
-    } else if let actionsArray = userInfo["act"] as? [[String: Any]] {
+    } else if let actionsArray = (userInfo["act"] as? [[String: Any]]) ?? (userInfo["a"] as? [[String: Any]]) {
       // Fallback to abbreviated key if "actions" not available
       actions = actionsArray
       print("📱 [NotificationService] Actions data (abbreviated key): \(actions)")
@@ -802,22 +829,41 @@ class NotificationService: UNNotificationServiceExtension {
       let notificationId = self.currentRequestIdentifier ?? UUID().uuidString
       
       // Filter actions to only include allowed types for notification buttons
-      // NAVIGATE is excluded from buttons but kept in userInfo for NCE custom UI
-      let filteredActions = actions.filter { action in
-        guard let type = action["type"] as? String else { return false }
-        return NotificationActionType.allowedTypes.contains(type)
+      // NAVIGATE/OPEN_NOTIFICATION are excluded from buttons but kept in userInfo for NCE custom UI
+      // Support both full "type" and compact "t" format from backend payload
+      let buttonActions: [[String: Any]] = actions.compactMap { action in
+        // Prefer explicit type string (uppercased), fallback to compact integer code
+        var resolvedType = (action["type"] as? String)?.uppercased()
+        if resolvedType == nil, let t = action["t"] as? Int {
+          resolvedType = NotificationActionType.stringFrom(int: t)
+        }
+
+        guard let type = resolvedType,
+              NotificationActionType.allowedTypes.contains(type) else {
+          return nil
+        }
+
+        // Normalize dictionary for UNNotificationAction (must have type/value/title)
+        var normalized = action
+        normalized["type"] = type
+
+        if normalized["value"] == nil, let v = normalized["v"] as? String {
+          normalized["value"] = v
+        }
+
+        return normalized
       }
-      
-      print("📱 [NotificationService] 🔍 Original actions: \(actions.count), filtered for buttons: \(filteredActions.count)")
+
+      print("📱 [NotificationService] 🔍 Original actions: \(actions.count), filtered for buttons: \(buttonActions.count)")
       
       // Register notification category with filtered actions for watchOS compatibility
-      // This excludes NAVIGATE from appearing as notification buttons
-      registerDynamicCategory(with: filteredActions)
+      // This excludes NAVIGATE/OPEN_NOTIFICATION from appearing as notification buttons
+      registerDynamicCategory(with: buttonActions)
       
       // Use DYNAMIC category
       content.categoryIdentifier = "DYNAMIC"
       
-      print("📱 [NotificationService] 🎭 Registered DYNAMIC category with \(filteredActions.count) actions")
+      print("📱 [NotificationService] 🎭 Registered DYNAMIC category with \(buttonActions.count) actions")
       
       // Add ALL actions (including NAVIGATE) to userInfo for NCE
       // NCE can display NAVIGATE actions in its custom UI
@@ -1815,11 +1861,28 @@ class NotificationService: UNNotificationServiceExtension {
     
     // Add actions
     if let actions = userInfo["actions"] as? [[String: Any]], !actions.isEmpty {
+      // Normalize actions: support both full "type"/"value" and compact "t"/"v" format
       let actionsArray = actions.map { action -> [String: Any] in
+        // Resolve type
+        var resolvedType = (action["type"] as? String)?.uppercased()
+        if resolvedType == nil, let t = action["t"] as? Int {
+          resolvedType = NotificationActionType.stringFrom(int: t) ?? "CUSTOM"
+        }
+
+        // Resolve value
+        let resolvedValue: Any
+        if let value = action["value"] as? String {
+          resolvedValue = value
+        } else if let v = action["v"] as? String {
+          resolvedValue = v
+        } else {
+          resolvedValue = NSNull() as Any
+        }
+
         return [
           "__typename": "NotificationAction",
-          "type": (action["type"] as? String)?.uppercased() ?? "CUSTOM",
-          "value": (action["value"] as? String) ?? NSNull() as Any,
+          "type": resolvedType ?? "CUSTOM",
+          "value": resolvedValue,
           "title": (action["title"] as? String) ?? NSNull() as Any,
           "icon": (action["icon"] as? String) ?? NSNull() as Any,
           "destructive": action["destructive"] as? Bool ?? false
