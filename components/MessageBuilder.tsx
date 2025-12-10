@@ -3,29 +3,37 @@ import {
   GetNotificationsDocument,
   MessageFragment,
   NotificationDeliveryType,
-  NotificationActionDto,
-  NotificationAttachmentDto,
+  MediaType,
   useCreateMessageMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import React, { useCallback, useRef, useState } from "react";
-import { StyleSheet, View, Alert, ScrollView, Dimensions } from "react-native";
+import React, { useCallback, useState } from "react";
+import {
+  Alert,
+  Dimensions,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import {
   Button,
-  Text,
-  TextInput,
-  useTheme,
-  Switch,
+  Icon,
+  List,
   Modal,
   Portal,
-  Icon,
+  Switch,
+  Text,
+  TextInput,
   TouchableRipple,
-  List,
+  useTheme,
 } from "react-native-paper";
-import Selector, { SelectorOption } from "./ui/Selector";
-import NotificationActionsSelector from "./NotificationActionsSelector";
+import * as DocumentPicker from "expo-document-picker";
+import { settingsService } from "@/services/settings-service";
 import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
+import NotificationActionsSelector from "./NotificationActionsSelector";
 import NumberListInput from "./ui/NumberListInput";
+import Selector, { SelectorOption } from "./ui/Selector";
 
 interface MessageBuilderProps {
   bucketId: string;
@@ -61,6 +69,101 @@ export default function MessageBuilder({
   const [postponeTimes, setPostponeTimes] = useState<number[]>([]);
 
   const [createMessage, { loading: isCreating }] = useCreateMessageMutation();
+
+  const handleUploadImages = useCallback(async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        type: "image/*",
+        multiple: true,
+      } as any);
+
+      if ((result as any).canceled) {
+        return;
+      }
+
+      const apiUrl = settingsService.getApiUrl();
+      const token = settingsService.getAuthData().accessToken;
+
+      if (!apiUrl || !token) {
+        Alert.alert(
+          t("common.error"),
+          t("notifications.attachments.unableToUpload" as any)
+        );
+        return;
+      }
+
+      const assets = (result as any).assets || [result];
+
+      const uploadPromises = assets
+        .filter((asset: any) => asset?.uri)
+        .map(async (asset: any) => {
+          const formData: any = new FormData();
+
+          if (Platform.OS === "web") {
+            const response = await fetch(asset.uri);
+            const blob = await response.blob();
+            formData.append("file", blob, asset.name || "image.jpg");
+          } else {
+            formData.append("file", {
+              uri: asset.uri,
+              name: asset.name || "image.jpg",
+              type: asset.mimeType || "image/jpeg",
+            });
+          }
+
+          const filename = asset.name || `image-${Date.now()}.jpg`;
+          formData.append("filename", filename);
+          formData.append("mediaType", MediaType.Image);
+
+          const response = await fetch(
+            `${apiUrl}/api/v1/attachments/upload`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              body: formData,
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              `Upload failed: ${response.status} ${response.statusText}`
+            );
+          }
+
+          const attachment = await response.json();
+          return attachment;
+        });
+
+      const uploaded = (await Promise.all(uploadPromises)).filter(
+        Boolean
+      ) as any[];
+
+      if (!uploaded.length) {
+        return;
+      }
+
+      setMessageData((prev) => ({
+        ...prev,
+        attachments: [
+          ...(prev.attachments || []),
+          ...uploaded.map((attachment) => ({
+            attachmentUuid: attachment.id,
+            mediaType: attachment.mediaType || MediaType.Image,
+            name: attachment.filename || attachment.name,
+          })),
+        ] as any,
+      }));
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      Alert.alert(
+        t("common.error"),
+        t("notifications.attachments.uploadError" as any)
+      );
+    }
+  }, [t]);
 
 
   const handleSaveMessage = useCallback(async () => {
@@ -392,6 +495,14 @@ export default function MessageBuilder({
                 left={(props) => <List.Icon {...props} icon="paperclip" />}
               >
                 <View style={styles.formContainer}>
+                  <Button
+                    mode="outlined"
+                    icon="file-upload"
+                    onPress={handleUploadImages}
+                    style={{ marginBottom: 8 }}
+                  >
+                    Upload image(s)
+                  </Button>
                   <MediaAttachmentsSelector
                     attachments={messageData.attachments || []}
                     onAttachmentsChange={(attachments) =>
