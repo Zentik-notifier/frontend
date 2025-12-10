@@ -23,7 +23,7 @@ export default function EventsReviewFiltersModal() {
   const theme = useTheme();
 
   const {
-    state: { filters: savedFilters, showFiltersModal, activeFiltersCount },
+    state: { filters: savedFilters, showFiltersModal, activeFiltersCount, fixedUserId },
     handleHideFiltersModal,
     handleSetFilters,
     handleClearFilters,
@@ -65,7 +65,7 @@ export default function EventsReviewFiltersModal() {
   const clearAllFilters = () => {
     setLocalFilters({
       selectedType: undefined,
-      userId: undefined,
+      userId: fixedUserId || undefined,
       objectId: "",
       targetId: "",
     });
@@ -137,20 +137,22 @@ export default function EventsReviewFiltersModal() {
             />
           </View>
 
-          {/* User Selector */}
-          <View style={styles.section}>
-            <Selector
-              label={t("eventsReview.filters.userId")}
-              placeholder={t("common.all")}
-              options={userOptions}
-              selectedValue={localFilters.userId}
-              onValueChange={(value) =>
-                setLocalFilters((prev) => ({ ...prev, userId: value }))
-              }
-              isSearchable
-              searchPlaceholder={t("common.search")}
-            />
-          </View>
+          {/* User Selector - Only show if userId is not fixed */}
+          {!fixedUserId && (
+            <View style={styles.section}>
+              <Selector
+                label={t("eventsReview.filters.userId")}
+                placeholder={t("common.all")}
+                options={userOptions}
+                selectedValue={localFilters.userId}
+                onValueChange={(value) =>
+                  setLocalFilters((prev) => ({ ...prev, userId: value }))
+                }
+                isSearchable
+                searchPlaceholder={t("common.search")}
+              />
+            </View>
+          )}
 
           {/* Object ID Input */}
           <View style={styles.section}>

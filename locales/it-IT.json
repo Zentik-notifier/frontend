@@ -1750,6 +1750,16 @@
     }
   },
   "administration": {
+    "tabs": {
+      "info": "Info",
+      "stats": "Statistiche",
+      "logs": "Log App",
+      "events": "Eventi"
+    },
+    "appLogs": "Log Applicazione",
+    "noAppLogsFound": "Nessun log applicazione trovato",
+    "context": "Contesto",
+    "level": "Livello",
     "title": "Amministrazione",
     "userManagement": "Gestione Utenti",
     "password": "Password",

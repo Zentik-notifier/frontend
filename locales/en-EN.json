@@ -1699,6 +1699,16 @@
     }
   },
   "administration": {
+    "tabs": {
+      "info": "Info",
+      "stats": "Stats",
+      "logs": "App Logs",
+      "events": "Events"
+    },
+    "appLogs": "App Logs",
+    "noAppLogsFound": "No app logs found",
+    "context": "Context",
+    "level": "Level",
     "title": "Administration",
     "userManagement": "User Management",
     "userManagementDescription": "Manage users, roles and permissions",

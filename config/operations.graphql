@@ -1,55 +1,22 @@
-# Input Types
-input SnoozeScheduleInput {
-  days: [String!]!
-  timeFrom: String!
-  timeTill: String!
-  isEnabled: Boolean!
-}
-
-input CreatePayloadMapperDto {
-  name: String!
-  jsEvalFn: String!
-  userId: String
-  requiredUserSettings: [UserSettingType!]
-}
-
-input UpdatePayloadMapperDto {
-  name: String
-  jsEvalFn: String
-  requiredUserSettings: [UserSettingType!]
-}
-
-enum PayloadMapperBuiltInType {
-  ZENTIK_AUTHENTIK
-  ZENTIK_RAILWAY
-  ZENTIK_SERVARR
-}
-
-enum UserSettingType {
-  Timezone
-  Language
-  UnencryptOnBigPayload
-  ExpoKey
-  HomeassistantUrl
-  HomeassistantToken
-  AutoAddDeleteAction
-  AutoAddMarkAsReadAction
-  AutoAddOpenNotificationAction
-  DefaultPostpones
-  DefaultSnoozes
-  GithubEventsFilter
-}
 
 # User Logs
-enum UserLogType {
-  FEEDBACK
-  APP_LOG
-}
-
-input CreateUserLogInput {
-  type: UserLogType!
-  payload: JSON!
-  userId: String
+query GetEvents($query: EventsQueryDto!) {
+  events(query: $query) {
+    events {
+      id
+      type
+      userId
+      objectId
+      targetId
+      additionalInfo
+      createdAt
+    }
+    total
+    page
+    limit
+    totalPages
+    hasNextPage
+  }
 }
 
 # Password Reset Mutations
@@ -1394,13 +1361,6 @@ mutation UpdateServerSetting(
   }
 }
 
-input BatchUpdateSettingInput {
-  configType: ServerSettingType!
-  valueText: String
-  valueBool: Boolean
-  valueNumber: Float
-}
-
 mutation BatchUpdateServerSettings($settings: [BatchUpdateSettingInput!]!) {
   batchUpdateServerSettings(settings: $settings) {
     ...ServerSettingFragment
@@ -1432,15 +1392,6 @@ mutation DeleteAttachment($id: ID!) {
 
 mutation TriggerBackup {
   triggerBackup
-}
-
-# Server Logs Operations
-input GetLogsInput {
-  page: Float
-  limit: Float
-  level: LogLevel
-  context: String
-  search: String
 }
 
 query GetServerLogs($input: GetLogsInput!) {
@@ -1518,23 +1469,6 @@ query UserAttachments($userId: ID!) {
   userAttachments(userId: $userId) {
     ...AttachmentFragment
   }
-}
-
-# User Templates Operations
-input CreateUserTemplateDto {
-  name: String!
-  description: String
-  title: String
-  subtitle: String
-  body: String!
-}
-
-input UpdateUserTemplateDto {
-  name: String
-  description: String
-  title: String
-  subtitle: String
-  body: String
 }
 
 fragment UserTemplateFragment on UserTemplate {

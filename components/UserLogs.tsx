@@ -26,7 +26,12 @@ interface UserLogEntry {
 
 const MAX_GROUP_SIZE_PER_BUCKET = 50;
 
-export default function UserLogs() {
+interface UserLogsProps {
+  userId?: string;
+  type?: UserLogType;
+}
+
+export default function UserLogs({ userId, type }: UserLogsProps) {
   const { t } = useI18n();
   const theme = useTheme();
   const [query, setQuery] = useState<string>("");
@@ -41,6 +46,8 @@ export default function UserLogs() {
         page: 1,
         limit: 100,
         search: query || undefined,
+        userId: userId || undefined,
+        type: type || undefined,
       },
     },
     fetchPolicy: "cache-and-network",
@@ -69,12 +76,14 @@ export default function UserLogs() {
           page: 1,
           limit: 100,
           search: query || undefined,
+          userId: userId || undefined,
+          type: type || undefined,
         },
       });
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetch, query]);
+  }, [refetch, query, userId, type]);
 
   const handleEndReached = useCallback(async () => {
     if (isLoadingMore || !data?.userLogs) {
@@ -95,6 +104,8 @@ export default function UserLogs() {
             page: nextPage,
             limit,
             search: query || undefined,
+            userId: userId || undefined,
+            type: type || undefined,
           },
         },
         updateQuery: (prev, { fetchMoreResult }) => {

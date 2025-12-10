@@ -2,14 +2,20 @@ import {
   UpdateUserRoleInput,
   UserRole,
   useGetUserByIdQuery,
-  useGetUserLogsQuery,
   useUpdateUserRoleMutation,
   useUserNotificationStatsByUserIdQuery,
   UserLogType,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";
-import { Alert, StyleSheet, View, TextInput, Platform, ScrollView } from "react-native";
+import {
+  Alert,
+  StyleSheet,
+  View,
+  TextInput,
+  Platform,
+  ScrollView,
+} from "react-native";
 import {
   ActivityIndicator,
   Card,
@@ -18,11 +24,15 @@ import {
   Surface,
   Text,
   useTheme,
+  SegmentedButtons,
 } from "react-native-paper";
 import OAuthProviderIcon from "./OAuthProviderIcon";
 import PaperScrollView from "./ui/PaperScrollView";
 import Selector from "./ui/Selector";
 import NotificationStats from "./NotificationStats";
+import { EventsReviewProvider } from "@/contexts/EventsReviewContext";
+import EventsReview from "./EventsReview";
+import UserLogs from "./UserLogs";
 
 interface UserDetailsProps {
   userId: string;
@@ -31,6 +41,7 @@ interface UserDetailsProps {
 export default function UserDetails({ userId }: UserDetailsProps) {
   const theme = useTheme();
   const { t } = useI18n();
+  const [activeTab, setActiveTab] = React.useState("info");
 
   const {
     data: userData,
@@ -51,33 +62,6 @@ export default function UserDetails({ userId }: UserDetailsProps) {
     skip: !userId,
     fetchPolicy: "cache-first",
   });
-
-  const {
-    data: appLogsData,
-    loading: appLogsLoading,
-    refetch: refetchAppLogs,
-  } = useGetUserLogsQuery({
-    variables: {
-      input: {
-        page: 1,
-        limit: 50,
-        type: UserLogType.AppLog,
-        userId: userId || undefined,
-      },
-    },
-    skip: !userId,
-    fetchPolicy: "cache-first",
-  });
-
-  const appLogs = useMemo(() => {
-    return (appLogsData?.userLogs?.logs || []) as Array<{
-      id: string;
-      type: UserLogType;
-      userId: string | null;
-      payload: any;
-      createdAt: string;
-    }>;
-  }, [appLogsData]);
 
   const [updateUserRole] = useUpdateUserRoleMutation({
     onCompleted: () => {
@@ -158,477 +142,417 @@ export default function UserDetails({ userId }: UserDetailsProps) {
   ];
 
   const handleRefresh = async () => {
-    await Promise.all([refetchUser(), refetchStats(), refetchAppLogs()]);
+    await Promise.all([refetchUser(), refetchStats()]);
   };
 
   return (
-    <PaperScrollView
-      onRefresh={handleRefresh}
-      loading={userLoading || statsLoading || appLogsLoading}
-      onRetry={handleRefresh}
-      error={!!userError}
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      {/* User Info Section */}
-      {user && (
-        <>
-          <Card style={styles.section} mode="outlined">
-            <Card.Content>
-              {/* User Details */}
-              <View style={styles.userDetails}>
-                <View style={styles.detailRow}>
-                  <Text variant="bodyMedium" style={styles.detailLabel}>
-                    {t("administration.userId")}
-                  </Text>
-                  <Text variant="bodyMedium" style={styles.detailValue}>
-                    {user.id}
-                  </Text>
-                </View>
+      <View style={styles.headerContainer}>
+        <SegmentedButtons
+          value={activeTab}
+          onValueChange={setActiveTab}
+          buttons={[
+            {
+              value: "info",
+              label: t("administration.tabs.info"),
+              icon: "account",
+            },
+            {
+              value: "stats",
+              label: t("administration.tabs.stats"),
+              icon: "chart-bar",
+            },
+            {
+              value: "logs",
+              label: t("administration.tabs.logs"),
+              icon: "text-box",
+            },
+            {
+              value: "events",
+              label: t("administration.tabs.events"),
+              icon: "history",
+            },
+          ]}
+          style={styles.segmentedButtons}
+        />
+      </View>
 
-                {user.username && (
-                  <>
-                    <Divider style={styles.divider} />
-                    <View style={styles.detailRow}>
-                      <Text variant="bodyMedium" style={styles.detailLabel}>
-                        {t("administration.username")}
-                      </Text>
-                      <Text variant="bodyMedium" style={styles.detailValue}>
-                        {user.username}
-                      </Text>
-                    </View>
-                  </>
-                )}
-
-                {user.email && (
-                  <>
-                    <Divider style={styles.divider} />
-                    <View style={styles.detailRow}>
-                      <Text variant="bodyMedium" style={styles.detailLabel}>
-                        {t("administration.email")}
-                      </Text>
-                      <Text variant="bodyMedium" style={styles.detailValue}>
-                        {user.email}
-                      </Text>
-                    </View>
-                  </>
-                )}
-
-                <Divider style={styles.divider} />
-                <View style={styles.detailRow}>
-                  <Text variant="bodyMedium" style={styles.detailLabel}>
-                    {t("administration.createdAt")}
-                  </Text>
-                  <Text variant="bodyMedium" style={styles.detailValue}>
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </Text>
-                </View>
-
-                <Divider style={styles.divider} />
-                <View style={styles.detailRow}>
-                  <Text variant="bodyMedium" style={styles.detailLabel}>
-                    {t("administration.lastUpdated")}
-                  </Text>
-                  <Text variant="bodyMedium" style={styles.detailValue}>
-                    {new Date(user.updatedAt).toLocaleDateString()}
-                  </Text>
-                </View>
-              </View>
-
-              <Divider style={styles.sectionDivider} />
-
-              {/* Role Management */}
-              <View style={styles.roleSection}>
-                <Text variant="titleMedium" style={styles.roleLabel}>
-                  {t("administration.currentRole", { role: "" }).replace(
-                    ": ",
-                    ""
-                  )}
-                </Text>
-                <Selector
-                  selectedValue={user.role}
-                  placeholder={t("administration.selectNewRole")}
-                  options={roleOptions}
-                  onValueChange={handleRoleChange}
-                  isSearchable={false}
-                />
-              </View>
-            </Card.Content>
-          </Card>
-
-          {/* User Buckets Section */}
-          <Card style={styles.section} mode="outlined">
-            <Card.Content>
-              <Text variant="titleMedium" style={styles.sectionTitle}>
-                {t("administration.userBuckets")}
-              </Text>
-
-              {user.buckets && user.buckets.length > 0 ? (
-                <View style={styles.bucketsList}>
-                  {user.buckets.map((bucket) => (
-                    <Card
-                      key={bucket.id}
-                      style={styles.bucketItem}
-                      mode="outlined"
-                    >
-                      <Card.Content>
-                        <View style={styles.bucketInfo}>
-                          <Text variant="titleSmall" style={styles.bucketName}>
-                            {bucket.name}
-                          </Text>
-                          <Text variant="bodySmall" style={styles.bucketId}>
-                            ID: {bucket.id}
-                          </Text>
-                        </View>
-                      </Card.Content>
-                    </Card>
-                  ))}
-                </View>
-              ) : (
-                <Text variant="bodyMedium" style={styles.noDataText}>
-                  {t("administration.noBucketsFound")}
-                </Text>
-              )}
-            </Card.Content>
-          </Card>
-
-          {/* User Identities Section */}
-          <Card style={styles.section} mode="outlined">
-            <Card.Content>
-              <Text variant="titleMedium" style={styles.sectionTitle}>
-                {t("administration.userIdentities" as any) as string}
-              </Text>
-
-              {user.identities && user.identities.length > 0 ? (
-                <View style={styles.identitiesList}>
-                  {user.identities.map((identity) => {
-                    const metadataText = (() => {
-                      if (!identity.metadata) return null;
-                      try {
-                        const parsed = JSON.parse(identity.metadata);
-                        return JSON.stringify(parsed, null, 2);
-                      } catch {
-                        return identity.metadata;
-                      }
-                    })();
-
-                    return (
-                      <Card
-                        key={identity.id}
-                        style={styles.identityItem}
-                        mode="outlined"
-                      >
-                        <Card.Content>
-                          <View style={styles.identityHeader}>
-                            <View style={styles.identityProvider}>
-                              <OAuthProviderIcon
-                                providerType={identity.providerType as any}
-                                size={32}
-                                iconSize={22}
-                              />
-                            </View>
-                            <View style={styles.identityMainInfo}>
-                              <Text
-                                variant="titleSmall"
-                                style={styles.identityEmail}
-                              >
-                                {identity.email || "—"}
-                              </Text>
-                              <Text
-                                variant="bodySmall"
-                                style={styles.identityProviderType}
-                              >
-                                {identity.providerType || "LOCAL"}
-                              </Text>
-                            </View>
-                          </View>
-
-                          <Divider style={styles.divider} />
-
-                          <Text
-                            variant="bodySmall"
-                            style={styles.identityId}
-                            selectable
-                          >
-                            ID: {identity.id}
-                          </Text>
-                          <Text
-                            variant="bodySmall"
-                            style={styles.identityCreatedAt}
-                          >
-                            {t("administration.createdAt") as string}:{" "}
-                            {new Date(identity.createdAt).toLocaleString()}
-                          </Text>
-
-                          {metadataText && (
-                            <>
-                              <Divider style={styles.divider} />
-                              <Text
-                                variant="bodySmall"
-                                style={styles.metadataLabel}
-                              >
-                                {
-                                  t(
-                                    "administration.identityMetadata" as any
-                                  ) as string
-                                }
-                              </Text>
-                              <TextInput
-                                value={metadataText}
-                                multiline
-                                editable={false}
-                                scrollEnabled
-                                style={[
-                                  styles.metadataInput,
-                                  {
-                                    backgroundColor: theme.colors.surfaceVariant,
-                                    color: theme.colors.onSurface,
-                                    borderColor: theme.colors.outline,
-                                    borderWidth: 1,
-                                  },
-                                ]}
-                              />
-                            </>
-                          )}
-                        </Card.Content>
-                      </Card>
-                    );
-                  })}
-                </View>
-              ) : (
-                <Text variant="bodyMedium" style={styles.noDataText}>
-                  {t("administration.noIdentitiesFound" as any) as string}
-                </Text>
-              )}
-            </Card.Content>
-          </Card>
-
-          {/* User Devices Section */}
-          <Card style={styles.section} mode="outlined">
-            <Card.Content>
-              <Text variant="titleMedium" style={styles.sectionTitle}>
-                {t("administration.userDevices")}
-              </Text>
-
-              {user.devices && user.devices.length > 0 ? (
-                <View style={styles.devicesList}>
-                  {user.devices.map((device) => (
-                    <Card
-                      key={device.id}
-                      style={styles.deviceItem}
-                      mode="outlined"
-                    >
-                      <Card.Content>
-                        <View style={styles.deviceInfo}>
-                          <View style={styles.deviceHeader}>
-                            <Text
-                              variant="titleSmall"
-                              style={styles.deviceName}
-                            >
-                              {device.deviceName || device.platform}
-                            </Text>
-                            <Chip
-                              mode="flat"
-                              compact
-                              style={[
-                                {
-                                  backgroundColor:
-                                    device.platform === "IOS"
-                                      ? theme.colors.primary
-                                      : device.platform === "ANDROID"
-                                      ? "#3DDC84"
-                                      : device.platform === "WEB"
-                                      ? theme.colors.secondary
-                                      : theme.colors.outline,
-                                },
-                              ]}
-                              textStyle={styles.chipText}
-                            >
-                              {device.platform}
-                            </Chip>
-                          </View>
-
-                          {device.deviceModel && (
-                            <Text
-                              variant="bodySmall"
-                              style={styles.deviceDetail}
-                            >
-                              📱 {device.deviceModel}
-                            </Text>
-                          )}
-
-                          {device.osVersion && (
-                            <Text
-                              variant="bodySmall"
-                              style={styles.deviceDetail}
-                            >
-                              💿 {device.osVersion}
-                            </Text>
-                          )}
-
-                          {device.onlyLocal && (
-                            <Chip
-                              mode="outlined"
-                              compact
-                              style={styles.localChip}
-                              textStyle={styles.localChipText}
-                            >
-                              🏠 {t("administration.localOnly")}
-                            </Chip>
-                          )}
-
-                          <Text variant="bodySmall" style={styles.deviceDate}>
-                            {t("administration.lastUsed")}:{" "}
-                            {new Date(device.lastUsed).toLocaleString()}
-                          </Text>
-
-                          <Text variant="bodySmall" style={styles.deviceId}>
-                            ID: {device.id}
-                          </Text>
-                        </View>
-                      </Card.Content>
-                    </Card>
-                  ))}
-                </View>
-              ) : (
-                <Text variant="bodyMedium" style={styles.noDataText}>
-                  {t("administration.noDevicesFound")}
-                </Text>
-              )}
-            </Card.Content>
-          </Card>
-
-          {/* Notification Statistics Section */}
-          {statsData?.userNotificationStats && (
+      {activeTab === "events" ? (
+        <EventsReviewProvider fixedUserId={userId}>
+          <EventsReview />
+        </EventsReviewProvider>
+      ) : activeTab === "logs" ? (
+        <UserLogs userId={userId} type={UserLogType.AppLog} />
+      ) : (
+        <PaperScrollView
+          onRefresh={handleRefresh}
+          loading={userLoading || statsLoading}
+          onRetry={handleRefresh}
+          error={!!userError}
+        >
+          {activeTab === "stats" && statsData?.userNotificationStats && (
             <NotificationStats
               dateStats={statsData.userNotificationStats}
               showAcked
+              showTitle={false}
             />
           )}
 
-          {/* App Logs Section */}
-          <Card style={styles.section} mode="outlined">
-            <Card.Content>
-              <Text variant="titleMedium" style={styles.sectionTitle}>
-                App Logs
-              </Text>
+          {/* User Info Section */}
+          {user && activeTab === "info" && (
+            <>
+              <Card style={styles.section} mode="outlined">
+                <Card.Content>
+                  {/* User Details */}
+                  <View style={styles.userDetails}>
+                    <View style={styles.detailRow}>
+                      <Text variant="bodyMedium" style={styles.detailLabel}>
+                        {t("administration.userId")}
+                      </Text>
+                      <Text variant="bodyMedium" style={styles.detailValue}>
+                        {user.id}
+                      </Text>
+                    </View>
 
-              {appLogsLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" />
-                  <Text variant="bodySmall" style={styles.loadingText}>
-                    {t("common.loading")}
+                    {user.username && (
+                      <>
+                        <Divider style={styles.divider} />
+                        <View style={styles.detailRow}>
+                          <Text variant="bodyMedium" style={styles.detailLabel}>
+                            {t("administration.username")}
+                          </Text>
+                          <Text variant="bodyMedium" style={styles.detailValue}>
+                            {user.username}
+                          </Text>
+                        </View>
+                      </>
+                    )}
+
+                    {user.email && (
+                      <>
+                        <Divider style={styles.divider} />
+                        <View style={styles.detailRow}>
+                          <Text variant="bodyMedium" style={styles.detailLabel}>
+                            {t("administration.email")}
+                          </Text>
+                          <Text variant="bodyMedium" style={styles.detailValue}>
+                            {user.email}
+                          </Text>
+                        </View>
+                      </>
+                    )}
+
+                    <Divider style={styles.divider} />
+                    <View style={styles.detailRow}>
+                      <Text variant="bodyMedium" style={styles.detailLabel}>
+                        {t("administration.createdAt")}
+                      </Text>
+                      <Text variant="bodyMedium" style={styles.detailValue}>
+                        {new Date(user.createdAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+
+                    <Divider style={styles.divider} />
+                    <View style={styles.detailRow}>
+                      <Text variant="bodyMedium" style={styles.detailLabel}>
+                        {t("administration.lastUpdated")}
+                      </Text>
+                      <Text variant="bodyMedium" style={styles.detailValue}>
+                        {new Date(user.updatedAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Divider style={styles.sectionDivider} />
+
+                  {/* Role Management */}
+                  <View style={styles.roleSection}>
+                    <Text variant="titleMedium" style={styles.roleLabel}>
+                      {t("administration.currentRole", { role: "" }).replace(
+                        ": ",
+                        ""
+                      )}
+                    </Text>
+                    <Selector
+                      selectedValue={user.role}
+                      placeholder={t("administration.selectNewRole")}
+                      options={roleOptions}
+                      onValueChange={handleRoleChange}
+                      isSearchable={false}
+                    />
+                  </View>
+                </Card.Content>
+              </Card>
+
+              {/* User Buckets Section */}
+              <Card style={styles.section} mode="outlined">
+                <Card.Content>
+                  <Text variant="titleMedium" style={styles.sectionTitle}>
+                    {t("administration.userBuckets")}
                   </Text>
-                </View>
-              ) : appLogs.length > 0 ? (
-                <ScrollView
-                  style={styles.logsScrollView}
-                  contentContainerStyle={styles.logsList}
-                  nestedScrollEnabled
-                >
-                  {appLogs.map((log) => {
-                    const payloadText = (() => {
-                      try {
-                        return JSON.stringify(log.payload, null, 2);
-                      } catch {
-                        return String(log.payload);
-                      }
-                    })();
 
-                    return (
-                      <Card
-                        key={log.id}
-                        style={styles.logItem}
-                        mode="outlined"
-                      >
-                        <Card.Content>
-                          <View style={styles.logHeader}>
-                            <Text
-                              variant="titleSmall"
-                              style={[
-                                styles.logEvent,
-                                {
-                                  color:
-                                    log.payload?.level === "error"
-                                      ? theme.colors.error
-                                      : log.payload?.level === "warn"
-                                      ? theme.colors.errorContainer
-                                      : theme.colors.primary,
-                                },
-                              ]}
-                            >
-                              {log.payload?.event || "unknown"}
-                            </Text>
-                            <Text variant="bodySmall" style={styles.logDate}>
-                              {new Date(log.createdAt).toLocaleString()}
-                            </Text>
-                          </View>
-
-                          {log.payload?.message && (
-                            <Text
-                              variant="bodySmall"
-                              style={styles.logMessage}
-                            >
-                              {log.payload.message}
-                            </Text>
-                          )}
-
-                          {log.payload?.context && (
-                            <Text
-                              variant="bodySmall"
-                              style={styles.logContext}
-                            >
-                              Context: {log.payload.context}
-                            </Text>
-                          )}
-
-                          {log.payload?.level && (
-                            <View style={styles.logMetaRow}>
-                              <Text variant="bodySmall" style={styles.logMetaLabel}>
-                                Level:
+                  {user.buckets && user.buckets.length > 0 ? (
+                    <View style={styles.bucketsList}>
+                      {user.buckets.map((bucket) => (
+                        <Card
+                          key={bucket.id}
+                          style={styles.bucketItem}
+                          mode="outlined"
+                        >
+                          <Card.Content>
+                            <View style={styles.bucketInfo}>
+                              <Text
+                                variant="titleSmall"
+                                style={styles.bucketName}
+                              >
+                                {bucket.name}
                               </Text>
-                              <Text variant="bodySmall" style={styles.logMetaValue}>
-                                {log.payload.level}
+                              <Text variant="bodySmall" style={styles.bucketId}>
+                                ID: {bucket.id}
                               </Text>
                             </View>
-                          )}
+                          </Card.Content>
+                        </Card>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text variant="bodyMedium" style={styles.noDataText}>
+                      {t("administration.noBucketsFound")}
+                    </Text>
+                  )}
+                </Card.Content>
+              </Card>
 
-                          <TextInput
-                            value={payloadText}
-                            multiline
-                            editable={false}
-                            scrollEnabled
-                            style={[
-                              styles.logPayload,
-                              {
-                                backgroundColor: theme.colors.surfaceVariant,
-                                color: theme.colors.onSurface,
-                                borderColor: theme.colors.outline,
-                                borderWidth: 1,
-                              },
-                            ]}
-                          />
+              {/* User Identities Section */}
+              <Card style={styles.section} mode="outlined">
+                <Card.Content>
+                  <Text variant="titleMedium" style={styles.sectionTitle}>
+                    {t("administration.userIdentities")}
+                  </Text>
 
-                          <Text variant="bodySmall" style={styles.logId}>
-                            ID: {log.id}
-                          </Text>
-                        </Card.Content>
-                      </Card>
-                    );
-                  })}
-                </ScrollView>
-              ) : (
-                <Text variant="bodyMedium" style={styles.noDataText}>
-                  No app logs found
-                </Text>
-              )}
-            </Card.Content>
-          </Card>
-        </>
+                  {user.identities && user.identities.length > 0 ? (
+                    <View style={styles.identitiesList}>
+                      {user.identities.map((identity) => {
+                        const metadataText = (() => {
+                          if (!identity.metadata) return null;
+                          try {
+                            const parsed = JSON.parse(identity.metadata);
+                            return JSON.stringify(parsed, null, 2);
+                          } catch {
+                            return identity.metadata;
+                          }
+                        })();
+
+                        return (
+                          <Card
+                            key={identity.id}
+                            style={styles.identityItem}
+                            mode="outlined"
+                          >
+                            <Card.Content>
+                              <View style={styles.identityHeader}>
+                                <View style={styles.identityProvider}>
+                                  <OAuthProviderIcon
+                                    providerType={identity.providerType as any}
+                                    size={32}
+                                    iconSize={22}
+                                  />
+                                </View>
+                                <View style={styles.identityMainInfo}>
+                                  <Text
+                                    variant="titleSmall"
+                                    style={styles.identityEmail}
+                                  >
+                                    {identity.email || "—"}
+                                  </Text>
+                                  <Text
+                                    variant="bodySmall"
+                                    style={styles.identityProviderType}
+                                  >
+                                    {identity.providerType || "LOCAL"}
+                                  </Text>
+                                </View>
+                              </View>
+
+                              <Divider style={styles.divider} />
+
+                              <Text
+                                variant="bodySmall"
+                                style={styles.identityId}
+                                selectable
+                              >
+                                ID: {identity.id}
+                              </Text>
+                              <Text
+                                variant="bodySmall"
+                                style={styles.identityCreatedAt}
+                              >
+                                {t("administration.createdAt")}:{" "}
+                                {new Date(identity.createdAt).toLocaleString()}
+                              </Text>
+
+                              {metadataText && (
+                                <>
+                                  <Divider style={styles.divider} />
+                                  <Text
+                                    variant="bodySmall"
+                                    style={styles.metadataLabel}
+                                  >
+                                    {t("administration.identityMetadata")}
+                                  </Text>
+                                  <TextInput
+                                    value={metadataText}
+                                    multiline
+                                    editable={false}
+                                    scrollEnabled
+                                    style={[
+                                      styles.metadataInput,
+                                      {
+                                        backgroundColor:
+                                          theme.colors.surfaceVariant,
+                                        color: theme.colors.onSurface,
+                                        borderColor: theme.colors.outline,
+                                        borderWidth: 1,
+                                      },
+                                    ]}
+                                  />
+                                </>
+                              )}
+                            </Card.Content>
+                          </Card>
+                        );
+                      })}
+                    </View>
+                  ) : (
+                    <Text variant="bodyMedium" style={styles.noDataText}>
+                      {t("administration.noIdentitiesFound")}
+                    </Text>
+                  )}
+                </Card.Content>
+              </Card>
+
+              {/* User Devices Section */}
+              <Card style={styles.section} mode="outlined">
+                <Card.Content>
+                  <Text variant="titleMedium" style={styles.sectionTitle}>
+                    {t("administration.userDevices")}
+                  </Text>
+
+                  {user.devices && user.devices.length > 0 ? (
+                    <View style={styles.devicesList}>
+                      {user.devices.map((device) => (
+                        <Card
+                          key={device.id}
+                          style={styles.deviceItem}
+                          mode="outlined"
+                        >
+                          <Card.Content>
+                            <View style={styles.deviceInfo}>
+                              <View style={styles.deviceHeader}>
+                                <Text
+                                  variant="titleSmall"
+                                  style={styles.deviceName}
+                                >
+                                  {device.deviceName || device.platform}
+                                </Text>
+                                <Chip
+                                  mode="flat"
+                                  compact
+                                  style={[
+                                    {
+                                      backgroundColor:
+                                        device.platform === "IOS"
+                                          ? theme.colors.primary
+                                          : device.platform === "ANDROID"
+                                          ? "#3DDC84"
+                                          : device.platform === "WEB"
+                                          ? theme.colors.secondary
+                                          : theme.colors.outline,
+                                    },
+                                  ]}
+                                  textStyle={styles.chipText}
+                                >
+                                  {device.platform}
+                                </Chip>
+                              </View>
+
+                              {device.deviceModel && (
+                                <Text
+                                  variant="bodySmall"
+                                  style={styles.deviceDetail}
+                                >
+                                  📱 {device.deviceModel}
+                                </Text>
+                              )}
+
+                              {device.osVersion && (
+                                <Text
+                                  variant="bodySmall"
+                                  style={styles.deviceDetail}
+                                >
+                                  💿 {device.osVersion}
+                                </Text>
+                              )}
+
+                              {device.onlyLocal && (
+                                <Chip
+                                  mode="outlined"
+                                  compact
+                                  style={styles.localChip}
+                                  textStyle={styles.localChipText}
+                                >
+                                  🏠 {t("administration.localOnly")}
+                                </Chip>
+                              )}
+
+                              <Text
+                                variant="bodySmall"
+                                style={styles.deviceDate}
+                              >
+                                {t("administration.lastUsed")}:{" "}
+                                {new Date(device.lastUsed).toLocaleString()}
+                              </Text>
+
+                              <Text variant="bodySmall" style={styles.deviceId}>
+                                ID: {device.id}
+                              </Text>
+                            </View>
+                          </Card.Content>
+                        </Card>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text variant="bodyMedium" style={styles.noDataText}>
+                      {t("administration.noDevicesFound")}
+                    </Text>
+                  )}
+                </Card.Content>
+              </Card>
+            </>
+          )}
+
+          {/* App Logs Section - Moved outside PaperScrollView */}
+        </PaperScrollView>
       )}
-    </PaperScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  headerContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    backgroundColor: "transparent",
+  },
+  segmentedButtons: {
+    marginBottom: 8,
+  },
   section: {
     marginBottom: 16,
   },

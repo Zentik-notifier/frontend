@@ -1702,6 +1702,16 @@ export interface Translation {
     };
   };
   administration: {
+    tabs: {
+      info: string;
+      stats: string;
+      logs: string;
+      events: string;
+    };
+    appLogs: string;
+    noAppLogsFound: string;
+    context: string;
+    level: string;
     title: string;
     userManagement: string;
     userManagementDescription: string;

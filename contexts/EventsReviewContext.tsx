@@ -13,6 +13,7 @@ interface EventsReviewState {
   filters: EventsReviewFilters;
   showFiltersModal: boolean;
   activeFiltersCount: number;
+  fixedUserId?: string;
 }
 
 type EventsReviewAction =
@@ -33,6 +34,7 @@ const initialState: EventsReviewState = {
   filters: initialFilters,
   showFiltersModal: false,
   activeFiltersCount: 0,
+  fixedUserId: undefined,
 };
 
 // Reducer
@@ -48,7 +50,13 @@ function eventsReviewReducer(
     case "SET_ACTIVE_FILTERS_COUNT":
       return { ...state, activeFiltersCount: action.payload };
     case "CLEAR_FILTERS":
-      return { ...state, filters: initialFilters };
+      return {
+        ...state,
+        filters: {
+          ...initialFilters,
+          userId: state.fixedUserId || initialFilters.userId,
+        },
+      };
     default:
       return state;
   }
@@ -73,21 +81,33 @@ const EventsReviewContext = createContext<EventsReviewContextType | undefined>(
 // Provider
 interface EventsReviewProviderProps {
   children: ReactNode;
+  initialFilters?: Partial<EventsReviewFilters>;
+  fixedUserId?: string;
 }
 
-export function EventsReviewProvider({ children }: EventsReviewProviderProps) {
+export function EventsReviewProvider({
+  children,
+  initialFilters: initialFiltersProp,
+  fixedUserId,
+}: EventsReviewProviderProps) {
   const [state, dispatch] = useReducer(eventsReviewReducer, {
     ...initialState,
+    filters: {
+      ...initialState.filters,
+      ...initialFiltersProp,
+      userId: fixedUserId || initialFiltersProp?.userId || initialState.filters.userId,
+    },
+    fixedUserId,
   });
 
   const updateActiveFiltersCount = useCallback((filters: EventsReviewFilters): void => {
     let count = 0;
     if (filters.selectedType) count++;
-    if (filters.userId) count++;
+    if (filters.userId && !fixedUserId) count++;
     if (filters.objectId) count++;
     if (filters.targetId) count++;
     dispatch({ type: "SET_ACTIVE_FILTERS_COUNT", payload: count });
-  }, []);
+  }, [fixedUserId]);
 
   const handleSetFilters = useCallback((filters: EventsReviewFilters) => {
     dispatch({ type: "SET_FILTERS", payload: filters });
