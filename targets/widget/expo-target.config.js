@@ -3,7 +3,7 @@ const { commonEntitlements } = require('../../app.config');
 /** @type {import('@bacons/apple-targets/app.plugin').ConfigFunction} */
 module.exports = config => ({
   type: "widget",
-  icon: 'https://github.com/Zentik-notifier/backend/blob/main/assets/Zentik.png?raw=true',
+  icon: 'https://raw.githubusercontent.com/Zentik-notifier/backend/refs/heads/main/assets/Zentik.png',
   entitlements: { ...commonEntitlements },
   name: "WidgetExtension",
   bundleIdentifier: ".WidgetExtension",
