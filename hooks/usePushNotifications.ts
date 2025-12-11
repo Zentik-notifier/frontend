@@ -13,6 +13,7 @@ import * as TaskManager from 'expo-task-manager';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { installConsoleLoggerBridge } from '@/services/console-logger-hook';
+import { useCleanup } from './useCleanup';
 
 const isWeb = Platform.OS === 'web';
 const isAndroid = Platform.OS === 'android';
@@ -28,6 +29,7 @@ export function usePushNotifications() {
   const [pushPermissionError, setPushPermissionError] = useState(false);
   const [needsPwa, setNeedsPwa] = useState(false);
   const callbacks = useNotificationActions();
+  const { cleanup } = useCleanup();
 
   useEffect(() => {
     Notifications.setNotificationHandler({
@@ -113,7 +115,7 @@ export function usePushNotifications() {
           try {
             console.log("[BackgroundTask] Starting background task");
             installConsoleLoggerBridge();
-            await callbacks.cleanup({ force: true });
+            await cleanup({ force: true });
           } catch (e) {
             console.warn("[BackgroundTask] Background fetch task failed:", e);
           }

@@ -2,7 +2,6 @@ import { NotificationActionCallbacks } from '@/hooks/useNotificationActions';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { DevicePlatform, NotificationActionFragment, NotificationActionType, RegisterDeviceDto } from '../generated/gql-operations-generated';
-import { settingsService } from './settings-service';
 import { settingsRepository } from './settings-repository';
 
 class IOSNativePushNotificationService {

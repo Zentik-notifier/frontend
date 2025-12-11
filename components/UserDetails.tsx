@@ -33,6 +33,7 @@ import NotificationStats from "./NotificationStats";
 import { EventsReviewProvider } from "@/contexts/EventsReviewContext";
 import EventsReview from "./EventsReview";
 import UserLogs from "./UserLogs";
+import { VersionInfo } from "./VersionInfo";
 
 interface UserDetailsProps {
   userId: string;
@@ -354,11 +355,13 @@ export default function UserDetails({ userId }: UserDetailsProps) {
                             <Card.Content>
                               <View style={styles.identityHeader}>
                                 <View style={styles.identityProvider}>
-                                  <OAuthProviderIcon
-                                    providerType={identity.providerType as any}
-                                    size={32}
-                                    iconSize={22}
-                                  />
+                                  {identity.providerType && (
+                                    <OAuthProviderIcon
+                                      providerType={identity.providerType}
+                                      size={32}
+                                      iconSize={22}
+                                    />
+                                  )}
                                 </View>
                                 <View style={styles.identityMainInfo}>
                                   <Text
@@ -494,6 +497,13 @@ export default function UserDetails({ userId }: UserDetailsProps) {
                                 >
                                   💿 {device.osVersion}
                                 </Text>
+                              )}
+
+                              {device.metadata && (
+                                <VersionInfo
+                                  compact
+                                  versions={JSON.parse(device.metadata)}
+                                />
                               )}
 
                               {device.onlyLocal && (
@@ -632,6 +642,11 @@ const styles = StyleSheet.create({
   deviceDetail: {
     opacity: 0.7,
     marginBottom: 4,
+  },
+  deviceMetadata: {
+    opacity: 0.7,
+    marginTop: 4,
+    fontSize: 11,
   },
   localChip: {
     alignSelf: "flex-start",

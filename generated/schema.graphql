@@ -1262,6 +1262,10 @@ input UpdateUserDeviceInput {
   deviceModel: String
   deviceName: String
   deviceToken: String
+  """
+  Optional JSON-serialized metadata for the device (app versions, build info, etc.)
+  """
+  metadata: String
   osVersion: String
   subscriptionFields: WebPushSubscriptionFieldsInput
 }
@@ -1355,6 +1359,10 @@ type UserDevice {
   deviceToken: String
   id: ID!
   lastUsed: DateTime!
+  """
+  Optional JSON-serialized metadata for the device (app versions, build info, etc.)
+  """
+  metadata: String
   onlyLocal: Boolean!
   osVersion: String
   platform: String!

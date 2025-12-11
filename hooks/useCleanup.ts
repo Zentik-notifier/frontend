@@ -7,6 +7,9 @@ import { settingsService } from "@/services/settings-service";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef } from "react";
 import { getAllBuckets } from "@/db/repositories/buckets-repository";
+import { Platform } from "react-native";
+import { useNotificationActions } from "./useNotificationActions";
+import { useGetVersionsInfo } from "./useGetVersionsInfo";
 
 // Polyfill for requestIdleCallback (not available in React Native)
 const requestIdleCallbackPolyfill = (callback: () => void) => {
@@ -25,6 +28,8 @@ interface CleanupProps {
 export const useCleanup = () => {
     const queryClient = useQueryClient();
     const { refreshAll } = useNotificationsState();
+    const notificationCallbacks = useNotificationActions();
+    const { versions, loading } = useGetVersionsInfo();
 
     // Use ref to track if cleanup is currently running
     const isCleanupRunningRef = useRef(false);
@@ -40,7 +45,7 @@ export const useCleanup = () => {
 
         try {
             const shouldCleanup = !!settingsService.shouldRunCleanup();
-            
+
             const formatTime = (ms: number): string => {
                 if (ms < 1000) return `${ms.toFixed(0)}ms`;
                 return `${(ms / 1000).toFixed(2)}s`;
@@ -110,7 +115,7 @@ export const useCleanup = () => {
                     await getAllBuckets();
                 },
                 'loading buckets from cache'
-            ).catch(() => {});
+            ).catch(() => { });
             const bucketsCacheTime = performance.now() - bucketsCacheStart;
             console.log(`[Cleanup] ✓ Loading buckets from cache: ${formatTime(bucketsCacheTime)}`);
             await waitRAF();
@@ -122,7 +127,7 @@ export const useCleanup = () => {
                     await getAllNotificationsFromCache();
                 },
                 'loading notifications from cache'
-            ).catch(() => {});
+            ).catch(() => { });
             const notificationsCacheTime = performance.now() - notificationsCacheStart;
             console.log(`[Cleanup] ✓ Loading notifications from cache: ${formatTime(notificationsCacheTime)}`);
             await waitRAF();
@@ -135,7 +140,7 @@ export const useCleanup = () => {
                     },
                     'loading data from network and merging'
                 ).catch(() => ({ networkTime: 0, mergeTime: 0 }));
-                
+
                 if (timings) {
                     console.log(`[Cleanup] ✓ Loading data from network: ${formatTime(timings.networkTime)}`);
                     console.log(`[Cleanup] ✓ Combined merging: ${formatTime(timings.mergeTime)}`);
@@ -146,10 +151,29 @@ export const useCleanup = () => {
                         await refreshAll(true);
                     },
                     'skipping network, using cache only'
-                ).catch(() => {});
+                ).catch(() => { });
                 console.log(`[Cleanup] ✓ Network skip, using cache only`);
             }
             await waitRAF();
+
+            // 4. Update device metadata (app versions, build info) for the current user device
+            try {
+                const authData = settingsService.getAuthData();
+                const deviceId = authData.deviceId;
+
+                if (deviceId) {
+                    await notificationCallbacks.useUpdateUserDevice({
+                        deviceId,
+                        metadata: JSON.stringify(versions),
+                    });
+
+                    console.log("[Cleanup] ✓ Updated device metadata", versions);
+                } else {
+                    console.log("[Cleanup] Skipping device metadata update: no deviceId in auth data");
+                }
+            } catch (error) {
+                console.warn("[Cleanup] Failed to update device metadata", error);
+            }
 
             // 5. Cleanup local notifications by settings
             if (shouldCleanup || force) {
@@ -158,7 +182,7 @@ export const useCleanup = () => {
                         await cleanupNotificationsBySettings();
                     },
                     'cleaning notifications'
-                ).catch(() => {});
+                ).catch(() => { });
 
                 await waitRAF();
 
@@ -168,7 +192,7 @@ export const useCleanup = () => {
                         await cleanupGalleryBySettings();
                     },
                     'cleaning gallery'
-                ).catch(() => {});
+                ).catch(() => { });
                 await settingsService.setLastCleanup(new Date().toISOString());
                 await waitRAF();
             }
@@ -179,7 +203,7 @@ export const useCleanup = () => {
                     await mediaCache.reloadMetadata();
                 },
                 'reloading media cache'
-            ).catch(() => {});
+            ).catch(() => { });
 
             // 8. Preload bucket icons (especially for shared buckets)
             await executeWithRAF(
@@ -187,14 +211,14 @@ export const useCleanup = () => {
                     // Get buckets from React Query cache
                     const appState = queryClient.getQueryData(['app-state']) as any;
                     const buckets = appState?.buckets || [];
-                    
+
                     if (buckets.length > 0) {
                         await mediaCache.preloadBucketIcons(buckets);
                         console.log(`[Cleanup] ✓ Preloaded icons for ${buckets.length} buckets`);
                     }
                 },
                 'preloading bucket icons'
-            ).catch(() => {});
+            ).catch(() => { });
         } finally {
             // Always release the lock when cleanup completes or fails
             isCleanupRunningRef.current = false;

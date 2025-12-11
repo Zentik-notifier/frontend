@@ -199,6 +199,7 @@ fragment UserFragment on User {
     lastUsed
     createdAt
     updatedAt
+    metadata
   }
   createdAt
   updatedAt
@@ -230,6 +231,7 @@ fragment UserDeviceFragment on UserDevice {
   deviceName
   deviceModel
   osVersion
+  metadata
   lastUsed
   createdAt
   updatedAt

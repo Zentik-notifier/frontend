@@ -21,7 +21,6 @@ import {
   useSetBucketSnoozeMinutesMutation,
   useUpdateDeviceTokenMutation
 } from '../generated/gql-operations-generated';
-import { useCleanup } from './useCleanup';
 import { useI18n } from './useI18n';
 
 /**
@@ -38,7 +37,6 @@ export function useNotificationActions() {
   const [updateDeviceToken] = useUpdateDeviceTokenMutation();
   const [updateUserDeviceMutation] = useUpdateUserDeviceMutation();
   const { navigateToNotificationDetail, navigateToHome } = useNavigationUtils();
-  const { cleanup } = useCleanup();
 
   // React Query mutations
   const deleteNotificationMutation = useDeleteNotificationRQ();
@@ -290,7 +288,7 @@ export function useNotificationActions() {
         input: userDevice
       }
     });
-  }, [updateDeviceToken]);
+  }, [updateUserDeviceMutation]);
 
   const pushNotificationReceived = useCallback(async (notificationId: string) => {
     try {
@@ -327,7 +325,6 @@ export function useNotificationActions() {
     refreshPushToken,
     pushNotificationReceived,
     useUpdateUserDevice,
-    cleanup,
   };
 }
 

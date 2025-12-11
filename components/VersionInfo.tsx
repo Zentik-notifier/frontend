@@ -1,9 +1,10 @@
 import { useAppContext } from "@/contexts/AppContext";
 import { useGetBackendVersionQuery } from "@/generated/gql-operations-generated";
+import { useGetVersionsInfo, VersionsInfo } from "@/hooks/useGetVersionsInfo";
 import { useI18n } from "@/hooks/useI18n";
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import {
   Button,
@@ -15,18 +16,20 @@ import {
   Text,
   useTheme,
 } from "react-native-paper";
-import packageJson from "../package.json";
 
 interface VersionInfoProps {
   style?: any;
   compact?: boolean;
+  versions?: VersionsInfo;
 }
 
-export function VersionInfo({ style, compact = false }: VersionInfoProps) {
+export function VersionInfo({
+  style,
+  compact = false,
+  versions: versionsParent,
+}: VersionInfoProps) {
   const theme = useTheme();
   const { t } = useI18n();
-  const { data, loading, refetch, error } = useGetBackendVersionQuery();
-  const backendVersion = data?.getBackendVersion || "...";
   const {
     connectionStatus: {
       checkForUpdates,
@@ -38,6 +41,10 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
   // Dialog states
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const { error, loading, refetch, versions } = useGetVersionsInfo();
+
+  const { appVersion, backendVersion, dockerVersion, nativeVersion } =
+    versionsParent ?? versions;
 
   const refreshData = async () => {
     await refetch();
@@ -99,11 +106,6 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
 
   // Compact mode - horizontal pills with icons on top
   if (compact) {
-    const nativeVersion = Constants.expoConfig?.version || "-";
-    const showNativeVersion = Platform.OS !== "web";
-    const isSelfHosted = process.env.EXPO_PUBLIC_SELFHOSTED === "true";
-    const dockerVersion = packageJson.dockerVersion || "-";
-
     return (
       <View style={[styles.compactContainer, style]}>
         <View style={styles.compactPillsRow}>
@@ -122,12 +124,12 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
                 { color: theme.colors.onSurface },
               ]}
             >
-              {packageJson.version}
+              {appVersion}
             </Text>
           </View>
 
           {/* Native Version Pill (only on mobile) */}
-          {showNativeVersion && (
+          {nativeVersion && (
             <View
               style={[
                 styles.compactPill,
@@ -148,7 +150,7 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
           )}
 
           {/* Docker Version Pill (only for self-hosted) */}
-          {isSelfHosted && (
+          {dockerVersion && (
             <View
               style={[
                 styles.compactPill,
@@ -169,23 +171,25 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
           )}
 
           {/* Backend Version Pill */}
-          <View
-            style={[
-              styles.compactPill,
-              { backgroundColor: theme.colors.surfaceVariant },
-            ]}
-          >
-            <Icon source="server" size={18} color={theme.colors.primary} />
-            <Text
-              variant="bodySmall"
+          {backendVersion && (
+            <View
               style={[
-                styles.compactPillText,
-                { color: theme.colors.onSurface },
+                styles.compactPill,
+                { backgroundColor: theme.colors.surfaceVariant },
               ]}
             >
-              {backendVersion}
-            </Text>
-          </View>
+              <Icon source="server" size={18} color={theme.colors.primary} />
+              <Text
+                variant="bodySmall"
+                style={[
+                  styles.compactPillText,
+                  { color: theme.colors.onSurface },
+                ]}
+              >
+                {backendVersion}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* OTA Update notification (if available) */}
@@ -232,12 +236,13 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
         </View>
       </View>
 
-      {renderVersionItem(
-        t("appSettings.versions.backend"),
-        backendVersion,
-        "server",
-        t("appSettings.versions.backendDescription")
-      )}
+      {backendVersion &&
+        renderVersionItem(
+          t("appSettings.versions.backend"),
+          backendVersion,
+          "server",
+          t("appSettings.versions.backendDescription")
+        )}
 
       {error && (
         <Card
@@ -278,7 +283,7 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
 
       {renderVersionItem(
         t("appSettings.versions.app"),
-        packageJson.version || t("appSettings.versions.unknown"),
+        appVersion || t("appSettings.versions.unknown"),
         "react",
         t("appSettings.versions.appDescription")
       )}
@@ -287,7 +292,7 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
       {process.env.EXPO_PUBLIC_SELFHOSTED === "true" &&
         renderVersionItem(
           t("appSettings.versions.docker"),
-          packageJson.dockerVersion || t("appSettings.versions.unknown"),
+          dockerVersion || t("appSettings.versions.unknown"),
           "docker",
           t("appSettings.versions.dockerDescription")
         )}
