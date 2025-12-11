@@ -388,10 +388,16 @@ class NotificationService: UNNotificationServiceExtension {
     // Preserve public fields from payload root (nid, bid, mid, dty, act)
     var updated = content.userInfo as? [String: Any] ?? [:]
     
-    // Preserve public fields that are always in payload root
-    if let nid = userInfo["nid"] ?? userInfo["n"] as? String { updated["nid"] = nid }
-    if let bid = userInfo["bid"] ?? userInfo["b"] as? String { updated["bid"] = bid }
-    if let mid = userInfo["mid"] ?? userInfo["m"] as? String { updated["mid"] = mid }
+    // Preserve public fields that are always in payload root (normalized UUIDs)
+    if let nid = SharedUtils.normalizeUUID((userInfo["nid"] as? String) ?? (userInfo["n"] as? String)) {
+      updated["nid"] = nid
+    }
+    if let bid = SharedUtils.normalizeUUID((userInfo["bid"] as? String) ?? (userInfo["b"] as? String)) {
+      updated["bid"] = bid
+    }
+    if let mid = SharedUtils.normalizeUUID((userInfo["mid"] as? String) ?? (userInfo["m"] as? String)) {
+      updated["mid"] = mid
+    }
     if let dty = userInfo["dty"] ?? userInfo["y"] { updated["dty"] = dty }
     if let bi = userInfo["bi"] as? String { updated["bi"] = bi }
     
