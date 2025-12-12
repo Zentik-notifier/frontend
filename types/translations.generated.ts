@@ -2257,6 +2257,7 @@ export interface Translation {
     SYSTEM_TOKEN_REQUEST_APPROVED: string;
     SYSTEM_TOKEN_REQUEST_DECLINED: string;
     USER_FEEDBACK: string;
+    NOTIFICATION_FAILED: string;
   };
   adminSubscriptions: {
     title: string;

@@ -1174,7 +1174,8 @@
     "SYSTEM_TOKEN_REQUEST_CREATED": "Richiesta Token di Sistema Creata",
     "SYSTEM_TOKEN_REQUEST_APPROVED": "Richiesta Token di Sistema Approvata",
     "SYSTEM_TOKEN_REQUEST_DECLINED": "Richiesta Token di Sistema Rifiutata",
-    "USER_FEEDBACK": "Feedback utente"
+    "USER_FEEDBACK": "Feedback utente",
+    "NOTIFICATION_FAILED": "Notifica fallita"
   },
   "adminSubscriptions": {
     "title": "Sottoscrizioni Eventi Admin",
