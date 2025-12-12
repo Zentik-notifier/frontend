@@ -68,6 +68,15 @@ class NotificationService: UNNotificationServiceExtension {
     bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
 
     if let bestAttemptContent = bestAttemptContent {
+      // If payload is marked for selfDownload, fetch full message from backend
+      if let userInfo = bestAttemptContent.userInfo as? [String: Any],
+         let selfDownloadFlag = userInfo["selfDownload"] as? Bool,
+         selfDownloadFlag {
+        print("📱 [NotificationService] 🔄 selfDownload flag detected - fetching message from backend...")
+        handleSelfDownloadNotification(request: request, content: bestAttemptContent, contentHandler: contentHandler)
+        return
+      }
+
       // Decrypt encrypted values first
       decryptNotificationContent(content: bestAttemptContent)
 
@@ -107,6 +116,70 @@ class NotificationService: UNNotificationServiceExtension {
     } else {
       print("📱 [NotificationService] ❌ Failed to create mutable content")
       contentHandler(request.content)
+    }
+  }
+
+  // MARK: - selfDownload Handling
+
+  /// Handle notifications where the backend sent a minimal selfDownload payload.
+  /// In this case the NSE must fetch the full message from the backend and
+  /// enrich the notification content (title/body/subtitle, actions, attachments).
+  private func handleSelfDownloadNotification(
+    request: UNNotificationRequest,
+    content: UNMutableNotificationContent,
+    contentHandler: @escaping (UNNotificationContent) -> Void
+  ) {
+    self.currentRequestIdentifier = request.identifier
+    self.bestAttemptContent = content
+
+    logToDatabase(
+      level: "info",
+      tag: "SelfDownload",
+      message: "Handling selfDownload notification - starting backend fetch",
+      metadata: [
+        "requestId": request.identifier,
+      ]
+    )
+
+    Task {
+      // Try to enrich content from backend. On failure, we keep the original
+      // content (APS alert) so the notification is still delivered.
+      await self.enrichContentForSelfDownloadIfPossible(request: request, content: content)
+
+      // From here we reuse the standard pipeline: badge, DB save,
+      // actions, media, communication style.
+
+      // Store notificationId for media tracking
+      self.currentNotificationId = request.identifier
+
+      // Update badge count before setting up actions (fast operation)
+      self.updateBadgeCount(content: content)
+
+      // Save notification to SQLite database in background (non-blocking)
+      DispatchQueue.global(qos: .utility).async { [weak self] in
+        self?.saveNotificationToDatabase(content: content)
+      }
+
+      // Setup custom actions in a synchronized manner
+      self.setupNotificationActions(content: content) { [weak self] in
+        guard let self = self else { return }
+
+        // Check if this notification has media attachments first
+        if self.hasMediaAttachments(content: content) {
+          print("📱 [NotificationService] (selfDownload) Media attachments detected, starting download...")
+          self.downloadMediaAttachments(content: content) {
+            print("📱 [NotificationService] (selfDownload) Media processing completed, applying Communication Style...")
+
+            self._handleChatMessage()
+            return
+          }
+        } else {
+          print("📱 [NotificationService] (selfDownload) No media attachments, applying Communication Style...")
+
+          self._handleChatMessage()
+          return
+        }
+      }
     }
   }
 
@@ -545,6 +618,211 @@ class NotificationService: UNNotificationServiceExtension {
         message: "Non-encrypted payload processed",
         metadata: payloadMeta
       )
+    }
+  }
+
+  /// Enrich a selfDownload notification by fetching the full notification
+  /// from the backend and applying message fields to the content/userInfo.
+  private func enrichContentForSelfDownloadIfPossible(
+    request: UNNotificationRequest,
+    content: UNMutableNotificationContent
+  ) async {
+    guard var userInfo = content.userInfo as? [String: Any] else {
+      print("📱 [NotificationService] (selfDownload) ❌ Missing userInfo, skipping backend fetch")
+      return
+    }
+
+    // Extract normalized notificationId from payload (nid/n) or fallback to request identifier
+    let rawNotificationId = (userInfo["nid"] as? String)
+      ?? (userInfo["n"] as? String)
+      ?? request.identifier
+    let notificationId = SharedUtils.normalizeUUID(rawNotificationId) ?? rawNotificationId
+
+    do {
+      try await fetchNotificationAndApplyToContent(
+        notificationId: notificationId,
+        content: content,
+        userInfo: &userInfo
+      )
+
+      // Update content.userInfo with enriched data
+      content.userInfo = userInfo
+
+      logToDatabase(
+        level: "info",
+        tag: "SelfDownload",
+        message: "Successfully enriched notification from backend",
+        metadata: [
+          "notificationId": notificationId,
+        ]
+      )
+    } catch {
+      print("📱 [NotificationService] (selfDownload) ❌ Failed to enrich from backend: \(error.localizedDescription)")
+      logToDatabase(
+        level: "error",
+        tag: "SelfDownload",
+        message: "Failed to enrich notification from backend",
+        metadata: [
+          "notificationId": notificationId,
+          "error": error.localizedDescription,
+        ]
+      )
+    }
+  }
+
+  /// Perform authenticated GET /api/v1/notifications/{id} and map the
+  /// returned Message fields into the notification content and userInfo.
+  private func fetchNotificationAndApplyToContent(
+    notificationId: String,
+    content: UNMutableNotificationContent,
+    userInfo: inout [String: Any]
+  ) async throws {
+    guard let apiEndpoint = KeychainAccess.getApiEndpoint() else {
+      throw NSError(
+        domain: "APIError",
+        code: -1,
+        userInfo: [NSLocalizedDescriptionKey: "API endpoint not found"]
+      )
+    }
+
+    let urlString = "\(apiEndpoint)/api/v1/notifications/\(notificationId)"
+    guard let url = URL(string: urlString) else {
+      throw NSError(
+        domain: "APIError",
+        code: -2,
+        userInfo: [NSLocalizedDescriptionKey: "Invalid API URL"]
+      )
+    }
+
+    var request = URLRequest(url: url)
+    request.httpMethod = "GET"
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+    if let authToken = await KeychainAccess.getValidAuthToken() {
+      request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+    }
+
+    let (data, response) = try await URLSession.shared.data(for: request)
+
+    guard let httpResponse = response as? HTTPURLResponse else {
+      throw NSError(
+        domain: "APIError",
+        code: -3,
+        userInfo: [NSLocalizedDescriptionKey: "Invalid HTTP response"]
+      )
+    }
+
+    guard (200..<300).contains(httpResponse.statusCode) else {
+      let responseString = String(data: data, encoding: .utf8) ?? "Unknown error"
+      throw NSError(
+        domain: "APIError",
+        code: httpResponse.statusCode,
+        userInfo: [
+          NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode): \(responseString)",
+        ]
+      )
+    }
+
+    guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+      throw NSError(
+        domain: "APIError",
+        code: -4,
+        userInfo: [NSLocalizedDescriptionKey: "Invalid JSON response"]
+      )
+    }
+
+    // The REST controller returns the Notification entity with nested Message.
+    guard let message = json["message"] as? [String: Any] else {
+      throw NSError(
+        domain: "APIError",
+        code: -5,
+        userInfo: [NSLocalizedDescriptionKey: "Missing 'message' field in response"]
+      )
+    }
+
+    // Update identifiers in userInfo (normalized UUIDs)
+    userInfo["nid"] = notificationId
+
+    if let messageId = message["id"] as? String {
+      userInfo["mid"] = SharedUtils.normalizeUUID(messageId) ?? messageId
+    }
+
+    if let bucket = message["bucket"] as? [String: Any],
+       let bucketId = bucket["id"] as? String {
+      let normalizedBucketId = SharedUtils.normalizeUUID(bucketId) ?? bucketId
+      userInfo["bid"] = normalizedBucketId
+
+      if let iconUrl = bucket["iconUrl"] as? String {
+        userInfo["bi"] = iconUrl
+      }
+    }
+
+    // Map title/body/subtitle into both content and compact root keys
+    if let title = message["title"] as? String {
+      content.title = title
+      userInfo["tit"] = title
+    }
+
+    if let body = message["body"] as? String {
+      content.body = body
+      userInfo["bdy"] = body
+    }
+
+    if let subtitle = message["subtitle"] as? String, !subtitle.isEmpty {
+      content.subtitle = subtitle
+      userInfo["stl"] = subtitle
+    }
+
+    // Map deliveryType as dty for consistency (optional)
+    if let deliveryType = message["deliveryType"] {
+      userInfo["dty"] = deliveryType
+    }
+
+    // Map attachments: use attachmentData (and att strings for NSE helpers)
+    if let attachments = message["attachments"] as? [[String: Any]] {
+      var attachmentData: [[String: Any]] = []
+      var attachmentStrings: [String] = []
+
+      for attachment in attachments {
+        guard let mediaType = attachment["mediaType"] as? String else { continue }
+        let url = attachment["url"] as? String ?? ""
+
+        var item: [String: Any] = [
+          "mediaType": mediaType,
+        ]
+
+        if !url.isEmpty {
+          item["url"] = url
+          attachmentStrings.append("\(mediaType):\(url)")
+        }
+
+        if let name = attachment["name"] as? String {
+          item["name"] = name
+        }
+
+        if let originalFileName = attachment["originalFileName"] as? String {
+          item["originalFileName"] = originalFileName
+        }
+
+        attachmentData.append(item)
+      }
+
+      if !attachmentData.isEmpty {
+        userInfo["attachmentData"] = attachmentData
+      }
+      if !attachmentStrings.isEmpty {
+        userInfo["att"] = attachmentStrings
+      }
+    }
+
+    // Map tapAction if present
+    if let tapAction = message["tapAction"] as? [String: Any] {
+      userInfo["tapAction"] = tapAction
+    }
+
+    // Map actions array if present (kept in full form, not compacted)
+    if let actions = message["actions"] as? [[String: Any]], !actions.isEmpty {
+      userInfo["actions"] = actions
     }
   }
 
