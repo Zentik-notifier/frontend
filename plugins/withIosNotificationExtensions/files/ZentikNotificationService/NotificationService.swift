@@ -1111,31 +1111,64 @@ class NotificationService: UNNotificationServiceExtension {
 
     if !actions.isEmpty {
       let notificationId = self.currentRequestIdentifier ?? UUID().uuidString
-      
-      // Filter actions to only include allowed types for notification buttons
-      // NAVIGATE/OPEN_NOTIFICATION are excluded from buttons but kept in userInfo for NCE custom UI
-      // Support both full "type" and compact "t" format from backend payload
-      let buttonActions: [[String: Any]] = actions.compactMap { action in
+
+      // Normalize actions once so that both:
+      // - buttonActions (for UNNotificationCategory / watchOS)
+      // - userInfo["actions"] (for NCE custom UI)
+      // share the same restored type/value/icon information.
+      var buttonActions: [[String: Any]] = []
+      var normalizedActions: [[String: Any]] = []
+
+      for action in actions {
         // Prefer explicit type string (uppercased), fallback to compact integer code
         var resolvedType = (action["type"] as? String)?.uppercased()
         if resolvedType == nil, let t = action["t"] as? Int {
           resolvedType = NotificationActionType.stringFrom(int: t)
         }
 
-        guard let type = resolvedType,
-              NotificationActionType.allowedTypes.contains(type) else {
-          return nil
-        }
-
-        // Normalize dictionary for UNNotificationAction (must have type/value/title)
         var normalized = action
-        normalized["type"] = type
 
-        if normalized["value"] == nil, let v = normalized["v"] as? String {
-          normalized["value"] = v
+        if let type = resolvedType {
+          normalized["type"] = type
+
+          // Normalize value from compact format if needed
+          if normalized["value"] == nil, let v = normalized["v"] as? String {
+            normalized["value"] = v
+          }
+
+          // If backend omitted value for fixed-value actions, restore a
+          // canonical value so that UNNotificationAction identifiers and
+          // matching logic continue to work as before optimization.
+          if normalized["value"] == nil {
+            switch type {
+            case "DELETE":
+              normalized["value"] = "delete_notification"
+            case "MARK_AS_READ":
+              normalized["value"] = "mark_as_read_notification"
+            default:
+              break
+            }
+          }
+
+          // Restore default icon for known actions when backend omits it
+          let currentIcon = normalized["icon"] as? String
+          if (currentIcon == nil || currentIcon?.isEmpty == true),
+             let defaultIcon = defaultIconName(forActionType: type) {
+            normalized["icon"] = defaultIcon
+          }
+
+          // Build list of actions allowed as notification buttons
+          if NotificationActionType.allowedTypes.contains(type) {
+            buttonActions.append(normalized)
+          }
+        } else {
+          // Even without a resolved type, keep the action for userInfo/NCE
+          if normalized["value"] == nil, let v = normalized["v"] as? String {
+            normalized["value"] = v
+          }
         }
 
-        return normalized
+        normalizedActions.append(normalized)
       }
 
       print("📱 [NotificationService] 🔍 Original actions: \(actions.count), filtered for buttons: \(buttonActions.count)")
@@ -1149,11 +1182,11 @@ class NotificationService: UNNotificationServiceExtension {
       
       print("📱 [NotificationService] 🎭 Registered DYNAMIC category with \(buttonActions.count) actions")
       
-      // Add ALL actions (including NAVIGATE) to userInfo for NCE
-      // NCE can display NAVIGATE actions in its custom UI
+      // Add ALL normalized actions (including NAVIGATE/OPEN_NOTIFICATION) to userInfo for NCE
+      // NCE can display NAVIGATE/OPEN_NOTIFICATION actions in its custom UI
       var mutableUserInfo = content.userInfo as? [String: Any] ?? [:]
-      mutableUserInfo["actions"] = actions  // Keep all actions including NAVIGATE
-      mutableUserInfo["hasActions"] = !actions.isEmpty
+      mutableUserInfo["actions"] = normalizedActions
+      mutableUserInfo["hasActions"] = !normalizedActions.isEmpty
       
       content.userInfo = mutableUserInfo
       print("📱 [NotificationService] ⌚️ All actions (including NAVIGATE) added to userInfo for NCE custom UI")
@@ -1188,6 +1221,32 @@ class NotificationService: UNNotificationServiceExtension {
     return false
   }
 
+
+  /// Returns the default SF Symbol icon name for known action types when
+  /// the backend omits the icon. This mapping must stay in sync with
+  /// backend/src/common/icon-mapping.util.ts and
+  /// backend/src/notifications/notification-actions.util.ts for iOS.
+  private func defaultIconName(forActionType type: String) -> String? {
+    switch type.uppercased() {
+    case "DELETE":
+      // ZentikIcon.TRASH (ios: "trash.fill")
+      return "trash.fill"
+    case "MARK_AS_READ":
+      // ZentikIcon.CHECKMARK (ios: "checkmark.circle.fill")
+      return "checkmark.circle.fill"
+    case "OPEN_NOTIFICATION":
+      // ZentikIcon.ARROW_UP (ios: "arrow.up")
+      return "arrow.up"
+    case "SNOOZE":
+      // ZentikIcon.CLOCK (ios: "clock.fill")
+      return "clock.fill"
+    case "POSTPONE":
+      // ZentikIcon.HOURGLASS (ios: "hourglass")
+      return "hourglass"
+    default:
+      return nil
+    }
+  }
   private func downloadMediaAttachments(
     content: UNMutableNotificationContent, completion: @escaping () -> Void
   ) {

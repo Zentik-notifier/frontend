@@ -225,6 +225,14 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 if type == "WEBHOOK" && value == nil {
                     value = notificationId
                 }
+
+                // Handle fixed-value actions where backend now omits value
+                if type == "DELETE" && value == nil {
+                    value = "delete_notification"
+                }
+                if type == "MARK_AS_READ" && value == nil {
+                    value = "mark_as_read_notification"
+                }
                 
                 guard let type = type,
                         let value = value else {
