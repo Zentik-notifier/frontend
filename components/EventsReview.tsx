@@ -247,6 +247,13 @@ export default function EventsReview() {
       ? userIdToName[item.userId] || item.userId
       : "-";
 
+    const isNotification = item.type === EventType.Notification;
+    const additionalInfo = item.additionalInfo || {};
+    const platform = additionalInfo.platform as string | undefined;
+    const sentWithSelfDownload = additionalInfo.sentWithSelfDownload === true;
+    const retryWithoutEncEnabled =
+      additionalInfo.retryWithoutEncEnabled === true;
+
     return (
       <TouchableOpacity
         style={[
@@ -257,14 +264,78 @@ export default function EventsReview() {
         onPress={() => handleShowEvent(item)}
       >
         <View style={styles.logRowHeader}>
-          <Text style={[{ color: theme.colors.onSurface }]} numberOfLines={1}>
+          <View style={styles.logRowHeaderLeft}>
             <Text
-              style={[styles.logEventType, { color: theme.colors.primary }]}
+              style={[{ color: theme.colors.onSurface }]}
+              numberOfLines={1}
             >
-              {item.type}
+              <Text
+                style={[styles.logEventType, { color: theme.colors.primary }]}
+              >
+                {item.type}
+              </Text>
+              {userDisplay !== "-" && <Text>{` - ${userDisplay}`}</Text>}
             </Text>
-            {userDisplay !== "-" && <Text>{` - ${userDisplay}`}</Text>}
-          </Text>
+
+            {isNotification && (
+              <View style={styles.logBadgesRow}>
+                {platform && (
+                  <View
+                    style={[
+                      styles.badge,
+                      { backgroundColor: theme.colors.surfaceVariant },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.badgeText,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {platform}
+                    </Text>
+                  </View>
+                )}
+
+                {sentWithSelfDownload && (
+                  <View
+                    style={[
+                      styles.badge,
+                      { backgroundColor: theme.colors.tertiaryContainer },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.badgeText,
+                        { color: theme.colors.onTertiaryContainer },
+                      ]}
+                    >
+                      selfDownload
+                    </Text>
+                  </View>
+                )}
+
+                {retryWithoutEncEnabled && (
+                  <View
+                    style={[
+                      styles.badge,
+                      { backgroundColor: theme.colors.secondaryContainer },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.badgeText,
+                        { color: theme.colors.onSecondaryContainer },
+                      ]}
+                    >
+                      retry enabled
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
           <Text
             style={[styles.logDate, { color: theme.colors.onSurfaceVariant }]}
           >
@@ -438,6 +509,55 @@ export default function EventsReview() {
                       ]}
                     />
                   </View>
+
+                  {selectedEvent.additionalInfo && (
+                    <View style={styles.dialogMetaRow}>
+                      <Text style={styles.dialogMetaLabel}>Additional info:</Text>
+
+                      {(() => {
+                        const info = selectedEvent.additionalInfo || {};
+                        const platform = info.platform as string | undefined;
+                        const sentWithEncryption =
+                          info.sentWithEncryption === true;
+                        const sentWithoutEncryption =
+                          info.sentWithoutEncryption === true;
+                        const sentWithSelfDownload =
+                          info.sentWithSelfDownload === true;
+                        const retryWithoutEncEnabled =
+                          info.retryWithoutEncEnabled === true;
+
+                        let deliveryMode: string | undefined;
+                        if (sentWithSelfDownload) {
+                          deliveryMode = "selfDownload";
+                        } else if (sentWithEncryption) {
+                          deliveryMode = "encrypted";
+                        } else if (sentWithoutEncryption) {
+                          deliveryMode = "plain";
+                        }
+
+                        return (
+                          <View>
+                            {platform && (
+                              <Text style={styles.dialogMetaValue}>
+                                Platform: {platform}
+                              </Text>
+                            )}
+                            {deliveryMode && (
+                              <Text style={styles.dialogMetaValue}>
+                                Delivery mode: {deliveryMode}
+                              </Text>
+                            )}
+                            {retryWithoutEncEnabled !== undefined && (
+                              <Text style={styles.dialogMetaValue}>
+                                Retry without encryption enabled: {""}
+                                {retryWithoutEncEnabled ? "yes" : "no"}
+                              </Text>
+                            )}
+                          </View>
+                        );
+                      })()}
+                    </View>
+                  )}
                 </>
               )}
             </ScrollView>
@@ -555,6 +675,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 4,
   },
+  logRowHeaderLeft: {
+    flexShrink: 1,
+  },
   typePill: {
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -567,6 +690,12 @@ const styles = StyleSheet.create({
   logDate: {
     fontSize: 11,
     opacity: 0.7,
+  },
+  logBadgesRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 4,
   },
   logRowBody: {
     gap: 2,
@@ -625,6 +754,15 @@ const styles = StyleSheet.create({
   dialogMetaValue: {
     fontSize: 13,
     opacity: 0.9,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "600",
   },
   fieldInput: {
     borderRadius: 8,

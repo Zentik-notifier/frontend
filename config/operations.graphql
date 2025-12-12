@@ -1197,6 +1197,7 @@ fragment EventFragment on Event {
   objectId
   createdAt
   targetId
+  additionalInfo
 }
 
 # Paginated event queries - Single unified query

@@ -147,11 +147,11 @@ input CreateBucketDto {
 }
 
 input CreateChangelogInput {
-  androidVersion: String!
-  backendVersion: String!
+  androidVersion: String
+  backendVersion: String
   description: String!
-  iosVersion: String!
-  uiVersion: String!
+  iosVersion: String
+  uiVersion: String
 }
 
 input CreateInviteCodeInput {
