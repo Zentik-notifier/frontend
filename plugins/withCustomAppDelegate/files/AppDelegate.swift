@@ -78,14 +78,16 @@ FirebaseApp.configure()
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
     let userInfo = response.notification.request.content.userInfo
-    
-    // Single consolidated log for action received
+    let notificationId = (userInfo["nid"] as? String) ?? (userInfo["n"] as? String)
+
+    // Single consolidated log for action received (distinguish notificationId vs requestIdentifier)
     LoggingSystem.shared.info(
       tag: "Action",
       message: "User action triggered",
       metadata: [
         "actionIdentifier": response.actionIdentifier,
-        "notificationId": response.notification.request.identifier,
+        "notificationId": notificationId as Any,
+        "requestIdentifier": response.notification.request.identifier,
         "appState": UIApplication.shared.applicationState == .active ? "foreground" : "background"
       ],
       source: "AppDelegate"
@@ -113,14 +115,16 @@ FirebaseApp.configure()
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
     let userInfo = notification.request.content.userInfo
-    // Use nid from userInfo (new format), fallback to notificationId (old format), then request.identifier
-    let notificationId = (userInfo["nid"] as? String) ?? (userInfo["notificationId"] as? String) ?? notification.request.identifier
-    
-    // Single log for foreground notification
+    let notificationId = (userInfo["nid"] as? String) ?? (userInfo["n"] as? String)
+
+    // Single log for foreground notification (do not treat request.identifier as notificationId)
     LoggingSystem.shared.info(
       tag: "AppDelegate",
       message: "Notification received in foreground",
-      metadata: ["notificationId": notificationId],
+      metadata: [
+        "notificationId": notificationId as Any,
+        "requestIdentifier": notification.request.identifier
+      ],
       source: "AppDelegate"
     )
     
@@ -149,12 +153,9 @@ FirebaseApp.configure()
   private func handleNotificationAction(response: UNNotificationResponse) {
     let actionIdentifier = response.actionIdentifier
     let userInfo = response.notification.request.content.userInfo
-    
-    // Use nid from userInfo (new format), fallback to notificationId (old format), then request.identifier
-    let notificationId = (userInfo["nid"] as? String) ?? (userInfo["notificationId"] as? String) ?? response.notification.request.identifier
-    
-    // Validate notificationId is not empty
-    guard !notificationId.isEmpty else {
+
+    // Require backend notificationId from nid or compact n; do not use request.identifier as notificationId
+    guard let notificationId = (userInfo["nid"] as? String) ?? (userInfo["n"] as? String), !notificationId.isEmpty else {
       LoggingSystem.shared.error(
         tag: "Action",
         message: "Notification ID is empty, cannot execute action",

@@ -138,7 +138,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Log NCE initialization with complete information
         // Extract notification ID from userInfo (nid/n) or fallback to request identifier
         let userInfo = notification.request.content.userInfo
-        let rawNid = (userInfo["nid"] as? String) ?? (userInfo["n"] as? String) ?? (userInfo["notificationId"] as? String)
+        let rawNid = (userInfo["nid"] as? String) ?? (userInfo["n"] as? String)
         let notificationId = SharedUtils.normalizeUUID(rawNid) ?? notification.request.identifier
         
         let categoryId = notification.request.content.categoryIdentifier.lowercased()
@@ -153,8 +153,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             "badge": notification.request.content.badge ?? 0
         ]
         
-        // Add actions data
-        if let actionsData = (notification.request.content.userInfo["actions"] as? [[String: Any]]) ?? (notification.request.content.userInfo["act"] as? [[String: Any]]) ?? (notification.request.content.userInfo["a"] as? [[String: Any]]) {
+        // Add actions data (already normalized by NSE into "actions")
+        if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
             initMeta["actions"] = actionsData
             initMeta["actionsCount"] = actionsData.count
         } else {
@@ -199,13 +199,13 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         // Log category and actions data received
         print("📱 [ContentExtension] 🎭 Category received: '\(categoryId)'")
-        if let actionsData = (notification.request.content.userInfo["actions"] as? [[String: Any]]) ?? (notification.request.content.userInfo["act"] as? [[String: Any]]) ?? (notification.request.content.userInfo["a"] as? [[String: Any]]) {
+        if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
             print("📱 [ContentExtension] 🎭 Raw actions data received: \(actionsData)")
         } else {
             print("📱 [ContentExtension] 🎭 No actions data in userInfo")
         }
-        
-        if let actionsData = (notification.request.content.userInfo["actions"] as? [[String: Any]]) ?? (notification.request.content.userInfo["act"] as? [[String: Any]]) ?? (notification.request.content.userInfo["a"] as? [[String: Any]]) {
+
+        if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
             print("📱 [ContentExtension] 🎭 Processing \(actionsData.count) actions for dynamic category")
             
             let notificationActions = actionsData.compactMap { actionData -> UNNotificationAction? in
@@ -376,9 +376,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         print("📱 [ContentExtension] Category: \(response.notification.request.content.categoryIdentifier)")
         
         let userInfo = response.notification.request.content.userInfo
-        // Use nid from userInfo (new format), fallback to notificationId (old format), then request.identifier
+        // Use nid from userInfo (new format) or n (compact), then request.identifier
         // Normalize just in case NSE didn't run or failed
-        let rawNid = (userInfo["nid"] as? String) ?? (userInfo["n"] as? String) ?? (userInfo["notificationId"] as? String)
+        let rawNid = (userInfo["nid"] as? String) ?? (userInfo["n"] as? String)
         let notificationId = SharedUtils.normalizeUUID(rawNid) ?? response.notification.request.identifier
         print("📱 [ContentExtension] UserInfo keys: \(userInfo.keys.map { String(describing: $0) }.joined(separator: ", "))")
         
@@ -739,9 +739,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     private func refreshHeaderIcon() {
         guard let imageView = headerIconImageView else { return }
         
-        // Get bucket icon from cache using only bucketId (support both old and new abbreviated keys)
+        // Get bucket icon from cache using canonical bucketId (bid)
         if let userInfo = currentNotificationUserInfo {
-            let rawBucketId = (userInfo["bid"] as? String) ?? (userInfo["bucketId"] as? String)
+            let rawBucketId = userInfo["bid"] as? String
             if let bucketId = SharedUtils.normalizeUUID(rawBucketId) {
                 print("📱 [ContentExtension] 🎭 Getting bucket icon for bucketId: \(bucketId)")
                 
@@ -2960,9 +2960,11 @@ extension NotificationViewController {
         let actionIdentifier = response.actionIdentifier
         let userInfo = response.notification.request.content.userInfo
 
-        // Extract notification ID and payload
-        // Use nid from userInfo (new format), fallback to notificationId (old format), then request.identifier
-        let notificationId = extractNotificationId(from: userInfo, fallback: response.notification.request.identifier) ?? response.notification.request.identifier
+        // Extract notification ID and payload using canonical nid
+        guard let notificationId = extractNotificationId(from: userInfo), !notificationId.isEmpty else {
+            print("📱 [ContentExtension] ❌ No notification ID found for action in background")
+            return
+        }
         
         guard !notificationId.isEmpty else {
             print("📱 [ContentExtension] ❌ No notification ID found")
@@ -2985,9 +2987,12 @@ extension NotificationViewController {
         let actionIdentifier = response.actionIdentifier
         let userInfo = response.notification.request.content.userInfo
         
-        // Extract notification ID and payload
-        // Use nid from userInfo (new format), fallback to notificationId (old format), then request.identifier
-        let notificationId = extractNotificationId(from: userInfo, fallback: response.notification.request.identifier) ?? response.notification.request.identifier
+        // Extract notification ID and payload using canonical nid
+        guard let notificationId = extractNotificationId(from: userInfo), !notificationId.isEmpty else {
+            print("📱 [ContentExtension] ❌ No notification ID found for action")
+            completion(false)
+            return
+        }
         
         guard !notificationId.isEmpty else {
             print("📱 [ContentExtension] ❌ No notification ID found")
@@ -3027,19 +3032,9 @@ extension NotificationViewController {
         }
     }
 
-    private func extractNotificationId(from userInfo: [AnyHashable: Any], fallback: String? = nil) -> String? {
-        // Prefer nid from userInfo (new format), fallback to notificationId (old format), then fallback parameter
-        if let nid = userInfo["nid"] as? String {
-            return nid
-        } else if let notificationId = userInfo["notificationId"] as? String {
-            return notificationId
-        } else if let payload = userInfo["payload"] as? [String: Any],
-                  let notificationId = payload["notificationId"] as? String {
-            return notificationId
-        } else if let fallback = fallback {
-            return fallback
-        }
-        return nil
+    private func extractNotificationId(from userInfo: [AnyHashable: Any]) -> String? {
+        // Prefer canonical nid from userInfo (set by NSE), then fallback to compact n from backend
+        return (userInfo["nid"] as? String) ?? (userInfo["n"] as? String)
     }
     
     private func handleDefaultTapAction(userInfo: [AnyHashable: Any], notificationId: String, completion: @escaping (Bool) -> Void) {
@@ -3094,9 +3089,8 @@ extension NotificationViewController {
             print("📱 [ContentExtension] ❌ No notification data available for header tap")
             return
         }
-        // Use nid from userInfo (new format), fallback to notificationId (old format), then request identifier
-        let notificationId = extractNotificationId(from: userInfo, fallback: currentNotificationRequestIdentifier) ?? currentNotificationRequestIdentifier ?? ""
-        guard !notificationId.isEmpty else {
+        // Use canonical nid from userInfo (set by NSE)
+        guard let notificationId = extractNotificationId(from: userInfo), !notificationId.isEmpty else {
             print("📱 [ContentExtension] ❌ No notification ID found for header tap")
             return
         }
@@ -3121,9 +3115,8 @@ extension NotificationViewController {
             print("📱 [ContentExtension] ❌ No notification data available for media container tap")
             return
         }
-        // Use nid from userInfo (new format), fallback to notificationId (old format), then request identifier
-        let notificationId = extractNotificationId(from: userInfo, fallback: currentNotificationRequestIdentifier) ?? currentNotificationRequestIdentifier ?? ""
-        guard !notificationId.isEmpty else {
+        // Use canonical nid from userInfo (set by NSE)
+        guard let notificationId = extractNotificationId(from: userInfo), !notificationId.isEmpty else {
             print("📱 [ContentExtension] ❌ No notification ID found for media container tap")
             return
         }

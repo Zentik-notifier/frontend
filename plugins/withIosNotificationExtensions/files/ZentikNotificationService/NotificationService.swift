@@ -127,31 +127,32 @@ class NotificationService: UNNotificationServiceExtension {
       return
     }
 
-    // Normalize UUIDs (handle stripped format)
-    // Helper to get and normalize
-    func getAndNormalize(_ keys: [String]) -> String? {
-        for key in keys {
-            if let val = userInfo[key] as? String {
-                return SharedUtils.normalizeUUID(val)
-            }
+    // IDs (nid, bid, mid) were already normalized in decryptNotificationContent.
+    // Here we just ensure they are present with the expected keys for NCE and app.
+    func getId(_ keys: [String]) -> String? {
+      for key in keys {
+        if let val = userInfo[key] as? String {
+          return val
         }
-        return nil
+      }
+      return nil
     }
-    
-    let normalizedNid = getAndNormalize(["n", "nid", "notificationId"])
-    let normalizedBid = getAndNormalize(["b", "bid", "bucketId"])
-    let normalizedMid = getAndNormalize(["m", "mid", "messageId"])
-    
-    // Update userInfo with normalized values for NCE and app
-    if let nid = normalizedNid { userInfo["nid"] = nid }
-    if let bid = normalizedBid { userInfo["bid"] = bid }
-    if let mid = normalizedMid { userInfo["mid"] = mid }
-    
-    // Update content.userInfo with normalized values
+
+    // Use only canonical/compact keys from backend (normalized upstream)
+    let nid = getId(["nid", "n"])
+    let bid = getId(["bid", "b"])
+    let mid = getId(["mid", "m"])
+
+    // Ensure canonical keys are set (values are already normalized upstream)
+    if let nid { userInfo["nid"] = nid }
+    if let bid { userInfo["bid"] = bid }
+    if let mid { userInfo["mid"] = mid }
+
+    // Update content.userInfo with canonical IDs
     content.userInfo = userInfo
-    
+
     print("📱 [NotificationService] 🎭 UserInfo keys: \(userInfo.keys.sorted())")
-    if let bid = normalizedBid { print("📱 [NotificationService] 🎭 Normalized Bucket ID: \(bid)") }
+    if let bid { print("📱 [NotificationService] 🎭 Normalized Bucket ID: \(bid)") }
 
     // Check if skipSendMessageIntent is true
     if let skipSendMessageIntent = userInfo["skipSendMessageIntent"] as? Bool, skipSendMessageIntent {
@@ -385,20 +386,21 @@ class NotificationService: UNNotificationServiceExtension {
 
     print("📱 [NotificationService] 🔍 Raw userInfo before decryption: \(userInfo)")
 
-    // Preserve public fields from payload root (nid, bid, mid, dty, act)
+    // Preserve public fields from payload root (nid, bid, mid, dty, a)
     var updated = content.userInfo as? [String: Any] ?? [:]
     
     // Preserve public fields that are always in payload root (normalized UUIDs)
-    if let nid = SharedUtils.normalizeUUID((userInfo["nid"] as? String) ?? (userInfo["n"] as? String)) {
+    // Use only compact keys sent by backend: n, b, m, y, bi, a
+    if let nid = SharedUtils.normalizeUUID(userInfo["n"] as? String) {
       updated["nid"] = nid
     }
-    if let bid = SharedUtils.normalizeUUID((userInfo["bid"] as? String) ?? (userInfo["b"] as? String)) {
+    if let bid = SharedUtils.normalizeUUID(userInfo["b"] as? String) {
       updated["bid"] = bid
     }
-    if let mid = SharedUtils.normalizeUUID((userInfo["mid"] as? String) ?? (userInfo["m"] as? String)) {
+    if let mid = SharedUtils.normalizeUUID(userInfo["m"] as? String) {
       updated["mid"] = mid
     }
-    if let dty = userInfo["dty"] ?? userInfo["y"] { updated["dty"] = dty }
+    if let dty = userInfo["y"] { updated["dty"] = dty }
     if let bi = userInfo["bi"] as? String { updated["bi"] = bi }
     
     // Check if payload is encrypted (has "enc" or "e" field)
@@ -412,18 +414,18 @@ class NotificationService: UNNotificationServiceExtension {
       {
         print("📱 [NotificationService] 🔍 Parsed decrypted sensitive object keys: \(sensitive.keys.sorted())")
         
-        // Extract sensitive fields from decrypted blob (tit, bdy, stl, att, tap, act)
+        // Extract sensitive fields from decrypted blob (tit, bdy, stl, att, tp, a)
         if let title = sensitive["tit"] as? String { content.title = title }
         if let body = sensitive["bdy"] as? String { content.body = body }
         if let subtitle = sensitive["stl"] as? String { content.subtitle = subtitle }
         
         // Handle sensitive actions (NAVIGATE/BACKGROUND_CALL from encrypted blob)
         var sensitiveActions: [[String: Any]] = []
-        if let actions = (sensitive["act"] as? [[String: Any]]) ?? (sensitive["a"] as? [[String: Any]]) { sensitiveActions = actions }
+        if let actions = sensitive["a"] as? [[String: Any]] { sensitiveActions = actions }
         
         // Get public actions from payload root (outside encrypted blob)
         var publicActions: [[String: Any]] = []
-        if let pubActions = (userInfo["act"] as? [[String: Any]]) ?? (userInfo["a"] as? [[String: Any]]) { publicActions = pubActions }
+        if let pubActions = userInfo["a"] as? [[String: Any]] { publicActions = pubActions }
         
         // Combine sensitive (from enc) + public (from payload root) actions
         let allActions = sensitiveActions + publicActions
@@ -441,8 +443,8 @@ class NotificationService: UNNotificationServiceExtension {
           updated["attachmentData"] = attachmentObjects
         }
         
-        // Handle tapAction
-        if let tapAction = (sensitive["tap"] as? [String: Any]) ?? (sensitive["tp"] as? [String: Any]) {
+        // Handle tapAction (tp from backend)
+        if let tapAction = sensitive["tp"] as? [String: Any] {
           updated["tapAction"] = tapAction
         }
         
@@ -486,14 +488,14 @@ class NotificationService: UNNotificationServiceExtension {
       print("📱 [NotificationService] 📄 Non-encrypted payload, reading from root")
       
       // Preserve public fields (nid, bid, mid, dty are already in updated from above)
-      // Extract sensitive fields from payload root (tit, bdy, stl, att, tap, act)
+      // Extract sensitive fields from payload root (tit, bdy, stl, att, tp, a)
       if let title = userInfo["tit"] as? String { content.title = title }
       if let body = userInfo["bdy"] as? String { content.body = body }
       if let subtitle = userInfo["stl"] as? String { content.subtitle = subtitle }
       
       // Handle actions from payload root (all actions)
       var allActions: [[String: Any]] = []
-      if let actions = (userInfo["act"] as? [[String: Any]]) ?? (userInfo["a"] as? [[String: Any]]) { allActions = actions }
+      if let actions = userInfo["a"] as? [[String: Any]] { allActions = actions }
       updated["actions"] = allActions
       
       // Handle attachments as string array: ["IMAGE:url1", "VIDEO:url2"]
@@ -508,8 +510,8 @@ class NotificationService: UNNotificationServiceExtension {
         updated["attachmentData"] = attachmentObjects
       }
       
-      // Handle tapAction
-      if let tapAction = (userInfo["tap"] as? [String: Any]) ?? (userInfo["tp"] as? [String: Any]) {
+      // Handle tapAction (tp from backend)
+      if let tapAction = userInfo["tp"] as? [String: Any] {
         updated["tapAction"] = tapAction
       }
       
