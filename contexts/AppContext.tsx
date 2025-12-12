@@ -1,6 +1,10 @@
 import OnboardingModal from "@/components/Onboarding/OnboardingModal";
 import FeedbackModal from "@/components/FeedbackModal";
 import {
+  ChangelogUpdatesModal,
+  ChangelogItem,
+} from "@/components/ChangelogUpdatesModal";
+import {
   DeviceInfoDto,
   LoginDto,
   RegisterDto,
@@ -31,12 +35,16 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { Alert, AppState } from "react-native";
+import { Alert, AppState, Platform } from "react-native";
 import { registerTranslation } from "react-native-paper-dates";
 import { useSettings } from "../hooks/useSettings";
 import { settingsRepository } from "../services/settings-repository";
-import { settingsService } from "../services/settings-service";
-import iosBridge from "@/services/ios-bridge";
+import {
+  settingsService,
+  ChangelogSeenVersions,
+} from "../services/settings-service";
+import { gql, useQuery } from "@apollo/client";
+import { useGetVersionsInfo } from "@/hooks/useGetVersionsInfo";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -83,7 +91,53 @@ interface AppContextProps {
   deviceToken: string | null;
   isInitializing: boolean;
   push: UsePushNotifications;
+  // Changelog modal controls
+  isChangelogModalOpen: boolean;
+  openChangelogModal: () => void;
+  closeChangelogModal: () => void;
+  latestChangelog: ChangelogItem | null;
+  needsChangelogAppUpdateNotice: boolean;
 }
+
+interface ChangelogsQueryResult {
+  changelogs: ChangelogItem[];
+}
+
+const CHANGELOGS_QUERY = gql`
+  query ChangelogsForModal {
+    changelogs {
+      id
+      iosVersion
+      androidVersion
+      uiVersion
+      backendVersion
+      description
+      createdAt
+    }
+  }
+`;
+
+const parseVersion = (v?: string | null): number[] => {
+  if (!v) return [];
+  return v
+    .split(".")
+    .map((part) => parseInt(part, 10))
+    .map((n) => (Number.isNaN(n) ? 0 : n));
+};
+
+const isVersionLess = (a?: string | null, b?: string | null): boolean => {
+  if (!a || !b) return false;
+  const av = parseVersion(a);
+  const bv = parseVersion(b);
+  const len = Math.max(av.length, bv.length);
+  for (let i = 0; i < len; i++) {
+    const ai = av[i] ?? 0;
+    const bi = bv[i] ?? 0;
+    if (ai < bi) return true;
+    if (ai > bi) return false;
+  }
+  return false;
+};
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
 
@@ -107,6 +161,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { mutateAsync: markAllAsRead } = useMarkAllAsRead();
   const { cleanup } = useCleanup();
   const { processPendingNavigationIntent } = usePendingNotificationIntents();
+  const { versions } = useGetVersionsInfo();
+  const { data: changelogData } = useQuery<ChangelogsQueryResult>(
+    CHANGELOGS_QUERY,
+    {
+      fetchPolicy: "cache-and-network",
+    }
+  );
+  const { appVersion, backendVersion, nativeVersion } = versions;
+  const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
+  const [latestChangelog, setLatestChangelog] = useState<ChangelogItem | null>(
+    null
+  );
+  const [changelogsForModal, setChangelogsForModal] = useState<ChangelogItem[]>(
+    []
+  );
+  const [unreadChangelogIds, setUnreadChangelogIds] = useState<string[]>([]);
+  const [needsChangelogAppUpdateNotice, setNeedsChangelogAppUpdateNotice] =
+    useState(false);
 
   useEffect(() => {
     const checkAndSetLocale = async () => {
@@ -193,8 +265,113 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await settingsService.saveLastUserId("");
     setUserId(null);
     setLastUserId(null);
-    console.debug("✅ Logout completed");
+    console.log("✅ Logout completed");
   };
+
+  useEffect(() => {
+    if (!changelogData || !changelogData.changelogs.length) {
+      return;
+    }
+
+    const allEntries = changelogData.changelogs;
+    setChangelogsForModal(allEntries);
+
+    const latestEntry = allEntries[0];
+    setLatestChangelog(latestEntry);
+
+    const seen: ChangelogSeenVersions | undefined =
+      settingsService.getChangelogSeenVersions();
+
+    let shouldShow = false;
+
+    // UI / web app version
+    if (
+      appVersion &&
+      (!seen || isVersionLess(appVersion, latestEntry.uiVersion))
+    ) {
+      shouldShow = true;
+    }
+    console.log(appVersion, latestEntry.uiVersion);
+
+    // Backend version
+    if (
+      backendVersion &&
+      (!seen || isVersionLess(seen.backendVersion, latestEntry.backendVersion))
+    ) {
+      shouldShow = true;
+    }
+
+    // Native versions per platform
+    if (Platform.OS === "ios") {
+      if (
+        nativeVersion &&
+        (!seen ||
+          isVersionLess(seen.iosVersion, latestEntry.iosVersion) ||
+          isVersionLess(nativeVersion, latestEntry.iosVersion))
+      ) {
+        shouldShow = true;
+      }
+    } else if (Platform.OS === "android") {
+      if (
+        nativeVersion &&
+        isVersionLess(nativeVersion, latestEntry.androidVersion) &&
+        (!seen ||
+          isVersionLess(seen.androidVersion, latestEntry.androidVersion))
+      ) {
+        shouldShow = true;
+      }
+    }
+
+    if (shouldShow) {
+      setIsChangelogModalOpen(true);
+    }
+
+    // Calcola quali changelog sono "non letti" rispetto alle versioni viste finora
+    const nextUnreadIds: string[] = [];
+    for (const entry of allEntries) {
+      let isUnread = false;
+
+      if (!seen) {
+        isUnread = true;
+      } else {
+        if (isVersionLess(seen.uiVersion, entry.uiVersion)) {
+          isUnread = true;
+        }
+        if (isVersionLess(seen.backendVersion, entry.backendVersion)) {
+          isUnread = true;
+        }
+
+        if (Platform.OS === "ios") {
+          if (isVersionLess(seen.iosVersion, entry.iosVersion)) {
+            isUnread = true;
+          }
+        } else if (Platform.OS === "android") {
+          if (isVersionLess(seen.androidVersion, entry.androidVersion)) {
+            isUnread = true;
+          }
+        }
+      }
+
+      if (isUnread) {
+        nextUnreadIds.push(entry.id);
+      }
+    }
+    setUnreadChangelogIds(nextUnreadIds);
+
+    const latestNativeVersion =
+      Platform.OS === "ios"
+        ? latestEntry.iosVersion
+        : Platform.OS === "android"
+        ? latestEntry.androidVersion
+        : null;
+
+    const needsNotice =
+      (Platform.OS === "macos" || Platform.OS === "ios") &&
+      !!nativeVersion &&
+      !!latestNativeVersion &&
+      isVersionLess(nativeVersion, latestNativeVersion);
+    setNeedsChangelogAppUpdateNotice(needsNotice);
+  }, [changelogData, appVersion, backendVersion, nativeVersion]);
 
   const login = async (
     emailOrUsername: string,
@@ -594,6 +771,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }).catch(() => {});
   };
 
+  const openChangelogModal = () => {
+    if (latestChangelog) {
+      setIsChangelogModalOpen(true);
+    }
+  };
+
+  const closeChangelogModal = async () => {
+    if (latestChangelog) {
+      const previous = settingsService.getChangelogSeenVersions() || {};
+      const updated: ChangelogSeenVersions = {
+        ...previous,
+        iosVersion: latestChangelog.iosVersion,
+        androidVersion: latestChangelog.androidVersion,
+        uiVersion: latestChangelog.uiVersion,
+        backendVersion: latestChangelog.backendVersion,
+      };
+
+      await settingsService.setChangelogSeenVersions(updated);
+    }
+    setIsChangelogModalOpen(false);
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -619,6 +818,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         isInitializing,
         lastUserId,
         push,
+        isChangelogModalOpen,
+        openChangelogModal,
+        closeChangelogModal,
+        latestChangelog,
+        needsChangelogAppUpdateNotice,
       }}
     >
       {children}
@@ -631,6 +835,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       <FeedbackModal
         visible={isFeedbackModalOpen}
         onDismiss={() => setIsFeedbackModalOpen(false)}
+      />
+      <ChangelogUpdatesModal
+        visible={isChangelogModalOpen}
+        latest={latestChangelog}
+        changelogs={changelogsForModal}
+        unreadIds={unreadChangelogIds}
+        needsAppUpdateNotice={needsChangelogAppUpdateNotice}
+        onClose={closeChangelogModal}
       />
     </AppContext.Provider>
   );

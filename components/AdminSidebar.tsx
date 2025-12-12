@@ -35,6 +35,15 @@ export default function AdminSidebar() {
       selectionSegment: "server-settings",
     },
     {
+      id: "changelogs",
+      title: t("administration.changelogsTitle"),
+      description: t("administration.changelogsDescription"),
+      icon: "new-box",
+      iconColor: "#22c55e", // Green
+      onPress: (nav as any).navigateToChangelogs,
+      selectionSegment: "changelogs",
+    },
+    {
       id: "user-management",
       title: t("administration.userManagement"),
       description: t("administration.userManagementDescription"),

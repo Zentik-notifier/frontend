@@ -24,12 +24,12 @@ export default function UserDropdown({
   isMenuOpen,
   setIsMenuOpen,
 }: UserDropdownProps) {
-  const { logout, showOnboarding } = useAppContext();
+  const { logout, showOnboarding, openChangelogModal } = useAppContext();
   const [showInitials, setShowInitials] = useState(false);
   const theme = useTheme();
   const { themeMode, setThemeMode } = useAppTheme();
   const { t } = useI18n();
-  const { navigateToSettings, navigateToAdmin, navigateToSelfService } = useNavigationUtils();
+  const { navigateToSettings, navigateToAdmin, navigateToSelfService, navigateToChangelogs } = useNavigationUtils();
 
   const { data: userData } = useGetMeQuery();
   const { data: providersData } = usePublicAppConfigQuery();
@@ -310,6 +310,37 @@ export default function UserDropdown({
                   ]}
                 >
                   {t("userDropdown.administration")}
+                </Text>
+              </View>
+            </MenuOption>
+          )}
+
+          {/* Changelogs (Admin only) */}
+          {user?.role === UserRole.Admin && (
+            <MenuOption
+              onSelect={() => {
+                openChangelogModal();
+                closeMenu();
+              }}
+            >
+              <View
+                style={[
+                  styles.menuItem,
+                  { backgroundColor: theme.colors.surface },
+                ]}
+              >
+                <Icon
+                  source="new-box"
+                  size={20}
+                  color={theme.colors.onSurface}
+                />
+                <Text
+                  style={[
+                    styles.menuItemText,
+                    { color: theme.colors.onSurface },
+                  ]}
+                >
+                  {t("userDropdown.changelog")}
                 </Text>
               </View>
             </MenuOption>

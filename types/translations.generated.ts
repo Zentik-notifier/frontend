@@ -1063,6 +1063,24 @@ export interface Translation {
     deleteFailed: string;
     deleteSuccess: string;
   };
+  changelog: {
+    title: string;
+    empty: string;
+    editTitle: string;
+    createTitle: string;
+    description: string;
+    modalTitle: string;
+    iosVersion: string;
+    androidVersion: string;
+    uiVersion: string;
+    backendVersion: string;
+    descriptionRequired: string;
+    updateNotice: string;
+    updateNoticeIos: string;
+    showOldChangelogs: string;
+    hideOldChangelogs: string;
+    openTestflight: string;
+  };
   swipeActions: {
     delete: {
       label: string;
@@ -1124,6 +1142,7 @@ export interface Translation {
     add: string;
     home: string;
     cancel: string;
+    edit: string;
     save: string;
     importing: string;
     delete: string;
@@ -1694,6 +1713,7 @@ export interface Translation {
     settings: string;
     administration: string;
     logout: string;
+    changelog: string;
     themes: {
       light: string;
       dark: string;
@@ -1762,6 +1782,8 @@ export interface Translation {
     noIdentitiesFound: string;
     identityMetadata: string;
     systemSettings: string;
+    changelogsTitle: string;
+    changelogsDescription: string;
     systemTokensTitle: string;
     systemTokensDescription: string;
     oauthProviders: string;

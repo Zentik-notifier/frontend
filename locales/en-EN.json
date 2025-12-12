@@ -1060,6 +1060,24 @@
     "deleteFailed": "Unable to delete attachment",
     "deleteSuccess": "Attachment deleted successfully"
   },
+  "changelog": {
+    "title": "Changelog",
+    "empty": "No changelog entries yet. Create the first one.",
+    "editTitle": "Edit changelog",
+    "createTitle": "Create changelog",
+    "description": "Description",
+    "modalTitle": "What's new",
+    "iosVersion": "iOS version",
+    "androidVersion": "Android version",
+    "uiVersion": "UI version",
+    "backendVersion": "Backend version",
+    "descriptionRequired": "Description is required",
+    "updateNotice": "Your app version is outdated. Please update the app.",
+    "updateNoticeIos": "Your app version is outdated. Please update the app from TestFlight.",
+    "showOldChangelogs": "Show old changelogs",
+    "hideOldChangelogs": "Hide old changelogs",
+    "openTestflight": "Open TestFlight"
+  },
   "swipeActions": {
     "delete": {
       "label": "Delete",
@@ -1121,6 +1139,7 @@
     "add": "Add",
     "home": "Homepage",
     "cancel": "Cancel",
+    "edit": "Edit",
     "save": "Save",
     "importing": "Importing...",
     "delete": "Delete",
@@ -1691,6 +1710,7 @@
     "settings": "Settings",
     "administration": "Administration",
     "logout": "Logout",
+    "changelog": "Changelog",
     "themes": {
       "light": "Light Theme",
       "dark": "Dark Theme",
@@ -1759,6 +1779,8 @@
     "noIdentitiesFound": "No linked identities found",
     "identityMetadata": "Provider metadata",
     "systemSettings": "System Settings",
+    "changelogsTitle": "Changelog",
+    "changelogsDescription": "Manage app, backend and UI changelogs",
     "systemTokensTitle": "System Access Tokens",
     "systemTokensDescription": "Manage system API tokens",
     "oauthProviders": "OAuth Providers",

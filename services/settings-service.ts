@@ -91,6 +91,13 @@ export interface GalleryVisualization {
   selectedMediaTypes: MediaType[];
 }
 
+export interface ChangelogSeenVersions {
+  iosVersion?: string;
+  androidVersion?: string;
+  uiVersion?: string;
+  backendVersion?: string;
+}
+
 export interface UserSettings {
   theme: ThemeSettings;
   locale: Locale;
@@ -122,6 +129,7 @@ export interface UserSettings {
   };
   hideHints?: boolean;
   lastCleanup?: string;
+  changelogSeenVersions?: ChangelogSeenVersions;
 }
 
 export interface AuthData {
@@ -207,6 +215,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   },
   hideHints: false,
   lastCleanup: undefined,
+  changelogSeenVersions: undefined,
 };
 
 const DEFAULT_AUTH_DATA: AuthData = {
@@ -304,7 +313,8 @@ class SettingsService {
         'githubEventsFilter',
         'galleryVisualization',
         'onboarding',
-        'termsAcceptance'
+        'termsAcceptance',
+        'changelogSeenVersions',
       ];
 
       await Promise.all([
@@ -434,6 +444,14 @@ class SettingsService {
     // Save only the changed keys
     const changedKeys = Object.keys(updates) as (keyof UserSettings)[];
     await this.savePartialSettings(changedKeys, newSettings);
+  }
+
+  public getChangelogSeenVersions(): ChangelogSeenVersions | undefined {
+    return this.settingsSubject.value.changelogSeenVersions;
+  }
+
+  public async setChangelogSeenVersions(versions: ChangelogSeenVersions): Promise<void> {
+    await this.updateSettings({ changelogSeenVersions: versions });
   }
 
   public async setThemeMode(mode: 'light' | 'dark' | 'system'): Promise<void> {

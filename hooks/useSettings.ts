@@ -1,5 +1,5 @@
 import { UserSettingType, useUpsertUserSettingMutation } from '@/generated/gql-operations-generated';
-import { AuthData, DateFormatPreferences, DownloadSettings, DynamicThemeColors, GalleryVisualization, LayoutMode, MarkAsReadMode, NotificationVisualization, RetentionPolicies, settingsService, UserSettings } from '@/services/settings-service';
+import { AuthData, ChangelogSeenVersions, DateFormatPreferences, DownloadSettings, DynamicThemeColors, GalleryVisualization, LayoutMode, MarkAsReadMode, NotificationVisualization, RetentionPolicies, settingsService, UserSettings } from '@/services/settings-service';
 import { ThemePreset } from '@/services/theme-presets';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -201,6 +201,10 @@ export function useSettings() {
     await settingsService.resetSettings();
   }, []);
 
+  const setChangelogSeenVersions = useCallback(async (versions: ChangelogSeenVersions) => {
+    await settingsService.setChangelogSeenVersions(versions);
+  }, []);
+
   const exportSettings = useCallback(async () => {
     return await settingsService.exportSettings();
   }, []);
@@ -248,6 +252,7 @@ export function useSettings() {
     setLastCleanup,
     shouldRunCleanup,
     resetSettings,
+    setChangelogSeenVersions,
     exportSettings,
     importSettings,
     shouldFilterNotification: settingsService.shouldFilterNotification.bind(settingsService),

@@ -129,6 +129,23 @@ export type ChangePasswordInput = {
   newPassword: Scalars['String']['input'];
 };
 
+export type Changelog = {
+  __typename?: 'Changelog';
+  /** Android app version */
+  androidVersion: Scalars['String']['output'];
+  /** Backend/server version */
+  backendVersion: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  /** Combined changelog description */
+  description: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  /** iOS app version */
+  iosVersion: Scalars['String']['output'];
+  /** Web/UI version */
+  uiVersion: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
 export type ConfirmEmailDto = {
   code: Scalars['String']['input'];
   locale?: InputMaybe<Scalars['String']['input']>;
@@ -150,6 +167,14 @@ export type CreateBucketDto = {
   isProtected?: InputMaybe<Scalars['Boolean']['input']>;
   isPublic?: InputMaybe<Scalars['Boolean']['input']>;
   name: Scalars['String']['input'];
+};
+
+export type CreateChangelogInput = {
+  androidVersion: Scalars['String']['input'];
+  backendVersion: Scalars['String']['input'];
+  description: Scalars['String']['input'];
+  iosVersion: Scalars['String']['input'];
+  uiVersion: Scalars['String']['input'];
 };
 
 export type CreateInviteCodeInput = {
@@ -599,6 +624,8 @@ export type Mutation = {
   createAccessToken: AccessTokenResponseDto;
   createAccessTokenForBucket: AccessTokenResponseDto;
   createBucket: Bucket;
+  /** Create a new changelog (admin only) */
+  createChangelog: Changelog;
   /** Create a new invite code for a resource */
   createInviteCode: InviteCode;
   /** Create a new message and send notifications to bucket users (returns the created message). */
@@ -617,6 +644,8 @@ export type Mutation = {
   /** Delete a specific backup file */
   deleteBackup: Scalars['Boolean']['output'];
   deleteBucket: Scalars['Boolean']['output'];
+  /** Delete a changelog (admin only) */
+  deleteChangelog: Scalars['Boolean']['output'];
   /** Delete an invite code */
   deleteInviteCode: Scalars['Boolean']['output'];
   deleteMagicCode: UserBucket;
@@ -674,6 +703,8 @@ export type Mutation = {
   updateBucket: Bucket;
   /** @deprecated Usa future Bucket mutation (updateBucketSnoozes) */
   updateBucketSnoozes: UserBucket;
+  /** Update an existing changelog (admin only) */
+  updateChangelog: Changelog;
   updateDeviceToken: UserDevice;
   /** Update an invite code */
   updateInviteCode: InviteCode;
@@ -758,6 +789,11 @@ export type MutationCreateBucketArgs = {
 };
 
 
+export type MutationCreateChangelogArgs = {
+  input: CreateChangelogInput;
+};
+
+
 export type MutationCreateInviteCodeArgs = {
   input: CreateInviteCodeInput;
 };
@@ -825,6 +861,11 @@ export type MutationDeleteBackupArgs = {
 
 export type MutationDeleteBucketArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteChangelogArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -1042,6 +1083,11 @@ export type MutationUpdateBucketArgs = {
 export type MutationUpdateBucketSnoozesArgs = {
   bucketId: Scalars['String']['input'];
   snoozes: Array<SnoozeScheduleInput>;
+};
+
+
+export type MutationUpdateChangelogArgs = {
+  input: UpdateChangelogInput;
 };
 
 
@@ -1355,6 +1401,10 @@ export type Query = {
   bucket: Bucket;
   bucketPermissions: Array<EntityPermission>;
   buckets: Array<Bucket>;
+  /** Get a specific changelog by id (public) */
+  changelog: Changelog;
+  /** List all changelogs (public) */
+  changelogs: Array<Changelog>;
   checkEmailStatus: EmailStatusResponseDto;
   enabledOAuthProviders: Array<OAuthProviderPublicDto>;
   entityExecution: Maybe<EntityExecution>;
@@ -1429,6 +1479,11 @@ export type QueryBucketArgs = {
 
 export type QueryBucketPermissionsArgs = {
   bucketId: Scalars['String']['input'];
+};
+
+
+export type QueryChangelogArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -1840,6 +1895,15 @@ export type UpdateBucketDto = {
   isProtected?: InputMaybe<Scalars['Boolean']['input']>;
   isPublic?: InputMaybe<Scalars['Boolean']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateChangelogInput = {
+  androidVersion?: InputMaybe<Scalars['String']['input']>;
+  backendVersion?: InputMaybe<Scalars['String']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  iosVersion?: InputMaybe<Scalars['String']['input']>;
+  uiVersion?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateDeviceTokenDto = {

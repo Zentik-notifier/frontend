@@ -284,6 +284,30 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToChangelogs: () => {
+            if (isMobile) {
+                router.push(`/(phone)/(admin)/changelogs/list`);
+            } else {
+                router.push(`/(desktop)/(admin)/changelogs/list`);
+            }
+        },
+
+        navigateToCreateChangelog: () => {
+            if (isMobile) {
+                router.push(`/(phone)/(admin)/changelogs/create`);
+            } else {
+                router.push(`/(desktop)/(admin)/changelogs/create`);
+            }
+        },
+
+        navigateToEditChangelog: (changelogId: string) => {
+            if (isMobile) {
+                router.push(`/(phone)/(admin)/changelogs/${changelogId}`);
+            } else {
+                router.push(`/(desktop)/(admin)/changelogs/${changelogId}`);
+            }
+        },
+
         navigateToEventsReview: () => {
             if (isMobile) {
                 router.push(`/(phone)/(admin)/events-review`);

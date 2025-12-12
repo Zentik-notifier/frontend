@@ -2,7 +2,7 @@ import { I18nProvider } from "@/components/I18nProvider";
 import { QueryProviders } from "@/components/QueryProviders";
 import { AlertDialog } from "@/components/ui/AlertDialog";
 import { useDeviceType } from "@/hooks/useDeviceType";
-import { useForegroundNotificationHandler } from "@/hooks/useForegroundNotificationHandler";
+// import { useForegroundNotificationHandler } from "@/hooks/useForegroundNotificationHandler";
 import { useWatchConnectivityEvents } from "@/hooks/useWatchConnectivityEvents";
 import { ThemeProvider } from "@/hooks/useTheme";
 import MobileLayout from "@/layouts/mobile";
