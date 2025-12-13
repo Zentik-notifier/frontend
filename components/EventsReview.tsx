@@ -250,9 +250,27 @@ export default function EventsReview() {
     const isNotification = item.type === EventType.Notification;
     const additionalInfo = item.additionalInfo || {};
     const platform = additionalInfo.platform as string | undefined;
-    const sentWithSelfDownload = additionalInfo.sentWithSelfDownload === true;
-    const retryWithoutEncEnabled =
-      additionalInfo.retryWithoutEncEnabled === true;
+    const sentWith = additionalInfo.sentWith as string | undefined;
+    const availableMethods = additionalInfo.availableMethods as
+      | string[]
+      | undefined;
+
+    let sentWithLabel: string | undefined;
+    if (sentWith) {
+      if (sentWith === "SELF_DOWNLOAD") {
+        sentWithLabel = "selfDownload";
+      } else if (sentWith === "UNENCRYPTED") {
+        sentWithLabel = "unencrypted";
+      } else if (sentWith === "ENCRYPTED") {
+        sentWithLabel = "encrypted";
+      } else {
+        sentWithLabel = sentWith.toString();
+      }
+    }
+
+    const unencryptedEnabled =
+      Array.isArray(availableMethods) &&
+      availableMethods.includes("UNENCRYPTED");
 
     return (
       <TouchableOpacity
@@ -297,7 +315,7 @@ export default function EventsReview() {
                   </View>
                 )}
 
-                {sentWithSelfDownload && (
+                {sentWithLabel && (
                   <View
                     style={[
                       styles.badge,
@@ -310,12 +328,12 @@ export default function EventsReview() {
                         { color: theme.colors.onTertiaryContainer },
                       ]}
                     >
-                      selfDownload
+                      sentWith: {sentWithLabel}
                     </Text>
                   </View>
                 )}
 
-                {retryWithoutEncEnabled && (
+                {unencryptedEnabled && (
                   <View
                     style={[
                       styles.badge,
@@ -328,7 +346,7 @@ export default function EventsReview() {
                         { color: theme.colors.onSecondaryContainer },
                       ]}
                     >
-                      retry enabled
+                      unencrypted enabled
                     </Text>
                   </View>
                 )}
@@ -517,23 +535,25 @@ export default function EventsReview() {
                       {(() => {
                         const info = selectedEvent.additionalInfo || {};
                         const platform = info.platform as string | undefined;
-                        const sentWithEncryption =
-                          info.sentWithEncryption === true;
-                        const sentWithoutEncryption =
-                          info.sentWithoutEncryption === true;
-                        const sentWithSelfDownload =
-                          info.sentWithSelfDownload === true;
-                        const retryWithoutEncEnabled =
-                          info.retryWithoutEncEnabled === true;
+                        const sentWith = info.sentWith as string | undefined;
+                        const availableMethods = info.availableMethods as
+                          | string[]
+                          | undefined;
 
                         let deliveryMode: string | undefined;
-                        if (sentWithSelfDownload) {
+                        if (sentWith === "SELF_DOWNLOAD") {
                           deliveryMode = "selfDownload";
-                        } else if (sentWithEncryption) {
+                        } else if (sentWith === "UNENCRYPTED") {
+                          deliveryMode = "unencrypted";
+                        } else if (sentWith === "ENCRYPTED") {
                           deliveryMode = "encrypted";
-                        } else if (sentWithoutEncryption) {
-                          deliveryMode = "plain";
+                        } else if (sentWith) {
+                          deliveryMode = sentWith.toString();
                         }
+
+                        const unencryptedEnabled =
+                          Array.isArray(availableMethods) &&
+                          availableMethods.includes("UNENCRYPTED");
 
                         return (
                           <View>
@@ -547,10 +567,10 @@ export default function EventsReview() {
                                 Delivery mode: {deliveryMode}
                               </Text>
                             )}
-                            {retryWithoutEncEnabled !== undefined && (
+                            {unencryptedEnabled !== undefined && (
                               <Text style={styles.dialogMetaValue}>
-                                Retry without encryption enabled: {""}
-                                {retryWithoutEncEnabled ? "yes" : "no"}
+                                Unencrypted available: {""}
+                                {unencryptedEnabled ? "yes" : "no"}
                               </Text>
                             )}
                           </View>
