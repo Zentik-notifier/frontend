@@ -2384,6 +2384,7 @@ export interface Translation {
       LogRetentionDays: string;
       LogStorageDirectory: string;
       PrometheusEnabled: string;
+      ChangelogRemoteServer: string;
       EnableSystemTokenRequests: string;
     };
     JwtAccessTokenExpiration: string;
@@ -2404,7 +2405,6 @@ export interface Translation {
     VapidSubject: string;
     PushNotificationsPassthroughServer: string;
     PushPassthroughToken: string;
-    ChangelogRemoteServer: string;
     EmailEnabled: string;
     EmailType: string;
     EmailHost: string;
