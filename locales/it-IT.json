@@ -1175,7 +1175,9 @@
     "SYSTEM_TOKEN_REQUEST_APPROVED": "Richiesta Token di Sistema Approvata",
     "SYSTEM_TOKEN_REQUEST_DECLINED": "Richiesta Token di Sistema Rifiutata",
     "USER_FEEDBACK": "Feedback utente",
-    "NOTIFICATION_FAILED": "Notifica fallita"
+    "NOTIFICATION_FAILED": "Notifica fallita",
+    "EMAIL_SENT": "Email inviata",
+    "EMAIL_FAILED": "Email fallita"
   },
   "adminSubscriptions": {
     "title": "Sottoscrizioni Eventi Admin",

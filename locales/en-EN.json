@@ -2254,7 +2254,9 @@
     "SYSTEM_TOKEN_REQUEST_APPROVED": "System Token Request Approved",
     "SYSTEM_TOKEN_REQUEST_DECLINED": "System Token Request Declined",
     "USER_FEEDBACK": "User feedback",
-    "NOTIFICATION_FAILED": "Notification failed"
+    "NOTIFICATION_FAILED": "Notification failed",
+    "EMAIL_SENT": "Email sent",
+    "EMAIL_FAILED": "Email failed"
   },
   "adminSubscriptions": {
     "title": "Admin Subscriptions",
@@ -2381,7 +2383,7 @@
       "LogRetentionDays": "Log Retention (days)",
       "LogStorageDirectory": "Log Storage Directory",
       "PrometheusEnabled": "Enable Prometheus Metrics",
-    "ChangelogRemoteServer": "Changelog Remote Server URL",
+      "ChangelogRemoteServer": "Changelog Remote Server URL",
       "EnableSystemTokenRequests": "Enable System Token Requests"
     },
     "JwtAccessTokenExpiration": "JWT Access Token Expiration",
