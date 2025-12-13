@@ -1717,6 +1717,7 @@ export enum ServerSettingType {
   BackupExecuteOnStart = 'BackupExecuteOnStart',
   BackupMaxToKeep = 'BackupMaxToKeep',
   BackupStoragePath = 'BackupStoragePath',
+  ChangelogRemoteServer = 'ChangelogRemoteServer',
   CorsCredentials = 'CorsCredentials',
   CorsOrigin = 'CorsOrigin',
   EmailEnabled = 'EmailEnabled',

@@ -2141,6 +2141,7 @@
       "firebasePush": "Firebase Cloud Messaging (FCM)",
       "webPush": "Notifiche Push Web",
       "pushPassthrough": "Push Passthrough",
+      "changelog": "Changelog",
       "email": "Configurazione Email",
       "attachments": "Allegati",
       "backup": "Backup Database",
@@ -2214,7 +2215,8 @@
       "LogRetentionDays": "Conservazione Log (giorni)",
       "LogStorageDirectory": "Directory Archiviazione Log",
       "PrometheusEnabled": "Abilita Metriche Prometheus",
-      "EnableSystemTokenRequests": "Abilita Richieste Token di Sistema"
+      "EnableSystemTokenRequests": "Abilita Richieste Token di Sistema",
+      "ChangelogRemoteServer": "URL server remoto per i changelog"
     },
     "authentication": "Authentication & JWT",
     "apnPush": "Apple Push Notifications (APN)",

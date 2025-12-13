@@ -2291,6 +2291,7 @@
       "firebasePush": "Firebase Cloud Messaging (FCM)",
       "webPush": "Web Push Notifications",
       "pushPassthrough": "Push Passthrough",
+      "changelog": "Changelog",
       "email": "Email Configuration",
       "attachments": "Attachments",
       "backup": "Database Backup",
@@ -2380,6 +2381,7 @@
       "LogRetentionDays": "Log Retention (days)",
       "LogStorageDirectory": "Log Storage Directory",
       "PrometheusEnabled": "Enable Prometheus Metrics",
+    "ChangelogRemoteServer": "Changelog Remote Server URL",
       "EnableSystemTokenRequests": "Enable System Token Requests"
     },
     "JwtAccessTokenExpiration": "JWT Access Token Expiration",

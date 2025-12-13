@@ -147,6 +147,11 @@ const settingSections: Record<string, SectionConfig> = {
       );
     },
   },
+  changelog: {
+    title: "Changelog",
+    icon: "history",
+    settings: [ServerSettingType.ChangelogRemoteServer],
+  },
   email: {
     title: "Email Configuration",
     icon: "email",

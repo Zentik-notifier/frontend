@@ -2294,6 +2294,7 @@ export interface Translation {
       firebasePush: string;
       webPush: string;
       pushPassthrough: string;
+      changelog: string;
       email: string;
       attachments: string;
       backup: string;
@@ -2403,6 +2404,7 @@ export interface Translation {
     VapidSubject: string;
     PushNotificationsPassthroughServer: string;
     PushPassthroughToken: string;
+    ChangelogRemoteServer: string;
     EmailEnabled: string;
     EmailType: string;
     EmailHost: string;
