@@ -169,6 +169,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
           }}
           keyExtractor={(_, index) => index.toString()}
           pinchEnabled={zoomEnabled}
+          disableVerticalSwipe={!onSwipeToClose}
           disableSwipeUp
           // swipeEnabled={false}
           onSwipeToClose={onSwipeToClose}
