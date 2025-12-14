@@ -1,11 +1,17 @@
 import React, { useMemo } from "react";
 import { Platform, StyleSheet, View, Pressable } from "react-native";
-import { gql, useMutation, useQuery } from "@apollo/client";
+import { gql, useMutation } from "@apollo/client";
 import { Button, Icon, Text, useTheme } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
 import SwipeableItem from "./SwipeableItem";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
+import { useAdminChangelogsQuery } from "@/generated/gql-operations-generated";
+
+export interface ChangelogEntryItem {
+  type: string;
+  text: string;
+}
 
 export interface ChangelogItem {
   id: string;
@@ -15,29 +21,22 @@ export interface ChangelogItem {
   backendVersion: string;
   description: string;
   createdAt: string;
+  active: boolean;
+  entries?: ChangelogEntryItem[] | null;
 }
-
-interface ChangelogsQueryResult {
-  changelogs: ChangelogItem[];
-}
-
-export const CHANGELOGS_QUERY = gql`
-  query Changelogs {
-    changelogs {
-      id
-      iosVersion
-      androidVersion
-      uiVersion
-      backendVersion
-      description
-      createdAt
-    }
-  }
-`;
 
 const DELETE_CHANGELOG_MUTATION = gql`
   mutation DeleteChangelog($id: ID!) {
     deleteChangelog(id: $id)
+  }
+`;
+
+const TOGGLE_CHANGELOG_ACTIVE_MUTATION = gql`
+  mutation ToggleChangelogActive($input: UpdateChangelogInput!) {
+    updateChangelog(input: $input) {
+      id
+      active
+    }
   }
 `;
 
@@ -46,16 +45,16 @@ export default function ChangelogList() {
   const { t } = useI18n();
   const { navigateToCreateChangelog, navigateToEditChangelog } =
     useNavigationUtils();
-  const { data, loading, error, refetch } = useQuery<ChangelogsQueryResult>(
-    CHANGELOGS_QUERY,
-    {
-      fetchPolicy: "cache-and-network",
-    }
-  );
+  const { data, loading, error, refetch } = useAdminChangelogsQuery({
+    fetchPolicy: "cache-and-network",
+  });
 
   const [deleteChangelog] = useMutation(DELETE_CHANGELOG_MUTATION);
+  const [toggleChangelogActive] = useMutation(
+    TOGGLE_CHANGELOG_ACTIVE_MUTATION
+  );
 
-  const changelogs = useMemo(() => data?.changelogs ?? [], [data]);
+  const changelogs = useMemo(() => data?.adminChangelogs ?? [], [data]);
 
   const handleDelete = async (item: ChangelogItem) => {
     await deleteChangelog({ variables: { id: item.id } });
@@ -65,6 +64,10 @@ export default function ChangelogList() {
   const translate = (key: string) => t(key as any) as string;
 
   const getItemTitle = (item: ChangelogItem) => {
+    if (item.description && item.description.trim().length > 0) {
+      return item.description.trim();
+    }
+
     const date = new Date(item.createdAt);
 
     if (Number.isNaN(date.getTime())) {
@@ -79,6 +82,18 @@ export default function ChangelogList() {
     });
 
     return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  };
+
+  const handleToggleActive = async (item: ChangelogItem) => {
+    await toggleChangelogActive({
+      variables: {
+        input: {
+          id: item.id,
+          active: !item.active,
+        },
+      },
+    });
+    await refetch();
   };
 
   return (
@@ -110,6 +125,21 @@ export default function ChangelogList() {
             changelogs.map((item) => (
               <SwipeableItem
                 key={item.id}
+                leftAction={{
+                  icon: item.active ? "toggle-switch-off" : "toggle-switch",
+                  label: item.active
+                    ? t("changelog.deactivate")
+                    : t("changelog.activate"),
+                  backgroundColor: item.active
+                    ? theme.colors.secondary
+                    : theme.colors.primary,
+                  onPress: () => handleToggleActive(item),
+                }}
+                cardStyle={[
+                  !item.active && {
+                    backgroundColor: theme.colors.surfaceVariant,
+                  },
+                ]}
                 rightAction={{
                   icon: "delete",
                   label: t("common.delete"),
@@ -161,9 +191,23 @@ export default function ChangelogList() {
                       ) : null}
                     </View>
                   )}
-                  <View style={styles.descriptionContainer}>
-                    <Text variant="bodyMedium">{item.description}</Text>
-                  </View>
+                  {item.entries && item.entries.length > 0 && (
+                    <View style={styles.entriesContainer}>
+                      {item.entries.map((entry, index) => (
+                        <Text
+                          key={index}
+                          variant="bodyMedium"
+                          style={styles.entryLine}
+                        >
+                          {t(
+                            `changelog.entryTypes.${entry.type}` as any
+                          )}
+                          {": "}
+                          {entry.text}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
                   <Text variant="bodySmall" style={styles.dateText}>
                     {new Date(item.createdAt).toLocaleString()}
                   </Text>
@@ -201,8 +245,11 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
-  descriptionContainer: {
+  entriesContainer: {
     marginBottom: 8,
+  },
+  entryLine: {
+    marginBottom: 2,
   },
   dateText: {
     opacity: 0.7,

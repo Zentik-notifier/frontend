@@ -270,6 +270,53 @@ query GetNotification($id: String!) {
   }
 }
 
+# Changelog operations
+fragment ChangelogForModalFragment on Changelog {
+  id
+  iosVersion
+  androidVersion
+  uiVersion
+  backendVersion
+  description
+  createdAt
+  entries {
+    type
+    text
+  }
+}
+
+query ChangelogsForModal {
+  changelogs {
+    ...ChangelogForModalFragment
+  }
+}
+
+query AdminChangelogs {
+  adminChangelogs {
+    ...ChangelogForModalFragment
+    active
+  }
+}
+
+query Changelog($id: ID!) {
+  changelog(id: $id) {
+    ...ChangelogForModalFragment
+    active
+  }
+}
+
+mutation CreateChangelog($input: CreateChangelogInput!) {
+  createChangelog(input: $input) {
+    id
+  }
+}
+
+mutation UpdateChangelog($input: UpdateChangelogInput!) {
+  updateChangelog(input: $input) {
+    id
+  }
+}
+
 mutation CreateMessage($input: CreateMessageDto!) {
   createMessage(input: $input) {
     ...MessageFragment

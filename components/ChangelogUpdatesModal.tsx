@@ -2,19 +2,15 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Linking, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { Card, Icon, Text, useTheme } from "react-native-paper";
 import { useI18n } from "@/hooks/useI18n";
+import type {
+  ChangelogForModalFragment,
+  ChangelogsForModalQuery,
+} from "@/generated/gql-operations-generated";
 import DetailModal from "./ui/DetailModal";
 
-export interface ChangelogItem {
-  id: string;
-  iosVersion: string;
-  androidVersion: string;
-  uiVersion: string;
-  backendVersion: string;
-  description: string;
-  createdAt: string;
-}
+export type ChangelogItem = ChangelogsForModalQuery["changelogs"][number];
+
 interface ChangelogUpdatesModalProps {
-  visible: boolean;
   latest: ChangelogItem | null;
   changelogs: ChangelogItem[];
   unreadIds: string[];
@@ -23,7 +19,6 @@ interface ChangelogUpdatesModalProps {
 }
 
 export const ChangelogUpdatesModal: React.FC<ChangelogUpdatesModalProps> = ({
-  visible,
   latest,
   changelogs,
   unreadIds,
@@ -55,8 +50,8 @@ export const ChangelogUpdatesModal: React.FC<ChangelogUpdatesModalProps> = ({
   const [showOld, setShowOld] = useState(false);
 
   const { unreadItems, readItems } = useMemo(() => {
-    const unread: ChangelogItem[] = [];
-    const read: ChangelogItem[] = [];
+    const unread: ChangelogForModalFragment[] = [];
+    const read: ChangelogForModalFragment[] = [];
 
     for (const item of changelogs) {
       if (unreadIds.includes(item.id)) {
@@ -83,11 +78,9 @@ export const ChangelogUpdatesModal: React.FC<ChangelogUpdatesModalProps> = ({
     }
   };
 
-  if (!visible || !latest) return null;
-
   return (
     <DetailModal
-      visible={visible}
+      visible
       onDismiss={onClose}
       title={t("changelog.modalTitle")}
       icon="history"
@@ -138,7 +131,7 @@ export const ChangelogUpdatesModal: React.FC<ChangelogUpdatesModalProps> = ({
               <Card
                 key={item.id}
                 style={[
-                  styles.changelogItem,
+                  styles.ChangelogForModalFragment,
                   isUnread && {
                     backgroundColor: theme.colors.surfaceVariant,
                   },
@@ -164,6 +157,21 @@ export const ChangelogUpdatesModal: React.FC<ChangelogUpdatesModalProps> = ({
                   <View style={styles.descriptionContainer}>
                     <Text variant="bodyLarge">{item.description}</Text>
                   </View>
+                  {item.entries && item.entries.length > 0 && (
+                    <View style={styles.entriesContainer}>
+                      {item.entries.map((entry, index) => (
+                        <Text
+                          key={index}
+                          variant="bodyMedium"
+                          style={styles.entryLine}
+                        >
+                          {"\u2022"}{" "}
+                          {t(`changelog.entryTypes.${entry.type}` as any)}:{" "}
+                          {entry.text}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
                   <View style={styles.changelogVersionsRow}>
                     {Platform.OS !== "web" &&
                       (Platform.OS === "ios"
@@ -224,7 +232,11 @@ export const ChangelogUpdatesModal: React.FC<ChangelogUpdatesModalProps> = ({
 
           {showOld &&
             readItems.map((item) => (
-              <Card key={item.id} style={styles.changelogItem} mode="contained">
+              <Card
+                key={item.id}
+                style={styles.ChangelogForModalFragment}
+                mode="contained"
+              >
                 <Card.Content>
                   <View style={styles.changelogHeader}>
                     <Text variant="titleSmall" style={styles.changelogTitle}>
@@ -234,6 +246,21 @@ export const ChangelogUpdatesModal: React.FC<ChangelogUpdatesModalProps> = ({
                   <View style={styles.descriptionContainer}>
                     <Text variant="bodyLarge">{item.description}</Text>
                   </View>
+                  {item.entries && item.entries.length > 0 && (
+                    <View style={styles.entriesContainer}>
+                      {item.entries.map((entry, index) => (
+                        <Text
+                          key={index}
+                          variant="bodyMedium"
+                          style={styles.entryLine}
+                        >
+                          {"\u2022"}{" "}
+                          {t(`changelog.entryTypes.${entry.type}` as any)}:{" "}
+                          {entry.text}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
                   <View style={styles.changelogVersionsRow}>
                     {Platform.OS !== "web" &&
                       (Platform.OS === "ios"
@@ -317,8 +344,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     maxHeight: 320,
   },
-  changelogItem: {
-    padding: 12,
+  ChangelogForModalFragment: {
     borderRadius: 10,
     marginBottom: 12,
   },
@@ -329,7 +355,7 @@ const styles = StyleSheet.create({
   oldToggleText: {
     textDecorationLine: "underline",
   },
-  changelogItemUnread: {},
+  ChangelogForModalFragmentUnread: {},
   changelogHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -356,7 +382,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+    justifyContent: "flex-end",
+    marginTop: 8,
     marginBottom: 4,
+  },
+  entriesContainer: {
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  entryLine: {
+    marginBottom: 2,
   },
 });
 

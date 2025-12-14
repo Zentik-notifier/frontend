@@ -131,6 +131,8 @@ export type ChangePasswordInput = {
 
 export type Changelog = {
   __typename?: 'Changelog';
+  /** Whether this changelog is active and should be shown */
+  active: Scalars['Boolean']['output'];
   /** Android app version */
   androidVersion: Scalars['String']['output'];
   /** Backend/server version */
@@ -138,12 +140,25 @@ export type Changelog = {
   createdAt: Scalars['DateTime']['output'];
   /** Combined changelog description */
   description: Scalars['String']['output'];
+  /** Structured changelog entries (type + text) */
+  entries: Maybe<Array<ChangelogEntry>>;
   id: Scalars['ID']['output'];
   /** iOS app version */
   iosVersion: Scalars['String']['output'];
   /** Web/UI version */
   uiVersion: Scalars['String']['output'];
   updatedAt: Scalars['DateTime']['output'];
+};
+
+export type ChangelogEntry = {
+  __typename?: 'ChangelogEntry';
+  text: Scalars['String']['output'];
+  type: Scalars['String']['output'];
+};
+
+export type ChangelogEntryInput = {
+  text: Scalars['String']['input'];
+  type: Scalars['String']['input'];
 };
 
 export type ConfirmEmailDto = {
@@ -170,9 +185,11 @@ export type CreateBucketDto = {
 };
 
 export type CreateChangelogInput = {
+  active?: InputMaybe<Scalars['Boolean']['input']>;
   androidVersion?: InputMaybe<Scalars['String']['input']>;
   backendVersion?: InputMaybe<Scalars['String']['input']>;
   description: Scalars['String']['input'];
+  entries?: InputMaybe<Array<ChangelogEntryInput>>;
   iosVersion?: InputMaybe<Scalars['String']['input']>;
   uiVersion?: InputMaybe<Scalars['String']['input']>;
 };
@@ -1399,6 +1416,8 @@ export type PublicAppConfig = {
 
 export type Query = {
   __typename?: 'Query';
+  /** List all changelogs (admin, includes inactive) */
+  adminChangelogs: Array<Changelog>;
   allOAuthProviders: Array<OAuthProvider>;
   attachment: Attachment;
   bucket: Bucket;
@@ -1902,9 +1921,11 @@ export type UpdateBucketDto = {
 };
 
 export type UpdateChangelogInput = {
+  active?: InputMaybe<Scalars['Boolean']['input']>;
   androidVersion?: InputMaybe<Scalars['String']['input']>;
   backendVersion?: InputMaybe<Scalars['String']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
+  entries?: InputMaybe<Array<ChangelogEntryInput>>;
   id: Scalars['ID']['input'];
   iosVersion?: InputMaybe<Scalars['String']['input']>;
   uiVersion?: InputMaybe<Scalars['String']['input']>;
@@ -2321,6 +2342,39 @@ export type GetNotificationQueryVariables = Exact<{
 
 
 export type GetNotificationQuery = { __typename?: 'Query', notification: { __typename?: 'Notification', id: string, receivedAt: string | null, readAt: string | null, sentAt: string | null, createdAt: string, updatedAt: string, message: { __typename?: 'Message', id: string, title: string, body: string | null, subtitle: string | null, sound: string | null, deliveryType: NotificationDeliveryType, locale: string | null, snoozes: Array<number> | null, executionId: string | null, createdAt: string, updatedAt: string, attachments: Array<{ __typename?: 'MessageAttachment', mediaType: MediaType, url: string | null, name: string | null, attachmentUuid: string | null, saveOnServer: boolean | null }> | null, tapAction: { __typename?: 'NotificationAction', type: NotificationActionType, value: string | null, title: string | null, icon: string | null, destructive: boolean | null } | null, actions: Array<{ __typename?: 'NotificationAction', type: NotificationActionType, value: string | null, title: string | null, icon: string | null, destructive: boolean | null }> | null, bucket: { __typename?: 'Bucket', id: string, name: string, description: string | null, color: string | null, icon: string | null, iconAttachmentUuid: string | null, iconUrl: string | null, createdAt: string, updatedAt: string, isProtected: boolean | null, isPublic: boolean | null, isAdmin: boolean | null } } } };
+
+export type ChangelogForModalFragment = { __typename?: 'Changelog', id: string, iosVersion: string, androidVersion: string, uiVersion: string, backendVersion: string, description: string, createdAt: string, entries: Array<{ __typename?: 'ChangelogEntry', type: string, text: string }> | null };
+
+export type ChangelogsForModalQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ChangelogsForModalQuery = { __typename?: 'Query', changelogs: Array<{ __typename?: 'Changelog', id: string, iosVersion: string, androidVersion: string, uiVersion: string, backendVersion: string, description: string, createdAt: string, entries: Array<{ __typename?: 'ChangelogEntry', type: string, text: string }> | null }> };
+
+export type AdminChangelogsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type AdminChangelogsQuery = { __typename?: 'Query', adminChangelogs: Array<{ __typename?: 'Changelog', active: boolean, id: string, iosVersion: string, androidVersion: string, uiVersion: string, backendVersion: string, description: string, createdAt: string, entries: Array<{ __typename?: 'ChangelogEntry', type: string, text: string }> | null }> };
+
+export type ChangelogQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type ChangelogQuery = { __typename?: 'Query', changelog: { __typename?: 'Changelog', active: boolean, id: string, iosVersion: string, androidVersion: string, uiVersion: string, backendVersion: string, description: string, createdAt: string, entries: Array<{ __typename?: 'ChangelogEntry', type: string, text: string }> | null } };
+
+export type CreateChangelogMutationVariables = Exact<{
+  input: CreateChangelogInput;
+}>;
+
+
+export type CreateChangelogMutation = { __typename?: 'Mutation', createChangelog: { __typename?: 'Changelog', id: string } };
+
+export type UpdateChangelogMutationVariables = Exact<{
+  input: UpdateChangelogInput;
+}>;
+
+
+export type UpdateChangelogMutation = { __typename?: 'Mutation', updateChangelog: { __typename?: 'Changelog', id: string } };
 
 export type CreateMessageMutationVariables = Exact<{
   input: CreateMessageDto;
@@ -3292,6 +3346,7 @@ export const BucketFullFragmentDoc = {"kind":"Document","definitions":[{"kind":"
 export const UserIdentityFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserIdentityFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UserIdentity"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"providerType"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"avatarUrl"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
 export const UserDeviceFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserDeviceFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UserDevice"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"deviceToken"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"deviceModel"}},{"kind":"Field","name":{"kind":"Name","value":"osVersion"}},{"kind":"Field","name":{"kind":"Name","value":"metadata"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsed"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"publicKey"}},{"kind":"Field","name":{"kind":"Name","value":"privateKey"}},{"kind":"Field","name":{"kind":"Name","value":"onlyLocal"}}]}}]} as unknown as DocumentNode;
 export const UserWebhookFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserWebhookFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UserWebhook"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"method"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"headers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"value"}}]}},{"kind":"Field","name":{"kind":"Name","value":"body"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
+export const ChangelogForModalFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ChangelogForModalFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Changelog"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"iosVersion"}},{"kind":"Field","name":{"kind":"Name","value":"androidVersion"}},{"kind":"Field","name":{"kind":"Name","value":"uiVersion"}},{"kind":"Field","name":{"kind":"Name","value":"backendVersion"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"entries"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"text"}}]}}]}}]} as unknown as DocumentNode;
 export const InviteCodeFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"InviteCodeFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"InviteCode"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"resourceType"}},{"kind":"Field","name":{"kind":"Name","value":"resourceId"}},{"kind":"Field","name":{"kind":"Name","value":"createdBy"}},{"kind":"Field","name":{"kind":"Name","value":"permissions"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"usageCount"}},{"kind":"Field","name":{"kind":"Name","value":"maxUses"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"creator"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}}]}}]}}]} as unknown as DocumentNode;
 export const UserSettingFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserSettingFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UserSetting"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"configType"}},{"kind":"Field","name":{"kind":"Name","value":"valueText"}},{"kind":"Field","name":{"kind":"Name","value":"valueBool"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
 export const AccessTokenFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"AccessTokenFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"AccessTokenListDto"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsed"}},{"kind":"Field","name":{"kind":"Name","value":"isExpired"}},{"kind":"Field","name":{"kind":"Name","value":"token"}},{"kind":"Field","name":{"kind":"Name","value":"scopes"}}]}}]} as unknown as DocumentNode;
@@ -3524,6 +3579,160 @@ export type GetNotificationQueryHookResult = ReturnType<typeof useGetNotificatio
 export type GetNotificationLazyQueryHookResult = ReturnType<typeof useGetNotificationLazyQuery>;
 export type GetNotificationSuspenseQueryHookResult = ReturnType<typeof useGetNotificationSuspenseQuery>;
 export type GetNotificationQueryResult = Apollo.QueryResult<GetNotificationQuery, GetNotificationQueryVariables>;
+export const ChangelogsForModalDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ChangelogsForModal"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"changelogs"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ChangelogForModalFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ChangelogForModalFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Changelog"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"iosVersion"}},{"kind":"Field","name":{"kind":"Name","value":"androidVersion"}},{"kind":"Field","name":{"kind":"Name","value":"uiVersion"}},{"kind":"Field","name":{"kind":"Name","value":"backendVersion"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"entries"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"text"}}]}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useChangelogsForModalQuery__
+ *
+ * To run a query within a React component, call `useChangelogsForModalQuery` and pass it any options that fit your needs.
+ * When your component renders, `useChangelogsForModalQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useChangelogsForModalQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useChangelogsForModalQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<ChangelogsForModalQuery, ChangelogsForModalQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<ChangelogsForModalQuery, ChangelogsForModalQueryVariables>(ChangelogsForModalDocument, options);
+      }
+export function useChangelogsForModalLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<ChangelogsForModalQuery, ChangelogsForModalQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<ChangelogsForModalQuery, ChangelogsForModalQueryVariables>(ChangelogsForModalDocument, options);
+        }
+export function useChangelogsForModalSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<ChangelogsForModalQuery, ChangelogsForModalQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<ChangelogsForModalQuery, ChangelogsForModalQueryVariables>(ChangelogsForModalDocument, options);
+        }
+export type ChangelogsForModalQueryHookResult = ReturnType<typeof useChangelogsForModalQuery>;
+export type ChangelogsForModalLazyQueryHookResult = ReturnType<typeof useChangelogsForModalLazyQuery>;
+export type ChangelogsForModalSuspenseQueryHookResult = ReturnType<typeof useChangelogsForModalSuspenseQuery>;
+export type ChangelogsForModalQueryResult = Apollo.QueryResult<ChangelogsForModalQuery, ChangelogsForModalQueryVariables>;
+export const AdminChangelogsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AdminChangelogs"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"adminChangelogs"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ChangelogForModalFragment"}},{"kind":"Field","name":{"kind":"Name","value":"active"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ChangelogForModalFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Changelog"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"iosVersion"}},{"kind":"Field","name":{"kind":"Name","value":"androidVersion"}},{"kind":"Field","name":{"kind":"Name","value":"uiVersion"}},{"kind":"Field","name":{"kind":"Name","value":"backendVersion"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"entries"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"text"}}]}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useAdminChangelogsQuery__
+ *
+ * To run a query within a React component, call `useAdminChangelogsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useAdminChangelogsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useAdminChangelogsQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useAdminChangelogsQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<AdminChangelogsQuery, AdminChangelogsQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<AdminChangelogsQuery, AdminChangelogsQueryVariables>(AdminChangelogsDocument, options);
+      }
+export function useAdminChangelogsLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<AdminChangelogsQuery, AdminChangelogsQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<AdminChangelogsQuery, AdminChangelogsQueryVariables>(AdminChangelogsDocument, options);
+        }
+export function useAdminChangelogsSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<AdminChangelogsQuery, AdminChangelogsQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<AdminChangelogsQuery, AdminChangelogsQueryVariables>(AdminChangelogsDocument, options);
+        }
+export type AdminChangelogsQueryHookResult = ReturnType<typeof useAdminChangelogsQuery>;
+export type AdminChangelogsLazyQueryHookResult = ReturnType<typeof useAdminChangelogsLazyQuery>;
+export type AdminChangelogsSuspenseQueryHookResult = ReturnType<typeof useAdminChangelogsSuspenseQuery>;
+export type AdminChangelogsQueryResult = Apollo.QueryResult<AdminChangelogsQuery, AdminChangelogsQueryVariables>;
+export const ChangelogDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Changelog"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"changelog"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ChangelogForModalFragment"}},{"kind":"Field","name":{"kind":"Name","value":"active"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ChangelogForModalFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Changelog"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"iosVersion"}},{"kind":"Field","name":{"kind":"Name","value":"androidVersion"}},{"kind":"Field","name":{"kind":"Name","value":"uiVersion"}},{"kind":"Field","name":{"kind":"Name","value":"backendVersion"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"entries"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"text"}}]}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useChangelogQuery__
+ *
+ * To run a query within a React component, call `useChangelogQuery` and pass it any options that fit your needs.
+ * When your component renders, `useChangelogQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useChangelogQuery({
+ *   variables: {
+ *      id: // value for 'id'
+ *   },
+ * });
+ */
+export function useChangelogQuery(baseOptions: ApolloReactHooks.QueryHookOptions<ChangelogQuery, ChangelogQueryVariables> & ({ variables: ChangelogQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<ChangelogQuery, ChangelogQueryVariables>(ChangelogDocument, options);
+      }
+export function useChangelogLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<ChangelogQuery, ChangelogQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<ChangelogQuery, ChangelogQueryVariables>(ChangelogDocument, options);
+        }
+export function useChangelogSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<ChangelogQuery, ChangelogQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<ChangelogQuery, ChangelogQueryVariables>(ChangelogDocument, options);
+        }
+export type ChangelogQueryHookResult = ReturnType<typeof useChangelogQuery>;
+export type ChangelogLazyQueryHookResult = ReturnType<typeof useChangelogLazyQuery>;
+export type ChangelogSuspenseQueryHookResult = ReturnType<typeof useChangelogSuspenseQuery>;
+export type ChangelogQueryResult = Apollo.QueryResult<ChangelogQuery, ChangelogQueryVariables>;
+export const CreateChangelogDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateChangelog"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateChangelogInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createChangelog"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode;
+export type CreateChangelogMutationFn = Apollo.MutationFunction<CreateChangelogMutation, CreateChangelogMutationVariables>;
+
+/**
+ * __useCreateChangelogMutation__
+ *
+ * To run a mutation, you first call `useCreateChangelogMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useCreateChangelogMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [createChangelogMutation, { data, loading, error }] = useCreateChangelogMutation({
+ *   variables: {
+ *      input: // value for 'input'
+ *   },
+ * });
+ */
+export function useCreateChangelogMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<CreateChangelogMutation, CreateChangelogMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<CreateChangelogMutation, CreateChangelogMutationVariables>(CreateChangelogDocument, options);
+      }
+export type CreateChangelogMutationHookResult = ReturnType<typeof useCreateChangelogMutation>;
+export type CreateChangelogMutationResult = Apollo.MutationResult<CreateChangelogMutation>;
+export type CreateChangelogMutationOptions = Apollo.BaseMutationOptions<CreateChangelogMutation, CreateChangelogMutationVariables>;
+export const UpdateChangelogDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateChangelog"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateChangelogInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateChangelog"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode;
+export type UpdateChangelogMutationFn = Apollo.MutationFunction<UpdateChangelogMutation, UpdateChangelogMutationVariables>;
+
+/**
+ * __useUpdateChangelogMutation__
+ *
+ * To run a mutation, you first call `useUpdateChangelogMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useUpdateChangelogMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [updateChangelogMutation, { data, loading, error }] = useUpdateChangelogMutation({
+ *   variables: {
+ *      input: // value for 'input'
+ *   },
+ * });
+ */
+export function useUpdateChangelogMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<UpdateChangelogMutation, UpdateChangelogMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<UpdateChangelogMutation, UpdateChangelogMutationVariables>(UpdateChangelogDocument, options);
+      }
+export type UpdateChangelogMutationHookResult = ReturnType<typeof useUpdateChangelogMutation>;
+export type UpdateChangelogMutationResult = Apollo.MutationResult<UpdateChangelogMutation>;
+export type UpdateChangelogMutationOptions = Apollo.BaseMutationOptions<UpdateChangelogMutation, UpdateChangelogMutationVariables>;
 export const CreateMessageDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateMessage"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateMessageDto"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createMessage"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"MessageFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageAttachmentFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MessageAttachment"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaType"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"attachmentUuid"}},{"kind":"Field","name":{"kind":"Name","value":"saveOnServer"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"NotificationActionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationAction"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"destructive"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Message"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"body"}},{"kind":"Field","name":{"kind":"Name","value":"subtitle"}},{"kind":"Field","name":{"kind":"Name","value":"attachments"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"MessageAttachmentFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"tapAction"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"NotificationActionFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"actions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"NotificationActionFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"sound"}},{"kind":"Field","name":{"kind":"Name","value":"deliveryType"}},{"kind":"Field","name":{"kind":"Name","value":"locale"}},{"kind":"Field","name":{"kind":"Name","value":"snoozes"}},{"kind":"Field","name":{"kind":"Name","value":"executionId"}},{"kind":"Field","name":{"kind":"Name","value":"bucket"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"BucketFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"BucketFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Bucket"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"iconAttachmentUuid"}},{"kind":"Field","name":{"kind":"Name","value":"iconUrl"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"isProtected"}},{"kind":"Field","name":{"kind":"Name","value":"isPublic"}},{"kind":"Field","name":{"kind":"Name","value":"isAdmin"}}]}}]} as unknown as DocumentNode;
 export type CreateMessageMutationFn = Apollo.MutationFunction<CreateMessageMutation, CreateMessageMutationVariables>;
 

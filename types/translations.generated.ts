@@ -1069,12 +1069,24 @@ export interface Translation {
     editTitle: string;
     createTitle: string;
     description: string;
+    enabled: string;
     modalTitle: string;
     iosVersion: string;
     androidVersion: string;
     uiVersion: string;
     backendVersion: string;
     descriptionRequired: string;
+    entriesTitle: string;
+    entriesDescription: string;
+    entriesEmpty: string;
+    entryType: string;
+    entryText: string;
+    entryTypes: {
+      feature: string;
+      bug: string;
+      improvement: string;
+      other: string;
+    };
     updateNotice: string;
     updateNoticeIos: string;
     showOldChangelogs: string;

@@ -1,32 +1,31 @@
-import OnboardingModal from "@/components/Onboarding/OnboardingModal";
+import { ChangelogUpdatesModal } from "@/components/ChangelogUpdatesModal";
 import FeedbackModal from "@/components/FeedbackModal";
+import OnboardingModal from "@/components/Onboarding/OnboardingModal";
 import {
-  ChangelogUpdatesModal,
-  ChangelogItem,
-} from "@/components/ChangelogUpdatesModal";
-import {
+  ChangelogForModalFragment,
   DeviceInfoDto,
   LoginDto,
   RegisterDto,
+  useChangelogsForModalQuery,
   useGetMeLazyQuery,
   useLoginMutation,
   useLogoutMutation,
   useRegisterMutation,
 } from "@/generated/gql-operations-generated";
 import { useMarkAllAsRead } from "@/hooks/notifications/useNotificationMutations";
+import { useAppLog } from "@/hooks/useAppLog";
 import { useCleanup } from "@/hooks/useCleanup";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
+import { useGetVersionsInfo } from "@/hooks/useGetVersionsInfo";
 import { Locale, localeToDatePickerLocale, useI18n } from "@/hooks/useI18n";
-import { useAppLog } from "@/hooks/useAppLog";
 import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
 import {
   UsePushNotifications,
   usePushNotifications,
 } from "@/hooks/usePushNotifications";
-import { closeSharedCacheDb, openSharedCacheDb } from "@/services/db-setup";
+import { openSharedCacheDb } from "@/services/db-setup";
 import { logger } from "@/services/logger";
 import { mediaCache } from "@/services/media-cache-service";
-import { useNavigationUtils } from "@/utils/navigation";
 import * as Localization from "expo-localization";
 import React, {
   createContext,
@@ -40,11 +39,9 @@ import { registerTranslation } from "react-native-paper-dates";
 import { useSettings } from "../hooks/useSettings";
 import { settingsRepository } from "../services/settings-repository";
 import {
-  settingsService,
   ChangelogSeenVersions,
+  settingsService,
 } from "../services/settings-service";
-import { gql, useQuery } from "@apollo/client";
-import { useGetVersionsInfo } from "@/hooks/useGetVersionsInfo";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -91,31 +88,12 @@ interface AppContextProps {
   deviceToken: string | null;
   isInitializing: boolean;
   push: UsePushNotifications;
-  // Changelog modal controls
   isChangelogModalOpen: boolean;
   openChangelogModal: () => void;
   closeChangelogModal: () => void;
-  latestChangelog: ChangelogItem | null;
+  latestChangelog: ChangelogForModalFragment | null;
   needsChangelogAppUpdateNotice: boolean;
 }
-
-interface ChangelogsQueryResult {
-  changelogs: ChangelogItem[];
-}
-
-const CHANGELOGS_QUERY = gql`
-  query ChangelogsForModal {
-    changelogs {
-      id
-      iosVersion
-      androidVersion
-      uiVersion
-      backendVersion
-      description
-      createdAt
-    }
-  }
-`;
 
 const parseVersion = (v?: string | null): number[] => {
   if (!v) return [];
@@ -148,7 +126,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const push = usePushNotifications();
   const { t } = useI18n();
   const { logAppEvent } = useAppLog();
-  const { navigateToBucketDetail } = useNavigationUtils();
   const [fetchMe] = useGetMeLazyQuery();
   const [logoutMutation] = useLogoutMutation();
   const [loginMutation] = useLoginMutation();
@@ -162,20 +139,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { cleanup } = useCleanup();
   const { processPendingNavigationIntent } = usePendingNotificationIntents();
   const { versions } = useGetVersionsInfo();
-  const { data: changelogData } = useQuery<ChangelogsQueryResult>(
-    CHANGELOGS_QUERY,
-    {
+  const { data: changelogData, refetch: refetchChangelogs } =
+    useChangelogsForModalQuery({
       fetchPolicy: "cache-and-network",
-    }
-  );
+    });
   const { appVersion, backendVersion, nativeVersion } = versions;
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
-  const [latestChangelog, setLatestChangelog] = useState<ChangelogItem | null>(
-    null
-  );
-  const [changelogsForModal, setChangelogsForModal] = useState<ChangelogItem[]>(
-    []
-  );
+  const [latestChangelog, setLatestChangelog] =
+    useState<ChangelogForModalFragment | null>(null);
+  const [changelogsForModal, setChangelogsForModal] = useState<
+    ChangelogForModalFragment[]
+  >([]);
   const [unreadChangelogIds, setUnreadChangelogIds] = useState<string[]>([]);
   const [needsChangelogAppUpdateNotice, setNeedsChangelogAppUpdateNotice] =
     useState(false);
@@ -771,10 +745,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }).catch(() => {});
   };
 
-  const openChangelogModal = () => {
-    if (latestChangelog) {
-      setIsChangelogModalOpen(true);
-    }
+  const openChangelogModal = async () => {
+    setIsChangelogModalOpen(true);
+    await refetchChangelogs();
   };
 
   const closeChangelogModal = async () => {
@@ -836,14 +809,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         visible={isFeedbackModalOpen}
         onDismiss={() => setIsFeedbackModalOpen(false)}
       />
-      <ChangelogUpdatesModal
-        visible={isChangelogModalOpen}
-        latest={latestChangelog}
-        changelogs={changelogsForModal}
-        unreadIds={unreadChangelogIds}
-        needsAppUpdateNotice={needsChangelogAppUpdateNotice}
-        onClose={closeChangelogModal}
-      />
+      {isChangelogModalOpen && (
+        <ChangelogUpdatesModal
+          latest={latestChangelog}
+          changelogs={changelogsForModal}
+          unreadIds={unreadChangelogIds}
+          needsAppUpdateNotice={needsChangelogAppUpdateNotice}
+          onClose={closeChangelogModal}
+        />
+      )}
     </AppContext.Provider>
   );
 }
