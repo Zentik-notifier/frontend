@@ -91,7 +91,7 @@ export default function FullScreenMediaViewer({
     opacity: backdropOpacity.value,
   }));
 
-  // Pan gesture for moving and closing (no horizontal navigation)
+  // Pan gesture for moving, closing (vertical) and navigating (horizontal)
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       // If zoomed in, allow panning
@@ -106,6 +106,9 @@ export default function FullScreenMediaViewer({
             translateY.value = e.translationY;
             backdropOpacity.value = 1 - Math.min(e.translationY / 300, 0.5);
           }
+        } else if (enableSwipeNavigation) {
+          // Provide a small horizontal translation feedback when navigating
+          translateX.value = e.translationX * 0.3;
         }
       }
     })
@@ -118,8 +121,11 @@ export default function FullScreenMediaViewer({
         translateX.value = 0;
         translateY.value = 0;
       } else {
-        // Handle gestures based on primary direction (no horizontal navigation)
-        if (Math.abs(e.translationY) > Math.abs(e.translationX)) {
+        const absX = Math.abs(e.translationX);
+        const absY = Math.abs(e.translationY);
+
+        // Handle gestures based on primary direction
+        if (absY > absX) {
           // Vertical swipe - handle close
           if (e.translationY > 120 || e.velocityY > 800) {
             translateY.value = withTiming(600, { duration: 150 }, () => {
@@ -129,6 +135,14 @@ export default function FullScreenMediaViewer({
             translateY.value = withSpring(0);
             backdropOpacity.value = withSpring(1);
           }
+        } else if (enableSwipeNavigation && absX > 40) {
+          // Horizontal swipe - navigate between media items
+          if (e.translationX < 0 && onSwipeLeft) {
+            runOnJS(onSwipeLeft)();
+          } else if (e.translationX > 0 && onSwipeRight) {
+            runOnJS(onSwipeRight)();
+          }
+          translateX.value = withSpring(0);
         } else {
           // Reset horizontal position if minor horizontal movement occurred
           translateX.value = withSpring(0);
