@@ -1,4 +1,7 @@
-import { MediaType } from "@/generated/gql-operations-generated";
+import {
+  MediaType,
+  NotificationAttachmentDto,
+} from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
 import { mediaCache } from "@/services/media-cache-service";
@@ -6,24 +9,27 @@ import { saveMediaToGallery } from "@/services/media-gallery";
 import * as Clipboard from "expo-clipboard";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
-import { Alert, Modal, Platform, Pressable, StyleSheet, View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import {
+  Alert,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
 import { IconButton, Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
-import { CachedMedia } from "./CachedMedia";
-import ButtonGroup from "./ui/ButtonGroup";
+import AttachmentGallery from "./AttachmentGallery";
 
 interface FullScreenMediaViewerProps {
   visible: boolean;
-  url: string;
-  mediaType: MediaType;
+  // Lista completa di attachment (preferita)
+  attachments?: NotificationAttachmentDto[];
+  initialIndex?: number;
+  onCurrentIndexChange?: (index: number) => void;
+  // Fallback legacy a singolo media
+  url?: string;
+  mediaType?: MediaType;
   originalFileName?: string;
   description?: string;
   notificationDate?: number;
@@ -39,6 +45,9 @@ interface FullScreenMediaViewerProps {
 
 export default function FullScreenMediaViewer({
   visible,
+  attachments,
+  initialIndex,
+  onCurrentIndexChange,
   url,
   mediaType,
   originalFileName,
@@ -57,13 +66,8 @@ export default function FullScreenMediaViewer({
   const { formatDate } = useDateFormat();
   const insets = useSafeAreaInsets();
 
-  const textColor = theme.colors.onSurface;
-  const [mediaLayout, setMediaLayout] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
+
   const [cacheInfo, setCacheInfo] = useState<{
     localPath?: string;
     size?: number;
@@ -71,163 +75,42 @@ export default function FullScreenMediaViewer({
   const [showInfo, setShowInfo] = useState(true);
   const [isFooterHovered, setIsFooterHovered] = useState(false);
 
-  // Swipe down to close: animate media container
-  const translateY = useSharedValue(0);
-  const backdropOpacity = useSharedValue(1);
+  const hasAttachments = !!attachments && attachments.length > 0;
+  const safeIndex = hasAttachments
+    ? Math.min(Math.max(currentIndex, 0), attachments!.length - 1)
+    : 0;
+  const activeAttachment = hasAttachments ? attachments![safeIndex] : undefined;
 
-  // Zoom/pinch gesture values
-  const scale = useSharedValue(1);
-  const savedScale = useSharedValue(1);
-  const translateX = useSharedValue(0);
-  const savedTranslateX = useSharedValue(0);
-  const savedTranslateY = useSharedValue(0);
+  const effectiveUrl = hasAttachments
+    ? activeAttachment?.url || ""
+    : url || "";
+  const effectiveMediaType = hasAttachments
+    ? activeAttachment?.mediaType || MediaType.Image
+    : mediaType || MediaType.Image;
+  const effectiveOriginalFileName = hasAttachments
+    ? activeAttachment?.name
+    : originalFileName;
 
-  const animatedMediaStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: translateY.value + savedTranslateY.value },
-      { translateX: translateX.value + savedTranslateX.value },
-      { scale: scale.value * savedScale.value },
-    ],
-    opacity: backdropOpacity.value,
-  }));
+  const computedPosition = hasAttachments
+    ? `${safeIndex + 1} / ${attachments!.length}`
+    : currentPosition;
 
-  // Pan gesture for moving, closing (vertical) and navigating (horizontal)
-  const panGesture = Gesture.Pan()
-    .onUpdate((e) => {
-      // If zoomed in, allow panning
-      if (savedScale.value > 1) {
-        translateX.value = e.translationX;
-        translateY.value = e.translationY;
-      } else {
-        // If not zoomed, allow vertical swipe to close
-        if (Math.abs(e.translationY) > Math.abs(e.translationX)) {
-          // Vertical swipe - close gesture
-          if (e.translationY > 0) {
-            translateY.value = e.translationY;
-            backdropOpacity.value = 1 - Math.min(e.translationY / 300, 0.5);
-          }
-        } else if (enableSwipeNavigation) {
-          // Provide a small horizontal translation feedback when navigating
-          translateX.value = e.translationX * 0.3;
-        }
-      }
-    })
-    .onEnd((e) => {
-      if (savedScale.value > 1) {
-        // Save pan position when zoomed
-        savedTranslateX.value += translateX.value;
-        savedTranslateY.value += translateY.value;
-        // Reset immediately to avoid bounce effect
-        translateX.value = 0;
-        translateY.value = 0;
-      } else {
-        const absX = Math.abs(e.translationX);
-        const absY = Math.abs(e.translationY);
-
-        // Handle gestures based on primary direction
-        if (absY > absX) {
-          // Vertical swipe - handle close
-          if (e.translationY > 120 || e.velocityY > 800) {
-            translateY.value = withTiming(600, { duration: 150 }, () => {
-              runOnJS(onClose)();
-            });
-          } else {
-            translateY.value = withSpring(0);
-            backdropOpacity.value = withSpring(1);
-          }
-        } else if (enableSwipeNavigation && absX > 40) {
-          // Horizontal swipe - navigate between media items
-          if (e.translationX < 0 && onSwipeLeft) {
-            runOnJS(onSwipeLeft)();
-          } else if (e.translationX > 0 && onSwipeRight) {
-            runOnJS(onSwipeRight)();
-          }
-          translateX.value = withSpring(0);
-        } else {
-          // Reset horizontal position if minor horizontal movement occurred
-          translateX.value = withSpring(0);
-        }
-      }
-    });
-
-  // Pinch gesture for zooming
-  const pinchGesture = Gesture.Pinch()
-    .onUpdate((e) => {
-      scale.value = Math.max(0.5, Math.min(e.scale, 3)); // Limit zoom between 0.5x and 3x
-      // Nascondi le info quando si zooma
-      if (scale.value > 1.1) {
-        runOnJS(setShowInfo)(false);
-      }
-    })
-    .onEnd(() => {
-      if (scale.value < 1) {
-        // Reset to normal size if zoomed out too much
-        scale.value = withSpring(1);
-        savedScale.value = 1;
-        savedTranslateX.value = withSpring(0);
-        savedTranslateY.value = withSpring(0);
-        runOnJS(setShowInfo)(true);
-      } else {
-        // Save zoom level
-        savedScale.value *= scale.value;
-        scale.value = 1;
-      }
-    });
-
-  // Double tap to zoom
-  const doubleTapGesture = Gesture.Tap()
-    .numberOfTaps(2)
-    .onEnd(() => {
-      if (savedScale.value > 1) {
-        // Reset zoom
-        savedScale.value = withSpring(1);
-        savedTranslateX.value = withSpring(0);
-        savedTranslateY.value = withSpring(0);
-        runOnJS(setShowInfo)(true);
-      } else {
-        // Zoom in
-        savedScale.value = withSpring(2);
-        runOnJS(setShowInfo)(false);
-      }
-    });
-
-  // Combine gestures
-  const composedGesture = Gesture.Simultaneous(
-    panGesture,
-    pinchGesture,
-    doubleTapGesture
-  );
-
-  // Reset animation state when modal visibility changes
-  useEffect(() => {
-    if (visible) {
-      translateY.value = 0;
-      backdropOpacity.value = 1;
-      scale.value = 1;
-      savedScale.value = 1;
-      translateX.value = 0;
-      savedTranslateX.value = 0;
-      savedTranslateY.value = 0;
-      setShowInfo(true);
-    } else {
-      // ensure next open starts fresh
-      translateY.value = 0;
-      backdropOpacity.value = 1;
-      scale.value = 1;
-      savedScale.value = 1;
-      translateX.value = 0;
-      savedTranslateX.value = 0;
-      savedTranslateY.value = 0;
-      setShowInfo(true);
+  // Sincronizza l'indice interno quando cambia initialIndex
+  React.useEffect(() => {
+    if (typeof initialIndex === "number") {
+      setCurrentIndex(initialIndex);
     }
-  }, [visible]);
+  }, [initialIndex]);
 
   // Load cache info when modal opens
   useEffect(() => {
-    if (visible && url && mediaType) {
+    if (visible && effectiveUrl && effectiveMediaType) {
       const loadCacheInfo = async () => {
         try {
-          const source = await mediaCache.getCachedItem(url, mediaType);
+          const source = await mediaCache.getCachedItem(
+            effectiveUrl,
+            effectiveMediaType
+          );
           setCacheInfo({
             localPath: source?.localPath,
             size: source?.size,
@@ -238,17 +121,17 @@ export default function FullScreenMediaViewer({
       };
       loadCacheInfo();
     }
-  }, [visible, url, mediaType]);
+  }, [visible, effectiveUrl, effectiveMediaType]);
 
   const handleCopyUrl = async () => {
     try {
-      await Clipboard.setStringAsync(url);
+      await Clipboard.setStringAsync(effectiveUrl);
       Alert.alert(t("common.copied"), t("common.copiedToClipboard"));
     } catch {}
   };
 
   const handleDelete = () => {
-    if (!url || !mediaType) return;
+    if (!effectiveUrl || !effectiveMediaType) return;
 
     Alert.alert(
       t("cachedMedia.deleteItem.title"),
@@ -261,7 +144,10 @@ export default function FullScreenMediaViewer({
           onPress: async () => {
             try {
               setBusy(true);
-              await mediaCache.deleteCachedMedia(url, mediaType);
+              await mediaCache.deleteCachedMedia(
+                effectiveUrl,
+                effectiveMediaType
+              );
               onDeleted?.();
               onClose();
             } finally {
@@ -277,7 +163,11 @@ export default function FullScreenMediaViewer({
     if (busy) return;
     setBusy(true);
     try {
-      const ok = await saveMediaToGallery(url, mediaType, originalFileName);
+      const ok = await saveMediaToGallery(
+        effectiveUrl,
+        effectiveMediaType,
+        effectiveOriginalFileName!
+      );
       if (ok) {
         Alert.alert(t("common.saved"), t("common.savedToGallery"));
       }
@@ -301,7 +191,10 @@ export default function FullScreenMediaViewer({
         return;
       }
 
-      const source = await mediaCache.getCachedItem(url, mediaType);
+      const source = await mediaCache.getCachedItem(
+        effectiveUrl,
+        effectiveMediaType
+      );
       const localPath = source?.localPath;
 
       if (localPath) {
@@ -337,156 +230,152 @@ export default function FullScreenMediaViewer({
             },
           ]}
         >
-            {/* Navigation buttons (left) */}
-            {enableSwipeNavigation && (
-              <View style={styles.navigationSection}>
-                <IconButton
-                  icon="chevron-left"
-                  size={20}
-                  iconColor="white"
-                  style={styles.iconButton}
-                  onPress={onSwipeRight}
-                  accessibilityLabel="previous-media"
-                />
-                <Text style={styles.counterText}>{currentPosition}</Text>
-                <IconButton
-                  icon="chevron-right"
-                  size={20}
-                  iconColor="white"
-                  style={styles.iconButton}
-                  onPress={onSwipeLeft}
-                  accessibilityLabel="next-media"
-                />
-              </View>
-            )}
+          {/* Navigation buttons (left) */}
+          {(hasAttachments && attachments!.length > 1) || enableSwipeNavigation ? (
+            <View style={styles.navigationSection}>
+              <IconButton
+                icon="chevron-left"
+                size={20}
+                iconColor="white"
+                style={styles.iconButton}
+                onPress={() => {
+                  if (hasAttachments) {
+                    const nextIndex =
+                      safeIndex === 0
+                        ? attachments!.length - 1
+                        : safeIndex - 1;
+                    setCurrentIndex(nextIndex);
+                    onCurrentIndexChange?.(nextIndex);
+                  } else {
+                    onSwipeRight?.();
+                  }
+                }}
+                accessibilityLabel="previous-media"
+              />
+              <Text style={styles.counterText}>{computedPosition}</Text>
+              <IconButton
+                icon="chevron-right"
+                size={20}
+                iconColor="white"
+                style={styles.iconButton}
+                onPress={() => {
+                  if (hasAttachments) {
+                    const nextIndex = (safeIndex + 1) % attachments!.length;
+                    setCurrentIndex(nextIndex);
+                    onCurrentIndexChange?.(nextIndex);
+                  } else {
+                    onSwipeLeft?.();
+                  }
+                }}
+                accessibilityLabel="next-media"
+              />
+            </View>
+          ) : null}
 
-            {/* Spacer */}
-            <View style={{ flex: 1 }} />
+          {/* Spacer */}
+          <View style={{ flex: 1 }} />
 
-            {/* Action buttons (right) */}
-            <View style={styles.actionsSection}>
-              <IconButton
-                icon={showInfo ? "information" : "information-outline"}
-                size={20}
-                iconColor="white"
-                style={styles.iconButton}
-                onPress={() => setShowInfo(!showInfo)}
-                accessibilityLabel="toggle-info"
-              />
-              <IconButton
-                icon="content-copy"
-                size={20}
-                iconColor="white"
-                style={styles.iconButton}
-                onPress={handleCopyUrl}
-                accessibilityLabel="copy-url"
-              />
-              <IconButton
-                icon="download"
-                size={20}
-                iconColor="white"
-                style={styles.iconButton}
-                onPress={handleSave}
-                accessibilityLabel="save-to-gallery"
-              />
-              <IconButton
-                icon="share"
-                size={20}
-                iconColor="white"
-                style={styles.iconButton}
-                onPress={handleShare}
-                accessibilityLabel="share"
-              />
-              <IconButton
-                icon="delete"
-                size={20}
-                iconColor={theme.colors.error}
-                style={styles.iconButton}
-                onPress={handleDelete}
-                accessibilityLabel="delete"
-              />
-              <IconButton
-                icon="close"
-                size={20}
-                iconColor="white"
-                style={styles.iconButton}
-                onPress={onClose}
-                accessibilityLabel="close"
-              />
+          {/* Action buttons (right) */}
+          <View style={styles.actionsSection}>
+            <IconButton
+              icon={showInfo ? "information" : "information-outline"}
+              size={20}
+              iconColor="white"
+              style={styles.iconButton}
+              onPress={() => setShowInfo(!showInfo)}
+              accessibilityLabel="toggle-info"
+            />
+            <IconButton
+              icon="content-copy"
+              size={20}
+              iconColor="white"
+              style={styles.iconButton}
+              onPress={handleCopyUrl}
+              accessibilityLabel="copy-url"
+            />
+            <IconButton
+              icon="download"
+              size={20}
+              iconColor="white"
+              style={styles.iconButton}
+              onPress={handleSave}
+              accessibilityLabel="save-to-gallery"
+            />
+            <IconButton
+              icon="share"
+              size={20}
+              iconColor="white"
+              style={styles.iconButton}
+              onPress={handleShare}
+              accessibilityLabel="share"
+            />
+            <IconButton
+              icon="delete"
+              size={20}
+              iconColor={theme.colors.error}
+              style={styles.iconButton}
+              onPress={handleDelete}
+              accessibilityLabel="delete"
+            />
+            <IconButton
+              icon="close"
+              size={20}
+              iconColor="white"
+              style={styles.iconButton}
+              onPress={onClose}
+              accessibilityLabel="close"
+            />
           </View>
         </View>
 
-        {/* Main content area with flex layout */}
         <View style={styles.container}>
-          {/* Content with tap-to-close only outside media and gesture support on media */}
-          <View
-            style={styles.content}
-            onStartShouldSetResponderCapture={(e) => {
-              const { locationX, locationY } = e.nativeEvent;
-              if (!mediaLayout) return true; // if unknown, allow close
-              const inside =
-                locationX >= mediaLayout.x &&
-                locationX <= mediaLayout.x + mediaLayout.width &&
-                locationY >= mediaLayout.y &&
-                locationY <= mediaLayout.y + mediaLayout.height;
-              return !inside;
-            }}
-            onResponderRelease={(e) => {
-              const { locationX, locationY } = e.nativeEvent;
-              if (!mediaLayout) {
-                onClose();
-                return;
+          <View style={styles.content}>
+            <AttachmentGallery
+              attachments={
+                hasAttachments
+                  ? attachments!
+                  : [
+                      {
+                        url: effectiveUrl,
+                        mediaType: effectiveMediaType,
+                        name: effectiveOriginalFileName,
+                      } as NotificationAttachmentDto,
+                    ]
               }
-              const inside =
-                locationX >= mediaLayout.x &&
-                locationX <= mediaLayout.x + mediaLayout.width &&
-                locationY >= mediaLayout.y &&
-                locationY <= mediaLayout.y + mediaLayout.height;
-              if (!inside) onClose();
-            }}
-          >
-            <GestureDetector gesture={composedGesture}>
-              <Animated.View
-                style={[styles.media, animatedMediaStyle]}
-                onLayout={(e) => setMediaLayout(e.nativeEvent.layout)}
-              >
-                <CachedMedia
-                  key={url}
-                  mediaType={mediaType}
-                  url={url}
-                  style={{ width: "100%", height: mediaLayout?.height }}
-                  originalFileName={originalFileName}
-                  videoProps={{
-                    isMuted: false,
-                    showControls: true,
-                    autoPlay: true,
-                    isLooping: true,
-                  }}
-                  imageProps={{ contentFit: "contain" }}
-                  notificationDate={notificationDate}
-                />
-              </Animated.View>
-            </GestureDetector>
+              notificationDate={notificationDate ?? Date.now()}
+              zoomEnabled
+              enableFullScreen={false}
+              initialIndex={hasAttachments ? safeIndex : 0}
+              onIndexChange={(index) => {
+                if (hasAttachments) {
+                  setCurrentIndex(index);
+                  onCurrentIndexChange?.(index);
+                }
+              }}
+              onSwipeToClose={onClose}
+            />
           </View>
 
           {/* Bottom description with title and cache info - now in flex layout */}
           {showInfo &&
             (description ||
-              originalFileName ||
+              effectiveOriginalFileName ||
               cacheInfo ||
               notificationDate) && (
-              <Pressable 
+              <Pressable
                 style={[
                   styles.bottomBar,
                   { paddingBottom: insets.bottom + 20 },
-                  Platform.OS === 'web' && isFooterHovered && styles.bottomBarHovered
+                  Platform.OS === "web" &&
+                    isFooterHovered &&
+                    styles.bottomBarHovered,
                 ]}
                 onHoverIn={() => setIsFooterHovered(true)}
                 onHoverOut={() => setIsFooterHovered(false)}
               >
-                {originalFileName && (
+                {effectiveOriginalFileName && (
                   <Text style={styles.descTitle} numberOfLines={1}>
-                    {originalFileName}
+                    {effectiveOriginalFileName}
                   </Text>
                 )}
                 {description && (
@@ -508,9 +397,9 @@ export default function FullScreenMediaViewer({
                       Local: {cacheInfo.localPath.split("/").pop()}
                     </Text>
                   )}
-                  {url && (
+                  {effectiveUrl && (
                     <Text style={styles.cacheInfoText} numberOfLines={1}>
-                      URL: {url}
+                      URL: {effectiveUrl}
                     </Text>
                   )}
                   {cacheInfo?.size && (
@@ -534,7 +423,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    flexDirection: 'column',
+    flexDirection: "column",
   },
   topBar: {
     position: "absolute",
@@ -566,9 +455,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: 8,
   },
-  content: { 
-    flex: 1, 
-    alignItems: "center", 
+  content: {
+    flex: 1,
     justifyContent: "center",
   },
   media: { width: "95%", height: "80%" },
@@ -581,7 +469,7 @@ const styles = StyleSheet.create({
   bottomBarHovered: {
     backgroundColor: "rgba(0,0,0,0.95)",
     transform: [{ translateY: -4 }],
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: -4,

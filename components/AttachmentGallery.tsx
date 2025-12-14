@@ -3,7 +3,7 @@ import {
   NotificationAttachmentDto,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import Gallery, { GalleryRef } from "react-native-awesome-gallery";
 import {
@@ -27,10 +27,13 @@ interface AttachmentGalleryProps {
   notificationDate: number;
   showTitle?: boolean;
   zoomEnabled?: boolean;
-  selectorPosition: "top" | "bottom";
+  selectorPosition?: "top" | "bottom";
   maxHeight?: number;
   enableFullScreen?: boolean;
   fullScreenTrigger?: "tap" | "button";
+  onSwipeToClose?: () => void;
+  initialIndex?: number;
+  onIndexChange?: (index: number) => void;
 }
 
 const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
@@ -41,15 +44,24 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   selectorPosition,
   zoomEnabled = false,
   maxHeight,
-   enableFullScreen = false,
-   fullScreenTrigger = "tap",
+  onSwipeToClose,
+  enableFullScreen = false,
+  fullScreenTrigger = "tap",
+  initialIndex,
+  onIndexChange,
 }) => {
   const theme = useTheme();
   const { t } = useI18n();
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const galleryRef = useRef<GalleryRef>(null);
   const [fullScreenVisible, setFullScreenVisible] = useState(false);
+
+  useEffect(() => {
+    if (typeof initialIndex === "number") {
+      setCurrentIndex(initialIndex);
+    }
+  }, [initialIndex]);
 
   if (!attachments || attachments.length === 0) {
     return null;
@@ -59,6 +71,8 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
 
   const handleSelectorPress = (index: number) => {
     setCurrentIndex(index);
+
+    onIndexChange?.(index);
 
     if (galleryRef.current) {
       galleryRef.current.setIndex(index, true);
@@ -149,11 +163,14 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
           ref={galleryRef}
           data={attachments}
           initialIndex={Math.min(currentIndex, attachments.length - 1)}
-          onIndexChange={setCurrentIndex}
+          onIndexChange={(index) => {
+            setCurrentIndex(index);
+            onIndexChange?.(index);
+          }}
           keyExtractor={(_, index) => index.toString()}
-          // loop={attachments.length > 1}
           pinchEnabled={zoomEnabled}
           disableSwipeUp
+          onSwipeToClose={onSwipeToClose}
           containerDimensions={{
             width: containerWidth || 0,
             height: mediaHeight,
@@ -214,34 +231,16 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
       {enableFullScreen && (
         <FullScreenMediaViewer
           visible={fullScreenVisible}
-          url={attachments[currentIndex]?.url || ""}
-          mediaType={attachments[currentIndex]?.mediaType || MediaType.Image}
-          originalFileName={attachments[currentIndex]?.name ?? undefined}
+          attachments={attachments}
+          initialIndex={currentIndex}
           notificationDate={notificationDate}
           onClose={() => setFullScreenVisible(false)}
-          enableSwipeNavigation={attachments.length > 1}
-          onSwipeLeft={() => {
-            if (!attachments.length) return;
-            const nextIndex = (currentIndex + 1) % attachments.length;
-            setCurrentIndex(nextIndex);
+          onCurrentIndexChange={(index) => {
+            setCurrentIndex(index);
             if (galleryRef.current) {
-              galleryRef.current.setIndex(nextIndex, true);
+              galleryRef.current.setIndex(index, true);
             }
           }}
-          onSwipeRight={() => {
-            if (!attachments.length) return;
-            const prevIndex =
-              currentIndex === 0 ? attachments.length - 1 : currentIndex - 1;
-            setCurrentIndex(prevIndex);
-            if (galleryRef.current) {
-              galleryRef.current.setIndex(prevIndex, true);
-            }
-          }}
-          currentPosition={
-            attachments.length > 1
-              ? `${currentIndex + 1} / ${attachments.length}`
-              : undefined
-          }
         />
       )}
       {/* {attachments.length > 1 && (
