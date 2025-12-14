@@ -1076,6 +1076,8 @@ export interface Translation {
     uiVersion: string;
     backendVersion: string;
     descriptionRequired: string;
+    activate: string;
+    deactivate: string;
     entriesTitle: string;
     entriesDescription: string;
     entriesEmpty: string;
