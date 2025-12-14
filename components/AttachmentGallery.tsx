@@ -3,10 +3,18 @@ import {
   NotificationAttachmentDto,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
-import { Surface, Text, TouchableRipple, useTheme } from "react-native-paper";
+import Gallery, { GalleryRef } from "react-native-awesome-gallery";
+import {
+  Icon,
+  Surface,
+  Text,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 import { CachedMedia } from "./CachedMedia";
+import FullScreenMediaViewer from "./FullScreenMediaViewer";
 import { MediaTypeIcon } from "./MediaTypeIcon";
 
 interface AttachmentGalleryProps {
@@ -17,17 +25,31 @@ interface AttachmentGalleryProps {
     fileName?: string
   ) => void;
   notificationDate: number;
+  showTitle?: boolean;
+  zoomEnabled?: boolean;
+  selectorPosition: "top" | "bottom";
+  maxHeight?: number;
+  enableFullScreen?: boolean;
+  fullScreenTrigger?: "tap" | "button";
 }
 
 const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   attachments,
   onMediaPress,
   notificationDate,
+  showTitle,
+  selectorPosition,
+  zoomEnabled = false,
+  maxHeight,
+   enableFullScreen = false,
+   fullScreenTrigger = "tap",
 }) => {
   const theme = useTheme();
   const { t } = useI18n();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [containerWidth, setContainerWidth] = useState<number>(0);
+  const galleryRef = useRef<GalleryRef>(null);
+  const [fullScreenVisible, setFullScreenVisible] = useState(false);
 
   if (!attachments || attachments.length === 0) {
     return null;
@@ -37,9 +59,17 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
 
   const handleSelectorPress = (index: number) => {
     setCurrentIndex(index);
+
+    if (galleryRef.current) {
+      galleryRef.current.setIndex(index, true);
+    }
   };
 
   const handleAttachmentPress = () => {
+    if (enableFullScreen && fullScreenTrigger === "tap") {
+      setFullScreenVisible(true);
+    }
+
     onMediaPress?.(
       currentAttachment.url!,
       currentAttachment.mediaType,
@@ -47,103 +77,174 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
     );
   };
 
-  const mediaHeight = containerWidth > 0 ? containerWidth * 0.6 : 200;
+  const mediaHeight =
+    maxHeight ?? (containerWidth > 0 ? containerWidth * 0.6 : 200);
+
+  const renderSelector = () => {
+    if (!attachments || attachments.length <= 1) return null;
+
+    return (
+      <Surface
+        style={[
+          styles.selectorContainer,
+          { backgroundColor: theme.colors.surfaceVariant },
+        ]}
+        elevation={0}
+      >
+        <View style={styles.selectorRow}>
+          {attachments.map((attachment, index) => {
+            const isActive = currentIndex === index;
+
+            return (
+              <TouchableRipple
+                key={`${attachment.url}-${index}`}
+                style={[
+                  styles.selectorSegment,
+                  isActive && {
+                    backgroundColor: theme.colors.primaryContainer,
+                    borderColor: theme.colors.primary,
+                    borderWidth: 1.5,
+                  },
+                ]}
+                onPress={() => handleSelectorPress(index)}
+              >
+                <View>
+                  <MediaTypeIcon
+                    mediaType={attachment.mediaType}
+                    size={14}
+                    base
+                    showLabel
+                    label={attachment.name}
+                  />
+                </View>
+              </TouchableRipple>
+            );
+          })}
+        </View>
+      </Surface>
+    );
+  };
 
   return (
     <View
-      style={[styles.container]}
       onLayout={(event) => {
         const { width } = event.nativeEvent.layout;
         setContainerWidth(width);
       }}
     >
-      <View style={styles.headerContainer}>
-        <Text
-          style={[styles.sectionTitle, { color: theme.colors.onBackground }]}
-        >
-          {t("attachmentGallery.attachments", { count: attachments.length })}
-        </Text>
-      </View>
-
-      {/* Attachment Selector */}
-      {attachments.length > 1 && (
-        <Surface
-          style={[
-            styles.selectorContainer,
-            { backgroundColor: theme.colors.surface },
-          ]}
-          elevation={0}
-        >
-          <View style={styles.selectorScrollView}>
-            {attachments.map((attachment, index) => {
-              const isActive = currentIndex !== -1 && index === currentIndex;
-
-              return (
-                <TouchableRipple
-                  key={`${attachment.url}-${index}`}
-                  style={[
-                    styles.selectorButton,
-                    {
-                      backgroundColor: theme.colors.surfaceVariant,
-                      borderWidth: isActive ? 1.5 : 0,
-                      borderColor: isActive
-                        ? theme.colors.primary
-                        : "transparent",
-                    },
-                  ]}
-                  onPress={() => handleSelectorPress(index)}
-                >
-                  <View>
-                    <MediaTypeIcon
-                      mediaType={attachment.mediaType}
-                      size={14}
-                      base
-                      showLabel
-                      label={attachment.name}
-                    />
-                  </View>
-                </TouchableRipple>
-              );
-            })}
-          </View>
-        </Surface>
+      {showTitle && (
+        <View style={styles.headerContainer}>
+          <Text
+            style={[styles.sectionTitle, { color: theme.colors.onBackground }]}
+          >
+            {t("attachmentGallery.attachments", { count: attachments.length })}
+          </Text>
+        </View>
       )}
 
-      {/* Media selezionato */}
-      <Surface
-        style={[styles.mediaSurface, { backgroundColor: theme.colors.surface }]}
-        elevation={0}
-      >
-        <View style={[styles.mediaContainer, { height: mediaHeight }]}>
-          <CachedMedia
-            key={`${currentAttachment.url}-${currentIndex}`}
-            url={currentAttachment.url!}
-            mediaType={currentAttachment.mediaType}
-            style={[styles.media, { height: mediaHeight }]}
-            originalFileName={currentAttachment.name || undefined}
-            onPress={handleAttachmentPress}
-            notificationDate={notificationDate}
-            videoProps={{
-              autoPlay: true,
-              isMuted: true,
-              isLooping: true,
-              showControls: Platform.OS === "web"
-            }}
-            audioProps={{
-              shouldPlay: false,
-              isLooping: false,
-              showControls: true,
-            }}
-          />
-        </View>
-        {currentAttachment.name && (
-          <Text style={styles.attachmentName} numberOfLines={2}>
-            {currentAttachment.name}
-          </Text>
-        )}
-      </Surface>
+      {selectorPosition === "top" && renderSelector()}
 
-      {attachments.length > 1 && (
+      <View style={[styles.mediaContainer, { height: mediaHeight }]}>
+        <Gallery
+          ref={galleryRef}
+          data={attachments}
+          initialIndex={Math.min(currentIndex, attachments.length - 1)}
+          onIndexChange={setCurrentIndex}
+          keyExtractor={(_, index) => index.toString()}
+          // loop={attachments.length > 1}
+          pinchEnabled={zoomEnabled}
+          disableSwipeUp
+          containerDimensions={{
+            width: containerWidth || 0,
+            height: mediaHeight,
+          }}
+          renderItem={({ item, index }) => (
+            <CachedMedia
+              key={`${item.url}-${index}`}
+              url={item.url!}
+              mediaType={item.mediaType}
+              style={[{ height: mediaHeight }]}
+              originalFileName={item.name || undefined}
+              onPress={handleAttachmentPress}
+              notificationDate={notificationDate}
+              videoProps={{
+                autoPlay: true,
+                isLooping: true,
+                isMuted: true,
+                showControls: Platform.OS === "web",
+              }}
+              audioProps={{
+                shouldPlay: false,
+                isLooping: false,
+                showControls: true,
+              }}
+            />
+          )}
+        />
+
+        {enableFullScreen && fullScreenTrigger === "button" && (
+          <View style={styles.fullScreenButtonContainer}>
+            <TouchableRipple
+              onPress={() => setFullScreenVisible(true)}
+              style={[
+                styles.fullScreenButton,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.outline,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <Icon
+                source="arrow-expand-all"
+                size={18}
+                color={theme.colors.onSurface}
+              />
+            </TouchableRipple>
+          </View>
+        )}
+      </View>
+
+      {selectorPosition === "bottom" && renderSelector()}
+      {currentAttachment.name && (
+        <Text style={styles.attachmentName} numberOfLines={2}>
+          {currentAttachment.name}
+        </Text>
+      )}
+      {enableFullScreen && (
+        <FullScreenMediaViewer
+          visible={fullScreenVisible}
+          url={attachments[currentIndex]?.url || ""}
+          mediaType={attachments[currentIndex]?.mediaType || MediaType.Image}
+          originalFileName={attachments[currentIndex]?.name ?? undefined}
+          notificationDate={notificationDate}
+          onClose={() => setFullScreenVisible(false)}
+          enableSwipeNavigation={attachments.length > 1}
+          onSwipeLeft={() => {
+            if (!attachments.length) return;
+            const nextIndex = (currentIndex + 1) % attachments.length;
+            setCurrentIndex(nextIndex);
+            if (galleryRef.current) {
+              galleryRef.current.setIndex(nextIndex, true);
+            }
+          }}
+          onSwipeRight={() => {
+            if (!attachments.length) return;
+            const prevIndex =
+              currentIndex === 0 ? attachments.length - 1 : currentIndex - 1;
+            setCurrentIndex(prevIndex);
+            if (galleryRef.current) {
+              galleryRef.current.setIndex(prevIndex, true);
+            }
+          }}
+          currentPosition={
+            attachments.length > 1
+              ? `${currentIndex + 1} / ${attachments.length}`
+              : undefined
+          }
+        />
+      )}
+      {/* {attachments.length > 1 && (
         <View style={styles.paginationContainer}>
           {attachments.map((_, index) => (
             <View
@@ -166,15 +267,12 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
             />
           ))}
         </View>
-      )}
+      )} */}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    marginVertical: 16,
-  },
   headerContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -187,37 +285,42 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   selectorContainer: {
-    paddingVertical: 8,
-    marginBottom: 12,
-    borderRadius: 12,
+    // borderTopRightRadius: 12,
+    // borderTopLeftRadius: 12,
+    overflow: "hidden",
   },
-  selectorScrollView: {
+  selectorRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+    flexWrap: "nowrap",
   },
-  selectorButton: {
-    flexDirection: "row",
+  selectorSegment: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderColor: "transparent",
     borderWidth: 1,
-    borderColor: "#E5E5E5",
-    backgroundColor: "transparent",
-    gap: 6,
-  },
-  mediaSurface: {
-    borderRadius: 12,
-    padding: 12,
   },
   mediaContainer: {
     width: "100%",
-    borderRadius: 12,
+    position: "relative",
   },
   media: {
     width: "100%",
     borderRadius: 12,
+  },
+  fullScreenButtonContainer: {
+    position: "absolute",
+    left: 8,
+    bottom: 8,
+  },
+  fullScreenButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
   },
   attachmentName: {
     marginTop: 8,

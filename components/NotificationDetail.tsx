@@ -78,15 +78,6 @@ export default function NotificationDetail({
   const [enableHtmlRendering, setEnableHtmlRendering] = useState(true);
   const [payloadModalVisible, setPayloadModalVisible] = useState(false);
 
-  const handleMediaPress = (imageUri: string) => {
-    const attachments = notification?.message?.attachments || [];
-    const index = attachments.findIndex(
-      (attachment) => attachment.url === imageUri
-    );
-    setFullScreenIndex(index >= 0 ? index : 0);
-    setFullScreenImageVisible(true);
-  };
-
   const { logAppEvent } = useAppLog();
 
   // Get bucket name from hook (from cache) or fallback to notification bucket name
@@ -511,39 +502,16 @@ export default function NotificationDetail({
 
         {/* Attachments */}
         {attachments.length > 0 && (
-          <View style={styles.attachmentsContainer}>
-            <AttachmentGallery
-              attachments={attachments}
-              onMediaPress={handleMediaPress}
-              notificationDate={new Date(notification.createdAt).getTime()}
-            />
-          </View>
+          <AttachmentGallery
+            attachments={attachments}
+            selectorPosition="top"
+            showTitle
+            enableFullScreen
+            fullScreenTrigger="tap"
+            notificationDate={new Date(notification.createdAt).getTime()}
+          />
         )}
       </View>
-
-      {/* Full Screen Media Viewer */}
-      <FullScreenMediaViewer
-        visible={fullScreenImageVisible}
-        url={attachments[fullScreenIndex]?.url || ""}
-        mediaType={attachments[fullScreenIndex]?.mediaType || MediaType.Image}
-        originalFileName={attachments[fullScreenIndex]?.name ?? undefined}
-        notificationDate={new Date(notification.createdAt).getTime()}
-        onClose={() => setFullScreenImageVisible(false)}
-        enableSwipeNavigation={attachments.length > 1}
-        onSwipeLeft={() =>
-          setFullScreenIndex((fullScreenIndex + 1) % attachments.length)
-        }
-        onSwipeRight={() =>
-          setFullScreenIndex(
-            fullScreenIndex === 0 ? attachments.length - 1 : fullScreenIndex - 1
-          )
-        }
-        currentPosition={
-          attachments.length > 1
-            ? `${fullScreenIndex + 1} / ${attachments.length}`
-            : undefined
-        }
-      />
 
       {/* Payload Modal */}
       <DetailModal
@@ -755,9 +723,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
     flex: 1,
-  },
-  attachmentsContainer: {
-    marginBottom: 16,
   },
   htmlToggleButtonSmall: {
     flexDirection: "row",

@@ -905,7 +905,6 @@ const defaultStyles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f8f8f8",
-    borderRadius: 6,
     borderWidth: 1,
     height: "100%",
     width: "100%",

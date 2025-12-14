@@ -2,7 +2,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import {
   MediaType,
   NotificationDeliveryType,
-  NotificationFragment
+  NotificationFragment,
 } from "@/generated/gql-operations-generated";
 import { useNotificationActions, useNotificationUtils } from "@/hooks";
 import {
@@ -13,7 +13,6 @@ import {
 } from "@/hooks/notifications";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppLog } from "@/hooks/useAppLog";
 import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useRecyclingState } from "@shopify/flash-list";
@@ -31,14 +30,19 @@ import {
   Surface,
   Text,
   TouchableRipple,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
 import { MediaTypeIcon } from "./MediaTypeIcon";
-import SwipeableItem, { MenuItem, SwipeAction, SwipeableItemRef } from "./SwipeableItem";
+import SwipeableItem, {
+  MenuItem,
+  SwipeAction,
+  SwipeableItemRef,
+} from "./SwipeableItem";
 import { SmartTextRenderer } from "./ui";
+import AttachmentGallery from "./AttachmentGallery";
 
 interface NotificationItemProps {
   notification: NotificationFragment;
@@ -137,7 +141,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   };
 
   const isRead = !!notification.readAt;
-  
+
   // Use useRecyclingState to stabilize bucketId and prevent unnecessary BucketIcon re-renders
   const [stableBucketId] = useRecyclingState<string | undefined>(
     notification.message?.bucket?.id,
@@ -148,11 +152,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const { bucket } = useBucket(stableBucketId);
 
   // Get bucket name from hook (from cache) or fallback to notification bucket name
-  const bucketName = bucket?.name || notification.message?.bucket?.name || t("common.general");
+  const bucketName =
+    bucket?.name || notification.message?.bucket?.name || t("common.general");
 
-  const visibleAttachment = !isCompactMode
-    ? attachments[selectedPreviewIndex] || null
-    : null;
+  const visibleAttachment = !isCompactMode && attachments.length > 0;
 
   const handleVisualPress = (visualUri: string) => {
     // Navigate to notification detail instead of opening fullscreen
@@ -376,145 +379,18 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         )}
       </Pressable>
 
-      {!!visibleAttachment && (
-        <View pointerEvents="auto">
-          <Surface style={[styles.mediaPreviewRow]} elevation={0}>
-            <View key={`${attachment.url}`} style={styles.expandedImage}>
-              {(isItemVisible || !loadOnlyVisible) && (
-                <CachedMedia
-                  notificationDate={new Date(notification.createdAt).getTime()}
-                  mediaType={attachment.mediaType}
-                  url={attachment.url || ""}
-                  style={styles.expandedImage}
-                  originalFileName={attachment.name || undefined}
-                  videoProps={{
-                    autoPlay: isItemVisible,
-                    isMuted: true,
-                    isLooping: true,
-                    showControls: false,
-                  }}
-                  audioProps={{
-                    shouldPlay: false,
-                    showControls: true,
-                  }}
-                  onPress={() => {
-                    mediaPressRef.current = true;
-                    handleVisualPress(attachment.url!);
-                  }}
-                />
-              )}
-              {/* Fullscreen button */}
-              <TouchableOpacity
-                style={styles.fullscreenButton}
-                onPress={() => handleFullscreenPress(attachment.url!)}
-                accessibilityLabel="Open fullscreen"
-              >
-                <Icon source="fullscreen" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          </Surface>
-        </View>
-      )}
-
-      <Surface style={[styles.bottomRow]} elevation={0}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.mediaScrollView}
-          contentContainerStyle={styles.mediaIndicators}
-        >
-          {attachments.length > 0 &&
-            (isCompactMode ? (
-              <View style={styles.inlinePillsRow}>
-                <Surface
-                  style={[
-                    styles.mediaIndicator,
-                    {
-                      backgroundColor: theme.colors.secondaryContainer,
-                    },
-                  ]}
-                  elevation={0}
-                >
-                  <Icon
-                    source="image"
-                    size={16}
-                    color={theme.colors.onSurfaceVariant}
-                  />
-                  <Text
-                    style={styles.mediaText}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {t("attachmentGallery.attachments", {
-                      count: attachments.length,
-                    })}
-                  </Text>
-                </Surface>
-              </View>
-            ) : (
-              attachments.map((attachment, index) => {
-                const isPreviewSelected = index === selectedPreviewIndex;
-                const pill = (
-                  <Surface
-                    key={index}
-                    style={[
-                      styles.mediaIndicator,
-                      {
-                        backgroundColor: theme.colors.secondaryContainer,
-                        borderWidth: isPreviewSelected ? 1.5 : 0,
-                        borderColor: isPreviewSelected
-                          ? theme.colors.primary
-                          : "transparent",
-                      },
-                    ]}
-                    elevation={0}
-                  >
-                    <MediaTypeIcon
-                      mediaType={attachment.mediaType}
-                      size={12}
-                      base
-                      showLabel
-                      label={attachment.name}
-                    />
-                  </Surface>
-                );
-
-                return (
-                  <TouchableRipple
-                    key={index}
-                    onPress={() => {
-                      if (index >= 0) setSelectedPreviewIndex(index);
-                    }}
-                    borderless
-                  >
-                    {pill}
-                  </TouchableRipple>
-                );
-              })
-            ))}
-        </ScrollView>
-      </Surface>
-
-      {fullScreenIndex >= 0 && attachments[fullScreenIndex] && (
-        <FullScreenMediaViewer
-          visible
+      {visibleAttachment && (
+        <AttachmentGallery
+          attachments={attachments}
+          onMediaPress={() => {
+            mediaPressRef.current = true;
+            handleVisualPress(attachment.url!);
+          }}
+          enableFullScreen
+          fullScreenTrigger="button"
+          maxHeight={180}
+          selectorPosition="top"
           notificationDate={new Date(notification.createdAt).getTime()}
-          url={attachments[fullScreenIndex].url || ""}
-          mediaType={attachments[fullScreenIndex].mediaType}
-          originalFileName={attachments[fullScreenIndex].name || undefined}
-          onClose={handleCloseFullScreenImage}
-          enableSwipeNavigation={attachments.length > 1}
-          onSwipeLeft={() => {
-            setFullScreenIndex((fullScreenIndex + 1) % attachments.length);
-          }}
-          onSwipeRight={() => {
-            setFullScreenIndex(
-              fullScreenIndex === 0
-                ? attachments.length - 1
-                : fullScreenIndex - 1
-            );
-          }}
-          currentPosition={`${fullScreenIndex + 1} / ${attachments.length}`}
         />
       )}
     </SwipeableItem>
@@ -664,14 +540,6 @@ const styles = StyleSheet.create({
   mediaPreviewRow: {
     paddingHorizontal: 12,
     paddingTop: 0,
-    width: "100%",
-  },
-  bottomRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 4,
     width: "100%",
   },
   filler: {
