@@ -2517,6 +2517,8 @@
         "onView": "On View",
         "onAppClose": "On App Close"
       },
+      "pushNotificationsTitle": "Push Notification Defaults",
+      "pushNotificationsDescription": "Configure how push notifications behave by default.",
       "disclaimer": "All these settings can be modified at any time in the App Settings section."
     },
     "step3": {

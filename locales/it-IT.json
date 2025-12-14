@@ -2522,6 +2522,8 @@
         "onView": "Alla Visualizzazione",
         "onAppClose": "Alla Chiusura App"
       },
+      "pushNotificationsTitle": "Impostazioni notifiche push",
+      "pushNotificationsDescription": "Configura il comportamento predefinito delle notifiche push.",
       "disclaimer": "Tutte queste impostazioni potranno essere modificate in qualsiasi momento nella sezione Impostazioni App."
     },
     "step3": {

@@ -1,4 +1,5 @@
 import Selector from "@/components/ui/Selector";
+import NumberListInput from "@/components/ui/NumberListInput";
 import { AVAILABLE_TIMEZONES } from "@/constants/timezones";
 import { Locale, useI18n } from "@/hooks/useI18n";
 import { DATE_FORMAT_STYLES } from "@/services/date-format";
@@ -7,12 +8,25 @@ import { DateFormatStyle, MarkAsReadMode } from "@/services/settings-service";
 import { useSettings } from "@/hooks/useSettings";
 import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import { Icon, Text, useTheme } from "react-native-paper";
+import { Icon, Switch, Text, useTheme } from "react-native-paper";
 
 const Step2 = memo(() => {
   const theme = useTheme();
   const { t, locale: currentLocale, availableLocales, getLocaleDisplayName } = useI18n();
-  const { settings, setLocale, setCustomThemeSettings, setDateFormatPreferences, setTimezone, updateSettings } = useSettings();
+  const {
+    settings,
+    setLocale,
+    setCustomThemeSettings,
+    setDateFormatPreferences,
+    setTimezone,
+    updateSettings,
+    setUnencryptOnBigPayload,
+    setAutoAddDeleteAction,
+    setAutoAddMarkAsReadAction,
+    setAutoAddOpenNotificationAction,
+    setDefaultPostpones,
+    setDefaultSnoozes,
+  } = useSettings();
   
   // Local state for UI only - settings are managed directly via userSettings
   const [selectedLanguage, setSelectedLanguage] = useState<Locale>("en-EN");
@@ -21,6 +35,14 @@ const Step2 = memo(() => {
   const [selectedTimezone, setSelectedTimezone] = useState<string>("UTC");
   const [selectedMarkAsReadMode, setSelectedMarkAsReadMode] = useState<MarkAsReadMode>("on-view");
 
+  // Local state for notification defaults
+  const [localDefaultPostpones, setLocalDefaultPostpones] = useState<number[]>(
+    settings.notificationsPreferences?.defaultPostpones || []
+  );
+  const [localDefaultSnoozes, setLocalDefaultSnoozes] = useState<number[]>(
+    settings.notificationsPreferences?.defaultSnoozes || []
+  );
+
   // Initialize from settings on mount
   useEffect(() => {
     setSelectedLanguage(settings.locale || "en-EN");
@@ -28,6 +50,8 @@ const Step2 = memo(() => {
     setSelectedDateFormat(settings.dateFormat.dateStyle);
     setSelectedTimezone(settings.timezone);
     setSelectedMarkAsReadMode(settings.notificationsPreferences?.markAsReadMode || "on-view");
+    setLocalDefaultPostpones(settings.notificationsPreferences?.defaultPostpones || []);
+    setLocalDefaultSnoozes(settings.notificationsPreferences?.defaultSnoozes || []);
   }, [settings]);
 
   const handleLanguageSelect = useCallback(async (lang: Locale) => {
@@ -62,6 +86,16 @@ const Step2 = memo(() => {
       } 
     });
   }, [updateSettings, settings.notificationsPreferences]);
+
+  const handleDefaultPostponesChange = useCallback(async (values: number[]) => {
+    setLocalDefaultPostpones(values);
+    await setDefaultPostpones(values);
+  }, [setDefaultPostpones]);
+
+  const handleDefaultSnoozesChange = useCallback(async (values: number[]) => {
+    setLocalDefaultSnoozes(values);
+    await setDefaultSnoozes(values);
+  }, [setDefaultSnoozes]);
 
   // Language options
   const languageOptions = useMemo(() => 
@@ -198,6 +232,91 @@ const Step2 = memo(() => {
           />
         </View>
 
+        {/* Push Notifications Settings */}
+        <View style={styles.section}>
+          <Text variant="titleMedium" style={styles.pushSectionTitle}>
+            {t("onboardingV2.step2.pushNotificationsTitle")}
+          </Text>
+          <Text
+            variant="bodyMedium"
+            style={[styles.pushSectionDescription, { color: theme.colors.onSurfaceVariant }]}
+          >
+            {t("onboardingV2.step2.pushNotificationsDescription")}
+          </Text>
+
+          {/* Unencrypt on big payload */}
+          <View style={styles.toggleRow}>
+            <Text variant="bodyMedium" style={styles.toggleLabel}>
+              {t("appSettings.notifications.unencryptOnBigPayload")}
+            </Text>
+            <Switch
+              value={!!settings.notificationsPreferences?.unencryptOnBigPayload}
+              onValueChange={setUnencryptOnBigPayload}
+            />
+          </View>
+
+          {/* Auto-add Delete Action */}
+          <View style={styles.toggleRow}>
+            <Text variant="bodyMedium" style={styles.toggleLabel}>
+              {t("appSettings.notifications.autoAddDeleteAction")}
+            </Text>
+            <Switch
+              value={settings.notificationsPreferences?.autoAddDeleteAction ?? true}
+              onValueChange={setAutoAddDeleteAction}
+            />
+          </View>
+
+          {/* Auto-add Mark as Read Action */}
+          <View style={styles.toggleRow}>
+            <Text variant="bodyMedium" style={styles.toggleLabel}>
+              {t("appSettings.notifications.autoAddMarkAsReadAction")}
+            </Text>
+            <Switch
+              value={settings.notificationsPreferences?.autoAddMarkAsReadAction ?? true}
+              onValueChange={setAutoAddMarkAsReadAction}
+            />
+          </View>
+
+          {/* Auto-add Open Notification Action */}
+          <View style={styles.toggleRow}>
+            <Text variant="bodyMedium" style={styles.toggleLabel}>
+              {t("appSettings.notifications.autoAddOpenNotificationAction")}
+            </Text>
+            <Switch
+              value={settings.notificationsPreferences?.autoAddOpenNotificationAction ?? true}
+              onValueChange={setAutoAddOpenNotificationAction}
+            />
+          </View>
+
+          {/* Default Postpones */}
+          <View style={styles.numberListSection}>
+            <NumberListInput
+              label={t("appSettings.notifications.defaultPostpones")}
+              values={localDefaultPostpones}
+              onValuesChange={handleDefaultPostponesChange}
+              placeholder={t("appSettings.notifications.defaultPostponesDescription")}
+              unit="m"
+              min={1}
+              max={9999}
+              compact
+            />
+          </View>
+
+          {/* Default Snoozes */}
+          <View style={styles.numberListSection}>
+            <NumberListInput
+              label={t("appSettings.notifications.defaultSnoozes")}
+              values={localDefaultSnoozes}
+              onValuesChange={handleDefaultSnoozesChange}
+              placeholder={t("appSettings.notifications.defaultSnoozesDescription")}
+              unit="m"
+              min={1}
+              max={9999}
+              compact
+            />
+          </View>
+        </View>
+
         {/* Disclaimer */}
         <View style={styles.disclaimer}>
           <Icon source="information-outline" size={20} color={theme.colors.onSurfaceVariant} />
@@ -233,6 +352,25 @@ const styles = StyleSheet.create({
   section: {
     width: "100%",
     marginBottom: 16,
+  },
+  pushSectionTitle: {
+    marginBottom: 4,
+  },
+  pushSectionDescription: {
+    marginBottom: 12,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  toggleLabel: {
+    flex: 1,
+    marginRight: 16,
+  },
+  numberListSection: {
+    marginTop: 8,
   },
   disclaimer: {
     flexDirection: "row",

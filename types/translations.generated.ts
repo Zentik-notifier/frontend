@@ -2258,6 +2258,8 @@ export interface Translation {
     SYSTEM_TOKEN_REQUEST_DECLINED: string;
     USER_FEEDBACK: string;
     NOTIFICATION_FAILED: string;
+    EMAIL_SENT: string;
+    EMAIL_FAILED: string;
   };
   adminSubscriptions: {
     title: string;
@@ -2518,6 +2520,8 @@ export interface Translation {
         onView: string;
         onAppClose: string;
       };
+      pushNotificationsTitle: string;
+      pushNotificationsDescription: string;
       disclaimer: string;
     };
     step3: {
