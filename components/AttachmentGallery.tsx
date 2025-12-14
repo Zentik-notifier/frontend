@@ -171,6 +171,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
           pinchEnabled={zoomEnabled}
           disableVerticalSwipe={!onSwipeToClose}
           disableSwipeUp
+          disableTransitionOnScaledImage
           // swipeEnabled={false}
           onSwipeToClose={onSwipeToClose}
           containerDimensions={{
