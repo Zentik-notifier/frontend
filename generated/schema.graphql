@@ -356,6 +356,7 @@ enum EventType {
   NOTIFICATION_ACK
   NOTIFICATION_FAILED
   PUSH_PASSTHROUGH
+  PUSH_PASSTHROUGH_FAILED
   REGISTER
   SYSTEM_TOKEN_REQUEST_APPROVED
   SYSTEM_TOKEN_REQUEST_CREATED
@@ -1190,6 +1191,7 @@ type SystemAccessToken {
   createdAt: DateTime!
   description: String
   expiresAt: DateTime
+  failedCalls: Float!
   id: String!
   lastResetAt: DateTime
   maxCalls: Float!
@@ -1200,6 +1202,7 @@ type SystemAccessToken {
   token: String
   tokenHash: String!
   totalCalls: Float!
+  totalFailedCalls: Float!
   updatedAt: DateTime!
 }
 
@@ -1208,6 +1211,7 @@ type SystemAccessTokenDto {
   createdAt: DateTime!
   description: String
   expiresAt: DateTime
+  failedCalls: Float!
   id: String!
   lastResetAt: DateTime
   maxCalls: Float!
@@ -1216,6 +1220,7 @@ type SystemAccessTokenDto {
   scopes: [String!]
   token: String
   totalCalls: Float!
+  totalFailedCalls: Float!
   updatedAt: DateTime!
 }
 

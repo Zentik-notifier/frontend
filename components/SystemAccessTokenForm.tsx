@@ -239,7 +239,8 @@ export default function SystemAccessTokenForm({
     }
   };
 
-  const isFormValid = !isNaN(parseFloat(maxCalls || "0")) && description.trim().length > 0;
+  const isFormValid =
+    !isNaN(parseFloat(maxCalls || "0")) && description.trim().length > 0;
   const loading = usersLoading || (isEdit ? singleTokenLoading : false);
 
   const handlerRefetch = async () => {
@@ -271,11 +272,15 @@ export default function SystemAccessTokenForm({
       color: theme.colors.onSurfaceVariant,
       marginBottom: 4,
     },
-  tokenCalls: {
-    opacity: 0.7,
-    color: theme.colors.onSurfaceVariant,
-    marginBottom: 4,
-  },
+    tokenCalls: {
+      opacity: 0.7,
+      color: theme.colors.onSurfaceVariant,
+      marginBottom: 4,
+    },
+    tokenFailed: {
+      color: theme.colors.error,
+      fontWeight: "600",
+    },
   tokenDisplayContainer: {
     marginTop: 12,
   },
@@ -417,6 +422,18 @@ export default function SystemAccessTokenForm({
               <Text variant="bodySmall" style={styles.tokenCalls}>
                 {t("systemAccessTokens.item.calls")}: {tokenToEdit.calls}/
                 {tokenToEdit.maxCalls}
+              </Text>
+              <Text variant="bodySmall" style={styles.tokenCalls}>
+                {t("systemAccessTokens.item.totalCalls")}: {" "}
+                {tokenToEdit.totalCalls ?? 0}
+              </Text>
+              <Text
+                variant="bodySmall"
+                style={[styles.tokenCalls, styles.tokenFailed]}
+              >
+                {t("systemAccessTokens.item.failedCalls")}: {" "}
+                {(tokenToEdit as any).failedCalls ?? 0} / {" "}
+                {(tokenToEdit as any).totalFailedCalls ?? 0}
               </Text>
               {tokenToEdit.token && (
                 <View style={styles.tokenDisplayContainer}>

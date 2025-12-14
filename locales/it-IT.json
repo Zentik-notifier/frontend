@@ -743,6 +743,7 @@
       "calls": "Chiamate",
       "monthly": "(mensili)",
       "totalCalls": "Chiamate Totali",
+      "failedCalls": "Chiamate fallite (mensili / totali)",
       "lastReset": "Ultimo Reset",
       "expires": "Scade",
       "requester": "Richiedente",

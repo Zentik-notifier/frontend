@@ -1046,6 +1046,8 @@ fragment SystemAccessTokenFragment on SystemAccessTokenDto {
   maxCalls
   calls
   totalCalls
+  failedCalls
+  totalFailedCalls
   expiresAt
   lastResetAt
   requester {

@@ -676,6 +676,7 @@
       "calls": "Calls",
       "monthly": "(monthly)",
       "totalCalls": "Total Calls",
+      "failedCalls": "Failed Calls (monthly / total)",
       "lastReset": "Last Reset",
       "expires": "Expires",
       "requester": "Requester",

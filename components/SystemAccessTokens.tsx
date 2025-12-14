@@ -70,6 +70,11 @@ export default function SystemAccessTokens() {
       item.expiresAt && new Date(item.expiresAt) < new Date()
     );
 
+    // Compat: questi campi sono stati aggiunti successivamente allo schema GraphQL
+    // e potrebbero non essere ancora presenti nei tipi generati finché non si rigenera il codegen.
+    const failedCalls = (item as any).failedCalls ?? 0;
+    const totalFailedCalls = (item as any).totalFailedCalls ?? 0;
+
     return (
       <SwipeableItem
         key={item.id}
@@ -123,14 +128,27 @@ export default function SystemAccessTokens() {
               {formatTokenDate(item.createdAt)}
             </Text>
 
-            <Text variant="bodySmall" style={styles.tokenDetail}>
-              {t("systemAccessTokens.item.calls")}: {item.calls}/
-              {item.maxCalls || "-"} {t("systemAccessTokens.item.monthly")}
-            </Text>
+            <View style={styles.tokenStatsRow}>
+              <Text variant="bodySmall" style={styles.tokenDetail}>
+                {t("systemAccessTokens.item.calls")}: {" "}
+                <Text style={styles.tokenStatValueCalls}>{item.calls}</Text>/
+                {item.maxCalls || "-"} {t("systemAccessTokens.item.monthly")}
+              </Text>
 
-            <Text variant="bodySmall" style={styles.tokenDetail}>
-              {t("systemAccessTokens.item.totalCalls")}: {item.totalCalls || 0}
-            </Text>
+              <Text variant="bodySmall" style={styles.tokenDetail}>
+                {t("systemAccessTokens.item.totalCalls")}: {" "}
+                <Text style={styles.tokenStatValueTotal}>
+                  {item.totalCalls || 0}
+                </Text>
+              </Text>
+
+              <Text variant="bodySmall" style={styles.tokenDetail}>
+                {t("systemAccessTokens.item.failedCalls")}: {" "}
+                <Text style={styles.tokenStatValueFailed}>
+                  {failedCalls} ({totalFailedCalls})
+                </Text>
+              </Text>
+            </View>
 
             {item.lastResetAt && (
               <Text variant="bodySmall" style={styles.tokenDetail}>
@@ -306,6 +324,20 @@ const styles = StyleSheet.create({
   },
   tokenDetail: {
     opacity: 0.7,
+  },
+  tokenStatsRow: {
+    gap: 4,
+  },
+  tokenStatValueCalls: {
+    fontWeight: "600",
+    color: "#2e7d32", // verde per le chiamate riuscite
+  },
+  tokenStatValueTotal: {
+    fontWeight: "600",
+  },
+  tokenStatValueFailed: {
+    fontWeight: "600",
+    color: "#ff6b6b", // rosso per le chiamate fallite
   },
   expiredDetail: {
     color: "#ff6b6b",

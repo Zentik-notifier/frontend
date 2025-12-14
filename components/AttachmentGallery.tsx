@@ -170,6 +170,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
           keyExtractor={(_, index) => index.toString()}
           pinchEnabled={zoomEnabled}
           disableSwipeUp
+          // swipeEnabled={false}
           onSwipeToClose={onSwipeToClose}
           containerDimensions={{
             width: containerWidth || 0,
@@ -185,7 +186,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
               onPress={handleAttachmentPress}
               notificationDate={notificationDate}
               videoProps={{
-                autoPlay: true,
+                autoPlay: currentIndex === index,
                 isLooping: true,
                 isMuted: true,
                 showControls: Platform.OS === "web",

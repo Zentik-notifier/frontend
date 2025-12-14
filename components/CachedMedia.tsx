@@ -1,38 +1,35 @@
-import { useAppContext } from "@/contexts/AppContext";
 import { mediaCache } from "@/services/media-cache-service";
 import { saveMediaToGallery } from "@/services/media-gallery";
-import { Icon } from "react-native-paper";
 import { useEvent } from "expo";
 import { useAudioPlayer } from "expo-audio";
 import * as Clipboard from "expo-clipboard";
-import * as Sharing from "expo-sharing";
 import {
   Image as ExpoImage,
   ImageContentFit,
   ImageProps,
   ImageStyle,
 } from "expo-image";
+import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from "expo-video";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Modal,
-  Platform,
   PanResponder,
+  Platform,
   StyleProp,
   StyleSheet,
   TouchableOpacity,
   View,
   ViewStyle,
 } from "react-native";
-import { Text, useTheme } from "react-native-paper";
 import { Pressable } from "react-native-gesture-handler";
+import { Icon, List, Surface, Text, TouchableRipple, useTheme } from "react-native-paper";
 import { MediaType } from "../generated/gql-operations-generated";
 import { useI18n } from "../hooks/useI18n";
 import { useCachedItem } from "../hooks/useMediaCache";
 import { MediaTypeIcon } from "./MediaTypeIcon";
-import { List, Surface, TouchableRipple } from "react-native-paper";
 
 interface CachedMediaProps {
   url: string;
@@ -480,7 +477,6 @@ export const CachedMedia = React.memo(function CachedMedia({
 
     return (
       <View style={defaultStyles.buttonContainer}>
-        {/* Pulsante sinistro (download/refresh) */}
         <Pressable
           onPress={handleForceDownload}
           style={[
