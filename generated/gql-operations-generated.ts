@@ -391,6 +391,7 @@ export enum EventType {
 export type EventsQueryDto = {
   limit?: InputMaybe<Scalars['Int']['input']>;
   objectId?: InputMaybe<Scalars['String']['input']>;
+  objectIds?: InputMaybe<Array<Scalars['String']['input']>>;
   page?: InputMaybe<Scalars['Int']['input']>;
   targetId?: InputMaybe<Scalars['String']['input']>;
   type?: InputMaybe<EventType>;

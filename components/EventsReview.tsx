@@ -1,4 +1,3 @@
-import { useAppContext } from "@/contexts/AppContext";
 import { useEventsReviewContext } from "@/contexts/EventsReviewContext";
 import {
   EventType,
@@ -6,6 +5,7 @@ import {
   useGetEventsPaginatedQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { uniqBy } from "lodash";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,14 +13,13 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { FAB, Icon, Portal, Text, useTheme } from "react-native-paper";
-import PaperScrollView from "./ui/PaperScrollView";
 import EventsReviewFiltersModal from "./EventsReviewFiltersModal";
-import { uniqBy } from "lodash";
+import PaperScrollView from "./ui/PaperScrollView";
 
 function mappedObjectIdPlaceholder(type: EventType): string {
   switch (type) {
@@ -47,15 +46,16 @@ function mappedObjectIdPlaceholder(type: EventType): string {
   }
 }
 
-export default function EventsReview() {
+interface EventsReviewProps {
+  hideFilter?: boolean;
+}
+
+export default function EventsReview({ hideFilter }: EventsReviewProps) {
   const theme = useTheme();
   const { t } = useI18n();
-  const {
-    connectionStatus: { isOfflineAuth, isBackendUnreachable },
-  } = useAppContext();
 
   const {
-    state: { filters, activeFiltersCount },
+    state: { filters, activeFiltersCount, fixedObjectIds },
     handleShowFiltersModal,
     handleClearFilters,
   } = useEventsReviewContext();
@@ -66,27 +66,32 @@ export default function EventsReview() {
   const [showEventDialog, setShowEventDialog] = useState(false);
   const pageSize = 20;
 
-  const disabledActions = isOfflineAuth || isBackendUnreachable;
+  const queryVariables = useMemo(() => {
+    const hasExplicitObjectId = !!filters.objectId;
+    const objectIdsForQuery =
+      !hasExplicitObjectId && fixedObjectIds && fixedObjectIds.length > 0
+        ? fixedObjectIds
+        : undefined;
 
-  const queryVariables = useMemo(
-    () => ({
+    return {
       query: {
         page: 1,
         limit: pageSize,
         type: filters.selectedType,
         userId: filters.userId,
-        objectId: filters.objectId || undefined,
+        objectId: hasExplicitObjectId ? filters.objectId : undefined,
+        objectIds: objectIdsForQuery,
         targetId: filters.targetId || undefined,
       },
-    }),
-    [
-      filters.selectedType,
-      filters.userId,
-      filters.objectId,
-      filters.targetId,
-      pageSize,
-    ]
-  );
+    };
+  }, [
+    filters.selectedType,
+    filters.userId,
+    filters.objectId,
+    filters.targetId,
+    fixedObjectIds,
+    pageSize,
+  ]);
 
   const {
     data: paginatedData,
@@ -248,6 +253,10 @@ export default function EventsReview() {
       : "-";
 
     const isNotification = item.type === EventType.Notification;
+    const isPassthroughEvent =
+      item.type === EventType.PushPassthrough ||
+      (item.type as EventType | string) ===
+        (EventType as any).PushPassthroughFailed;
     const additionalInfo = item.additionalInfo || {};
     const platform = additionalInfo.platform as string | undefined;
     const sentWith = additionalInfo.sentWith as string | undefined;
@@ -272,6 +281,8 @@ export default function EventsReview() {
       Array.isArray(availableMethods) &&
       availableMethods.includes("UNENCRYPTED");
 
+    const showKpiBadges = isNotification || isPassthroughEvent;
+
     return (
       <TouchableOpacity
         style={[
@@ -283,10 +294,7 @@ export default function EventsReview() {
       >
         <View style={styles.logRowHeader}>
           <View style={styles.logRowHeaderLeft}>
-            <Text
-              style={[{ color: theme.colors.onSurface }]}
-              numberOfLines={1}
-            >
+            <Text style={[{ color: theme.colors.onSurface }]} numberOfLines={1}>
               <Text
                 style={[styles.logEventType, { color: theme.colors.primary }]}
               >
@@ -295,7 +303,7 @@ export default function EventsReview() {
               {userDisplay !== "-" && <Text>{` - ${userDisplay}`}</Text>}
             </Text>
 
-            {isNotification && (
+            {showKpiBadges && (
               <View style={styles.logBadgesRow}>
                 {platform && (
                   <View
@@ -530,7 +538,9 @@ export default function EventsReview() {
 
                   {selectedEvent.additionalInfo && (
                     <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>Additional info:</Text>
+                      <Text style={styles.dialogMetaLabel}>
+                        Additional info:
+                      </Text>
 
                       {(() => {
                         const info = selectedEvent.additionalInfo || {};
@@ -586,27 +596,29 @@ export default function EventsReview() {
       </Modal>
 
       {/* FAB for filters */}
-      <Portal>
-        <FAB
-          icon={activeFiltersCount > 0 ? "filter-check" : "filter"}
-          label={activeFiltersCount > 0 ? `${activeFiltersCount}` : undefined}
-          onPress={handleShowFiltersModal}
-          style={[
-            styles.fab,
-            {
-              backgroundColor:
-                activeFiltersCount > 0
-                  ? theme.colors.primaryContainer
-                  : theme.colors.surface,
-            },
-          ]}
-          color={
-            activeFiltersCount > 0
-              ? theme.colors.primary
-              : theme.colors.onSurface
-          }
-        />
-      </Portal>
+      {!hideFilter && (
+        <Portal>
+          <FAB
+            icon={activeFiltersCount > 0 ? "filter-check" : "filter"}
+            label={activeFiltersCount > 0 ? `${activeFiltersCount}` : undefined}
+            onPress={handleShowFiltersModal}
+            style={[
+              styles.fab,
+              {
+                backgroundColor:
+                  activeFiltersCount > 0
+                    ? theme.colors.primaryContainer
+                    : theme.colors.surface,
+              },
+            ]}
+            color={
+              activeFiltersCount > 0
+                ? theme.colors.primary
+                : theme.colors.onSurface
+            }
+          />
+        </Portal>
+      )}
     </PaperScrollView>
   );
 }

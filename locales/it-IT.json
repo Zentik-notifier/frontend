@@ -1792,7 +1792,8 @@
       "info": "Info",
       "stats": "Statistiche",
       "logs": "Log App",
-      "events": "Eventi"
+      "events": "Eventi",
+      "systemTokenEvents": "Eventi Token Sistema"
     },
     "appLogs": "Log Applicazione",
     "noAppLogsFound": "Nessun log applicazione trovato",
@@ -1834,6 +1835,10 @@
     "userNotificationStats": "Statistiche Notifiche Utente",
     "loadingStats": "Caricamento statistiche...",
     "noStatsAvailable": "Nessuna statistica disponibile",
+    "systemTokensStatsTitle": "Statistiche Token di Sistema",
+    "systemTokensStatsEmpty": "Questo utente non possiede token di sistema.",
+    "systemTokenEventsTitle": "Eventi Token di Sistema",
+    "systemTokenEventsEmpty": "Nessun evento trovato per i token di sistema di questo utente.",
     "userNotFound": "Utente non trovato",
     "totalUsers": "Totale Utenti",
     "searchUsers": "Cerca utenti...",

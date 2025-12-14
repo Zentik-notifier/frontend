@@ -5,6 +5,9 @@ import {
   useUpdateUserRoleMutation,
   useUserNotificationStatsByUserIdQuery,
   UserLogType,
+  useGetSystemAccessTokensQuery,
+  EventType,
+  useGetEventsQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";
@@ -61,6 +64,36 @@ export default function UserDetails({ userId }: UserDetailsProps) {
   } = useUserNotificationStatsByUserIdQuery({
     variables: { userId: userId! },
     skip: !userId,
+    fetchPolicy: "cache-first",
+  });
+
+  const {
+    data: satData,
+    loading: satLoading,
+    refetch: refetchSat,
+  } = useGetSystemAccessTokensQuery({
+    fetchPolicy: "cache-first",
+  });
+
+  const userSystemTokens = useMemo(() => {
+    const all = satData?.listSystemTokens || [];
+    return all.filter((t) => t.requester && t.requester.id === userId);
+  }, [satData, userId]);
+
+  // Eventi dei System Access Tokens dell'utente
+  const {
+    data: satEventsData,
+    loading: satEventsLoading,
+    refetch: refetchSatEvents,
+  } = useGetEventsQuery({
+    variables: {
+      query: {
+        // Nessun filtro lato server su userId/type:
+        // recuperiamo gli ultimi eventi e filtriamo lato client
+        page: 1,
+        limit: 100,
+      },
+    },
     fetchPolicy: "cache-first",
   });
 
@@ -143,7 +176,12 @@ export default function UserDetails({ userId }: UserDetailsProps) {
   ];
 
   const handleRefresh = async () => {
-    await Promise.all([refetchUser(), refetchStats()]);
+    await Promise.all([
+      refetchUser(),
+      refetchStats(),
+      refetchSat(),
+      refetchSatEvents(),
+    ]);
   };
 
   return (
@@ -175,6 +213,11 @@ export default function UserDetails({ userId }: UserDetailsProps) {
               label: t("administration.tabs.events"),
               icon: "history",
             },
+            {
+              value: "system-token-events",
+              label: t("administration.tabs.systemTokenEvents" as any),
+              icon: "api",
+            },
           ]}
           style={styles.segmentedButtons}
         />
@@ -182,7 +225,13 @@ export default function UserDetails({ userId }: UserDetailsProps) {
 
       {activeTab === "events" ? (
         <EventsReviewProvider fixedUserId={userId}>
-          <EventsReview />
+          <EventsReview hideFilter />
+        </EventsReviewProvider>
+      ) : activeTab === "system-token-events" ? (
+        <EventsReviewProvider
+          fixedObjectIds={userSystemTokens.map((token) => token.id)}
+        >
+          <EventsReview hideFilter />
         </EventsReviewProvider>
       ) : activeTab === "logs" ? (
         <UserLogs userId={userId} type={UserLogType.AppLog} />
@@ -193,12 +242,72 @@ export default function UserDetails({ userId }: UserDetailsProps) {
           onRetry={handleRefresh}
           error={!!userError}
         >
-          {activeTab === "stats" && statsData?.userNotificationStats && (
-            <NotificationStats
-              dateStats={statsData.userNotificationStats}
-              showAcked
-              showTitle={false}
-            />
+          {activeTab === "stats" && (
+            <>
+              {statsData?.userNotificationStats && (
+                <NotificationStats
+                  dateStats={statsData.userNotificationStats}
+                  showAcked
+                  showTitle={false}
+                />
+              )}
+
+              {/* System Access Tokens stats per questo utente */}
+              <Card style={styles.section} mode="outlined">
+                <Card.Content>
+                  <Text variant="titleMedium" style={styles.sectionTitle}>
+                    {t("administration.systemTokensStatsTitle")}
+                  </Text>
+
+                  {satLoading ? (
+                    <View style={styles.loadingContainer}>
+                      <ActivityIndicator />
+                      <Text style={styles.loadingText}>
+                        {t("common.loading")}
+                      </Text>
+                    </View>
+                  ) : userSystemTokens.length === 0 ? (
+                    <Text style={styles.noDataText}>
+                      {t("administration.systemTokensStatsEmpty")}
+                    </Text>
+                  ) : (
+                    <View style={styles.statsGrid}>
+                      {userSystemTokens.map((token) => (
+                        <Surface
+                          key={token.id}
+                          style={styles.statItem}
+                          elevation={1}
+                        >
+                          <Text variant="titleMedium" style={styles.statValue}>
+                            {token.calls}/{token.maxCalls || "-"}
+                          </Text>
+                          <Text variant="bodySmall" style={styles.statLabel}>
+                            {t("systemAccessTokens.item.calls")}
+                          </Text>
+
+                          <Text variant="bodyMedium" style={styles.statValue}>
+                            {token.totalCalls}
+                          </Text>
+                          <Text variant="bodySmall" style={styles.statLabel}>
+                            {t("systemAccessTokens.item.totalCalls")}
+                          </Text>
+
+                          <Text
+                            variant="bodyMedium"
+                            style={[styles.statValue, { color: "#ff6b6b" }]}
+                          >
+                            {token.failedCalls} / {token.totalFailedCalls}
+                          </Text>
+                          <Text variant="bodySmall" style={styles.statLabel}>
+                            {t("systemAccessTokens.item.failedCalls")}
+                          </Text>
+                        </Surface>
+                      ))}
+                    </View>
+                  )}
+                </Card.Content>
+              </Card>
+            </>
           )}
 
           {/* User Info Section */}

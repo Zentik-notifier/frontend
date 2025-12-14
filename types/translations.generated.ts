@@ -1742,6 +1742,7 @@ export interface Translation {
       stats: string;
       logs: string;
       events: string;
+      systemTokenEvents: string;
     };
     appLogs: string;
     noAppLogsFound: string;
@@ -1779,6 +1780,10 @@ export interface Translation {
     userNotificationStats: string;
     loadingStats: string;
     noStatsAvailable: string;
+    systemTokensStatsTitle: string;
+    systemTokensStatsEmpty: string;
+    systemTokenEventsTitle: string;
+    systemTokenEventsEmpty: string;
     userNotFound: string;
     totalUsers: string;
     searchUsers: string;

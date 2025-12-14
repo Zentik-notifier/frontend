@@ -1,5 +1,12 @@
 import { EventType } from "@/generated/gql-operations-generated";
-import React, { createContext, useContext, useReducer, ReactNode, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  ReactNode,
+  useCallback,
+  useEffect,
+} from "react";
 
 // Types
 export interface EventsReviewFilters {
@@ -14,13 +21,15 @@ interface EventsReviewState {
   showFiltersModal: boolean;
   activeFiltersCount: number;
   fixedUserId?: string;
+  fixedObjectIds?: string[];
 }
 
 type EventsReviewAction =
   | { type: "SET_FILTERS"; payload: EventsReviewFilters }
   | { type: "SET_SHOW_FILTERS_MODAL"; payload: boolean }
   | { type: "SET_ACTIVE_FILTERS_COUNT"; payload: number }
-  | { type: "CLEAR_FILTERS" };
+  | { type: "CLEAR_FILTERS" }
+  | { type: "SET_FIXED_OBJECT_IDS"; payload?: string[] };
 
 // Initial state
 const initialFilters: EventsReviewFilters = {
@@ -57,6 +66,11 @@ function eventsReviewReducer(
           userId: state.fixedUserId || initialFilters.userId,
         },
       };
+    case "SET_FIXED_OBJECT_IDS":
+      return {
+        ...state,
+        fixedObjectIds: action.payload,
+      };
     default:
       return state;
   }
@@ -83,12 +97,14 @@ interface EventsReviewProviderProps {
   children: ReactNode;
   initialFilters?: Partial<EventsReviewFilters>;
   fixedUserId?: string;
+  fixedObjectIds?: string[];
 }
 
 export function EventsReviewProvider({
   children,
   initialFilters: initialFiltersProp,
   fixedUserId,
+  fixedObjectIds,
 }: EventsReviewProviderProps) {
   const [state, dispatch] = useReducer(eventsReviewReducer, {
     ...initialState,
@@ -98,7 +114,15 @@ export function EventsReviewProvider({
       userId: fixedUserId || initialFiltersProp?.userId || initialState.filters.userId,
     },
     fixedUserId,
+    fixedObjectIds,
   });
+
+  // Keep fixedObjectIds in sync with provider props (e.g. when switching tabs)
+  useEffect(() => {
+    if (fixedObjectIds !== state.fixedObjectIds) {
+      dispatch({ type: "SET_FIXED_OBJECT_IDS", payload: fixedObjectIds });
+    }
+  }, [fixedObjectIds, state.fixedObjectIds]);
 
   const updateActiveFiltersCount = useCallback((filters: EventsReviewFilters): void => {
     let count = 0;
