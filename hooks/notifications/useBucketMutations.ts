@@ -173,6 +173,10 @@ export function useDeleteBucketWithNotifications(options?: {
 
           return {
             ...oldAppState,
+            // Remove deleted bucket from buckets list
+            buckets: (oldAppState.buckets || []).filter(
+              (bucket: BucketWithStats) => bucket.id !== bucketId
+            ),
             stats: updatedStats,
             lastSync: new Date().toISOString(),
           };
@@ -210,6 +214,10 @@ export function useDeleteBucketWithNotifications(options?: {
 
             return {
               ...oldAppState,
+              // Ensure deleted bucket is removed from buckets list even if server didn't find it
+              buckets: (oldAppState.buckets || []).filter(
+                (bucket: BucketWithStats) => bucket.id !== variables
+              ),
               stats: updatedStats,
               lastSync: new Date().toISOString(),
             };
