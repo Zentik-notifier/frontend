@@ -21,8 +21,10 @@ export default function AdminSidebar() {
   const segments = useSegments();
   const theme = useTheme();
   const { t } = useI18n();
-  const { isMobile, isDesktop, isTablet } = useDeviceType();
+  const { isMobile } = useDeviceType();
   const nav = useNavigationUtils();
+
+  const isSelfHosted = process.env.EXPO_PUBLIC_SELFHOSTED === "true";
 
   const adminOptions: AdminOption[] = [
     {
@@ -34,15 +36,19 @@ export default function AdminSidebar() {
       onPress: nav.navigateToServerSettings,
       selectionSegment: "server-settings",
     },
-    {
-      id: "changelogs",
-      title: t("administration.changelogsTitle"),
-      description: t("administration.changelogsDescription"),
-      icon: "new-box",
-      iconColor: "#22c55e", // Green
-      onPress: (nav as any).navigateToChangelogs,
-      selectionSegment: "changelogs",
-    },
+    ...(isSelfHosted
+      ? []
+      : [
+          {
+            id: "changelogs",
+            title: t("administration.changelogsTitle"),
+            description: t("administration.changelogsDescription"),
+            icon: "new-box",
+            iconColor: "#22c55e", // Green
+            onPress: (nav as any).navigateToChangelogs,
+            selectionSegment: "changelogs",
+          },
+        ]),
     {
       id: "user-management",
       title: t("administration.userManagement"),
@@ -123,7 +129,7 @@ export default function AdminSidebar() {
     return (
       <PaperScrollView>
         <View>
-          {adminOptions.map((option) => {
+          {adminOptions.filter(Boolean).map((option) => {
             const isSelected = segments.some(
               (segment) => segment === option.selectionSegment
             );
@@ -171,7 +177,7 @@ export default function AdminSidebar() {
   return (
     <PaperScrollView>
       <View style={styles.optionsContainer}>
-        {adminOptions.map((option) => (
+        {adminOptions.filter(Boolean).map((option) => (
           <Card
             key={option.id}
             style={[

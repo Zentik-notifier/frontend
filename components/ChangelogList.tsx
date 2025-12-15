@@ -48,13 +48,16 @@ export default function ChangelogList() {
   const { data, loading, error, refetch } = useAdminChangelogsQuery({
     fetchPolicy: "cache-and-network",
   });
+  const isSelfHosted = process.env.EXPO_PUBLIC_SELFHOSTED === "true";
 
   const [deleteChangelog] = useMutation(DELETE_CHANGELOG_MUTATION);
-  const [toggleChangelogActive] = useMutation(
-    TOGGLE_CHANGELOG_ACTIVE_MUTATION
-  );
+  const [toggleChangelogActive] = useMutation(TOGGLE_CHANGELOG_ACTIVE_MUTATION);
 
   const changelogs = useMemo(() => data?.adminChangelogs ?? [], [data]);
+
+  if (isSelfHosted) {
+    return null;
+  }
 
   const handleDelete = async (item: ChangelogItem) => {
     await deleteChangelog({ variables: { id: item.id } });
@@ -167,25 +170,25 @@ export default function ChangelogList() {
                     <View style={styles.versionsRow}>
                       {item.iosVersion ? (
                         <Text variant="bodySmall">
-                          {translate("changelog.iosVersion")}: {" "}
+                          {translate("changelog.iosVersion")}:{" "}
                           <Text>{item.iosVersion}</Text>
                         </Text>
                       ) : null}
                       {item.androidVersion ? (
                         <Text variant="bodySmall">
-                          {translate("changelog.androidVersion")}: {" "}
+                          {translate("changelog.androidVersion")}:{" "}
                           <Text>{item.androidVersion}</Text>
                         </Text>
                       ) : null}
                       {item.uiVersion ? (
                         <Text variant="bodySmall">
-                          {translate("changelog.uiVersion")}: {" "}
+                          {translate("changelog.uiVersion")}:{" "}
                           <Text>{item.uiVersion}</Text>
                         </Text>
                       ) : null}
                       {item.backendVersion ? (
                         <Text variant="bodySmall">
-                          {translate("changelog.backendVersion")}: {" "}
+                          {translate("changelog.backendVersion")}:{" "}
                           <Text>{item.backendVersion}</Text>
                         </Text>
                       ) : null}
@@ -199,9 +202,7 @@ export default function ChangelogList() {
                           variant="bodyMedium"
                           style={styles.entryLine}
                         >
-                          {t(
-                            `changelog.entryTypes.${entry.type}` as any
-                          )}
+                          {t(`changelog.entryTypes.${entry.type}` as any)}
                           {": "}
                           {entry.text}
                         </Text>
