@@ -73,31 +73,11 @@ export default function DanglingBucketResolver({
     loadNotifications();
   }, []);
 
-  // Identifica i dangling buckets (bucket orfani con isOrphan: true)
   const currentDanglingBucket = useMemo(() => {
     return buckets.find(
       (bucket) => bucket.isOrphan === true && bucket.id === id
     );
   }, [buckets, id]);
-
-  // Se il bucket non esiste più (es. dopo cancellazione) e non stiamo caricando, torna home
-  useEffect(() => {
-    if (
-      !currentDanglingBucket &&
-      !loading &&
-      !isMigrating &&
-      buckets.length > 0
-    ) {
-      console.log("[DanglingBucketResolver] Bucket not found, navigating home");
-      navigateToHome();
-    }
-  }, [
-    currentDanglingBucket,
-    loading,
-    isMigrating,
-    buckets.length,
-    navigateToHome,
-  ]);
 
   const migrateNotificationsToBucket = async (
     fromBucketId: string,
@@ -105,7 +85,7 @@ export default function DanglingBucketResolver({
     targetBucketName: string,
     targetBucketData?: any // Optional bucket data to avoid lookup
   ) => {
-    // Trova tutte le notifiche collegate al dangling bucket
+    // Find all notifications linked to the dangling bucket
     const danglingNotifications = notifications.filter(
       (notification: NotificationFragment) =>
         notification.message?.bucket?.id === fromBucketId
@@ -129,7 +109,7 @@ export default function DanglingBucketResolver({
       `🔄 Migrating ${danglingNotifications.length} notifications from dangling bucket ${fromBucketId} to bucket ${toBucketId} (${targetBucketName})`
     );
 
-    // Crea le notifiche aggiornate con il nuovo bucket
+    // Create updated notifications with the new bucket
     const updatedNotifications = danglingNotifications.map(
       (notification: NotificationFragment) => {
         return {
@@ -153,7 +133,7 @@ export default function DanglingBucketResolver({
       }
     );
 
-    // 1. Aggiorna il database locale
+    // 1. Update local database
     try {
       await upsertNotificationsBatch(updatedNotifications);
       console.log(
@@ -164,14 +144,14 @@ export default function DanglingBucketResolver({
       throw dbError;
     }
 
-    // 2. Aggiorna React Query cache per tutte le query di notifiche
+    // 2. Update React Query cache for all notification queries
     try {
-      // Invalida tutte le query infinite di notifiche per forzare il refresh
+      // Invalidate all infinite notification queries to force refresh
       await queryClient.invalidateQueries({
         queryKey: notificationKeys.lists(),
       });
 
-      // Invalida anche le stats
+      // Invalidate stats as well
       await queryClient.invalidateQueries({
         queryKey: notificationKeys.stats(),
       });
@@ -184,10 +164,10 @@ export default function DanglingBucketResolver({
       );
     } catch (cacheError) {
       console.error("Failed to update React Query cache:", cacheError);
-      // Non blocchiamo l'operazione, i dati sono già nel DB
+      // Do not block the operation, data is already in the DB
     }
 
-    // 3. Aggiorna lo stato locale
+    // 3. Update local state
     setNotifications((prev) =>
       prev.map((n) => {
         const updated = updatedNotifications.find((u) => u.id === n.id);
@@ -210,6 +190,8 @@ export default function DanglingBucketResolver({
         targetBucket.name
       );
 
+      setIsMigrating(false);
+
       Alert.alert(
         t("buckets.migrationSuccess"),
         t("buckets.migrationSuccessMessage", {
@@ -231,8 +213,6 @@ export default function DanglingBucketResolver({
           error: error instanceof Error ? error.message : "Unknown error",
         })
       );
-    } finally {
-      setIsMigrating(false);
     }
   };
 
@@ -241,7 +221,7 @@ export default function DanglingBucketResolver({
 
     setIsMigrating(true);
     try {
-      // Crea il nuovo bucket utilizzando i dati del dangling bucket
+      // Create a new bucket using the dangling bucket data
       const newBucketInput = {
         name:
           currentDanglingBucket.name ||
@@ -300,8 +280,6 @@ export default function DanglingBucketResolver({
           error: error instanceof Error ? error.message : "Unknown error",
         })
       );
-    } finally {
-      setIsMigrating(false);
     }
   };
 
@@ -365,7 +343,7 @@ export default function DanglingBucketResolver({
 
   return (
     <PaperScrollView onRefresh={handleRefresh} loading={loading}>
-      {/* Gestione caso bucket null */}
+      {/* Handle null bucket case */}
       {!currentDanglingBucket ? (
         <Card style={styles.bucketInfoCard} elevation={0}>
           <Card.Content>

@@ -386,10 +386,12 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             mediaPressRef.current = true;
             handleVisualPress(attachment.url!);
           }}
+          itemsToRender={1}
           enableFullScreen
           fullScreenTrigger="button"
           maxHeight={180}
           selectorPosition="top"
+          swipeToChange={false}
           notificationDate={new Date(notification.createdAt).getTime()}
         />
       )}

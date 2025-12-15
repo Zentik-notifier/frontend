@@ -26,9 +26,13 @@ interface AttachmentGalleryProps {
   ) => void;
   notificationDate: number;
   showTitle?: boolean;
+  showControls?: boolean;
+  showMediaName?: boolean;
   zoomEnabled?: boolean;
+  swipeToChange?: boolean;
   selectorPosition?: "top" | "bottom";
   maxHeight?: number;
+  itemsToRender?: number;
   enableFullScreen?: boolean;
   fullScreenTrigger?: "tap" | "button";
   onSwipeToClose?: () => void;
@@ -41,9 +45,13 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   onMediaPress,
   notificationDate,
   showTitle,
+  showMediaName,
   selectorPosition,
   zoomEnabled = false,
+  swipeToChange = true,
   maxHeight,
+  itemsToRender,
+  showControls,
   onSwipeToClose,
   enableFullScreen = false,
   fullScreenTrigger = "tap",
@@ -128,7 +136,6 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
                     size={14}
                     base
                     showLabel
-                    label={attachment.name}
                   />
                 </View>
               </TouchableRipple>
@@ -167,12 +174,13 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
             setCurrentIndex(index);
             onIndexChange?.(index);
           }}
+          numToRender={itemsToRender}
           keyExtractor={(_, index) => index.toString()}
           pinchEnabled={zoomEnabled}
           disableVerticalSwipe={!onSwipeToClose}
           disableSwipeUp
           disableTransitionOnScaledImage
-          // swipeEnabled={false}
+          swipeEnabled={swipeToChange}
           onSwipeToClose={onSwipeToClose}
           containerDimensions={{
             width: containerWidth || 0,
@@ -191,12 +199,12 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
                 autoPlay: currentIndex === index,
                 isLooping: true,
                 isMuted: true,
-                showControls: Platform.OS === "web",
+                showControls,
               }}
               audioProps={{
                 shouldPlay: false,
                 isLooping: false,
-                showControls: true,
+                showControls,
               }}
             />
           )}
@@ -226,7 +234,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
       </View>
 
       {selectorPosition === "bottom" && renderSelector()}
-      {currentAttachment.name && (
+      {showMediaName && currentAttachment.name && (
         <Text style={styles.attachmentName} numberOfLines={2}>
           {currentAttachment.name}
         </Text>
