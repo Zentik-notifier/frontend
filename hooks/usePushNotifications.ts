@@ -1,15 +1,20 @@
-import { DevicePlatform, GetUserDevicesDocument, NotificationServiceType, RegisterDeviceDto, useGetNotificationServicesLazyQuery, useGetUserDevicesLazyQuery, useRegisterDeviceMutation, useRemoveDeviceMutation } from '@/generated/gql-operations-generated';
+import { apolloClient } from '@/config/apollo-client';
+import { ChangelogsForModalQuery, DevicePlatform, GetBackendVersionDocument, GetUserDevicesDocument, NotificationServiceType, RegisterDeviceDto, useGetNotificationServicesLazyQuery, useGetUserDevicesLazyQuery, useRegisterDeviceMutation, useRemoveDeviceMutation } from '@/generated/gql-operations-generated';
 import { useNotificationActions } from '@/hooks/useNotificationActions';
+import { translateInstant, Locale } from '@/hooks/useI18n';
 import { settingsService } from '@/services/settings-service';
 import { firebasePushNotificationService } from '@/services/firebase-push-notifications';
 import { iosNativePushNotificationService } from '@/services/ios-push-notifications';
 import { localNotifications } from '@/services/local-notifications';
 import { webPushNotificationService } from '@/services/web-push-notifications';
+import { checkChangelogUpdates } from '@/utils/changelogUtils';
 import * as BackgroundFetch from 'expo-background-task';
+import Constants from 'expo-constants';
 import { getRandomBytesAsync } from 'expo-crypto';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
+import packageJson from '../package.json';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { installConsoleLoggerBridge } from '@/services/console-logger-hook';
@@ -21,6 +26,7 @@ const isIOS = Platform.OS === 'ios' || Platform.OS === 'macos';
 const isSimulator = !Device.isDevice;
 
 const NOTIFICATION_REFRESH_TASK = 'zentik-notifications-refresh';
+const CHANGELOG_CHECK_TASK = 'zentik-changelog-check';
 
 export function usePushNotifications() {
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
@@ -111,6 +117,11 @@ export function usePushNotifications() {
       }
 
       try {
+        await BackgroundFetch.unregisterTaskAsync(CHANGELOG_CHECK_TASK);
+      } catch {
+      }
+
+      try {
         TaskManager.defineTask(NOTIFICATION_REFRESH_TASK, async () => {
           try {
             console.log("[BackgroundTask] Starting background task");
@@ -125,6 +136,86 @@ export function usePushNotifications() {
       }
 
       try {
+        TaskManager.defineTask(CHANGELOG_CHECK_TASK, async () => {
+          try {
+            console.log('[ChangelogBackgroundTask] Starting changelog background task');
+            installConsoleLoggerBridge();
+
+            const apiBase = settingsService.getApiBaseWithPrefix().replace(/\/$/, '');
+
+            let changelogData: ChangelogsForModalQuery | undefined;
+            try {
+              const res = await fetch(`${apiBase}/changelogs`);
+              if (!res.ok) {
+                console.warn('[ChangelogBackgroundTask] Failed to fetch changelogs via REST:', res.status);
+              } else {
+                const list = (await res.json()) as ChangelogsForModalQuery['changelogs'];
+                changelogData = { changelogs: list };
+              }
+            } catch (e) {
+              console.warn('[ChangelogBackgroundTask] Error fetching changelogs via REST', e);
+            }
+
+            let backendVersion: string | null | undefined = undefined;
+            try {
+              if (apolloClient) {
+                const backendRes = await apolloClient.query({
+                  query: GetBackendVersionDocument,
+                  fetchPolicy: 'network-only',
+                });
+                backendVersion = (backendRes.data as any)?.getBackendVersion;
+              }
+            } catch (e) {
+              console.warn('[ChangelogBackgroundTask] Failed to fetch backend version', e);
+            }
+
+            const showNativeVersion = Platform.OS !== 'web';
+            const nativeVersion = showNativeVersion
+              ? Constants.expoConfig?.version || 'unknown'
+              : undefined;
+            const appVersion = (packageJson as any).version || 'unknown';
+
+            const { latestEntry, unreadIds, shouldOpenModal } = checkChangelogUpdates(
+              changelogData,
+              {
+                appVersion,
+                backendVersion,
+                nativeVersion,
+              },
+            );
+
+            if (!shouldOpenModal || !latestEntry || unreadIds.length === 0) {
+              return;
+            }
+
+            const settings = settingsService.getSettings();
+            const locale = (settings.locale || 'en-EN') as Locale;
+
+            const title = translateInstant(locale, 'changelog.backgroundNotificationTitle') as string;
+            const bodyTemplate = translateInstant(locale, 'changelog.backgroundNotificationBody') as string;
+
+            const body =
+              (bodyTemplate.includes('{{version}}') && latestEntry.uiVersion
+                ? bodyTemplate.replace('{{version}}', latestEntry.uiVersion)
+                : bodyTemplate) || latestEntry.description;
+
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title,
+                body,
+                data: { changelogId: latestEntry.id },
+              },
+              trigger: null,
+            });
+          } catch (e) {
+            console.warn('[ChangelogBackgroundTask] Background fetch task failed:', e);
+          }
+        });
+      } catch (error) {
+        console.warn('[BackgroundTask] Failed to define changelog background task:', error);
+      }
+
+      try {
         await BackgroundFetch.registerTaskAsync(NOTIFICATION_REFRESH_TASK, {
           minimumInterval: 180
         });
@@ -132,6 +223,15 @@ export function usePushNotifications() {
       } catch (e) {
         // already registered or not supported
         console.debug("[usePushNotifications] Background fetch task already registered or not supported", e);
+      }
+
+      try {
+        await BackgroundFetch.registerTaskAsync(CHANGELOG_CHECK_TASK, {
+          minimumInterval: 15,
+        });
+        console.debug('[usePushNotifications] Changelog background task registered successfully');
+      } catch (e) {
+        console.debug('[usePushNotifications] Changelog background task already registered or not supported', e);
       }
     } catch (error) {
       console.error("[usePushNotifications] Error enabling background fetch:", error);

@@ -6,7 +6,6 @@ import {
   DeviceInfoDto,
   LoginDto,
   RegisterDto,
-  useChangelogsForModalQuery,
   useGetMeLazyQuery,
   useLoginMutation,
   useLogoutMutation,
@@ -16,13 +15,13 @@ import { useMarkAllAsRead } from "@/hooks/notifications/useNotificationMutations
 import { useAppLog } from "@/hooks/useAppLog";
 import { useCleanup } from "@/hooks/useCleanup";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
-import { useGetVersionsInfo } from "@/hooks/useGetVersionsInfo";
 import { Locale, localeToDatePickerLocale, useI18n } from "@/hooks/useI18n";
 import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
 import {
   UsePushNotifications,
   usePushNotifications,
 } from "@/hooks/usePushNotifications";
+import { useChangelogs } from "@/hooks/useChangelogs";
 import { openSharedCacheDb } from "@/services/db-setup";
 import { logger } from "@/services/logger";
 import { mediaCache } from "@/services/media-cache-service";
@@ -38,10 +37,7 @@ import { Alert, AppState, Platform } from "react-native";
 import { registerTranslation } from "react-native-paper-dates";
 import { useSettings } from "../hooks/useSettings";
 import { settingsRepository } from "../services/settings-repository";
-import {
-  ChangelogSeenVersions,
-  settingsService,
-} from "../services/settings-service";
+import { ChangelogSeenVersions, settingsService } from "../services/settings-service";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -96,28 +92,6 @@ interface AppContextProps {
   needsChangelogBackendBehindNotice: boolean;
 }
 
-const parseVersion = (v?: string | null): number[] => {
-  if (!v) return [];
-  return v
-    .split(".")
-    .map((part) => parseInt(part, 10))
-    .map((n) => (Number.isNaN(n) ? 0 : n));
-};
-
-const isVersionLess = (a?: string | null, b?: string | null): boolean => {
-  if (!a || !b) return false;
-  const av = parseVersion(a);
-  const bv = parseVersion(b);
-  const len = Math.max(av.length, bv.length);
-  for (let i = 0; i < len; i++) {
-    const ai = av[i] ?? 0;
-    const bi = bv[i] ?? 0;
-    if (ai < bi) return true;
-    if (ai > bi) return false;
-  }
-  return false;
-};
-
 const AppContext = createContext<AppContextProps | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -139,23 +113,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { mutateAsync: markAllAsRead } = useMarkAllAsRead();
   const { cleanup } = useCleanup();
   const { processPendingNavigationIntent } = usePendingNotificationIntents();
-  const { versions } = useGetVersionsInfo();
-  const { data: changelogData, refetch: refetchChangelogs } =
-    useChangelogsForModalQuery({
-      fetchPolicy: "cache-and-network",
-    });
-  const { appVersion, backendVersion, nativeVersion } = versions;
+  const {
+    changelogsForModal,
+    latestChangelog,
+    needsChangelogAppUpdateNotice,
+    needsChangelogBackendBehindNotice,
+    unreadChangelogIds,
+    shouldOpenChangelogModal,
+    refetchChangelogs,
+  } = useChangelogs();
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
-  const [latestChangelog, setLatestChangelog] =
-    useState<ChangelogForModalFragment | null>(null);
-  const [changelogsForModal, setChangelogsForModal] = useState<
-    ChangelogForModalFragment[]
-  >([]);
-  const [unreadChangelogIds, setUnreadChangelogIds] = useState<string[]>([]);
-  const [needsChangelogAppUpdateNotice, setNeedsChangelogAppUpdateNotice] =
-    useState(false);
-  const [needsChangelogBackendBehindNotice, setNeedsChangelogBackendBehindNotice] =
-    useState(false);
 
   useEffect(() => {
     const checkAndSetLocale = async () => {
@@ -246,117 +213,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    if (!changelogData || !changelogData.changelogs.length) {
-      return;
-    }
-
-    const allEntries = changelogData.changelogs;
-    setChangelogsForModal(allEntries);
-
-    const latestEntry = allEntries[0];
-    setLatestChangelog(latestEntry);
-
-    const seen: ChangelogSeenVersions | undefined =
-      settingsService.getChangelogSeenVersions();
-
-    let shouldShow = false;
-
-    // UI / web app version
-    if (
-      appVersion &&
-      (!seen || isVersionLess(appVersion, latestEntry.uiVersion))
-    ) {
-      shouldShow = true;
-    }
-    console.log(appVersion, latestEntry.uiVersion);
-
-    // Backend version
-    if (
-      backendVersion &&
-      (!seen || isVersionLess(seen.backendVersion, latestEntry.backendVersion))
-    ) {
-      shouldShow = true;
-    }
-
-    // Native versions per platform
-    if (Platform.OS === "ios") {
-      if (
-        nativeVersion &&
-        (!seen ||
-          isVersionLess(seen.iosVersion, latestEntry.iosVersion) ||
-          isVersionLess(nativeVersion, latestEntry.iosVersion))
-      ) {
-        shouldShow = true;
-      }
-    } else if (Platform.OS === "android") {
-      if (
-        nativeVersion &&
-        isVersionLess(nativeVersion, latestEntry.androidVersion) &&
-        (!seen ||
-          isVersionLess(seen.androidVersion, latestEntry.androidVersion))
-      ) {
-        shouldShow = true;
-      }
-    }
-
-    if (shouldShow) {
+    if (shouldOpenChangelogModal) {
       setIsChangelogModalOpen(true);
     }
-
-    // Calcola quali changelog sono "non letti" rispetto alle versioni viste finora
-    const nextUnreadIds: string[] = [];
-    for (const entry of allEntries) {
-      let isUnread = false;
-
-      if (!seen) {
-        isUnread = true;
-      } else {
-        if (isVersionLess(seen.uiVersion, entry.uiVersion)) {
-          isUnread = true;
-        }
-        if (isVersionLess(seen.backendVersion, entry.backendVersion)) {
-          isUnread = true;
-        }
-
-        if (Platform.OS === "ios") {
-          if (isVersionLess(seen.iosVersion, entry.iosVersion)) {
-            isUnread = true;
-          }
-        } else if (Platform.OS === "android") {
-          if (isVersionLess(seen.androidVersion, entry.androidVersion)) {
-            isUnread = true;
-          }
-        }
-      }
-
-      if (isUnread) {
-        nextUnreadIds.push(entry.id);
-      }
-    }
-    setUnreadChangelogIds(nextUnreadIds);
-
-    const latestNativeVersion =
-      Platform.OS === "ios"
-        ? latestEntry.iosVersion
-        : Platform.OS === "android"
-        ? latestEntry.androidVersion
-        : null;
-
-    const needsNotice =
-      (Platform.OS === "macos" || Platform.OS === "ios") &&
-      !!nativeVersion &&
-      !!latestNativeVersion &&
-      isVersionLess(nativeVersion, latestNativeVersion);
-    setNeedsChangelogAppUpdateNotice(needsNotice);
-
-    const isSelfHosted = process.env.EXPO_PUBLIC_SELFHOSTED === "true";
-    const needsBackendBehindNotice =
-      isSelfHosted &&
-      !!backendVersion &&
-      !!latestEntry.backendVersion &&
-      isVersionLess(backendVersion, latestEntry.backendVersion);
-    setNeedsChangelogBackendBehindNotice(needsBackendBehindNotice);
-  }, [changelogData, appVersion, backendVersion, nativeVersion]);
+  }, [shouldOpenChangelogModal]);
 
   const login = async (
     emailOrUsername: string,

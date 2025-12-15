@@ -126,19 +126,7 @@ export function useI18n(): UseI18nReturn {
   ): GetTranslationValue<T> => {
     // Use current locale state, fallback to 'en-EN' if not initialized
     const currentLocale = isInitialized ? locale : 'en-EN';
-    const translation = getNestedValue(translations[currentLocale], key);
-
-    if (typeof translation !== 'string') {
-      console.warn(`Translation not found for key: ${key}`);
-      return key as unknown as GetTranslationValue<T>;
-    }
-
-    // Replace parameters if provided
-    if (params) {
-      return replaceParams(translation, params) as GetTranslationValue<T>;
-    }
-
-    return translation as GetTranslationValue<T>;
+    return translateInstant(currentLocale, key, params);
   }, [locale, isInitialized]);
 
   const availableLocales = useMemo(() => Object.keys(translations) as Locale[], []);
@@ -157,4 +145,27 @@ export function useI18n(): UseI18nReturn {
     availableLocales,
     getLocaleDisplayName,
   };
+}
+
+/**
+ * Non-hook helper for translating outside React components (e.g. background tasks)
+ */
+export function translateInstant<T extends TranslationKeyPath>(
+  locale: Locale,
+  key: T,
+  params?: Record<string, string | number>
+): GetTranslationValue<T> {
+  const currentLocale: Locale = locale || 'en-EN';
+  const translation = getNestedValue(translations[currentLocale], key);
+
+  if (typeof translation !== 'string') {
+    console.warn(`Translation not found for key: ${key}`);
+    return key as unknown as GetTranslationValue<T>;
+  }
+
+  if (params) {
+    return replaceParams(translation, params) as GetTranslationValue<T>;
+  }
+
+  return translation as GetTranslationValue<T>;
 }

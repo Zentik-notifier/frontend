@@ -1091,6 +1091,8 @@
     "updateVersions": "Update versions from current app",
     "selfHostedBackendBehindNotice": "Your backend version is older than the one referenced in this changelog. Please update your self-hosted backend.",
     "updateNoticeIos": "Your app version is outdated. Please update the app from TestFlight.",
+    "backgroundNotificationTitle": "New changelog available",
+    "backgroundNotificationBody": "Open the app to see what's new.",
     "showOldChangelogs": "Show old changelogs",
     "hideOldChangelogs": "Hide old changelogs",
     "openTestflight": "Open TestFlight"

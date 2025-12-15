@@ -410,6 +410,8 @@
     "updateVersions": "Aggiorna le versioni da app corrente",
     "selfHostedBackendBehindNotice": "La versione del backend è più vecchia di quella indicata in questo changelog. Aggiorna il backend self-hosted.",
     "updateNoticeIos": "La versione dell'app è obsoleta. Aggiorna l'app tramite TestFlight.",
+    "backgroundNotificationTitle": "Nuovo changelog disponibile",
+    "backgroundNotificationBody": "Apri l'app per vedere le novità.",
     "showOldChangelogs": "Vedi changelog vecchi",
     "hideOldChangelogs": "Nascondi changelog vecchi",
     "openTestflight": "Apri TestFlight"

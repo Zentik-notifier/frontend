@@ -1094,6 +1094,8 @@ export interface Translation {
     updateVersions: string;
     selfHostedBackendBehindNotice: string;
     updateNoticeIos: string;
+    backgroundNotificationTitle: string;
+    backgroundNotificationBody: string;
     showOldChangelogs: string;
     hideOldChangelogs: string;
     openTestflight: string;
