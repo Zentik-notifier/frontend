@@ -457,7 +457,7 @@ class MediaCacheService {
             }
 
             await this.loadMetadata();
-            console.log('[MediaCache] DB initialized successfully');
+            console.log('[MediaCache] Media metadata loaded, items count:', Object.keys(this.metadata).length);
 
             // Queue thumbnail generation for all media that are downloaded but missing thumbnails
             if (!isWeb) {
@@ -1366,12 +1366,12 @@ class MediaCacheService {
     ): string | null {
         // Check if params have changed since last cache
         const cachedParams = this.bucketParamsCache.get(bucketId);
-        
+
         if (cachedParams) {
-            const paramsChanged = 
+            const paramsChanged =
                 cachedParams.bucketName !== bucketName ||
                 cachedParams.iconUrl !== iconUrl;
-            
+
             if (paramsChanged) {
                 // Params changed, invalidate cache
                 console.log(`[MediaCache] 🔄 Params changed for ${bucketName}, cache invalidated`);
@@ -1379,7 +1379,7 @@ class MediaCacheService {
                 return null;
             }
         }
-        
+
         return this.bucketIconUriCache.get(bucketId) ?? null;
     }
 
@@ -1513,12 +1513,12 @@ class MediaCacheService {
 
                 // Add fragment to force expo-image cache invalidation
                 const finalUri = savedDataUrl ? `${savedDataUrl}#t=${downloadTimestamp}` : savedDataUrl;
-                
+
                 // Store in memory cache for instant access
                 if (finalUri) {
                     this.bucketIconUriCache.set(bucketId, finalUri);
                 }
-                
+
                 return finalUri;
 
             } else {
@@ -1551,10 +1551,10 @@ class MediaCacheService {
 
                 // Add timestamp to force expo-image cache invalidation
                 const finalUriWithTimestamp = `${finalUri}?t=${downloadTimestamp}`;
-                
+
                 // Store in memory cache for instant access
                 this.bucketIconUriCache.set(bucketId, finalUriWithTimestamp);
-                
+
                 return finalUriWithTimestamp;
             }
         } catch (error) {

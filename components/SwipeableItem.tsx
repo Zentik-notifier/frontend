@@ -280,6 +280,46 @@ const SwipeableItem = forwardRef<SwipeableItemRef, SwipeableItemProps>(
 
     const hasMenu = showMenu && allMenuItems.length > 0;
 
+    const card = (
+      <Surface
+        elevation={0}
+        style={[
+          styles.card,
+          {
+            borderRadius,
+            borderColor: finalBorderColor,
+            borderWidth,
+          },
+          {
+            backgroundColor:
+              theme.colors.elevation?.level1 || theme.colors.surface,
+          },
+          ...(cardStyle ?? []),
+        ]}
+      >
+        <View style={styles.contentWrapper}>{children}</View>
+        {hasMenu && (
+          <View style={styles.menuButton}>
+            <PaperMenu
+              items={allMenuItems}
+              size={menuSize}
+              width={200}
+              menuOffset={50}
+              onMenuItemPress={handleMenuItemPress}
+            />
+          </View>
+        )}
+      </Surface>
+    );
+
+    if (!withActions) {
+      return (
+        <View style={[{ marginBottom, marginHorizontal }, containerStyle]}>
+          {card}
+        </View>
+      );
+    }
+
     function LeftAction() {
       if (!leftAction) return null;
 
@@ -342,40 +382,10 @@ const SwipeableItem = forwardRef<SwipeableItemRef, SwipeableItemProps>(
           enableContextMenu
           overshootLeft={false}
           overshootRight={false}
-          renderLeftActions={leftAction && withActions ? LeftAction : undefined}
-          renderRightActions={
-            rightAction && withActions ? RightAction : undefined
-          }
+          renderLeftActions={leftAction ? LeftAction : undefined}
+          renderRightActions={rightAction ? RightAction : undefined}
         >
-          <Surface
-            elevation={0}
-            style={[
-              styles.card,
-              {
-                borderRadius,
-                borderColor: finalBorderColor,
-                borderWidth,
-              },
-              {
-                backgroundColor:
-                  theme.colors.elevation?.level1 || theme.colors.surface,
-              },
-              ...(cardStyle ?? []),
-            ]}
-          >
-            <View style={styles.contentWrapper}>{children}</View>
-            {hasMenu && (
-              <View style={styles.menuButton}>
-                <PaperMenu
-                  items={allMenuItems}
-                  size={menuSize}
-                  width={200}
-                  menuOffset={50}
-                  onMenuItemPress={handleMenuItemPress}
-                />
-              </View>
-            )}
-          </Surface>
+          {card}
         </ReanimatedSwipeable>
       </>
     );
