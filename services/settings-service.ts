@@ -130,6 +130,8 @@ export interface UserSettings {
   hideHints?: boolean;
   lastCleanup?: string;
   changelogSeenVersions?: ChangelogSeenVersions;
+  // List of recently used bucket sharing identifiers (emails/usernames/userIds)
+  bucketSharingHints?: string[];
 }
 
 export interface AuthData {
@@ -216,6 +218,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   hideHints: false,
   lastCleanup: undefined,
   changelogSeenVersions: undefined,
+  bucketSharingHints: [],
 };
 
 const DEFAULT_AUTH_DATA: AuthData = {
@@ -315,6 +318,7 @@ class SettingsService {
         'onboarding',
         'termsAcceptance',
         'changelogSeenVersions',
+        'bucketSharingHints',
       ];
 
       await Promise.all([
@@ -1160,7 +1164,10 @@ class SettingsService {
         'galleryVisualization',
         'onboarding',
         'termsAcceptance',
-        'lastCleanup'
+        'lastCleanup',
+        'hideHints',
+        'changelogSeenVersions',
+        'bucketSharingHints',
       ];
 
       await this.savePartialSettings(keys, settings);
@@ -1317,6 +1324,25 @@ class SettingsService {
 
   public getGalleryVisualization(): GalleryVisualization {
     return this.settingsSubject.value.galleryVisualization;
+  }
+
+  public getBucketSharingHints(): string[] {
+    return this.settingsSubject.value.bucketSharingHints ?? [];
+  }
+
+  public async addBucketSharingHint(identifier: string): Promise<void> {
+    const trimmed = (identifier || '').trim();
+    if (!trimmed) return;
+
+    const currentHints = this.settingsSubject.value.bucketSharingHints ?? [];
+
+    // Move existing hint to front, keep list unique and reasonably small
+    const updatedHints = [
+      trimmed,
+      ...currentHints.filter((value) => value !== trimmed),
+    ].slice(0, 10);
+
+    await this.updateSettings({ bucketSharingHints: updatedHints });
   }
 
   // Legacy getter methods for backward compatibility

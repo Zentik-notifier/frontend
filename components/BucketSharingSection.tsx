@@ -12,6 +12,8 @@ import {
 } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useSettings } from "@/hooks/useSettings";
+import { settingsService } from "@/services/settings-service";
 import React, { useEffect, useState } from "react";
 import DetailItemCard from "./ui/DetailItemCard";
 import DetailSectionCard from "./ui/DetailSectionCard";
@@ -53,6 +55,7 @@ interface ShareModalProps {
   loading: boolean;
   editingPermission?: EntityPermissionFragment;
   onUpdate?: (permissions: Permission[]) => void;
+  sharingHints?: string[];
 }
 
 const ShareModal: React.FC<ShareModalProps> = ({
@@ -62,6 +65,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
   loading,
   editingPermission,
   onUpdate,
+  sharingHints,
 }) => {
   const { t } = useI18n();
   const theme = useTheme();
@@ -187,6 +191,20 @@ const ShareModal: React.FC<ShareModalProps> = ({
                 keyboardType="email-address"
                 mode="outlined"
               />
+
+              {sharingHints && sharingHints.length > 0 && (
+                <View style={styles.hintsContainer}>
+                  {sharingHints.map((hint) => (
+                    <TouchableOpacity
+                      key={hint}
+                      style={styles.hintChip}
+                      onPress={() => setIdentifier(hint)}
+                    >
+                      <Text style={styles.hintText}>{hint}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </>
           )}
 
@@ -288,9 +306,13 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
   const { t } = useI18n();
   const theme = useTheme();
   const { getPermissionsText } = usePermissions();
+  const {
+    settings: { hideHints, bucketSharingHints },
+  } = useSettings();
   const [showShareModal, setShowShareModal] = useState(false);
   const [editingPermission, setEditingPermission] =
     useState<EntityPermissionFragment | null>(null);
+  const lastSharedIdentifierRef = React.useRef<string | null>(null);
 
   const { userId } = useAppContext();
   const { canAdmin, allPermissions, loading, bucket } = useBucket(bucketId, {
@@ -311,6 +333,13 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
       setShowShareModal(false);
       setEditingPermission(null);
       console.log("✅ Bucket shared successfully");
+
+      const identifier = lastSharedIdentifierRef.current;
+      if (identifier) {
+        settingsService.addBucketSharingHint(identifier).catch((error) => {
+          console.error("Failed to save bucket sharing hint:", error);
+        });
+      }
     },
     onError: (error: Error) => {
       Alert.alert(
@@ -339,14 +368,17 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     );
 
+    const normalizedIdentifier = identifier.trim();
+    lastSharedIdentifierRef.current = normalizedIdentifier;
+
     shareBucket({
       input: {
         resourceType: ResourceType.Bucket,
         resourceId: bucketId,
         permissions,
-        userId: isUserId ? identifier : undefined,
-        userEmail: isEmail && !isUserId ? identifier : undefined,
-        username: !isEmail && !isUserId ? identifier : undefined,
+        userId: isUserId ? normalizedIdentifier : undefined,
+        userEmail: isEmail && !isUserId ? normalizedIdentifier : undefined,
+        username: !isEmail && !isUserId ? normalizedIdentifier : undefined,
       },
     });
   };
@@ -358,6 +390,15 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
 
   const handleUpdate = (permissions: Permission[]) => {
     if (!editingPermission) return;
+
+    const identifierFromEditing =
+      editingPermission.user?.username ||
+      editingPermission.user?.email ||
+      editingPermission.user?.id ||
+      null;
+    if (identifierFromEditing) {
+      lastSharedIdentifierRef.current = identifierFromEditing;
+    }
 
     shareBucket({
       input: {
@@ -425,16 +466,23 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
         items={allPermissions}
         renderItem={(permission) => {
           const getUserDisplayName = () => {
-            if (permission.user?.username) return `@${permission.user.username}`;
+            if (permission.user?.username)
+              return `@${permission.user.username}`;
             if (permission.user?.email) return permission.user.email;
             return t("buckets.sharing.unknownUser");
           };
 
-          const details: string[] = [getPermissionsText(permission.permissions)];
+          const details: string[] = [
+            getPermissionsText(permission.permissions),
+          ];
 
           if (permission.expiresAt) {
             const date = new Date(permission.expiresAt);
-            details.push(t("buckets.sharing.expiresAt", { date: date.toLocaleDateString() }));
+            details.push(
+              t("buckets.sharing.expiresAt", {
+                date: date.toLocaleDateString(),
+              })
+            );
           }
 
           // Show if permission was granted via invite code
@@ -454,7 +502,9 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
                 } else {
                   return t("buckets.sharing.grantedByOwner");
                 }
-                return t("buckets.sharing.grantedByWithOwner", { user: ownerDisplayName });
+                return t("buckets.sharing.grantedByWithOwner", {
+                  user: ownerDisplayName,
+                });
               }
               return t("buckets.sharing.grantedByOwner");
             }
@@ -469,7 +519,7 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
             }
 
             const isOwner = bucket?.user?.id === permission.grantedBy.id;
-            return isOwner 
+            return isOwner
               ? t("buckets.sharing.grantedByWithOwner", { user: displayName })
               : t("buckets.sharing.grantedBy", { user: displayName });
           };
@@ -509,6 +559,7 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
         onUpdate={handleUpdate}
         editingPermission={editingPermission || undefined}
         loading={sharingBucket}
+        sharingHints={!hideHints ? bucketSharingHints ?? [] : []}
       />
     </>
   );
@@ -565,6 +616,23 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
     marginBottom: 20,
+  },
+  hintsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 16,
+  },
+  hintChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    backgroundColor: "#f5f5f5",
+  },
+  hintText: {
+    fontSize: 13,
   },
   permissionsContainer: {
     flexDirection: "row",
