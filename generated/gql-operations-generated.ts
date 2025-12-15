@@ -366,6 +366,7 @@ export type Event = {
 export enum EventType {
   AccountDelete = 'ACCOUNT_DELETE',
   BucketCreation = 'BUCKET_CREATION',
+  BucketDeletion = 'BUCKET_DELETION',
   BucketSharing = 'BUCKET_SHARING',
   BucketUnsharing = 'BUCKET_UNSHARING',
   DeviceRegister = 'DEVICE_REGISTER',

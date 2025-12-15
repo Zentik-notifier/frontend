@@ -52,6 +52,7 @@ export default function ChangelogList() {
 
   const [deleteChangelog] = useMutation(DELETE_CHANGELOG_MUTATION);
   const [toggleChangelogActive] = useMutation(TOGGLE_CHANGELOG_ACTIVE_MUTATION);
+  const [expandedId, setExpandedId] = React.useState<string | null>(null);
 
   const changelogs = useMemo(() => data?.adminChangelogs ?? [], [data]);
 
@@ -195,19 +196,39 @@ export default function ChangelogList() {
                     </View>
                   )}
                   {item.entries && item.entries.length > 0 && (
-                    <View style={styles.entriesContainer}>
-                      {item.entries.map((entry, index) => (
-                        <Text
-                          key={index}
-                          variant="bodyMedium"
-                          style={styles.entryLine}
-                        >
-                          {t(`changelog.entryTypes.${entry.type}` as any)}
-                          {": "}
-                          {entry.text}
-                        </Text>
-                      ))}
-                    </View>
+                    <>
+                      <Button
+                        mode="text"
+                        compact
+                        style={styles.entriesToggleButton}
+                        onPress={() =>
+                          setExpandedId((current) =>
+                            current === item.id ? null : item.id
+                          )
+                        }
+                        icon={
+                          expandedId === item.id ? "chevron-up" : "chevron-down"
+                        }
+                      >
+                        {t("changelog.entriesTitle")}
+                      </Button>
+                      {expandedId === item.id && (
+                        <View style={styles.entriesContainer}>
+                          {item.entries.map((entry, index) => (
+                            <Text
+                              key={index}
+                              variant="bodyMedium"
+                              style={styles.entryLine}
+                            >
+                              {"\u2022 "}
+                              {t(`changelog.entryTypes.${entry.type}` as any)}
+                              {": "}
+                              {entry.text}
+                            </Text>
+                          ))}
+                        </View>
+                      )}
+                    </>
                   )}
                   <Text variant="bodySmall" style={styles.dateText}>
                     {new Date(item.createdAt).toLocaleString()}
@@ -251,6 +272,11 @@ const styles = StyleSheet.create({
   },
   entryLine: {
     marginBottom: 2,
+  },
+  entriesToggleButton: {
+    alignSelf: "flex-start",
+    marginTop: 4,
+    marginBottom: 4,
   },
   dateText: {
     opacity: 0.7,

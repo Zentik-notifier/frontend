@@ -407,6 +407,7 @@
       "other": "Altro"
     },
     "updateNotice": "La versione dell'app è obsoleta. Aggiorna l'app.",
+    "updateVersions": "Aggiorna le versioni da app corrente",
     "updateNoticeIos": "La versione dell'app è obsoleta. Aggiorna l'app tramite TestFlight.",
     "showOldChangelogs": "Vedi changelog vecchi",
     "hideOldChangelogs": "Nascondi changelog vecchi",

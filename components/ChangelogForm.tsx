@@ -264,6 +264,29 @@ export default function ChangelogForm({ id }: ChangelogFormProps) {
     }
   };
 
+  const handleUpdateVersionsFromInfo = () => {
+    if (!versions) {
+      return;
+    }
+
+    setEditState((prev) => {
+      const shouldPrefillIos = Platform.OS === "ios";
+      const shouldPrefillAndroid = Platform.OS === "android";
+
+      return {
+        ...prev,
+        iosVersion: shouldPrefillIos
+          ? versions.nativeVersion ?? prev.iosVersion
+          : prev.iosVersion,
+        androidVersion: shouldPrefillAndroid
+          ? versions.nativeVersion ?? prev.androidVersion
+          : prev.androidVersion,
+        uiVersion: versions.appVersion ?? prev.uiVersion,
+        backendVersion: versions.backendVersion ?? prev.backendVersion,
+      };
+    });
+  };
+
   const styles = StyleSheet.create({
     card: {
       marginBottom: 16,
@@ -375,6 +398,10 @@ export default function ChangelogForm({ id }: ChangelogFormProps) {
       justifyContent: "flex-end",
       gap: 8,
     },
+    versionUpdateButton: {
+      alignSelf: "flex-start",
+      marginTop: 4,
+    },
   });
 
   return (
@@ -437,6 +464,18 @@ export default function ChangelogForm({ id }: ChangelogFormProps) {
               style={styles.input}
             />
           </View>
+          {versions && (
+            <Button
+              mode="outlined"
+              compact
+              icon="refresh"
+              onPress={handleUpdateVersionsFromInfo}
+              disabled={versionsLoading}
+              style={styles.versionUpdateButton}
+            >
+              {t("changelog.updateVersions")}
+            </Button>
+          )}
           <View style={styles.inputGroup}>
             <Text variant="titleMedium" style={styles.inputLabel}>
               {t("changelog.description")} *

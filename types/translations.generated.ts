@@ -1091,6 +1091,7 @@ export interface Translation {
       other: string;
     };
     updateNotice: string;
+    updateVersions: string;
     updateNoticeIos: string;
     showOldChangelogs: string;
     hideOldChangelogs: string;

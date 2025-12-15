@@ -1088,6 +1088,7 @@
       "other": "Other"
     },
     "updateNotice": "Your app version is outdated. Please update the app.",
+    "updateVersions": "Update versions from current app",
     "updateNoticeIos": "Your app version is outdated. Please update the app from TestFlight.",
     "showOldChangelogs": "Show old changelogs",
     "hideOldChangelogs": "Hide old changelogs",
