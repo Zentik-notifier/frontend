@@ -39,6 +39,7 @@ interface MultiselectProps {
   mode?: "modal" | "inline";
   maxChipsToShow?: number; // Number of chips to show before "+X more"
   showSelectAll?: boolean;
+  preferredDropdownDirection?: "up" | "down";
 }
 
 const { height: screenHeight } = Dimensions.get("window");
@@ -58,6 +59,7 @@ export default function Multiselect({
   mode = "modal",
   maxChipsToShow = 3,
   showSelectAll = true,
+  preferredDropdownDirection = "down",
 }: MultiselectProps) {
   const theme = useTheme();
   const { t } = useI18n();
@@ -68,6 +70,7 @@ export default function Multiselect({
     left: 0,
     width: 0,
     maxHeight: 300,
+    isOpeningUpward: false,
   });
   const containerRef = useRef<View>(null);
   const sheetRef = useRef<ThemedBottomSheetRef>(null);
@@ -102,6 +105,7 @@ export default function Multiselect({
           const spaceAbove = pageY - verticalMargin;
           const maxDropdownHeight = 350;
           const minDropdownHeight = 120;
+          const downThreshold = minDropdownHeight * 1.5;
 
           // Estimate dropdown content height (actions/search + items)
           const estimatedHeader =
@@ -111,32 +115,64 @@ export default function Multiselect({
           const estimatedHeight =
             estimatedHeader + estimatedItems * estimatedItemHeight + 8;
 
-          // Prefer open down; open up only if not enough space below
-          const shouldOpenUpward =
-            spaceBelow < minDropdownHeight && spaceAbove > spaceBelow;
+          const canOpenDown = spaceBelow >= downThreshold;
+          const canOpenUp = spaceAbove >= minDropdownHeight;
 
-          const availableHeightRaw = shouldOpenUpward ? spaceAbove : spaceBelow;
-          const availableHeight = Math.max(
-            minDropdownHeight,
-            Math.min(maxDropdownHeight, availableHeightRaw)
-          );
+          let shouldOpenUpward: boolean;
 
-          // Desired height considering content estimate
-          const desiredHeight = Math.min(
-            availableHeight,
-            Math.max(
+          if (canOpenDown && canOpenUp) {
+            // Both directions possible: honor preferred direction
+            shouldOpenUpward = preferredDropdownDirection === "up";
+          } else if (canOpenUp) {
+            shouldOpenUpward = true;
+          } else if (canOpenDown) {
+            shouldOpenUpward = false;
+          } else {
+            // Neither side has enough space: choose side with more space
+            shouldOpenUpward = spaceAbove > spaceBelow;
+          }
+
+          let availableHeight: number;
+          let desiredHeight: number;
+
+          if (shouldOpenUpward) {
+            // For upward opening, allow the dropdown to shrink to fit the
+            // available space so that its bottom can align with the trigger.
+            const upAvailable = Math.max(0, spaceAbove);
+            availableHeight = Math.min(maxDropdownHeight, upAvailable);
+            const baseHeight = Math.min(maxDropdownHeight, estimatedHeight);
+            desiredHeight = Math.max(0, Math.min(availableHeight, baseHeight));
+          } else {
+            // For downward opening, keep a minimum height and use the
+            // 1.5x-threshold logic already enforced by canOpenDown.
+            const downAvailable = Math.max(0, spaceBelow);
+            availableHeight = Math.max(
+              minDropdownHeight,
+              Math.min(maxDropdownHeight, downAvailable)
+            );
+            const baseHeight = Math.max(
               minDropdownHeight,
               Math.min(maxDropdownHeight, estimatedHeight)
-            )
-          );
+            );
+            desiredHeight = Math.min(availableHeight, baseHeight);
+          }
 
           // Compute top target edge aligned to the field
-          let top = shouldOpenUpward ? pageY - desiredHeight : pageY + height;
+          let top: number;
 
-          // Clamp within screen
-          const topMin = verticalMargin;
-          const topMax = screenHeight - verticalMargin - minDropdownHeight;
-          top = Math.max(topMin, Math.min(top, topMax));
+          if (shouldOpenUpward) {
+            // Align dropdown bottom to the trigger when opening upward
+            top = pageY - desiredHeight;
+            const topMin = verticalMargin;
+            top = Math.max(topMin, top);
+          } else {
+            // Align dropdown top to the trigger when opening downward,
+            // clamping so it doesn't overflow the bottom of the screen
+            top = pageY + height;
+            const topMin = verticalMargin;
+            const topMax = screenHeight - verticalMargin - desiredHeight;
+            top = Math.max(topMin, Math.min(top, topMax));
+          }
 
           let left = Math.min(
             Math.max(horizontalMargin, pageX),
@@ -150,6 +186,7 @@ export default function Multiselect({
             left,
             width,
             maxHeight: desiredHeight,
+            isOpeningUpward: shouldOpenUpward,
           });
         }
       );
@@ -255,6 +292,12 @@ export default function Multiselect({
       top: dropdownPosition.top,
       left: dropdownPosition.left,
       width: dropdownPosition.width,
+      // When opening upward, fix the container height so that its bottom
+      // edge aligns with the trigger; when opening downward, let content
+      // define the height up to maxHeight.
+      height: dropdownPosition.isOpeningUpward
+        ? dropdownPosition.maxHeight
+        : undefined,
       maxHeight: dropdownPosition.maxHeight,
       backgroundColor: theme.colors.surface,
       borderWidth: 1,

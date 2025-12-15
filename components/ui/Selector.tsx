@@ -37,6 +37,7 @@ interface SelectorProps {
   error?: boolean;
   errorText?: string;
   mode?: "modal" | "inline";
+  preferredDropdownDirection?: "up" | "down";
 }
 
 const { height: screenHeight } = Dimensions.get("window");
@@ -54,6 +55,7 @@ export default function Selector({
   error = false,
   errorText,
   mode = "modal",
+  preferredDropdownDirection = "down",
 }: SelectorProps) {
   const theme = useTheme();
   const { t } = useI18n();
@@ -63,6 +65,8 @@ export default function Selector({
     top: 0,
     left: 0,
     width: 0,
+    maxHeight: 300,
+    isOpeningUpward: false,
   });
   const containerRef = useRef<View>(null);
   const sheetRef = useRef<ThemedBottomSheetRef>(null);
@@ -83,14 +87,99 @@ export default function Selector({
 
   const toggleInlineDropdown = () => {
     if (!isInlineDropdownOpen) {
-      // Calculate the position of the dropdown
-      containerRef.current?.measure((x, y, width, height, pageX, pageY) => {
-        setDropdownPosition({
-          top: pageY + height,
-          left: pageX,
-          width: width,
-        });
-      });
+      // Calculate the position of the dropdown with preferred direction when possible
+      (containerRef.current as any)?.measureInWindow?.(
+        (pageX: number, pageY: number, width: number, height: number) => {
+          const { width: screenWidth, height: screenHeight } =
+            Dimensions.get("window");
+
+          const verticalMargin = 8;
+          const horizontalMargin = 8;
+
+          const spaceBelow = screenHeight - verticalMargin - (pageY + height);
+          const spaceAbove = pageY - verticalMargin;
+
+          const maxDropdownHeight = 350;
+          const minDropdownHeight = 120;
+          const downThreshold = minDropdownHeight * 1.5;
+
+          const estimatedHeader = isSearchable ? 56 : 0;
+          const estimatedItemHeight = 48;
+          const estimatedItems = Math.max(1, Math.min(options.length, 7));
+          const estimatedHeight =
+            estimatedHeader + estimatedItems * estimatedItemHeight + 8;
+
+          const canOpenDown = spaceBelow >= downThreshold;
+          const canOpenUp = spaceAbove >= minDropdownHeight;
+
+          let shouldOpenUpward: boolean;
+
+          if (canOpenDown && canOpenUp) {
+            shouldOpenUpward = preferredDropdownDirection === "up";
+          } else if (canOpenUp) {
+            shouldOpenUpward = true;
+          } else if (canOpenDown) {
+            shouldOpenUpward = false;
+          } else {
+            // If neither side has enough space, choose the side with more space
+            shouldOpenUpward = spaceAbove > spaceBelow;
+          }
+
+          let availableHeight: number;
+          let desiredHeight: number;
+
+          if (shouldOpenUpward) {
+            // For upward opening, allow the dropdown to shrink to fit the
+            // available space so that its bottom can align with the trigger.
+            const upAvailable = Math.max(0, spaceAbove);
+            availableHeight = Math.min(maxDropdownHeight, upAvailable);
+            const baseHeight = Math.min(maxDropdownHeight, estimatedHeight);
+            desiredHeight = Math.max(0, Math.min(availableHeight, baseHeight));
+          } else {
+            // For downward opening, keep a minimum height and use the
+            // 1.5x-threshold logic already enforced by canOpenDown.
+            const downAvailable = Math.max(0, spaceBelow);
+            availableHeight = Math.max(
+              minDropdownHeight,
+              Math.min(maxDropdownHeight, downAvailable)
+            );
+            const baseHeight = Math.max(
+              minDropdownHeight,
+              Math.min(maxDropdownHeight, estimatedHeight)
+            );
+            desiredHeight = Math.min(availableHeight, baseHeight);
+          }
+
+          let top: number;
+
+          if (shouldOpenUpward) {
+            // Align dropdown bottom to the trigger when opening upward
+            top = pageY - desiredHeight;
+            const topMin = verticalMargin;
+            top = Math.max(topMin, top);
+          } else {
+            // Align dropdown top to the trigger when opening downward,
+            // clamping so it doesn't overflow the bottom of the screen
+            top = pageY + height;
+            const topMin = verticalMargin;
+            const topMax = screenHeight - verticalMargin - desiredHeight;
+            top = Math.max(topMin, Math.min(top, topMax));
+          }
+
+          let left = Math.min(
+            Math.max(horizontalMargin, pageX),
+            Math.max(horizontalMargin, screenWidth - horizontalMargin - width)
+          );
+
+          setDropdownPosition({
+            top,
+            left,
+            width,
+            maxHeight: desiredHeight,
+            isOpeningUpward: shouldOpenUpward,
+          });
+        }
+      );
     }
     setIsInlineDropdownOpen(!isInlineDropdownOpen);
     if (!isInlineDropdownOpen) {
@@ -174,11 +263,17 @@ export default function Selector({
       top: dropdownPosition.top,
       left: dropdownPosition.left,
       width: dropdownPosition.width,
+      // When opening upward, fix the container height so that its bottom
+      // edge aligns with the trigger; when opening downward, let content
+      // define the height up to maxHeight.
+      height: dropdownPosition.isOpeningUpward
+        ? dropdownPosition.maxHeight
+        : undefined,
       backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.outline,
       borderRadius: 8,
-      // maxHeight: 300,
+      maxHeight: dropdownPosition.maxHeight,
       zIndex: 9999,
       elevation: 10,
       shadowColor: "#000",
@@ -206,7 +301,7 @@ export default function Selector({
       color: theme.colors.onSurface,
     },
     inlineOptionsList: {
-      maxHeight: 300,
+      maxHeight: dropdownPosition.maxHeight,
     },
     inlineOptionItem: {
       flexDirection: "row",
