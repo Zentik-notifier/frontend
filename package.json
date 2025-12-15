@@ -38,7 +38,8 @@
     "ios": "expo run:ios",
     "regen:icons": "node scripts/regen-icons.js",
     "generate:i18n-types": "node scripts/generate-i18n-types.js",
-    "eas-build-pre-install": "npm config set legacy-peer-deps true"
+    "eas-build-pre-install": "npm config set legacy-peer-deps true",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@apollo/client": "^3.14.0",
@@ -131,6 +132,7 @@
     "dotenv": "^17.2.1",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "patch-package": "^8.0.0",
     "tsx": "^4.20.4",
     "typescript": "~5.9.2"
   },

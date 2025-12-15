@@ -89,6 +89,53 @@ export interface WebStorageDB extends DBSchema {
   };
 }
 
+function isIndexedDBAvailable(): boolean {
+  try {
+    return (
+      typeof globalThis !== 'undefined' &&
+      typeof (globalThis as any).indexedDB !== 'undefined' &&
+      (globalThis as any).indexedDB !== null
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * On some PWA environments indexedDB may not be available immediately.
+ * This helper waits (with a timeout) until indexedDB appears before
+ * attempting to open the database.
+ */
+async function waitForIndexedDB(timeoutMs: number = 10000, intervalMs: number = 100): Promise<void> {
+  // Only relevant on web; on native we skip the check
+  if (Platform.OS !== 'web') return;
+
+  if (isIndexedDBAvailable()) {
+    return;
+  }
+
+  const start = Date.now();
+
+  await new Promise<void>((resolve) => {
+    const check = () => {
+      if (isIndexedDBAvailable()) {
+        resolve();
+        return;
+      }
+
+      if (Date.now() - start >= timeoutMs) {
+        console.warn('[DB] indexedDB not available after waiting, proceeding without guarantee');
+        resolve();
+        return;
+      }
+
+      setTimeout(check, intervalMs);
+    };
+
+    check();
+  });
+}
+
 let dbPromise: Promise<SQLiteDatabase> | null = null;
 let webDbPromise: Promise<IDBPDatabase<WebStorageDB>> | null = null;
 let dbInstance: SQLiteDatabase | null = null;
@@ -784,7 +831,21 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
   }
 
   try {
-    // await waitForIndexedDB();
+    await waitForIndexedDB();
+    // If indexedDB is still not available (e.g. during SSR / Node build),
+    // avoid calling openDB from idb which expects a browser environment.
+    if (!isIndexedDBAvailable()) {
+      console.warn('[DB] IndexedDB not available in this environment, skipping web storage DB initialization');
+
+      // In non-browser environments (build, Node) return a stub object instead of throwing,
+      // so that static builds like `npm run build:web` don't fail.
+      if (typeof window === 'undefined') {
+        return {} as IDBPDatabase<WebStorageDB>;
+      }
+
+      throw new Error('IndexedDB not available');
+    }
+
     webDbPromise = openDB<WebStorageDB>('zentik-storage', 9, {
       upgrade(db, oldVersion, newVersion, transaction) {
         if (!db.objectStoreNames.contains('keyvalue')) {
@@ -841,6 +902,13 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
     });
   } catch (error) {
     console.error('Failed to open web storage db:', error);
+
+    // During non-browser execution (SSR / build), swallow the error and return a stub DB
+    // so that the process can continue; actual web runtime will have IndexedDB.
+    if (typeof window === 'undefined') {
+      return {} as IDBPDatabase<WebStorageDB>;
+    }
+
     throw error;
   }
 
