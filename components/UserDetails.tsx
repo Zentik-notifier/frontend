@@ -47,6 +47,8 @@ export default function UserDetails({ userId }: UserDetailsProps) {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = React.useState("info");
 
+  const showTabLabels = false;
+
   const {
     data: userData,
     loading: userLoading,
@@ -195,27 +197,31 @@ export default function UserDetails({ userId }: UserDetailsProps) {
           buttons={[
             {
               value: "info",
-              label: t("administration.tabs.info"),
+              label: showTabLabels ? t("administration.tabs.info") : undefined,
               icon: "account",
             },
             {
               value: "stats",
-              label: t("administration.tabs.stats"),
+              label: showTabLabels ? t("administration.tabs.stats") : undefined,
               icon: "chart-bar",
             },
             {
               value: "logs",
-              label: t("administration.tabs.logs"),
+              label: showTabLabels ? t("administration.tabs.logs") : undefined,
               icon: "text-box",
             },
             {
               value: "events",
-              label: t("administration.tabs.events"),
+              label: showTabLabels
+                ? t("administration.tabs.events")
+                : undefined,
               icon: "history",
             },
             {
               value: "system-token-events",
-              label: t("administration.tabs.systemTokenEvents" as any),
+              label: showTabLabels
+                ? (t("administration.tabs.systemTokenEvents" as any) as string)
+                : undefined,
               icon: "api",
             },
           ]}
@@ -224,11 +230,12 @@ export default function UserDetails({ userId }: UserDetailsProps) {
       </View>
 
       {activeTab === "events" ? (
-        <EventsReviewProvider fixedUserId={userId}>
+        <EventsReviewProvider key="user-events" fixedUserId={userId}>
           <EventsReview hideFilter />
         </EventsReviewProvider>
       ) : activeTab === "system-token-events" ? (
         <EventsReviewProvider
+          key="system-token-events"
           fixedObjectIds={userSystemTokens.map((token) => token.id)}
         >
           <EventsReview hideFilter />
