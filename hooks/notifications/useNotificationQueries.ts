@@ -428,7 +428,7 @@ export function useAllNotificationIds(
         ),
         queryFn: async (): Promise<string[]> => {
             try {
-                const ids = await getAllNotificationIds();
+                const ids = await getAllNotificationIds(filters);
                 // console.log(`[useAllNotificationIds] Loaded ${ids.length} notification IDs`);
                 return ids;
             } catch (error) {

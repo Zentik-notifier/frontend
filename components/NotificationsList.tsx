@@ -214,6 +214,11 @@ export default function NotificationsList({
     refetchInterval: 20000, // Refresh from local DB every 10 seconds
   });
 
+  // Load all notification IDs for select-all functionality
+  const { data: allNotificationIds } = useAllNotificationIds({
+    filters: queryFilters,
+  });
+
   // Flatten all pages into single array
   const notifications = useMemo(() => {
     if (!data?.pages) return [];
@@ -237,10 +242,10 @@ export default function NotificationsList({
   }, [notifications, queryFilters, querySort, isLoadingNewFilter]);
 
   useEffect(() => {
-    if (notifications) {
-      handleSetAllNotificationIds(notifications.map((n) => n.id));
+    if (allNotificationIds) {
+      handleSetAllNotificationIds(allNotificationIds);
     }
-  }, [notifications, handleSetAllNotificationIds]);
+  }, [allNotificationIds, handleSetAllNotificationIds]);
 
   // Reset when filters change - invalidate query instead of changing limit
   useEffect(() => {
