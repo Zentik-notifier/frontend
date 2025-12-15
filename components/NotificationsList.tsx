@@ -92,7 +92,7 @@ export default function NotificationsList({
   const [isLoadingNewFilter, setIsLoadingNewFilter] = useState(false);
 
   const {
-    state: { selectionMode, selectedItems, allNotificationIds: contextAllIds },
+    state: { selectionMode, selectedItems },
     handleCloseSelectionMode,
     handleSetAllNotificationIds,
     dispatch,
@@ -214,11 +214,6 @@ export default function NotificationsList({
     refetchInterval: 20000, // Refresh from local DB every 10 seconds
   });
 
-  // Load all notification IDs for select-all functionality
-  const { data: allNotificationIds } = useAllNotificationIds({
-    filters: queryFilters,
-  });
-
   // Flatten all pages into single array
   const notifications = useMemo(() => {
     if (!data?.pages) return [];
@@ -242,10 +237,10 @@ export default function NotificationsList({
   }, [notifications, queryFilters, querySort, isLoadingNewFilter]);
 
   useEffect(() => {
-    if (allNotificationIds) {
-      handleSetAllNotificationIds(allNotificationIds);
+    if (notifications) {
+      handleSetAllNotificationIds(notifications.map((n) => n.id));
     }
-  }, [allNotificationIds, handleSetAllNotificationIds]);
+  }, [notifications, handleSetAllNotificationIds]);
 
   // Reset when filters change - invalidate query instead of changing limit
   useEffect(() => {
