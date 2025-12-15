@@ -1183,6 +1183,7 @@
     "BUCKET_CREATION": "Creazione Bucket",
     "BUCKET_SHARING": "Condivisione Bucket",
     "BUCKET_UNSHARING": "Rimozione Condivisione",
+    "BUCKET_DELETION": "Eliminazione Bucket",
     "DEVICE_REGISTER": "Registrazione Dispositivo",
     "DEVICE_UNREGISTER": "Rimozione Dispositivo",
     "ACCOUNT_DELETE": "Eliminazione Account",

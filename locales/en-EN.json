@@ -2267,6 +2267,7 @@
     "BUCKET_CREATION": "Bucket Creation",
     "BUCKET_SHARING": "Bucket Sharing",
     "BUCKET_UNSHARING": "Bucket Unsharing",
+    "BUCKET_DELETION": "Bucket Deletion",
     "DEVICE_REGISTER": "Device Register",
     "DEVICE_UNREGISTER": "Device Unregister",
     "ACCOUNT_DELETE": "Account Delete",

@@ -2270,6 +2270,7 @@ export interface Translation {
     BUCKET_CREATION: string;
     BUCKET_SHARING: string;
     BUCKET_UNSHARING: string;
+    BUCKET_DELETION: string;
     DEVICE_REGISTER: string;
     DEVICE_UNREGISTER: string;
     ACCOUNT_DELETE: string;
