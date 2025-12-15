@@ -15,6 +15,7 @@ interface ChangelogUpdatesModalProps {
   changelogs: ChangelogItem[];
   unreadIds: string[];
   needsAppUpdateNotice: boolean;
+  needsBackendBehindNotice: boolean;
   onClose: () => void;
 }
 
@@ -23,6 +24,7 @@ export const ChangelogUpdatesModal: React.FC<ChangelogUpdatesModalProps> = ({
   changelogs,
   unreadIds,
   needsAppUpdateNotice,
+  needsBackendBehindNotice,
   onClose,
 }) => {
   const { t } = useI18n();
@@ -121,6 +123,27 @@ export const ChangelogUpdatesModal: React.FC<ChangelogUpdatesModalProps> = ({
                   {t("changelog.openTestflight")}
                 </Text>
               )}
+            </Card.Content>
+          </Card>
+        )}
+        {needsBackendBehindNotice && (
+          <Card
+            mode="contained"
+            style={[
+              styles.backendNoticeContainer,
+              { backgroundColor: theme.colors.errorContainer },
+            ]}
+          >
+            <Card.Content>
+              <Text
+                variant="bodyMedium"
+                style={[
+                  styles.backendNoticeText,
+                  { color: theme.colors.onErrorContainer },
+                ]}
+              >
+                {t("changelog.selfHostedBackendBehindNotice")}
+              </Text>
             </Card.Content>
           </Card>
         )}
@@ -343,6 +366,14 @@ const styles = StyleSheet.create({
   changelogList: {
     marginTop: 8,
     maxHeight: 320,
+  },
+  backendNoticeContainer: {
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  backendNoticeText: {
+    fontWeight: "500",
   },
   ChangelogForModalFragment: {
     borderRadius: 10,

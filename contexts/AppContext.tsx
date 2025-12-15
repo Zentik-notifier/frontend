@@ -93,6 +93,7 @@ interface AppContextProps {
   closeChangelogModal: () => void;
   latestChangelog: ChangelogForModalFragment | null;
   needsChangelogAppUpdateNotice: boolean;
+  needsChangelogBackendBehindNotice: boolean;
 }
 
 const parseVersion = (v?: string | null): number[] => {
@@ -152,6 +153,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   >([]);
   const [unreadChangelogIds, setUnreadChangelogIds] = useState<string[]>([]);
   const [needsChangelogAppUpdateNotice, setNeedsChangelogAppUpdateNotice] =
+    useState(false);
+  const [needsChangelogBackendBehindNotice, setNeedsChangelogBackendBehindNotice] =
     useState(false);
 
   useEffect(() => {
@@ -345,6 +348,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       !!latestNativeVersion &&
       isVersionLess(nativeVersion, latestNativeVersion);
     setNeedsChangelogAppUpdateNotice(needsNotice);
+
+    const isSelfHosted = process.env.EXPO_PUBLIC_SELFHOSTED === "true";
+    const needsBackendBehindNotice =
+      isSelfHosted &&
+      !!backendVersion &&
+      !!latestEntry.backendVersion &&
+      isVersionLess(backendVersion, latestEntry.backendVersion);
+    setNeedsChangelogBackendBehindNotice(needsBackendBehindNotice);
   }, [changelogData, appVersion, backendVersion, nativeVersion]);
 
   const login = async (
@@ -796,6 +807,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         closeChangelogModal,
         latestChangelog,
         needsChangelogAppUpdateNotice,
+        needsChangelogBackendBehindNotice,
       }}
     >
       {children}
@@ -815,6 +827,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           changelogs={changelogsForModal}
           unreadIds={unreadChangelogIds}
           needsAppUpdateNotice={needsChangelogAppUpdateNotice}
+          needsBackendBehindNotice={needsChangelogBackendBehindNotice}
           onClose={closeChangelogModal}
         />
       )}

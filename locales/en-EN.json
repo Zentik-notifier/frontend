@@ -1089,6 +1089,7 @@
     },
     "updateNotice": "Your app version is outdated. Please update the app.",
     "updateVersions": "Update versions from current app",
+    "selfHostedBackendBehindNotice": "Your backend version is older than the one referenced in this changelog. Please update your self-hosted backend.",
     "updateNoticeIos": "Your app version is outdated. Please update the app from TestFlight.",
     "showOldChangelogs": "Show old changelogs",
     "hideOldChangelogs": "Hide old changelogs",

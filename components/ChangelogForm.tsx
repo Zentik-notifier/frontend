@@ -161,8 +161,12 @@ export default function ChangelogForm({ id }: ChangelogFormProps) {
   const isFormValid = editState.description.trim().length > 0;
   const [isEntryFormOpen, setIsEntryFormOpen] = useState(false);
   const [entryDraft, setEntryDraft] = useState<ChangelogEntryEdit | null>(null);
+  const [editingEntryIndex, setEditingEntryIndex] = useState<number | null>(
+    null
+  );
 
   const addEntry = () => {
+    setEditingEntryIndex(null);
     setEntryDraft({ type: "feature", text: "" });
     setIsEntryFormOpen(true);
   };
@@ -186,10 +190,25 @@ export default function ChangelogForm({ id }: ChangelogFormProps) {
   };
 
   const removeEntry = (index: number) => {
+    if (editingEntryIndex === index) {
+      setIsEntryFormOpen(false);
+      setEntryDraft(null);
+      setEditingEntryIndex(null);
+    }
     setEditState((prev) => ({
       ...prev,
       entries: prev.entries.filter((_, i) => i !== index),
     }));
+  };
+
+  const editEntry = (index: number) => {
+    const existing = editState.entries[index];
+    if (!existing) {
+      return;
+    }
+    setEditingEntryIndex(index);
+    setEntryDraft({ type: existing.type, text: existing.text });
+    setIsEntryFormOpen(true);
   };
 
   const saveEntryDraft = () => {
@@ -197,21 +216,40 @@ export default function ChangelogForm({ id }: ChangelogFormProps) {
       return;
     }
 
-    setEditState((prev) => ({
-      ...prev,
-      entries: [
-        ...prev.entries,
-        { type: entryDraft.type, text: entryDraft.text.trim() },
-      ],
-    }));
+    setEditState((prev) => {
+      const normalized = {
+        type: entryDraft.type,
+        text: entryDraft.text.trim(),
+      };
+
+      if (
+        editingEntryIndex !== null &&
+        editingEntryIndex >= 0 &&
+        editingEntryIndex < prev.entries.length
+      ) {
+        const entries = [...prev.entries];
+        entries[editingEntryIndex] = normalized;
+        return {
+          ...prev,
+          entries,
+        };
+      }
+
+      return {
+        ...prev,
+        entries: [...prev.entries, normalized],
+      };
+    });
 
     setIsEntryFormOpen(false);
     setEntryDraft(null);
+    setEditingEntryIndex(null);
   };
 
   const cancelEntryDraft = () => {
     setIsEntryFormOpen(false);
     setEntryDraft(null);
+    setEditingEntryIndex(null);
   };
 
   const handleSave = async () => {
@@ -380,8 +418,10 @@ export default function ChangelogForm({ id }: ChangelogFormProps) {
       flex: 1,
     },
     entryListActions: {
+      flexDirection: "row",
       justifyContent: "center",
       alignItems: "center",
+      gap: 4,
     },
     entryListType: {
       fontWeight: "500",
@@ -536,6 +576,12 @@ export default function ChangelogForm({ id }: ChangelogFormProps) {
                     </Text>
                   </View>
                   <View style={styles.entryListActions}>
+                    <IconButton
+                      icon="pencil"
+                      size={20}
+                      iconColor={theme.colors.primary}
+                      onPress={() => editEntry(index)}
+                    />
                     <IconButton
                       icon="delete"
                       size={20}
