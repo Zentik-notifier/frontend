@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React from "react";
 import { Alert, StyleSheet, View } from "react-native";
-import { Icon, IconButton, useTheme } from "react-native-paper";
+import { ActivityIndicator, IconButton, useTheme } from "react-native-paper";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 
@@ -70,22 +70,20 @@ export default function StatusBadge() {
     ? theme.colors.onErrorContainer
     : theme.colors.onPrimaryContainer;
 
-  const extraIcon = (() => {
-    if (status.type === "update" && (isCheckingUpdate || isUpdating)) {
-      return "dots-horizontal";
-    }
+  const isBusyAction =
+    (status.type === "update" && (isCheckingUpdate || isUpdating)) ||
+    (status.type === "push-notifications" && !!push.registeringDevice);
 
-    if (status.type === "push-notifications") {
-      return push.registeringDevice ? "clock" : "alert";
-    }
-
-    return null;
-  })();
+  const icon: any = isBusyAction
+    ? ({ size, color }: any) => (
+        <ActivityIndicator size={Math.max(12, Math.round(size * 0.8))} color={color} />
+      )
+    : getStatusIcon();
 
   return (
     <View style={styles.statusBadgeContainer}>
       <IconButton
-        icon={getStatusIcon()}
+        icon={icon}
         size={20}
         iconColor={iconColor}
         containerColor={containerColor}
@@ -93,20 +91,6 @@ export default function StatusBadge() {
         disabled={!isClickable}
         style={styles.statusBadge}
       />
-
-      {extraIcon && (
-        <View
-          style={[
-            styles.extraIconContainer,
-            {
-              backgroundColor: containerColor,
-              borderColor: theme.colors.background,
-            },
-          ]}
-        >
-          <Icon source={extraIcon} size={10} color={iconColor} />
-        </View>
-      )}
     </View>
   );
 }
@@ -120,16 +104,5 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     margin: 0,
-  },
-  extraIconContainer: {
-    position: "absolute",
-    right: -2,
-    bottom: -2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: StyleSheet.hairlineWidth,
   },
 });
