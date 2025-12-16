@@ -25,64 +25,52 @@ import {
   ViewStyle,
 } from "react-native";
 import { Pressable } from "react-native-gesture-handler";
-import { Icon, List, Surface, Text, TouchableRipple, useTheme } from "react-native-paper";
+import {
+  Icon,
+  List,
+  Surface,
+  Text,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 import { MediaType } from "../generated/gql-operations-generated";
 import { useI18n } from "../hooks/useI18n";
 import { useCachedItem } from "../hooks/useMediaCache";
 import { MediaTypeIcon } from "./MediaTypeIcon";
+import { RenderItemInfo } from "react-native-awesome-gallery";
 
-interface CachedMediaProps {
+type CachedMediaItem = {
   url: string;
   mediaType: MediaType;
-  style?: StyleProp<ImageStyle | ViewStyle>;
   originalFileName?: string;
   notificationDate?: number;
-  contentFit?: ImageContentFit;
+  maxHeight?: number;
   onPress?: () => void;
-  isCompact?: boolean;
   showMediaIndicator?: boolean;
   useThumbnail?: boolean;
-  noBorder?: boolean;
-
-  imageProps?: {
-    transition?: number;
-    placeholder?: any;
-    blurRadius?: number;
-    priority?: "low" | "normal" | "high";
-    cachePolicy?: ImageProps["cachePolicy"];
-    contentFit?: ImageContentFit;
-  };
-
-  videoProps?: {
-    autoPlay?: boolean;
-    isLooping?: boolean;
-    isMuted?: boolean;
-    showControls?: boolean;
-  };
-
-  audioProps?: {
-    shouldPlay?: boolean;
-    isLooping?: boolean;
-    showControls?: boolean;
-  };
-}
+  showControls?: boolean;
+  autoPlay?: boolean;
+  isCompact?: boolean;
+  cache?: boolean;
+};
 
 export const CachedMedia = React.memo(function CachedMedia({
-  url,
-  mediaType,
-  style,
-  originalFileName,
-  notificationDate,
-  contentFit = "cover",
-  onPress: onPressParent,
-  isCompact,
-  showMediaIndicator,
-  useThumbnail,
-  imageProps,
-  videoProps,
-  audioProps,
-  noBorder,
-}: CachedMediaProps) {
+  item: {
+    url,
+    mediaType,
+    originalFileName,
+    notificationDate,
+    onPress: onPressParent,
+    showMediaIndicator,
+    useThumbnail,
+    autoPlay,
+    isCompact,
+    cache,
+    showControls,
+    maxHeight,
+  },
+  setImageDimensions,
+}: RenderItemInfo<CachedMediaItem>) {
   const { t } = useI18n();
   const theme = useTheme();
   const [audioState, setAudioState] = useState({
@@ -119,10 +107,10 @@ export const CachedMedia = React.memo(function CachedMedia({
 
   const videoPlayer = useVideoPlayer(videoSource || "", (player) => {
     if (videoSource) {
-      player.loop = videoProps?.isLooping ?? true;
-      player.muted = videoProps?.isMuted ?? true;
+      player.loop = true;
+      player.muted = true;
 
-      if (videoProps?.autoPlay ?? false) {
+      if (autoPlay ?? false) {
         player.play();
       }
     }
@@ -341,7 +329,7 @@ export const CachedMedia = React.memo(function CachedMedia({
       videoPlayer
         .replaceAsync(videoSource)
         .then(() => {
-          if (videoProps?.autoPlay ?? false) {
+          if (autoPlay) {
             videoPlayer.play();
           }
         })
@@ -349,7 +337,7 @@ export const CachedMedia = React.memo(function CachedMedia({
           console.error("Failed to update video player source:", error);
         });
     }
-  }, [videoSource, isVideoType, videoPlayer, videoProps?.autoPlay]);
+  }, [videoSource, isVideoType, videoPlayer, autoPlay]);
 
   // useEffect(() => {
   //   if (isAudioType || !audioPlayer) return;
@@ -452,21 +440,18 @@ export const CachedMedia = React.memo(function CachedMedia({
       ? defaultStyles.stateContainerCompact
       : defaultStyles.stateContainer;
 
-    const dashed = { borderStyle: noBorder ? "solid" : "dashed" };
-
     if (!isCompact) {
       return [
         baseStyle,
         {
           backgroundColor: stateBackgrounds[stateType],
           borderColor: stateColors[stateType],
+          borderStyle: "dashed",
         },
-        dashed,
-        style,
       ];
     }
 
-    return [baseStyle, dashed, style];
+    return [baseStyle];
   };
 
   const renderForceDownloadButton = (icon: string, withDelete?: boolean) => {
@@ -607,19 +592,22 @@ export const CachedMedia = React.memo(function CachedMedia({
           >
             <ExpoImage
               source={{ uri: thumbPath }}
-              style={
-                isCompact
-                  ? ([
-                      defaultStyles.stateContainerCompact,
-                      style,
-                    ] as StyleProp<ImageStyle>)
-                  : (style as StyleProp<ImageStyle>)
-              }
-              contentFit={
-                isCompact ? "cover" : imageProps?.contentFit ?? contentFit
-              }
-              transition={imageProps?.transition ?? 150}
-              cachePolicy={imageProps?.cachePolicy || "memory"}
+              // style={style as StyleProp<ImageStyle>}
+              style={StyleSheet.absoluteFillObject}
+              onLoad={(e) => {
+                const { width, height } = e.source;
+                setImageDimensions({ width, height });
+              }}
+              // style={
+              //   isCompact
+              //     ? ([
+              //         defaultStyles.stateContainerCompact,
+              //         style,
+              //       ] as StyleProp<ImageStyle>)
+              //     : (style as StyleProp<ImageStyle>)
+              // }
+              contentFit={"contain"}
+              cachePolicy={cache ? "memory" : "none"}
             />
           </TouchableOpacity>
         );
@@ -640,6 +628,7 @@ export const CachedMedia = React.memo(function CachedMedia({
 
     // Media content rendering (full media when not using thumbnails)
     if (mediaSource.localPath) {
+      console.log(mediaSource);
       switch (mediaType) {
         case MediaType.Image:
         case MediaType.Icon:
@@ -652,22 +641,26 @@ export const CachedMedia = React.memo(function CachedMedia({
             >
               <ExpoImage
                 source={{ uri: mediaSource.localPath }}
-                style={
-                  isCompact
-                    ? ([
-                        defaultStyles.stateContainerCompact,
-                        style,
-                      ] as StyleProp<ImageStyle>)
-                    : (style as StyleProp<ImageStyle>)
-                }
-                contentFit={
-                  isCompact ? "cover" : imageProps?.contentFit ?? contentFit
-                }
-                transition={imageProps?.transition ?? 200}
-                placeholder={imageProps?.placeholder}
-                blurRadius={imageProps?.blurRadius}
-                priority={imageProps?.priority}
-                cachePolicy={imageProps?.cachePolicy || "memory"}
+                style={StyleSheet.absoluteFillObject}
+                style={{ height: maxHeight ?? "100%" }}
+                // contentFit="cover"
+                onLoad={(e) => {
+                  console.log(e);
+                  const { width, height } = e.source;
+                  setImageDimensions({ width, height });
+                }}
+                // style={
+                //   isCompact
+                //     ? ([
+                //         defaultStyles.stateContainerCompact,
+                //         style,
+                //       ] as StyleProp<ImageStyle>)
+                //     : (style as StyleProp<ImageStyle>)
+                // }
+                // contentFit={
+                //   isCompact ? "cover" : imageProps?.contentFit ?? contentFit
+                // }
+                cachePolicy={cache ? "memory" : "none"}
                 onError={(event) => {
                   mediaCache.markAsPermanentFailure(
                     url,
@@ -680,7 +673,6 @@ export const CachedMedia = React.memo(function CachedMedia({
           );
 
         case MediaType.Video:
-          const showControls = videoProps?.showControls ?? true;
           return (
             <View
               style={{
@@ -691,33 +683,34 @@ export const CachedMedia = React.memo(function CachedMedia({
               }}
             >
               <VideoView
-                style={
-                  isCompact
-                    ? [defaultStyles.stateContainerCompact, style]
-                    : [
-                        style,
-                        {
-                          position: "relative",
-                          maxWidth: "100%",
-                          maxHeight: "100%",
-                          // Use actual video dimensions if available, otherwise fallback to 16:9
-                          aspectRatio: videoSize
-                            ? videoSize.width / videoSize.height
-                            : 16 / 9,
-                          // Set specific dimensions based on video size when available
-                          ...(videoSize &&
-                            !isCompact && {
-                              width: Math.min(videoSize.width, 400), // Max width constraint
-                              height: Math.min(videoSize.height, 300), // Max height constraint
-                            }),
-                        },
-                      ]
-                }
+                // style={
+                //   isCompact
+                //     ? [defaultStyles.stateContainerCompact, style]
+                //     : [
+                //         style,
+                //         {
+                //           position: "relative",
+                //           maxWidth: "100%",
+                //           maxHeight: "100%",
+                //           // Use actual video dimensions if available, otherwise fallback to 16:9
+                //           aspectRatio: videoSize
+                //             ? videoSize.width / videoSize.height
+                //             : 16 / 9,
+                //           // Set specific dimensions based on video size when available
+                //           ...(videoSize &&
+                //             !isCompact && {
+                //               width: Math.min(videoSize.width, 400), // Max width constraint
+                //               height: Math.min(videoSize.height, 300), // Max height constraint
+                //             }),
+                //         },
+                //       ]
+                // }
+                style={StyleSheet.absoluteFillObject}
                 player={videoPlayer}
                 nativeControls={showControls && !isCompact}
                 allowsPictureInPicture={showControls}
                 fullscreenOptions={{
-                  enable: showControls && !isCompact,
+                  enable: !!showControls && !isCompact,
                   orientation: "default", // Allow device orientation changes
                   autoExitOnRotate: false, // Don't exit fullscreen on rotation
                 }}
@@ -744,7 +737,7 @@ export const CachedMedia = React.memo(function CachedMedia({
           if (isCompact) {
             return (
               <Pressable onPress={handleFrameClick}>
-                <View style={[defaultStyles.stateContainerCompact, style]}>
+                <View style={[defaultStyles.stateContainerCompact]}>
                   <Pressable
                     onPress={() => {
                       audioPlayer?.playing
@@ -766,9 +759,9 @@ export const CachedMedia = React.memo(function CachedMedia({
           }
 
           return (
-            <View style={[defaultStyles.audioContainer, style]}>
+            <View style={[defaultStyles.audioContainer]}>
               <View style={defaultStyles.audioContent}>
-                {audioProps?.showControls !== false && (
+                {!!showControls && (
                   <Pressable
                     onPress={() => {
                       audioPlayer?.playing
@@ -834,7 +827,7 @@ export const CachedMedia = React.memo(function CachedMedia({
   }, [mediaType, mediaSource?.localPath, mediaSource?.localThumbPath]);
 
   return (
-    <View style={style}>
+    <View>
       {renderMedia()}
       {showMediaIndicator &&
         (isCompact ? renderSmallTypeIndicator() : renderTypeIndicator())}

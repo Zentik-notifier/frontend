@@ -99,8 +99,8 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
     );
   };
 
-  const mediaHeight =
-    maxHeight ?? (containerWidth > 0 ? containerWidth * 0.6 : 200);
+  // const mediaHeight =
+  //   maxHeight ?? (containerWidth > 0 ? containerWidth * 0.6 : 200);
 
   const renderSelector = () => {
     if (!attachments || attachments.length <= 1) return null;
@@ -165,9 +165,11 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
 
       {selectorPosition === "top" && renderSelector()}
 
-      <View style={[styles.mediaContainer, { height: mediaHeight }]}>
+      <View>
         <Gallery
           ref={galleryRef}
+          hideAdjacentImagesOnScaledImage
+          disableTransitionOnScaledImage
           data={attachments}
           initialIndex={Math.min(currentIndex, attachments.length - 1)}
           onIndexChange={(index) => {
@@ -179,32 +181,24 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
           pinchEnabled={zoomEnabled}
           disableVerticalSwipe={!onSwipeToClose}
           disableSwipeUp
-          disableTransitionOnScaledImage
           swipeEnabled={swipeToChange}
           onSwipeToClose={onSwipeToClose}
-          containerDimensions={{
-            width: containerWidth || 0,
-            height: mediaHeight,
-          }}
-          renderItem={({ item, index }) => (
+          style={{ height: maxHeight }}
+          renderItem={({ item, index, setImageDimensions }) => (
             <CachedMedia
+              setImageDimensions={setImageDimensions}
+              index={index}
               key={`${item.url}-${index}`}
-              url={item.url!}
-              mediaType={item.mediaType}
-              style={[{ height: mediaHeight }]}
-              originalFileName={item.name || undefined}
-              onPress={handleAttachmentPress}
-              notificationDate={notificationDate}
-              videoProps={{
+              item={{
+                url: item.url!,
+                mediaType: item.mediaType,
+                maxHeight,
+                originalFileName: item.name || undefined,
+                onPress: handleAttachmentPress,
+                notificationDate,
                 autoPlay: currentIndex === index,
-                isLooping: true,
-                isMuted: true,
                 showControls,
-              }}
-              audioProps={{
-                shouldPlay: false,
-                isLooping: false,
-                showControls,
+                cache: true,
               }}
             />
           )}
@@ -311,10 +305,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderColor: "transparent",
     borderWidth: 1,
-  },
-  mediaContainer: {
-    width: "100%",
-    position: "relative",
   },
   media: {
     width: "100%",

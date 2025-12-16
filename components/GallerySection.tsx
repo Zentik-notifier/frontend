@@ -72,31 +72,36 @@ export default function GallerySection() {
               ]}
             >
               <View style={{ flex: 1 }}>
-                <CachedMedia
-                  url={mediaItem.url}
-                  mediaType={mediaItem.mediaType}
-                  useThumbnail={!userSettings.settings.galleryVisualization.autoPlay}
-                  style={styles.gridMediaThumbnail}
-                  originalFileName={mediaItem.originalFileName}
-                  videoProps={{
-                    isMuted: true,
-                    autoPlay: true,
+                {/* <CachedMedia
+                  setImageDimensions={() => {}}
+                  item={{
+                    url: mediaItem.url,
+                    mediaType: mediaItem.mediaType,
+                    useThumbnail:
+                      !userSettings.settings.galleryVisualization.autoPlay,
+                    style: styles.gridMediaThumbnail,
+                    originalFileName: mediaItem.originalFileName,
+                    videoProps: {
+                      isMuted: true,
+                      autoPlay: true,
+                    },
+                    cache: false,
+                    imageProps: { cachePolicy: "none" },
+                    audioProps: { showControls: true },
+                    showMediaIndicator: true,
+                    isCompact: true,
+                    onPress: () => {
+                      if (selectionMode) {
+                        handleToggleItemSelection(mediaItem.key);
+                      } else {
+                        const index = flatOrder.findIndex(
+                          (m) => m.key === mediaItem.key
+                        );
+                        setFullscreenIndex(index);
+                      }
+                    },
                   }}
-                  imageProps={{ cachePolicy: "none" }}
-                  audioProps={{ showControls: true }}
-                  showMediaIndicator
-                  isCompact
-                  onPress={() => {
-                    if (selectionMode) {
-                      handleToggleItemSelection(mediaItem.key);
-                    } else {
-                      const index = flatOrder.findIndex(
-                        (m) => m.key === mediaItem.key
-                      );
-                      setFullscreenIndex(index);
-                    }
-                  }}
-                />
+                /> */}
                 {isSelected && (
                   <>
                     <View style={styles.selectedOverlay} pointerEvents="none" />

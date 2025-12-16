@@ -81,9 +81,7 @@ export default function FullScreenMediaViewer({
     : 0;
   const activeAttachment = hasAttachments ? attachments![safeIndex] : undefined;
 
-  const effectiveUrl = hasAttachments
-    ? activeAttachment?.url || ""
-    : url || "";
+  const effectiveUrl = hasAttachments ? activeAttachment?.url || "" : url || "";
   const effectiveMediaType = hasAttachments
     ? activeAttachment?.mediaType || MediaType.Image
     : mediaType || MediaType.Image;
@@ -231,7 +229,8 @@ export default function FullScreenMediaViewer({
           ]}
         >
           {/* Navigation buttons (left) */}
-          {(hasAttachments && attachments!.length > 1) || enableSwipeNavigation ? (
+          {(hasAttachments && attachments!.length > 1) ||
+          enableSwipeNavigation ? (
             <View style={styles.navigationSection}>
               <IconButton
                 icon="chevron-left"
@@ -241,9 +240,7 @@ export default function FullScreenMediaViewer({
                 onPress={() => {
                   if (hasAttachments) {
                     const nextIndex =
-                      safeIndex === 0
-                        ? attachments!.length - 1
-                        : safeIndex - 1;
+                      safeIndex === 0 ? attachments!.length - 1 : safeIndex - 1;
                     setCurrentIndex(nextIndex);
                     onCurrentIndexChange?.(nextIndex);
                   } else {
