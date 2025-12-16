@@ -1,6 +1,6 @@
 import * as Device from 'expo-device';
 import { useMemo } from 'react';
-import { useWindowDimensions } from "react-native";
+import { Platform, useWindowDimensions } from "react-native";
 import { useSettings } from './useSettings';
 
 export function useDeviceType() {
@@ -36,6 +36,19 @@ export function useDeviceType() {
     const isTablet = !isMobile && deviceType === Device.DeviceType.TABLET;
     const isDesktop = !isMobile && deviceType === Device.DeviceType.DESKTOP;
 
-    return { isReady, deviceType, isMobile, isTablet, isDesktop }
-  }, [layout, width])
+    let isSwipeableEnabled = false;
+    if (isMobile || isTablet) {
+      isSwipeableEnabled = true;
+    }
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      // Check if device has touch capability
+      isSwipeableEnabled = (
+        window.matchMedia("(pointer: coarse)").matches ||
+        "ontouchstart" in window ||
+        navigator.maxTouchPoints > 0
+      );
+    }
+
+    return { isReady, deviceType, isMobile, isTablet, isDesktop, isSwipeableEnabled }
+  }, [layout, width]);
 }

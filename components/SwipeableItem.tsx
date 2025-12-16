@@ -12,6 +12,7 @@ import * as Clipboard from "expo-clipboard";
 import { useI18n } from "@/utils/i18n";
 import { useAppLog } from "@/hooks/useAppLog";
 import PaperMenu, { PaperMenuItem } from "./ui/PaperMenu";
+import { useDeviceType } from "@/hooks/useDeviceType";
 
 export interface SwipeableItemRef {
   close: () => void;
@@ -74,6 +75,7 @@ const SwipeableItem = forwardRef<SwipeableItemRef, SwipeableItemProps>(
     const theme = useTheme();
     const { t } = useI18n();
     const { logAppEvent } = useAppLog();
+    const { isSwipeableEnabled } = useDeviceType();
 
     useImperativeHandle(ref, () => ({
       close: () => {
@@ -83,23 +85,7 @@ const SwipeableItem = forwardRef<SwipeableItemRef, SwipeableItemProps>(
 
     // Enable swipe actions only on touch devices
     // On web, detect touch capability using media queries
-    const withActions = React.useMemo(() => {
-      if (Platform.OS === "macos") {
-        return false; // Never enable on macOS
-      }
-      if (Platform.OS === "ios" || Platform.OS === "android") {
-        return true; // Always enable on native mobile platforms
-      }
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        // Check if device has touch capability
-        return (
-          window.matchMedia("(pointer: coarse)").matches ||
-          "ontouchstart" in window ||
-          navigator.maxTouchPoints > 0
-        );
-      }
-      return false;
-    }, []);
+    const withActions = isSwipeableEnabled;
 
     const finalBorderColor = borderColor ?? theme.colors.outlineVariant;
 
@@ -376,7 +362,6 @@ const SwipeableItem = forwardRef<SwipeableItemRef, SwipeableItemProps>(
           ref={swipeableRef}
           containerStyle={[{ marginBottom, marginHorizontal }, containerStyle]}
           friction={2}
-          enableTrackpadTwoFingerGesture
           rightThreshold={40}
           leftThreshold={40}
           enableContextMenu

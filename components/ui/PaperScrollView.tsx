@@ -1,3 +1,4 @@
+import { useAppLog } from "@/hooks/useAppLog";
 import React, { useState } from "react";
 import {
   Platform,
@@ -11,12 +12,10 @@ import {
   ActivityIndicator,
   Button,
   FAB,
-  IconButton,
   Text,
-  useTheme,
+  useTheme
 } from "react-native-paper";
 import { useI18n } from "../../hooks/useI18n";
-import { useAppLog } from "@/hooks/useAppLog";
 
 export interface CustomFabAction {
   icon: string;
