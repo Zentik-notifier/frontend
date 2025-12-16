@@ -574,8 +574,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
           // Notify all repositories that database is closed
           // This prevents race conditions and allows automatic reopening on next operation
-          mediaCache.notifyDatabaseClosed();
-          settingsRepository.notifyDatabaseClosed();
+          // mediaCache.notifyDatabaseClosed();
+          // settingsRepository.notifyDatabaseClosed();
         } catch (error) {
           console.error("[AppContext] Error during background cleanup:", error);
         }

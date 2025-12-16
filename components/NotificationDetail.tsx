@@ -1,13 +1,11 @@
 import { SmartTextRenderer } from "@/components";
 import AttachmentGallery from "@/components/AttachmentGallery";
 import BucketIcon from "@/components/BucketIcon";
-import FullScreenMediaViewer from "@/components/FullScreenMediaViewer";
 import NotificationSnoozeButton from "@/components/NotificationSnoozeButton";
 import {
-  MediaType,
   NotificationActionType,
   NotificationDeliveryType,
-  useGetEntityExecutionQuery,
+  useGetEntityExecutionQuery
 } from "@/generated/gql-operations-generated";
 import { useNotificationActions } from "@/hooks";
 import {
@@ -16,10 +14,10 @@ import {
   useMarkAsRead,
   useNotification,
 } from "@/hooks/notifications";
+import { useAppLog } from "@/hooks/useAppLog";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import { useNotificationUtils } from "@/hooks/useNotificationUtils";
-import { useAppLog } from "@/hooks/useAppLog";
 import * as Clipboard from "expo-clipboard";
 import React, { useEffect, useMemo, useState } from "react";
 import {
