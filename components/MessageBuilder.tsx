@@ -116,16 +116,13 @@ export default function MessageBuilder({
           formData.append("filename", filename);
           formData.append("mediaType", MediaType.Image);
 
-          const response = await fetch(
-            `${apiUrl}/api/v1/attachments/upload`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-              body: formData,
-            }
-          );
+          const response = await fetch(`${apiUrl}/api/v1/attachments/upload`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+          });
 
           if (!response.ok) {
             throw new Error(
@@ -165,7 +162,6 @@ export default function MessageBuilder({
     }
   }, [t]);
 
-
   const handleSaveMessage = useCallback(async () => {
     try {
       const createMessageDto: CreateMessageDto = {
@@ -184,6 +180,8 @@ export default function MessageBuilder({
         snoozes: snoozeTimes,
         postpones: postponeTimes,
       };
+
+      console.log(`Creating new message: ${JSON.stringify(createMessageDto)}`);
 
       await createMessage({
         variables: { input: createMessageDto },
@@ -467,7 +465,9 @@ export default function MessageBuilder({
                     label={t("notifications.automaticActions.snoozeTimes")}
                     values={snoozeTimes}
                     onValuesChange={setSnoozeTimes}
-                    placeholder={t("notifications.automaticActions.snoozeTimePlaceholder")}
+                    placeholder={t(
+                      "notifications.automaticActions.snoozeTimePlaceholder"
+                    )}
                     unit="m"
                     min={1}
                     max={9999}
@@ -478,7 +478,9 @@ export default function MessageBuilder({
                     label={t("notifications.automaticActions.postponeTimes")}
                     values={postponeTimes}
                     onValuesChange={setPostponeTimes}
-                    placeholder={t("notifications.automaticActions.postponeTimePlaceholder")}
+                    placeholder={t(
+                      "notifications.automaticActions.postponeTimePlaceholder"
+                    )}
                     unit="m"
                     min={1}
                     max={9999}

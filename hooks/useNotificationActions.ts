@@ -23,6 +23,59 @@ import {
 } from '../generated/gql-operations-generated';
 import { useI18n } from './useI18n';
 
+function extractErrorMessages(error: any): string[] {
+  if (!error) return [];
+
+  const messages: string[] = [];
+
+  if (typeof error.message === 'string') {
+    messages.push(error.message);
+  }
+
+  if (Array.isArray(error.graphQLErrors)) {
+    for (const gqlError of error.graphQLErrors) {
+      if (typeof gqlError?.message === 'string') {
+        messages.push(gqlError.message);
+      }
+
+      const responseMessage = (gqlError as any)?.extensions?.exception?.response?.message;
+      if (typeof responseMessage === 'string') {
+        messages.push(responseMessage);
+      } else if (Array.isArray(responseMessage)) {
+        for (const msg of responseMessage) {
+          if (typeof msg === 'string') {
+            messages.push(msg);
+          }
+        }
+      }
+    }
+  }
+
+  return messages;
+}
+
+async function clearLocalDeviceTokens() {
+  try {
+    await settingsService.clearKeyPair();
+  } catch (err) {
+    console.warn('[useNotificationActions] Failed to clear key pair while handling Device not found:', err);
+  }
+
+  try {
+    await settingsService.saveDeviceToken('');
+    await settingsService.saveDeviceId('');
+  } catch (err) {
+    console.warn('[useNotificationActions] Failed to clear local device identifiers while handling Device not found:', err);
+  }
+
+  console.log('[useNotificationActions] Local device tokens cleared after Device not found error');
+}
+
+function isDeviceNotFoundError(error: any): boolean {
+  const messages = extractErrorMessages(error);
+  return messages.some((msg) => typeof msg === 'string' && msg.includes('Device not found'));
+}
+
 /**
  * Hook that provides callbacks for handling notification actions
  * Centralizes all action logic with access to GraphQL and API
@@ -275,19 +328,61 @@ export function useNotificationActions() {
   }, [onNavigate, onWebhook, onBackgroundCall, onMarkAsRead, onDelete, onSnooze, onOpenNotification, t]);
 
   const refreshPushToken = useCallback(async (updateTokenDto: UpdateDeviceTokenDto) => {
-    await updateDeviceToken({
-      variables: {
-        input: updateTokenDto
+    try {
+      const result = await updateDeviceToken({
+        variables: {
+          input: updateTokenDto
+        }
+      });
+
+      // Con errorPolicy='all' gli errori GraphQL arrivano in result.errors anche con HTTP 200
+      const gqlErrors = (result as any)?.errors;
+      if (Array.isArray(gqlErrors) && gqlErrors.length > 0) {
+        const syntheticError = { graphQLErrors: gqlErrors };
+        if (isDeviceNotFoundError(syntheticError)) {
+          console.warn('[useNotificationActions] Device not found while updating token (GraphQL error), clearing local device tokens');
+          await clearLocalDeviceTokens();
+        }
       }
-    });
+    } catch (error: any) {
+      console.error('[useNotificationActions] Failed to refresh push token:', error);
+
+      if (isDeviceNotFoundError(error)) {
+        console.warn('[useNotificationActions] Device not found while updating token, clearing local device tokens');
+        await clearLocalDeviceTokens();
+      }
+
+      throw error;
+    }
   }, [updateDeviceToken]);
 
   const useUpdateUserDevice = useCallback(async (userDevice: UpdateUserDeviceInput) => {
-    await updateUserDeviceMutation({
-      variables: {
-        input: userDevice
+    try {
+      const result = await updateUserDeviceMutation({
+        variables: {
+          input: userDevice
+        }
+      });
+      console.log(result, userDevice);
+
+      const gqlErrors = (result as any)?.errors;
+      if (Array.isArray(gqlErrors) && gqlErrors.length > 0) {
+        const syntheticError = { graphQLErrors: gqlErrors };
+        if (isDeviceNotFoundError(syntheticError)) {
+          console.warn('[useNotificationActions] Device not found while updating device (GraphQL error), clearing local device tokens');
+          await clearLocalDeviceTokens();
+        }
       }
-    });
+    } catch (error: any) {
+      console.error('[useNotificationActions] Failed to update user device:', error);
+
+      if (isDeviceNotFoundError(error)) {
+        console.warn('[useNotificationActions] Device not found while updating device, clearing local device tokens');
+        await clearLocalDeviceTokens();
+      }
+
+      throw error;
+    }
   }, [updateUserDeviceMutation]);
 
   const pushNotificationReceived = useCallback(async (notificationId: string) => {

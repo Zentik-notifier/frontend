@@ -25,7 +25,6 @@ export function useConnectionStatus(push: UsePushNotifications) {
   const [isWifi, setIsWifi] = useState(true);
   const [canAutoDownload, setCanAutoDownload] = useState(true);
   const [hasFilesystemPermission, setHasFilesystemPermission] = useState(true);
-
   // Manage auth state internally
   const [isOfflineAuth, setIsOfflineAuth] = useState(false);
   const [isBackendUnreachable, setIsBackendUnreachable] = useState(false);
@@ -53,27 +52,27 @@ export function useConnectionStatus(push: UsePushNotifications) {
       try {
         // Test if we can access and write to storage using expo-file-system/next API
         const testFile = new File(Paths.cache, 'test-permission-check.txt');
-        
+
         // Delete if exists from previous test
         if (testFile.exists) {
           testFile.delete();
         }
-        
+
         // Test write access
         testFile.create();
         testFile.write('test', {});
-        
+
         // Test read access
         const content = await testFile.text();
         if (content !== 'test') {
           throw new Error('Read verification failed');
         }
-        
+
         // Clean up
         if (testFile.exists) {
           testFile.delete();
         }
-        
+
         setHasFilesystemPermission(true);
       } catch (error: any) {
         console.warn('[useConnectionStatus] Filesystem permission check failed:', error.message);
@@ -113,7 +112,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
         action: null,
         color: '#FF3B30'
       };
-    } else if (push.deviceRegistered === false && !push.registeringDevice) {
+    } else if (!push.deviceRegistered && !push.registeringDevice) {
       newStatus = {
         type: 'push-notifications',
         icon: 'bell-off',

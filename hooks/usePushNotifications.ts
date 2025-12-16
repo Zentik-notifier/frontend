@@ -46,8 +46,6 @@ export function usePushNotifications() {
         shouldShowList: true,
       })
     });
-
-    setDeviceToken(settingsService.getAuthData().deviceToken);
   }, []);
 
   const [registerDeviceMutation] = useRegisterDeviceMutation();
@@ -77,16 +75,18 @@ export function usePushNotifications() {
         } else if (isIOS) {
           result = await iosNativePushNotificationService.initialize(callbacks);
         }
+
+        const authData = settingsService.getAuthData();
         console.log(`[usePushNotifications] Initialize result:`, result);
+
         if (result?.hasPermissionError) {
           setPushPermissionError(true);
           setDeviceRegistered(false);
         } else if (isReady()) {
           setPushPermissionError(false);
-          setDeviceRegistered(true);
-        } else {
-          setDeviceRegistered(false);
         }
+
+        setDeviceRegistered(!!authData.deviceId && !!authData.deviceToken);
       } else if (pushType.service === NotificationServiceType.Local) {
         console.log("[usePushNotifications] Initializing local notifications...");
         await localNotifications.initialize(callbacks);
@@ -342,6 +342,7 @@ export function usePushNotifications() {
       await settingsService.saveDeviceToken('');
       await settingsService.saveDeviceId('');
       setDeviceToken(null);
+      setDeviceRegistered(false);
       console.log('[usePushNotifications] Tokens and device ID cleared');
 
       return true;

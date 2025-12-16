@@ -13,6 +13,7 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useMarkAllAsRead } from "@/hooks/notifications/useNotificationMutations";
 import { useAppLog } from "@/hooks/useAppLog";
+import { useChangelogs } from "@/hooks/useChangelogs";
 import { useCleanup } from "@/hooks/useCleanup";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { Locale, localeToDatePickerLocale, useI18n } from "@/hooks/useI18n";
@@ -21,10 +22,8 @@ import {
   UsePushNotifications,
   usePushNotifications,
 } from "@/hooks/usePushNotifications";
-import { useChangelogs } from "@/hooks/useChangelogs";
 import { openSharedCacheDb } from "@/services/db-setup";
 import { logger } from "@/services/logger";
-import { mediaCache } from "@/services/media-cache-service";
 import * as Localization from "expo-localization";
 import React, {
   createContext,
@@ -33,7 +32,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { Alert, AppState, Platform } from "react-native";
+import { Alert, AppState } from "react-native";
 import { registerTranslation } from "react-native-paper-dates";
 import { useSettings } from "../hooks/useSettings";
 import { settingsRepository } from "../services/settings-repository";

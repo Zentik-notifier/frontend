@@ -74,6 +74,18 @@ export default function StatusBadge() {
     ? theme.colors.onErrorContainer
     : theme.colors.onPrimaryContainer;
 
+  const extraIcon = (() => {
+    if (status.type === "update" && (isCheckingUpdate || isUpdating)) {
+      return "dots-horizontal";
+    }
+
+    if (status.type === "push-notifications") {
+      return isRegistering ? "clock" : "alert";
+    }
+
+    return null;
+  })();
+
   return (
     <View style={styles.statusBadgeContainer}>
       <IconButton
@@ -86,23 +98,17 @@ export default function StatusBadge() {
         style={styles.statusBadge}
       />
 
-      {status.type === "update" && (isCheckingUpdate || isUpdating) && (
-        <View style={styles.loadingIndicator}>
-          <Icon
-            source="dots-horizontal"
-            size={12}
-            color={iconColor}
-          />
-        </View>
-      )}
-
-      {status.type === "push-notifications" && (
-        <View style={styles.loadingIndicator}>
-          <Icon
-            source={isRegistering ? "clock" : "alert"}
-            size={12}
-            color={iconColor}
-          />
+      {extraIcon && (
+        <View
+          style={[
+            styles.extraIconContainer,
+            {
+              backgroundColor: containerColor,
+              borderColor: theme.colors.background,
+            },
+          ]}
+        >
+          <Icon source={extraIcon} size={10} color={iconColor} />
         </View>
       )}
     </View>
@@ -114,11 +120,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginRight: 8,
+    position: "relative",
   },
   statusBadge: {
     margin: 0,
   },
-  loadingIndicator: {
-    marginLeft: 4,
+  extraIconContainer: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });

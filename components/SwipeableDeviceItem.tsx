@@ -1,26 +1,24 @@
+import { useAppContext } from "@/contexts/AppContext";
 import {
   GetUserDevicesDocument,
   UserDeviceFragment,
   useRemoveDeviceMutation,
-  useUpdateUserDeviceMutation,
 } from "@/generated/gql-operations-generated";
+import { useNotificationActions } from "@/hooks";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/contexts/AppContext";
 import React, { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Pressable, View } from "react-native";
-import SwipeableItem, { SwipeAction, MenuItem } from "./SwipeableItem";
-import { Icon } from "react-native-paper";
+import { Pressable, StyleSheet, View } from "react-native";
 import {
   Button,
-  Card,
   Dialog,
-  IconButton,
+  Icon,
   Portal,
   Text,
   TextInput,
   useTheme,
 } from "react-native-paper";
+import SwipeableItem, { MenuItem, SwipeAction } from "./SwipeableItem";
 
 interface SwipeableDeviceItemProps {
   device: UserDeviceFragment;
@@ -41,6 +39,7 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
   const [errorMessage, setErrorMessage] = useState("");
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const { useUpdateUserDevice } = useNotificationActions();
 
   const formatDeviceDate = (dateString: string) => {
     try {
@@ -75,7 +74,6 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
   };
 
   const [removeDeviceMutation] = useRemoveDeviceMutation();
-  const [updateUserDeviceMutation] = useUpdateUserDeviceMutation();
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingName, setEditingName] = useState(device.deviceName || "");
   const [isUpdating, setIsUpdating] = useState(false);
@@ -117,14 +115,9 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
 
     setIsUpdating(true);
     try {
-      await updateUserDeviceMutation({
-        variables: {
-          input: {
-            deviceId: device.id,
-            deviceName: editingName.trim(),
-          },
-        },
-        refetchQueries: [{ query: GetUserDevicesDocument }],
+      await useUpdateUserDevice({
+        deviceId: device.id,
+        deviceName: editingName.trim(),
       });
 
       setSuccessMessage(t("devices.editName.successMessage"));

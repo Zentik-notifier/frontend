@@ -66,9 +66,6 @@ export function useChangelogs(): UseChangelogsResult {
     needsChangelogAppUpdateNotice,
     needsChangelogBackendBehindNotice,
     shouldOpenChangelogModal,
-    // keep refetch available for callers like AppContext
-    // that want to refresh data when opening the modal
-    // without duplicating query logic
     refetchChangelogs,
   };
 }
