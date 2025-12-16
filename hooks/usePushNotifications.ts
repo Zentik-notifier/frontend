@@ -136,7 +136,7 @@ export function usePushNotifications(versions: VersionsInfo) {
           try {
             console.log("[BackgroundTask] Starting background task");
             installConsoleLoggerBridge();
-            await cleanup({ force: true });
+            await cleanup({ force: true, onRotateDeviceKeys: registerDevice });
           } catch (e) {
             console.warn("[BackgroundTask] Background fetch task failed:", e);
           }
@@ -286,13 +286,11 @@ export function usePushNotifications(versions: VersionsInfo) {
       if (device) {
         await settingsService.saveDeviceId(device.id);
 
-        if (device.privateKey) {
-          await settingsService.savePrivateKey(device.privateKey);
-        }
-
         if (isIOS) {
           const iosResult = await iosNativePushNotificationService.registerDevice();
-
+          if (device.privateKey) {
+            await settingsService.savePrivateKey(device.privateKey);
+          }
           hasPermissionError = iosResult?.hasPermissionError;
           tokenToStore = iosResult?.deviceToken ?? null;
         } else if (isWeb) {

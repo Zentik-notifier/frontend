@@ -129,6 +129,7 @@ export interface UserSettings {
   };
   hideHints?: boolean;
   lastCleanup?: string;
+  lastKeysRotation?: string;
   changelogSeenVersions?: ChangelogSeenVersions;
   // List of recently used bucket sharing identifiers (emails/usernames/userIds)
   bucketSharingHints?: string[];
@@ -216,6 +217,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   },
   hideHints: false,
   lastCleanup: undefined,
+  lastKeysRotation: undefined,
   changelogSeenVersions: undefined,
   bucketSharingHints: [],
 };
@@ -299,6 +301,7 @@ class SettingsService {
         'timezone',
         'notificationsLastSeenId',
         'lastCleanup',
+        'lastKeysRotation',
         'hideHints'
       ];
 
@@ -734,6 +737,10 @@ class SettingsService {
     await this.updateSettings({ lastCleanup: timestamp });
   }
 
+  public async setLastKeysRotation(timestamp: string | undefined): Promise<void> {
+    await this.updateSettings({ lastKeysRotation: timestamp });
+  }
+
   public shouldRunCleanup(): boolean {
     const lastCleanup = this.settingsSubject.value.lastCleanup;
     if (!lastCleanup) return true;
@@ -1083,6 +1090,7 @@ class SettingsService {
         'timezone',
         'notificationsLastSeenId',
         'lastCleanup',
+        'lastKeysRotation',
         'hideHints'
       ]);
 
@@ -1130,6 +1138,7 @@ class SettingsService {
         'onboarding',
         'termsAcceptance',
         'lastCleanup',
+        'lastKeysRotation',
         'hideHints',
         'changelogSeenVersions',
         'bucketSharingHints',

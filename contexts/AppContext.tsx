@@ -301,7 +301,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await push.initialize();
 
       setIsInitializing(false);
-      cleanup().catch((e) => {
+      cleanup({ onRotateDeviceKeys: push.registerDevice }).catch((e) => {
         console.error(
           "Error during cleanup after completeAuth:",
           JSON.stringify(e)

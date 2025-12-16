@@ -23,19 +23,20 @@ const requestIdleCallbackPolyfill = (callback: () => void) => {
 interface CleanupProps {
     force?: boolean;
     skipNetwork?: boolean;
+    onRotateDeviceKeys?: () => Promise<boolean | void>;
 }
 
 export const useCleanup = () => {
     const queryClient = useQueryClient();
     const { refreshAll } = useNotificationsState();
     const notificationCallbacks = useNotificationActions();
-    const { versions, loading } = useGetVersionsInfo();
+    const { versions } = useGetVersionsInfo();
 
     // Use ref to track if cleanup is currently running
     const isCleanupRunningRef = useRef(false);
 
     const cleanup = useCallback(async (props?: CleanupProps) => {
-        const { force, skipNetwork = false } = props || {};
+        const { force, skipNetwork = false, onRotateDeviceKeys } = props || {};
         // Prevent multiple concurrent cleanup operations
         if (isCleanupRunningRef.current) {
             return;
@@ -175,6 +176,38 @@ export const useCleanup = () => {
                 console.warn("[Cleanup] Failed to update device metadata", error);
             }
 
+            // 4.1 Rotate device keys (every 7 days)
+            try {
+                const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
+                const now = new Date();
+                const lastKeysRotation = settingsService.getSettings().lastKeysRotation;
+
+                const lastRotationDate = lastKeysRotation ? new Date(lastKeysRotation) : null;
+                const isLastRotationValid = !!lastRotationDate && !Number.isNaN(lastRotationDate.getTime());
+                const shouldRotate =
+                    !lastKeysRotation ||
+                    !isLastRotationValid ||
+                    (now.getTime() - (lastRotationDate as Date).getTime() >= sevenDaysInMs);
+
+                const authData = settingsService.getAuthData();
+                const hasAuth = !!authData.accessToken;
+                const hasDeviceId = !!authData.deviceId;
+                const hasDeviceToken = !!authData.deviceToken;
+
+                if (shouldRotate && hasAuth && hasDeviceId && hasDeviceToken && onRotateDeviceKeys) {
+                    console.log('[Cleanup] Rotating device keys (7 days elapsed)');
+                    const ok = await onRotateDeviceKeys();
+                    if (ok === false) {
+                        console.warn('[Cleanup] Device key rotation failed');
+                    } else {
+                        await settingsService.setLastKeysRotation(now.toISOString());
+                        console.log('[Cleanup] ✓ Device keys rotated');
+                    }
+                }
+            } catch (error) {
+                console.warn('[Cleanup] Failed to rotate device keys', error);
+            }
+
             // 5. Cleanup local notifications by settings
             if (shouldCleanup || force) {
                 await executeWithRAF(
@@ -223,7 +256,7 @@ export const useCleanup = () => {
             // Always release the lock when cleanup completes or fails
             isCleanupRunningRef.current = false;
         }
-    }, [queryClient, refreshAll]);
+    }, [queryClient, refreshAll, notificationCallbacks, versions]);
 
     return { cleanup };
 }
