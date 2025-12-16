@@ -36,7 +36,10 @@ import { Alert, AppState } from "react-native";
 import { registerTranslation } from "react-native-paper-dates";
 import { useSettings } from "../hooks/useSettings";
 import { settingsRepository } from "../services/settings-repository";
-import { ChangelogSeenVersions, settingsService } from "../services/settings-service";
+import {
+  ChangelogSeenVersions,
+  settingsService,
+} from "../services/settings-service";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -97,14 +100,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [lastUserId, setLastUserId] = useState<string | null>(null);
-  const push = usePushNotifications();
   const { t } = useI18n();
   const { logAppEvent } = useAppLog();
   const [fetchMe] = useGetMeLazyQuery();
   const [logoutMutation] = useLogoutMutation();
   const [loginMutation] = useLoginMutation();
   const [registerMutation] = useRegisterMutation();
-  const connectionStatus = useConnectionStatus(push);
   const userSettings = useSettings();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
@@ -120,7 +121,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     unreadChangelogIds,
     shouldOpenChangelogModal,
     refetchChangelogs,
+    versions,
   } = useChangelogs();
+  const push = usePushNotifications(versions);
+  const connectionStatus = useConnectionStatus(push);
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
 
   useEffect(() => {

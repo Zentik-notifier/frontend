@@ -21,6 +21,7 @@ import { Platform } from 'react-native';
 import { installConsoleLoggerBridge } from '@/services/console-logger-hook';
 import { useCleanup } from './useCleanup';
 import { useReactiveVar } from '@apollo/client';
+import { VersionsInfo } from './useGetVersionsInfo';
 
 const isWeb = Platform.OS === 'web';
 const isAndroid = Platform.OS === 'android';
@@ -30,7 +31,7 @@ const isSimulator = !Device.isDevice;
 const NOTIFICATION_REFRESH_TASK = 'zentik-notifications-refresh';
 const CHANGELOG_CHECK_TASK = 'zentik-changelog-check';
 
-export function usePushNotifications() {
+export function usePushNotifications(versions: VersionsInfo) {
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
   const [deviceRegistered, setDeviceRegistered] = useState<boolean | undefined>(undefined);
   const [registeringDevice, setRegisteringDevice] = useState(false);
@@ -261,9 +262,19 @@ export function usePushNotifications() {
 
     // Get stored deviceId if available
     const storedDeviceId = settingsService.getAuthData().deviceId;
+    const isNewDeviceRegistration = !storedDeviceId;
     if (storedDeviceId) {
       console.log("[usePushNotifications] Found stored deviceId, will update existing device:", storedDeviceId);
       info.deviceId = storedDeviceId;
+    }
+
+    // For new devices, include versions/build info directly in the register mutation
+    if (isNewDeviceRegistration) {
+      try {
+        info.metadata = JSON.stringify(versions);
+      } catch (e) {
+        console.warn('[usePushNotifications] Failed to serialize versions metadata for registration', e);
+      }
     }
 
     try {

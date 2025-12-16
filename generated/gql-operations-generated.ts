@@ -1654,6 +1654,8 @@ export type RegisterDeviceDto = {
   deviceModel?: InputMaybe<Scalars['String']['input']>;
   deviceName?: InputMaybe<Scalars['String']['input']>;
   deviceToken?: InputMaybe<Scalars['String']['input']>;
+  /** Optional JSON-serialized metadata for the device (app versions, build info, etc.) */
+  metadata?: InputMaybe<Scalars['String']['input']>;
   onlyLocal?: InputMaybe<Scalars['Boolean']['input']>;
   osVersion?: InputMaybe<Scalars['String']['input']>;
   platform: DevicePlatform;

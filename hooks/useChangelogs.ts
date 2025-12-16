@@ -6,17 +6,7 @@ import {
 import { useGetVersionsInfo } from "@/hooks/useGetVersionsInfo";
 import { checkChangelogUpdates } from "@/utils/changelogUtils";
 
-export interface UseChangelogsResult {
-  latestChangelog: ChangelogForModalFragment | null;
-  changelogsForModal: ChangelogForModalFragment[];
-  unreadChangelogIds: string[];
-  needsChangelogAppUpdateNotice: boolean;
-  needsChangelogBackendBehindNotice: boolean;
-  shouldOpenChangelogModal: boolean;
-  refetchChangelogs: () => Promise<any>;
-}
-
-export function useChangelogs(): UseChangelogsResult {
+export function useChangelogs() {
   const { versions } = useGetVersionsInfo();
   const { data: changelogData, refetch: refetchChangelogs } =
     useChangelogsForModalQuery({
@@ -67,5 +57,6 @@ export function useChangelogs(): UseChangelogsResult {
     needsChangelogBackendBehindNotice,
     shouldOpenChangelogModal,
     refetchChangelogs,
+    versions,
   };
 }
