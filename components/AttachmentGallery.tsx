@@ -195,17 +195,9 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
               originalFileName={item.name || undefined}
               onPress={handleAttachmentPress}
               notificationDate={notificationDate}
-              videoProps={{
-                autoPlay: currentIndex === index,
-                isLooping: true,
-                isMuted: true,
-                showControls,
-              }}
-              audioProps={{
-                shouldPlay: false,
-                isLooping: false,
-                showControls,
-              }}
+              autoPlay={currentIndex === index}
+              showControls
+              cache
             />
           )}
         />

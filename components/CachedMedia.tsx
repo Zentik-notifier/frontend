@@ -25,7 +25,14 @@ import {
   ViewStyle,
 } from "react-native";
 import { Pressable } from "react-native-gesture-handler";
-import { Icon, List, Surface, Text, TouchableRipple, useTheme } from "react-native-paper";
+import {
+  Icon,
+  List,
+  Surface,
+  Text,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 import { MediaType } from "../generated/gql-operations-generated";
 import { useI18n } from "../hooks/useI18n";
 import { useCachedItem } from "../hooks/useMediaCache";
@@ -37,34 +44,13 @@ interface CachedMediaProps {
   style?: StyleProp<ImageStyle | ViewStyle>;
   originalFileName?: string;
   notificationDate?: number;
-  contentFit?: ImageContentFit;
   onPress?: () => void;
   isCompact?: boolean;
   showMediaIndicator?: boolean;
   useThumbnail?: boolean;
-  noBorder?: boolean;
-
-  imageProps?: {
-    transition?: number;
-    placeholder?: any;
-    blurRadius?: number;
-    priority?: "low" | "normal" | "high";
-    cachePolicy?: ImageProps["cachePolicy"];
-    contentFit?: ImageContentFit;
-  };
-
-  videoProps?: {
-    autoPlay?: boolean;
-    isLooping?: boolean;
-    isMuted?: boolean;
-    showControls?: boolean;
-  };
-
-  audioProps?: {
-    shouldPlay?: boolean;
-    isLooping?: boolean;
-    showControls?: boolean;
-  };
+  autoPlay?: boolean;
+  showControls?: boolean;
+  cache?: boolean;
 }
 
 export const CachedMedia = React.memo(function CachedMedia({
@@ -73,15 +59,13 @@ export const CachedMedia = React.memo(function CachedMedia({
   style,
   originalFileName,
   notificationDate,
-  contentFit = "cover",
   onPress: onPressParent,
   isCompact,
   showMediaIndicator,
   useThumbnail,
-  imageProps,
-  videoProps,
-  audioProps,
-  noBorder,
+  autoPlay,
+  cache,
+  showControls,
 }: CachedMediaProps) {
   const { t } = useI18n();
   const theme = useTheme();
@@ -119,10 +103,10 @@ export const CachedMedia = React.memo(function CachedMedia({
 
   const videoPlayer = useVideoPlayer(videoSource || "", (player) => {
     if (videoSource) {
-      player.loop = videoProps?.isLooping ?? true;
-      player.muted = videoProps?.isMuted ?? true;
+      player.loop = true;
+      player.muted = true;
 
-      if (videoProps?.autoPlay ?? false) {
+      if (autoPlay) {
         player.play();
       }
     }
@@ -341,7 +325,7 @@ export const CachedMedia = React.memo(function CachedMedia({
       videoPlayer
         .replaceAsync(videoSource)
         .then(() => {
-          if (videoProps?.autoPlay ?? false) {
+          if (autoPlay) {
             videoPlayer.play();
           }
         })
@@ -349,7 +333,7 @@ export const CachedMedia = React.memo(function CachedMedia({
           console.error("Failed to update video player source:", error);
         });
     }
-  }, [videoSource, isVideoType, videoPlayer, videoProps?.autoPlay]);
+  }, [videoSource, isVideoType, videoPlayer, autoPlay]);
 
   // useEffect(() => {
   //   if (isAudioType || !audioPlayer) return;
@@ -452,21 +436,19 @@ export const CachedMedia = React.memo(function CachedMedia({
       ? defaultStyles.stateContainerCompact
       : defaultStyles.stateContainer;
 
-    const dashed = { borderStyle: noBorder ? "solid" : "dashed" };
-
     if (!isCompact) {
       return [
         baseStyle,
         {
           backgroundColor: stateBackgrounds[stateType],
           borderColor: stateColors[stateType],
+          borderStyle: "dashed",
         },
-        dashed,
         style,
       ];
     }
 
-    return [baseStyle, dashed, style];
+    return [baseStyle, style];
   };
 
   const renderForceDownloadButton = (icon: string, withDelete?: boolean) => {
@@ -615,11 +597,9 @@ export const CachedMedia = React.memo(function CachedMedia({
                     ] as StyleProp<ImageStyle>)
                   : (style as StyleProp<ImageStyle>)
               }
-              contentFit={
-                isCompact ? "cover" : imageProps?.contentFit ?? contentFit
-              }
-              transition={imageProps?.transition ?? 150}
-              cachePolicy={imageProps?.cachePolicy || "memory"}
+              contentFit={"cover"}
+              transition={150}
+              cachePolicy={cache ? "memory" : "none"}
             />
           </TouchableOpacity>
         );
@@ -660,14 +640,9 @@ export const CachedMedia = React.memo(function CachedMedia({
                       ] as StyleProp<ImageStyle>)
                     : (style as StyleProp<ImageStyle>)
                 }
-                contentFit={
-                  isCompact ? "cover" : imageProps?.contentFit ?? contentFit
-                }
-                transition={imageProps?.transition ?? 200}
-                placeholder={imageProps?.placeholder}
-                blurRadius={imageProps?.blurRadius}
-                priority={imageProps?.priority}
-                cachePolicy={imageProps?.cachePolicy || "memory"}
+                contentFit={"cover"}
+                transition={150}
+                cachePolicy={cache ? "memory" : "none"}
                 onError={(event) => {
                   mediaCache.markAsPermanentFailure(
                     url,
@@ -680,7 +655,6 @@ export const CachedMedia = React.memo(function CachedMedia({
           );
 
         case MediaType.Video:
-          const showControls = videoProps?.showControls ?? true;
           return (
             <View
               style={{
@@ -717,7 +691,7 @@ export const CachedMedia = React.memo(function CachedMedia({
                 nativeControls={showControls && !isCompact}
                 allowsPictureInPicture={showControls}
                 fullscreenOptions={{
-                  enable: showControls && !isCompact,
+                  enable: !!showControls && !isCompact,
                   orientation: "default", // Allow device orientation changes
                   autoExitOnRotate: false, // Don't exit fullscreen on rotation
                 }}
@@ -768,7 +742,7 @@ export const CachedMedia = React.memo(function CachedMedia({
           return (
             <View style={[defaultStyles.audioContainer, style]}>
               <View style={defaultStyles.audioContent}>
-                {audioProps?.showControls !== false && (
+                {!!showControls && (
                   <Pressable
                     onPress={() => {
                       audioPlayer?.playing

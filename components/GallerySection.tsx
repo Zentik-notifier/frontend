@@ -78,14 +78,10 @@ export default function GallerySection() {
                   useThumbnail={!userSettings.settings.galleryVisualization.autoPlay}
                   style={styles.gridMediaThumbnail}
                   originalFileName={mediaItem.originalFileName}
-                  videoProps={{
-                    isMuted: true,
-                    autoPlay: true,
-                  }}
-                  imageProps={{ cachePolicy: "none" }}
-                  audioProps={{ showControls: true }}
+                  autoPlay
                   showMediaIndicator
                   isCompact
+                  cache
                   onPress={() => {
                     if (selectionMode) {
                       handleToggleItemSelection(mediaItem.key);
