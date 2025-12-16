@@ -286,10 +286,6 @@ export function usePushNotifications(versions: VersionsInfo) {
       if (device) {
         await settingsService.saveDeviceId(device.id);
 
-        if (device.publicKey) {
-          await settingsService.savePublicKey(device.publicKey);
-        }
-
         if (device.privateKey) {
           await settingsService.savePrivateKey(device.privateKey);
         }

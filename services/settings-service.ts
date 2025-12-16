@@ -140,7 +140,6 @@ export interface AuthData {
   deviceToken: string | null;
   deviceId: string | null;
   lastUserId: string | null;
-  publicKey: string | null;
   privateKey: string | null;
   pushNotificationsInitialized: boolean;
   pendingNavigationIntent: any | null;
@@ -227,7 +226,6 @@ const DEFAULT_AUTH_DATA: AuthData = {
   deviceToken: null,
   deviceId: null,
   lastUserId: null,
-  publicKey: null,
   privateKey: null,
   pushNotificationsInitialized: false,
   pendingNavigationIntent: null,
@@ -236,7 +234,6 @@ const DEFAULT_AUTH_DATA: AuthData = {
 };
 
 const SERVICE = 'zentik-auth';
-const PUBLIC_KEY_SERVICE = 'zentik-public-key';
 const PRIVATE_KEY_SERVICE = 'zentik-private-key';
 
 const bundleIdentifier = process.env.EXPO_PUBLIC_APP_VARIANT === 'development' ?
@@ -361,10 +358,9 @@ class SettingsService {
   private async loadAuthData(): Promise<void> {
     try {
       // Load sensitive data from Keychain
-      const [accessToken, refreshToken, publicKey, privateKey] = await Promise.all([
+      const [accessToken, refreshToken, privateKey] = await Promise.all([
         this.getAccessTokenFromStorage(),
         this.getRefreshTokenFromStorage(),
-        this.getPublicKeyFromStorage(),
         this.getPrivateKeyFromStorage(),
       ]);
 
@@ -395,7 +391,6 @@ class SettingsService {
         deviceToken,
         deviceId,
         lastUserId,
-        publicKey,
         privateKey,
         pushNotificationsInitialized,
         pendingNavigationIntent: null, // Not cached - read directly from DB when needed
@@ -953,24 +948,6 @@ class SettingsService {
     await settingsRepository.setSetting('auth_lastUserId', userId);
   }
 
-  public async savePublicKey(publicKey: string): Promise<void> {
-    const current = this.authDataSubject.value;
-    current.publicKey = publicKey;
-    this.authDataSubject.next(current);
-
-    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      try {
-        const options: Keychain.SetOptions = Device.isDevice
-          ? { service: PUBLIC_KEY_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
-          : { service: PUBLIC_KEY_SERVICE, accessible: ACCESSIBLE };
-        await Keychain.setGenericPassword('public', publicKey, options);
-      } catch (error) {
-        console.error('Failed to save public key to keychain:', error);
-        throw error;
-      }
-    }
-  }
-
   public async savePrivateKey(privateKey: string): Promise<void> {
     const current = this.authDataSubject.value;
     current.privateKey = privateKey;
@@ -1052,25 +1029,17 @@ class SettingsService {
 
   public async hasKeyPair(): Promise<boolean> {
     const authData = this.authDataSubject.value;
-    return !!(authData.publicKey && authData.privateKey);
+    return !!authData.privateKey;
   }
 
   public async clearKeyPair(): Promise<void> {
     const current = this.authDataSubject.value;
-    current.publicKey = null;
-    current.privateKey = null;
     this.authDataSubject.next(current);
 
     if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      const publicKeyOptions: Keychain.SetOptions = Device.isDevice
-        ? { service: PUBLIC_KEY_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-        : { service: PUBLIC_KEY_SERVICE };
       const privateKeyOptions: Keychain.SetOptions = Device.isDevice
         ? { service: PRIVATE_KEY_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
         : { service: PRIVATE_KEY_SERVICE };
-      try {
-        await Keychain.resetGenericPassword(publicKeyOptions);
-      } catch { }
       try {
         await Keychain.resetGenericPassword(privateKeyOptions);
       } catch { }
@@ -1092,13 +1061,9 @@ class SettingsService {
 
   private async clearDeviceTokens(): Promise<void> {
     if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      const publicKeyOptions: Keychain.SetOptions = Device.isDevice
-        ? { service: PUBLIC_KEY_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-        : { service: PUBLIC_KEY_SERVICE };
       const privateKeyOptions: Keychain.SetOptions = Device.isDevice
         ? { service: PRIVATE_KEY_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
         : { service: PRIVATE_KEY_SERVICE };
-      await Keychain.resetGenericPassword(publicKeyOptions);
       await Keychain.resetGenericPassword(privateKeyOptions);
     }
     await Promise.all([
@@ -1245,22 +1210,6 @@ class SettingsService {
         console.error('[SettingsService] ❌ Error reading refreshToken from AsyncStorage:', error);
         return null;
       }
-    }
-  }
-
-  private async getPublicKeyFromStorage(): Promise<string | null> {
-    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      try {
-        const options: Keychain.GetOptions = Device.isDevice
-          ? { service: PUBLIC_KEY_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-          : { service: PUBLIC_KEY_SERVICE };
-        const creds = await Keychain.getGenericPassword(options);
-        return creds ? creds.password : null;
-      } catch {
-        return null;
-      }
-    } else {
-      return null;
     }
   }
 

@@ -323,10 +323,6 @@ export function useAuthData() {
     await settingsService.saveLastUserId(userId);
   }, []);
 
-  const savePublicKey = useCallback(async (publicKey: string) => {
-    await settingsService.savePublicKey(publicKey);
-  }, []);
-
   const savePrivateKey = useCallback(async (privateKey: string) => {
     await settingsService.savePrivateKey(privateKey);
   }, []);
@@ -366,7 +362,6 @@ export function useAuthData() {
     saveDeviceId,
     saveDeviceToken,
     saveLastUserId,
-    savePublicKey,
     savePrivateKey,
     savePushNotificationsInitialized,
     savePendingNavigationIntent,
