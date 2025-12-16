@@ -1,11 +1,16 @@
-import {
-  useAppState,
-} from "@/hooks/notifications";
+import { useAppState } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Icon, Text, TouchableRipple, useTheme, Portal, Modal } from "react-native-paper";
+import {
+  Icon,
+  Text,
+  TouchableRipple,
+  useTheme,
+  Portal,
+  Modal,
+} from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
 import PaperScrollView from "./ui/PaperScrollView";
@@ -92,7 +97,10 @@ const BucketsSection: React.FC = () => {
   };
 
   const handleRedeemSuccess = (resourceType: string, resourceId: string) => {
-    console.log("[BucketsSection] Redeem successful:", { resourceType, resourceId });
+    console.log("[BucketsSection] Redeem successful:", {
+      resourceType,
+      resourceId,
+    });
     setShowRedeemModal(false);
     // Refresh buckets to show the newly joined bucket
     handleRefresh().catch(console.error);
@@ -105,162 +113,165 @@ const BucketsSection: React.FC = () => {
   return (
     <>
       <PaperScrollView
-      onRefresh={() => refetch()}
-      loading={loading}
-      onAdd={() => navigateToCreateBucket(true)}
-      fabGroupIcon="plus"
-      customActions={[
-        {
-          icon: "ticket",
-          label: t("buckets.inviteCodes.redeem"),
-          onPress: () => setShowRedeemModal(true),
-        },
-      ]}
-    >
-      {bucketStats.length === 0 ? (
-        emptyState
-      ) : (
-        <View style={styles.bucketsGrid}>
-          {bucketStats.map((bucket) => (
-            <TouchableRipple
-              key={bucket.id}
-              style={[
-                styles.bucketCard,
-                {
-                  borderColor: theme.colors.outline,
-                  backgroundColor: theme.colors.surface,
-                },
-              ]}
-              onPress={() => handleBucketPress(bucket.id)}
-            >
-              <View style={styles.bucketCardContent}>
-                {/* Header con icona e nome */}
-                <View style={styles.bucketHeader}>
-                  <BucketIcon bucketId={bucket.id} size="lg" />
+        onRefresh={() => refetch()}
+        loading={loading}
+        onAdd={() => navigateToCreateBucket(true)}
+        fabGroupIcon="plus"
+        customActions={[
+          {
+            icon: "ticket",
+            label: t("buckets.inviteCodes.redeem"),
+            onPress: () => setShowRedeemModal(true),
+          },
+        ]}
+      >
+        {bucketStats.length === 0 ? (
+          emptyState
+        ) : (
+          <View style={styles.bucketsGrid}>
+            {bucketStats.map((bucket) => (
+              <TouchableRipple
+                key={bucket.id}
+                style={[
+                  styles.bucketCard,
+                  {
+                    borderColor: theme.colors.outline,
+                    backgroundColor: theme.colors.surface,
+                  },
+                ]}
+                onPress={() => handleBucketPress(bucket.id)}
+              >
+                <View style={styles.bucketCardContent}>
+                  {/* Header con icona e nome */}
+                  <View style={styles.bucketHeader}>
+                    <BucketIcon bucketId={bucket.id} size="lg" />
 
-                  <View style={styles.bucketInfo}>
-                    <Text
-                      variant="titleMedium"
-                      style={[
-                        styles.bucketName,
-                        { color: theme.colors.onSurface },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {bucket.name}
-                    </Text>
-                    {bucket.description && (
+                    <View style={styles.bucketInfo}>
                       <Text
-                        variant="bodySmall"
+                        variant="titleMedium"
                         style={[
-                          styles.bucketDescription,
-                          { color: theme.colors.onSurfaceVariant },
+                          styles.bucketName,
+                          { color: theme.colors.onSurface },
                         ]}
                         numberOfLines={1}
                       >
-                        {bucket.description}
+                        {bucket.name}
                       </Text>
-                    )}
-                    {bucket.userPermissions?.isSharedWithMe && (
-                      <View style={styles.sharedWithMeTag}>
-                        <Text variant="bodySmall" style={styles.sharedWithMeText}>
-                          {t("buckets.item.sharedWithMe")}
+                      {bucket.description && (
+                        <Text
+                          variant="bodySmall"
+                          style={[
+                            styles.bucketDescription,
+                            { color: theme.colors.onSurfaceVariant },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {bucket.description}
                         </Text>
-                      </View>
-                    )}
-                    {bucket.isOrphan && (
-                      <View style={styles.orphanTag}>
-                        <Text variant="bodySmall" style={styles.orphanText}>
-                          {t("buckets.item.orphan")}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
+                      )}
+                      {bucket.userPermissions?.isSharedWithMe && (
+                        <View style={styles.sharedWithMeTag}>
+                          <Text
+                            variant="bodySmall"
+                            style={styles.sharedWithMeText}
+                          >
+                            {t("buckets.item.sharedWithMe")}
+                          </Text>
+                        </View>
+                      )}
+                      {bucket.isOrphan && (
+                        <View style={styles.orphanTag}>
+                          <Text variant="bodySmall" style={styles.orphanText}>
+                            {t("buckets.item.orphan")}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
 
-                  <NotificationSnoozeButton
-                    bucketId={bucket.id}
-                    variant="swipeable"
-                    showText
-                    isSnoozed={bucket.isSnoozed}
-                    snoozeUntilDate={bucket.snoozeUntil}
-                  />
+                    <NotificationSnoozeButton
+                      bucketId={bucket.id}
+                      variant="swipeable"
+                      showText
+                      isSnoozed={bucket.isSnoozed}
+                      snoozeUntilDate={bucket.snoozeUntil}
+                    />
 
-                  {/* Badge per notifiche non lette */}
-                  {bucket.unreadCount > 0 && (
-                    <View
-                      style={[
-                        styles.unreadBadge,
-                        { backgroundColor: theme.colors.error },
-                      ]}
-                    >
-                      <Text
+                    {/* Badge per notifiche non lette */}
+                    {bucket.unreadCount > 0 && (
+                      <View
                         style={[
-                          styles.unreadText,
-                          { color: theme.colors.onError },
+                          styles.unreadBadge,
+                          { backgroundColor: theme.colors.error },
                         ]}
                       >
-                        {bucket.unreadCount > 99 ? "99+" : bucket.unreadCount}
+                        <Text
+                          style={[
+                            styles.unreadText,
+                            { color: theme.colors.onError },
+                          ]}
+                        >
+                          {bucket.unreadCount > 99 ? "99+" : bucket.unreadCount}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Statistiche */}
+                  <View style={styles.bucketStats}>
+                    <View style={styles.statItem}>
+                      <Icon
+                        source="bell"
+                        size={16}
+                        color={theme.colors.onSurfaceVariant}
+                      />
+                      <Text
+                        variant="bodySmall"
+                        style={[
+                          styles.statText,
+                          { color: theme.colors.onSurfaceVariant },
+                        ]}
+                      >
+                        {bucket.totalMessages} {t("buckets.item.messages")}
                       </Text>
                     </View>
-                  )}
-                </View>
 
-                {/* Statistiche */}
-                <View style={styles.bucketStats}>
-                  <View style={styles.statItem}>
-                    <Icon
-                      source="bell"
-                      size={16}
-                      color={theme.colors.onSurfaceVariant}
-                    />
-                    <Text
-                      variant="bodySmall"
-                      style={[
-                        styles.statText,
-                        { color: theme.colors.onSurfaceVariant },
-                      ]}
-                    >
-                      {bucket.totalMessages} {t("buckets.item.messages")}
-                    </Text>
-                  </View>
-
-                  <View style={styles.statItem}>
-                    <Icon
-                      source="clock"
-                      size={16}
-                      color={theme.colors.onSurfaceVariant}
-                    />
-                    <Text
-                      variant="bodySmall"
-                      style={[
-                        styles.statText,
-                        { color: theme.colors.onSurfaceVariant },
-                      ]}
-                    >
-                      {formatLastActivity(bucket.lastNotificationAt)}
-                    </Text>
+                    <View style={styles.statItem}>
+                      <Icon
+                        source="clock"
+                        size={16}
+                        color={theme.colors.onSurfaceVariant}
+                      />
+                      <Text
+                        variant="bodySmall"
+                        style={[
+                          styles.statText,
+                          { color: theme.colors.onSurfaceVariant },
+                        ]}
+                      >
+                        {formatLastActivity(bucket.lastNotificationAt)}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            </TouchableRipple>
-          ))}
-        </View>
-      )}
-    </PaperScrollView>
+              </TouchableRipple>
+            ))}
+          </View>
+        )}
+      </PaperScrollView>
 
-    {/* Redeem Invite Code Modal */}
-    <Portal>
-      <Modal
-        visible={showRedeemModal}
-        onDismiss={handleRedeemCancel}
-        contentContainerStyle={styles.modalContainer}
-      >
-        <RedeemInviteCodeModal
-          onSuccess={handleRedeemSuccess}
-          onCancel={handleRedeemCancel}
-        />
-      </Modal>
-    </Portal>
+      {/* Redeem Invite Code Modal */}
+      <Portal>
+        <Modal
+          visible={showRedeemModal}
+          onDismiss={handleRedeemCancel}
+          contentContainerStyle={styles.modalContainer}
+        >
+          <RedeemInviteCodeModal
+            onSuccess={handleRedeemSuccess}
+            onCancel={handleRedeemCancel}
+          />
+        </Modal>
+      </Portal>
     </>
   );
 };

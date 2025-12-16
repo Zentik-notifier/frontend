@@ -206,7 +206,7 @@ class IOSNativePushNotificationService {
         // Extract notification ID from payload
         const pushTrigger = notification.request.trigger as any;
         const payload = pushTrigger?.payload || (notification.request.content?.data as any);
-        const notificationId: string | undefined = payload?.notificationId;
+        const notificationId: string | undefined = payload?.nid;
 
         if (notificationId && this.actionCallbacks) {
             try {
