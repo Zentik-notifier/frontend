@@ -41,7 +41,7 @@ export interface NetworkSyncResult {
 export function useNetworkSync() {
     const queryClient = useQueryClient();
     const [updateReceivedNotifications] = useUpdateReceivedNotificationsMutation();
-    
+
     // Use lazy queries for manual control
     const [fetchBuckets] = useGetBucketsLazyQuery({
         fetchPolicy: 'network-only',
@@ -69,7 +69,7 @@ export function useNetworkSync() {
             let apiNotifications: NotificationFragment[] = [];
             if (notificationsResult.status === 'fulfilled' && notificationsResult.value.data?.notifications) {
                 apiNotifications = notificationsResult.value.data.notifications as NotificationFragment[];
-                
+
                 if (apiNotifications.length > 0) {
                     // Load existing notifications once and only persist new ones
                     const existingNotifications = await getAllNotificationsFromCache();
@@ -117,7 +117,7 @@ export function useNetworkSync() {
             if (bucketsResult.status === 'fulfilled' && bucketsResult.value.data?.buckets) {
                 apiBuckets = bucketsResult.value.data.buckets as BucketWithUserData[];
                 apiSuccess = true;
-                
+
                 // Debug: check iconUrl for shared buckets
                 const sharedBuckets = apiBuckets.filter(b => b.userPermissions?.isSharedWithMe === true);
                 if (sharedBuckets.length > 0) {
@@ -133,10 +133,10 @@ export function useNetworkSync() {
             // ============================================================
             if (apiSuccess && apiBuckets.length > 0) {
                 const mergeStart = performance.now();
-                
+
                 // Load current cache state
                 const cachedBuckets = await getAllBuckets();
-                
+
                 // Recalculate stats after API sync
                 const updatedStats = await getNotificationStats([]);
                 const updatedBucketFromNotifications = updatedStats.byBucket ?? [];
@@ -345,7 +345,7 @@ export function useNetworkSync() {
                     stats: updatedStats,
                     lastSync: new Date().toISOString(),
                 });
-                
+
                 mergeTime = performance.now() - mergeStart;
             }
 

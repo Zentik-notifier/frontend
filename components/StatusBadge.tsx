@@ -12,19 +12,15 @@ export default function StatusBadge() {
   } = useAppContext();
   const { t } = useI18n();
   const theme = useTheme();
-  const [isRegistering, setIsRegistering] = useState(false);
 
   if (!status) return null;
 
   const handlePress = async () => {
     if (status.type === "push-notifications") {
-      setIsRegistering(true);
       try {
         await push.registerDevice();
       } catch (error) {
         console.error("Error registering device:", error);
-      } finally {
-        setIsRegistering(false);
       }
     } else if (status.type === "push-permissions") {
       Alert.alert(t("common.notice"), t("common.pushPermissionsDetails"));
@@ -52,7 +48,7 @@ export default function StatusBadge() {
   const isClickable =
     status.type === "offline" ||
     (status.type === "update" && status.action) ||
-    (status.type === "push-notifications" && !isRegistering) ||
+    (status.type === "push-notifications" && !push.registeringDevice) ||
     status.type === "push-permissions" ||
     status.type === "push-needs-pwa" ||
     status.type === "filesystem-permission";
@@ -80,7 +76,7 @@ export default function StatusBadge() {
     }
 
     if (status.type === "push-notifications") {
-      return isRegistering ? "clock" : "alert";
+      return push.registeringDevice ? "clock" : "alert";
     }
 
     return null;

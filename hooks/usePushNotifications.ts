@@ -1,4 +1,5 @@
 import { apolloClient } from '@/config/apollo-client';
+import { deviceRegistrationInvalidatedVar } from '@/config/apollo-vars';
 import { ChangelogsForModalQuery, DevicePlatform, GetBackendVersionDocument, GetUserDevicesDocument, NotificationServiceType, RegisterDeviceDto, useGetNotificationServicesLazyQuery, useGetUserDevicesLazyQuery, useRegisterDeviceMutation, useRemoveDeviceMutation } from '@/generated/gql-operations-generated';
 import { useNotificationActions } from '@/hooks/useNotificationActions';
 import { translateInstant, Locale } from '@/hooks/useI18n';
@@ -19,6 +20,7 @@ import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { installConsoleLoggerBridge } from '@/services/console-logger-hook';
 import { useCleanup } from './useCleanup';
+import { useReactiveVar } from '@apollo/client';
 
 const isWeb = Platform.OS === 'web';
 const isAndroid = Platform.OS === 'android';
@@ -33,9 +35,18 @@ export function usePushNotifications() {
   const [deviceRegistered, setDeviceRegistered] = useState<boolean | undefined>(undefined);
   const [registeringDevice, setRegisteringDevice] = useState(false);
   const [pushPermissionError, setPushPermissionError] = useState(false);
+  const [init, setInit] = useState(false);
   const [needsPwa, setNeedsPwa] = useState(false);
   const callbacks = useNotificationActions();
   const { cleanup } = useCleanup();
+
+  const deviceRegistrationInvalidated = useReactiveVar(deviceRegistrationInvalidatedVar);
+
+  useEffect(() => {
+    if (!deviceRegistrationInvalidated) return;
+    console.warn('[usePushNotifications] Device registration invalidated by backend; setting deviceRegistered=false');
+    setDeviceRegistered(false);
+  }, [deviceRegistrationInvalidated]);
 
   useEffect(() => {
     Notifications.setNotificationHandler({
@@ -54,6 +65,7 @@ export function usePushNotifications() {
   const [getPushTypes] = useGetNotificationServicesLazyQuery();
 
   const initialize = async () => {
+    const { pushNotificationsInitialized, deviceId, deviceToken } = settingsService.getAuthData();
     const pushTypes = await getPushTypes({ fetchPolicy: 'network-only' });
     const pushType = pushTypes.data?.notificationServices?.find(
       (service) => service?.devicePlatform === (
@@ -76,24 +88,20 @@ export function usePushNotifications() {
           result = await iosNativePushNotificationService.initialize(callbacks);
         }
 
-        const authData = settingsService.getAuthData();
         console.log(`[usePushNotifications] Initialize result:`, result);
 
         if (result?.hasPermissionError) {
           setPushPermissionError(true);
-          setDeviceRegistered(false);
         } else if (isReady()) {
           setPushPermissionError(false);
         }
 
-        setDeviceRegistered(!!authData.deviceId && !!authData.deviceToken);
+        setDeviceRegistered(!!deviceId && !!deviceToken);
       } else if (pushType.service === NotificationServiceType.Local) {
         console.log("[usePushNotifications] Initializing local notifications...");
         await localNotifications.initialize(callbacks);
       }
     }
-
-    const pushNotificationsInitialized = settingsService.getAuthData().pushNotificationsInitialized;
 
     if (!pushNotificationsInitialized) {
       await registerDevice();
@@ -101,6 +109,7 @@ export function usePushNotifications() {
     }
 
     await enableBackgroundFetch();
+    setInit(true);
   };
 
   const enableBackgroundFetch = async () => {
@@ -410,6 +419,7 @@ export function usePushNotifications() {
     isReady,
     getDeviceInfo,
     getBasicDeviceInfo,
+    init,
     deviceToken,
     deviceRegistered,
     registeringDevice,

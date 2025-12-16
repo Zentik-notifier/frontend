@@ -1,6 +1,7 @@
 import { GetNotificationsDocument, GetNotificationsQuery, NotificationFragment } from '@/generated/gql-operations-generated';
 import { authService } from '@/services/auth-service';
 import { settingsService } from '@/services/settings-service';
+import { handleDeviceNotFoundGraphQLError } from '@/utils/graphqlDeviceErrors';
 import { ApolloClient, createHttpLink, InMemoryCache, makeVar, split } from '@apollo/client';
 import { loadDevMessages, loadErrorMessages } from "@apollo/client/dev";
 import { setContext } from '@apollo/client/link/context';
@@ -74,6 +75,10 @@ const createSplitLinkDynamic = () => {
 // Error link for handling authentication errors
 const errorLink = onError(({ graphQLErrors, networkError }) => {
   if (graphQLErrors) {
+    // Centralized handling: if backend reports this device is unknown, clear local deviceId/deviceToken.
+    // Do not await in link callbacks; fire-and-forget with internal in-flight guard.
+    void handleDeviceNotFoundGraphQLError({ graphQLErrors });
+
     for (const error of graphQLErrors) {
       console.error(`GraphQL error: Message: ${error.message}, Location: ${JSON.stringify(error.locations)}, Path: ${error.path}`);
     }
@@ -117,23 +122,6 @@ export const initApolloClient = async () => {
     },
   });
 
-  // Initialize GetNotifications query in cache to an empty array (if missing)
-  try {
-    const existing = apolloClient.cache.readQuery<GetNotificationsQuery>({
-      query: GetNotificationsDocument,
-    });
-    if (!existing || !Array.isArray(existing.notifications)) {
-      apolloClient.cache.writeQuery<GetNotificationsQuery>({
-        query: GetNotificationsDocument,
-        data: { __typename: 'Query', notifications: [] },
-      });
-    }
-  } catch {
-    apolloClient.cache.writeQuery<GetNotificationsQuery>({
-      query: GetNotificationsDocument,
-      data: { __typename: 'Query', notifications: [] },
-    });
-  }
 
   return apolloClient;
 }

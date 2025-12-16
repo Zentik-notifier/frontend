@@ -112,7 +112,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
         action: null,
         color: '#FF3B30'
       };
-    } else if (!push.deviceRegistered && !push.registeringDevice) {
+    } else if (!push.deviceRegistered && !push.registeringDevice && push.init) {
       newStatus = {
         type: 'push-notifications',
         icon: 'bell-off',
@@ -150,7 +150,18 @@ export function useConnectionStatus(push: UsePushNotifications) {
     }
 
     setStatus(newStatus);
-  }, [isOnline, isOfflineAuth, isBackendUnreachable, hasUpdateAvailable, hasFilesystemPermission, push.needsPwa, push.pushPermissionError, push.deviceRegistered, push.registeringDevice])
+  }, [
+    isOnline,
+    isOfflineAuth,
+    isBackendUnreachable,
+    hasUpdateAvailable,
+    hasFilesystemPermission,
+    push.needsPwa,
+    push.pushPermissionError,
+    push.deviceRegistered,
+    push.init,
+    push.registeringDevice
+  ]);
 
   const setBackendUnreachable = useCallback((value: boolean) => {
     setIsBackendUnreachable(value);

@@ -19,6 +19,7 @@ import {
   useTheme,
 } from "react-native-paper";
 import SwipeableItem, { MenuItem, SwipeAction } from "./SwipeableItem";
+import { is } from "date-fns/locale";
 
 interface SwipeableDeviceItemProps {
   device: UserDeviceFragment;
@@ -34,6 +35,7 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
   const { formatDate: formatDateService } = useDateFormat();
   const {
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
+    push: { unregisterDevice },
   } = useAppContext();
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -89,6 +91,9 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
         variables: { deviceId: device.id },
         refetchQueries: [{ query: GetUserDevicesDocument }],
       });
+      if (isCurrentDevice) {
+        await unregisterDevice();
+      }
     } catch (error: any) {
       setErrorMessage(t("devices.removeErrorMessage"));
       setShowErrorDialog(true);
