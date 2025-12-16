@@ -9,7 +9,7 @@ import {
 import { settingsService } from '@/services/settings-service';
 import { useNavigationUtils } from '@/utils/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { act, useCallback } from 'react';
 import { Alert, Linking } from 'react-native';
 import {
   NotificationActionFragment,

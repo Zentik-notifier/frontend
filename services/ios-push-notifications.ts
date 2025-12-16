@@ -4,6 +4,18 @@ import * as Notifications from 'expo-notifications';
 import { DevicePlatform, NotificationActionFragment, NotificationActionType, RegisterDeviceDto } from '../generated/gql-operations-generated';
 import { settingsRepository } from './settings-repository';
 
+const ActionTypeMap: Record<number, NotificationActionType> = {
+    1: NotificationActionType.Delete,
+    2: NotificationActionType.MarkAsRead,
+    3: NotificationActionType.OpenNotification,
+    4: NotificationActionType.Navigate,
+    5: NotificationActionType.BackgroundCall,
+    6: NotificationActionType.Snooze,
+    7: NotificationActionType.Postpone,
+    8: NotificationActionType.Webhook,
+};
+
+
 class IOSNativePushNotificationService {
     private isInitialized = false;
     private deviceToken: string | null = null;
@@ -206,7 +218,7 @@ class IOSNativePushNotificationService {
         // Extract notification ID from payload
         const pushTrigger = notification.request.trigger as any;
         const payload = pushTrigger?.payload || (notification.request.content?.data as any);
-        const notificationId: string | undefined = payload?.nid;
+        const notificationId: string | undefined = payload?.nid ?? payload?.notificationId;
 
         if (notificationId && this.actionCallbacks) {
             try {
@@ -225,8 +237,8 @@ class IOSNativePushNotificationService {
 
         // Extract payload from push notification trigger (where the actual data is stored)
         const pushTrigger = response.notification.request.trigger as any;
-        const payload = pushTrigger?.payload || response.notification.request.content.data as any;
-        const notificationId = payload?.notificationId as string | undefined;
+        const payload = pushTrigger?.payload
+        const notificationId = payload?.nid ?? payload?.notificationId as string | undefined;
 
         // Background reception (user tapped): report received before handling actions
         if (notificationId && this.actionCallbacks && this.deviceToken) {
@@ -241,7 +253,7 @@ class IOSNativePushNotificationService {
 
             // Only handle default tap if no pending intent was processed
             if (!hadPendingIntent) {
-                await this.handleDefaultTapAction(response, payload);
+                await this.handleDefaultTapAction(notificationId, payload);
             }
             return;
         }
@@ -251,21 +263,23 @@ class IOSNativePushNotificationService {
      * Handle default notification tap
      * Waits for cleanup to complete before executing navigation to ensure bucket data is loaded
      */
-    private async handleDefaultTapAction(response: Notifications.NotificationResponse, payload: any) {
-        const notificationId = payload?.notificationId;
+    private async handleDefaultTapAction(notificationId: string, payload: any) {
         console.log('[IOSNativePushNotificationService] Extracted notification ID:', notificationId);
 
         // Check if there's a tapAction defined
         if (payload?.tapAction) {
+            const actionType = ActionTypeMap[payload.tapAction.t] ?? payload.tapAction.type;;
+            payload.tapAction.type = actionType;
+            if (actionType === NotificationActionType.OpenNotification) {
+                payload.tapAction.value = notificationId;
+            } else {
+                payload.tapAction.value = payload.tapAction.v;
+            }
             console.log('[IOSNativePushNotificationService] Executing tapAction:', payload.tapAction);
             if (this.actionCallbacks && notificationId) {
                 await this.actionCallbacks.executeAction(notificationId, payload.tapAction);
             }
-            return;
-        }
-
-        // Default behavior: navigate to notification detail or notifications list
-        if (notificationId) {
+        } else if (notificationId) {
             const openAction: NotificationActionFragment = {
                 type: NotificationActionType.OpenNotification,
                 value: notificationId,
