@@ -76,6 +76,9 @@ export default function NotificationTapActionSelector({
         ...editingAction,
         value: `${webhookMethod}:${webhookUrl}`,
       });
+    } else if (editingAction.type === NotificationActionType.OpenNotification) {
+      const { value, ...rest } = editingAction;
+      onTapActionChange(rest);
     } else {
       // For non-webhook actions, ensure the value is set
       if (!editingAction.value || !editingAction.value.trim()) {
@@ -104,7 +107,6 @@ export default function NotificationTapActionSelector({
   const handleAddTapAction = () => {
     const newAction: NotificationActionDto = {
       type: NotificationActionType.OpenNotification,
-      value: "default",
       destructive: false,
       icon: "",
       title: "Open",
@@ -236,13 +238,20 @@ export default function NotificationTapActionSelector({
             ) {
               // When switching from BackgroundCall, clear the value as it was a webhook URL
               newValue = "";
-            } else if (editingAction.value === "default") {
-              // Keep the default value for any type that can use it
-              newValue = "default";
+            } else if (type === NotificationActionType.OpenNotification) {
+              // value must be omitted for OpenNotification
+              newValue = undefined;
             }
             // For all other cases, keep the existing value unchanged
 
-            const updatedAction = { ...editingAction, type, value: newValue };
+            const baseUpdatedAction = { ...editingAction, type };
+            const updatedAction =
+              type === NotificationActionType.OpenNotification
+                ? (() => {
+                    const { value, ...rest } = baseUpdatedAction;
+                    return rest;
+                  })()
+                : { ...baseUpdatedAction, value: newValue ?? "" };
             setEditingAction(updatedAction);
 
             // Immediately update the parent component
@@ -254,6 +263,13 @@ export default function NotificationTapActionSelector({
             }
           }}
           onActionValueChange={(value) => {
+            if (editingAction.type === NotificationActionType.OpenNotification) {
+              const { value: _ignored, ...rest } = editingAction;
+              setEditingAction(rest);
+              onTapActionChange(rest);
+              return;
+            }
+
             const updatedAction = { ...editingAction, value };
             setEditingAction(updatedAction);
             onTapActionChange(updatedAction);

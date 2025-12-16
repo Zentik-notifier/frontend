@@ -78,6 +78,10 @@ export default function NotificationActionForm({
     if (actionType === NotificationActionType.BackgroundCall) {
       return webhookMethod && webhookUrl.trim();
     }
+
+    if (actionType === NotificationActionType.OpenNotification) {
+      return true;
+    }
     
     return actionValue.trim();
   };
@@ -98,76 +102,82 @@ export default function NotificationActionForm({
         options={actionTypeOptions}
         selectedValue={actionType}
         onValueChange={(value) => {
-          onActionTypeChange(value as NotificationActionType);
+          const nextType = value as NotificationActionType;
+          onActionTypeChange(nextType);
+          if (nextType === NotificationActionType.OpenNotification) {
+            onActionValueChange('');
+          }
         }}
         isSearchable={false}
         mode="inline"
       />
 
-      <View style={styles.field}>
-        <Text style={styles.label}>
-          {t("notifications.actions.actionValue")}
-        </Text>
-        {actionType === NotificationActionType.Webhook ? (
-          hasWebhooks ? (
-            <Selector
-              selectedValue={actionValue}
-              placeholder={t("notifications.actions.selectWebhook")}
-              options={webhookOptions}
-              onValueChange={onActionValueChange}
-              isSearchable={true}
-              mode="inline"
-            />
-          ) : (
-            <View
-              style={[
-                styles.noWebhooksContainer,
-                {
-                  backgroundColor:
-                    theme.colors.surfaceVariant,
-                },
-              ]}
-            >
-              <Text
+      {actionType !== NotificationActionType.OpenNotification && (
+        <View style={styles.field}>
+          <Text style={styles.label}>
+            {t("notifications.actions.actionValue")}
+          </Text>
+          {actionType === NotificationActionType.Webhook ? (
+            hasWebhooks ? (
+              <Selector
+                selectedValue={actionValue}
+                placeholder={t("notifications.actions.selectWebhook")}
+                options={webhookOptions}
+                onValueChange={onActionValueChange}
+                isSearchable={true}
+                mode="inline"
+              />
+            ) : (
+              <View
                 style={[
-                styles.noWebhooksText,
-                {
-                  color: theme.colors.onSurfaceVariant,
-                },
+                  styles.noWebhooksContainer,
+                  {
+                    backgroundColor:
+                      theme.colors.surfaceVariant,
+                  },
                 ]}
               >
-                {t("notifications.noWebhooks.message", {
-                  type: "ACTION",
-                })}
-              </Text>
-            </View>
-          )
-        ) : actionType === NotificationActionType.BackgroundCall ? (
-          <WebhookMethodUrlSelector
-            method={webhookMethod}
-            url={webhookUrl}
-            onMethodChange={onWebhookMethodChange}
-            onUrlChange={onWebhookUrlChange}
-          />
-        ) : (
-          <TextInput
-            style={[
-              styles.textInput,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.outline,
-                color: theme.colors.onSurface,
-              },
-            ]}
-            value={actionValue}
-            onChangeText={onActionValueChange}
-            placeholder={t("notifications.actions.actionValuePlaceholder")}
-            placeholderTextColor={
-              theme.colors.onSurfaceVariant
-            }
-          />
-        )}
-      </View>
+                <Text
+                  style={[
+                  styles.noWebhooksText,
+                  {
+                    color: theme.colors.onSurfaceVariant,
+                  },
+                  ]}
+                >
+                  {t("notifications.noWebhooks.message", {
+                    type: "ACTION",
+                  })}
+                </Text>
+              </View>
+            )
+          ) : actionType === NotificationActionType.BackgroundCall ? (
+            <WebhookMethodUrlSelector
+              method={webhookMethod}
+              url={webhookUrl}
+              onMethodChange={onWebhookMethodChange}
+              onUrlChange={onWebhookUrlChange}
+            />
+          ) : (
+            <TextInput
+              style={[
+                styles.textInput,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.outline,
+                  color: theme.colors.onSurface,
+                },
+              ]}
+              value={actionValue}
+              onChangeText={onActionValueChange}
+              placeholder={t("notifications.actions.actionValuePlaceholder")}
+              placeholderTextColor={
+                theme.colors.onSurfaceVariant
+              }
+            />
+          )}
+        </View>
+      )}
 
       <View style={styles.field}>
         <Text style={styles.label}>

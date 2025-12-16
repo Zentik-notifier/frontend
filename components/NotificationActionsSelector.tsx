@@ -53,7 +53,14 @@ export default function NotificationActionsSelector({
 
   const addAction = () => {
     if (actionType && actionTitle.trim()) {
-      let finalValue = actionValue;
+      const newAction: NotificationActionDto = {
+        type: actionType,
+        title: actionTitle,
+        destructive: actionDestructive,
+        icon: actionIconName.trim()
+          ? `${actionIconName.trim()}`
+          : getActionTypeIcon(actionType),
+      };
 
       if (actionType === NotificationActionType.BackgroundCall) {
         if (!webhookUrl.trim()) {
@@ -63,24 +70,19 @@ export default function NotificationActionsSelector({
           );
           return;
         }
-        finalValue = `${webhookMethod}::${webhookUrl}`;
+        newAction.value = `${webhookMethod}::${webhookUrl}`;
+      } else if (actionType === NotificationActionType.OpenNotification) {
+        // value must be omitted for OpenNotification
       } else if (!actionValue.trim()) {
         Alert.alert(
           t("common.error"),
           t("notifications.actions.actionValueRequired")
         );
         return;
+      } else {
+        newAction.value = actionValue;
       }
 
-      const newAction = {
-        type: actionType,
-        value: finalValue,
-        title: actionTitle,
-        destructive: actionDestructive,
-        icon: actionIconName.trim()
-          ? `${actionIconName.trim()}`
-          : getActionTypeIcon(actionType),
-      };
       onActionsChange([...actions, newAction]);
       setActionValue("");
       setActionTitle("");
@@ -141,7 +143,8 @@ export default function NotificationActionsSelector({
                   { color: theme.colors.onSurfaceVariant },
                 ]}
               >
-                {getActionTypeFriendlyName(action.type)} • {action.value}{" "}
+                {getActionTypeFriendlyName(action.type)}
+                {action.value ? ` • ${action.value}` : ""}{" "}
                 {action.destructive ? "• Destructive" : ""}
               </Text>
             </View>
