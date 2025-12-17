@@ -305,7 +305,7 @@ export default function Header() {
         >
           <View style={styles.leftSection}>
             {/* Feedback Button - always visible */}
-            {showFeedbackButton && <FeedbackButton variant="header" />}
+            {/* {showFeedbackButton && <FeedbackButton variant="header" />} */}
             {/* Help Button - Only on home routes and if hints are not hidden */}
             {isHome && !hideHints && (
               <Surface
