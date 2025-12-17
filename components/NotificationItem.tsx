@@ -388,6 +388,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           }}
           itemsToRender={1}
           enableFullScreen
+          autoPlay
           fullScreenTrigger="button"
           maxHeight={180}
           selectorPosition="top"

@@ -26,7 +26,7 @@ interface AttachmentGalleryProps {
   ) => void;
   notificationDate: number;
   showTitle?: boolean;
-  showControls?: boolean;
+  autoPlay?: boolean;
   showMediaName?: boolean;
   zoomEnabled?: boolean;
   swipeToChange?: boolean;
@@ -47,13 +47,13 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   showTitle,
   showMediaName,
   selectorPosition,
-  zoomEnabled = false,
+  zoomEnabled,
   swipeToChange = true,
   maxHeight,
   itemsToRender,
-  showControls,
+  autoPlay = true,
   onSwipeToClose,
-  enableFullScreen = false,
+  enableFullScreen,
   fullScreenTrigger = "tap",
   initialIndex,
   onIndexChange,
@@ -195,8 +195,8 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
               originalFileName={item.name || undefined}
               onPress={handleAttachmentPress}
               notificationDate={notificationDate}
-              autoPlay={currentIndex === index}
-              showControls
+              autoPlay={autoPlay && currentIndex === index}
+              showControls={!enableFullScreen}
               cache
             />
           )}

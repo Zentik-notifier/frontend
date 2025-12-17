@@ -504,6 +504,7 @@ export default function NotificationDetail({
             attachments={attachments}
             selectorPosition="top"
             showTitle
+            autoPlay
             enableFullScreen
             fullScreenTrigger="tap"
             notificationDate={new Date(notification.createdAt).getTime()}

@@ -344,8 +344,6 @@ export default function FullScreenMediaViewer({
               }
               notificationDate={notificationDate ?? Date.now()}
               zoomEnabled
-              showControls
-              enableFullScreen={false}
               initialIndex={hasAttachments ? safeIndex : 0}
               onIndexChange={(index) => {
                 if (hasAttachments) {
