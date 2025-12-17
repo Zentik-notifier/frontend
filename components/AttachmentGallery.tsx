@@ -47,7 +47,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   showTitle,
   showMediaName,
   selectorPosition,
-  zoomEnabled,
+  zoomEnabled = false,
   swipeToChange = true,
   maxHeight,
   itemsToRender,
