@@ -82,22 +82,7 @@ export default function UserDetails({ userId }: UserDetailsProps) {
     return all.filter((t) => t.requester && t.requester.id === userId);
   }, [satData, userId]);
 
-  // Eventi dei System Access Tokens dell'utente
-  const {
-    data: satEventsData,
-    loading: satEventsLoading,
-    refetch: refetchSatEvents,
-  } = useGetEventsQuery({
-    variables: {
-      query: {
-        // Nessun filtro lato server su userId/type:
-        // recuperiamo gli ultimi eventi e filtriamo lato client
-        page: 1,
-        limit: 100,
-      },
-    },
-    fetchPolicy: "cache-first",
-  });
+  const withUserTokens = userSystemTokens.length > 0;
 
   const [updateUserRole] = useUpdateUserRoleMutation({
     onCompleted: () => {
@@ -178,12 +163,7 @@ export default function UserDetails({ userId }: UserDetailsProps) {
   ];
 
   const handleRefresh = async () => {
-    await Promise.all([
-      refetchUser(),
-      refetchStats(),
-      refetchSat(),
-      refetchSatEvents(),
-    ]);
+    await Promise.all([refetchUser(), refetchStats(), refetchSat()]);
   };
 
   return (
@@ -217,13 +197,19 @@ export default function UserDetails({ userId }: UserDetailsProps) {
                 : undefined,
               icon: "history",
             },
-            {
-              value: "system-token-events",
-              label: showTabLabels
-                ? (t("administration.tabs.systemTokenEvents" as any) as string)
-                : undefined,
-              icon: "api",
-            },
+            ...(withUserTokens
+              ? [
+                  {
+                    value: "system-token-events",
+                    label: showTabLabels
+                      ? (t(
+                          "administration.tabs.systemTokenEvents" as any
+                        ) as string)
+                      : undefined,
+                    icon: "api",
+                  },
+                ]
+              : []),
           ]}
           style={styles.segmentedButtons}
         />
@@ -234,12 +220,14 @@ export default function UserDetails({ userId }: UserDetailsProps) {
           <EventsReview hideFilter />
         </EventsReviewProvider>
       ) : activeTab === "system-token-events" ? (
-        <EventsReviewProvider
-          key="system-token-events"
-          fixedObjectIds={userSystemTokens.map((token) => token.id)}
-        >
-          <EventsReview hideFilter />
-        </EventsReviewProvider>
+        withUserTokens && (
+          <EventsReviewProvider
+            key="system-token-events"
+            fixedObjectIds={userSystemTokens.map((token) => token.id)}
+          >
+            <EventsReview hideFilter />
+          </EventsReviewProvider>
+        )
       ) : activeTab === "logs" ? (
         <UserLogs userId={userId} type={UserLogType.AppLog} />
       ) : (
