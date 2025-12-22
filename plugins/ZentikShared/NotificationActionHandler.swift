@@ -10,16 +10,117 @@ import UserNotifications
 public class NotificationActionHandler {
     
     // MARK: - Action Parsing
+
+    /// Extract tapAction from userInfo supporting both expanded and compact keys.
+    /// Supported keys: "tapAction" (expanded), "tp"/"tap" (compact), plus inside "payload".
+    public static func extractTapAction(from userInfo: [AnyHashable: Any]) -> [String: Any]? {
+        if let tapAction = userInfo["tapAction"] as? [String: Any] {
+            return tapAction
+        }
+        if let tapAction = userInfo["tp"] as? [String: Any] {
+            return tapAction
+        }
+        if let tapAction = userInfo["tap"] as? [String: Any] {
+            return tapAction
+        }
+        if let payload = userInfo["payload"] as? [String: Any] {
+            if let tapAction = payload["tapAction"] as? [String: Any] {
+                return tapAction
+            }
+            if let tapAction = payload["tp"] as? [String: Any] {
+                return tapAction
+            }
+            if let tapAction = payload["tap"] as? [String: Any] {
+                return tapAction
+            }
+        }
+        return nil
+    }
+
+    /// Resolve action type from either expanded ("type") or compact ("t") format.
+    /// - Returns: Uppercased action type string (e.g. "OPEN_NOTIFICATION") or nil.
+    public static func resolveActionType(_ action: [String: Any]) -> String? {
+        if let type = action["type"] as? String {
+            let trimmed = type.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed.uppercased()
+        }
+        if let t = action["t"] as? Int {
+            return NotificationActionType.stringFrom(int: t)
+        }
+        return nil
+    }
+
+    /// Resolve action value from either expanded ("value") or compact ("v") format.
+    /// Applies known backend optimizations for omitted values.
+    public static func resolveActionValue(
+        _ action: [String: Any],
+        type: String?,
+        notificationId: String
+    ) -> String? {
+        if let value = action["value"] as? String {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        if let v = action["v"] as? String {
+            let trimmed = v.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+
+        guard let type = type else { return nil }
+
+        // Backend optimizations for omitted values.
+        // Note: for WEBHOOK the value is always required (webhookId).
+        switch type {
+        case "OPEN_NOTIFICATION":
+            // Backend optimization: omit value when it equals notificationId.
+            return notificationId
+        case "DELETE":
+            // Backend optimization: omit value for fixed-value actions.
+            return "delete_notification"
+        case "MARK_AS_READ":
+            // Backend optimization: omit value for fixed-value actions.
+            return "mark_as_read_notification"
+        default:
+            return nil
+        }
+    }
+
+    /// Normalize an action dictionary so callers can rely on string keys "type" and "value".
+    /// Keeps original keys intact and adds/overwrites expanded keys.
+    public static func normalizeAction(
+        _ action: [String: Any],
+        notificationId: String
+    ) -> [String: Any]? {
+        let type = resolveActionType(action)
+        let value = resolveActionValue(action, type: type, notificationId: notificationId)
+        guard let type = type, let value = value else { return nil }
+
+        var normalized = action
+        normalized["type"] = type
+        normalized["value"] = value
+        return normalized
+    }
     
     /// Parse action identifier into type and value
     public static func parseActionIdentifier(_ identifier: String, from userInfo: [AnyHashable: Any]) -> [String: String]? {
         // Handle default tap (open app)
         if identifier == UNNotificationDefaultActionIdentifier {
             print("🔧 [ActionHandler] Default tap action")
-            if let tapAction = userInfo["tapAction"] as? [String: Any],
-               let type = tapAction["type"] as? String,
-               let value = tapAction["value"] as? String {
-                return ["type": type, "value": value]
+            if let tapAction = extractTapAction(from: userInfo) {
+                let notificationIdCandidate = ((userInfo["nid"] as? String) ?? (userInfo["n"] as? String) ?? (userInfo["notificationId"] as? String))?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                if let nid = notificationIdCandidate, !nid.isEmpty,
+                   let normalized = normalizeAction(tapAction, notificationId: nid),
+                   let type = normalized["type"] as? String,
+                   let value = normalized["value"] as? String {
+                    return ["type": type, "value": value]
+                }
+
+                // If we can't infer notificationId, only accept explicit value.
+                if let type = resolveActionType(tapAction),
+                   let value = (tapAction["value"] as? String) ?? (tapAction["v"] as? String) {
+                    return ["type": type, "value": value]
+                }
             }
             return ["type": "OPEN_APP", "value": "default"]
         }
@@ -301,7 +402,7 @@ public class NotificationActionHandler {
             // But the actionIdentifier passed here comes from the system, so it MUST contain the value
             // So we only match if we have a value in the dict OR if we can infer it
             
-            if value == nil && (type == "OPEN_NOTIFICATION" || type == "WEBHOOK") {
+            if value == nil && type == "OPEN_NOTIFICATION" {
                 // Try to extract value from actionIdentifier if it matches the pattern
                 // action_TYPE_VALUE
                 let prefix = "action_\(type)_"
@@ -505,17 +606,6 @@ public class NotificationActionHandler {
                             throw NSError(domain: "ActionError", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg])
                         }
                     }
-                    
-                case "WEBHOOK":
-                    try await executeWebhook(webhookId: normalizedValue)
-                    
-                    LoggingSystem.shared.info(
-                        tag: source,
-                        message: "[Action] Webhook completed",
-                        metadata: ["webhookId": value],
-                        source: source
-                    )
-                    
                 case "NAVIGATE", "OPEN_NOTIFICATION":
                     // Store intent in database for app to process (matching settings-service format)
                     let navigationData: [String: Any] = [

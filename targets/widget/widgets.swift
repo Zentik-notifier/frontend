@@ -70,14 +70,37 @@ struct NotificationProvider: TimelineProvider {
             DatabaseAccess.getRecentNotifications(limit: 10, unreadOnly: unreadOnly, source: "Widget") { notifications in
                 // Load bucket icons for each notification
                 let notificationsWithIcons = notifications.map { notification -> WidgetNotificationData in
-                    let bucketIconData = MediaAccess.getBucketIconFromSharedCache(
+                    let fallback = DatabaseAccess.applySingleTextFieldTitleBodyBucketFallback(
+                        title: notification.title,
+                        body: notification.body,
+                        bucketIdForLookup: notification.bucketId,
+                        bucketNameFromPayload: notification.bucketName,
+                        source: "Widget"
+                    )
+
+                    let adjustedNotification = WidgetNotification(
+                        id: notification.id,
+                        title: fallback.title,
+                        body: fallback.body,
+                        subtitle: notification.subtitle,
+                        createdAt: notification.createdAt,
+                        isRead: notification.isRead,
                         bucketId: notification.bucketId,
-                        bucketName: notification.bucketName,
+                        bucketName: fallback.bucketName ?? notification.bucketName,
                         bucketColor: notification.bucketColor,
-                        iconUrl: notification.bucketIconUrl
+                        bucketIconUrl: notification.bucketIconUrl,
+                        attachments: notification.attachments,
+                        actions: notification.actions
+                    )
+
+                    let bucketIconData = MediaAccess.getBucketIconFromSharedCache(
+                        bucketId: adjustedNotification.bucketId,
+                        bucketName: adjustedNotification.bucketName,
+                        bucketColor: adjustedNotification.bucketColor,
+                        iconUrl: adjustedNotification.bucketIconUrl
                     )
                     return WidgetNotificationData(
-                        notification: notification,
+                        notification: adjustedNotification,
                         bucketIconData: bucketIconData
                     )
                 }

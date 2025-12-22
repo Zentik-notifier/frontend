@@ -1061,6 +1061,52 @@ public class DatabaseAccess {
     }
     
     // MARK: - Widget Notification Operations
+
+    /// Apply the same title/body fallback used in NSE:
+    /// If only one of title/body is provided, show the message in the body and
+    /// (when available) use the bucket name (from payload or SQLite) as title.
+    ///
+    /// This is intentionally a pure helper (no side effects) except for the optional
+    /// SQLite bucket lookup via `getBucketById`.
+    public static func applySingleTextFieldTitleBodyBucketFallback(
+        title: String,
+        body: String,
+        bucketIdForLookup: String?,
+        bucketNameFromPayload: String? = nil,
+        source: String
+    ) -> (title: String, body: String, bucketName: String?, applied: Bool) {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasOnlyOneTextField = (trimmedTitle.isEmpty != trimmedBody.isEmpty)
+
+        guard hasOnlyOneTextField else {
+            let bn = bucketNameFromPayload?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (title: title, body: body, bucketName: (bn?.isEmpty == false ? bn : nil), applied: false)
+        }
+
+        var resolvedBucketName: String? = bucketNameFromPayload?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if resolvedBucketName?.isEmpty != false, let bucketIdForLookup = bucketIdForLookup {
+            if let bucket = getBucketById(bucketId: bucketIdForLookup, source: source) {
+                let name = bucket.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty { resolvedBucketName = name }
+            }
+        }
+
+        var newTitle = title
+        var newBody = body
+
+        // If only title exists, move it to body.
+        if trimmedBody.isEmpty && !trimmedTitle.isEmpty {
+            newBody = title
+        }
+
+        // If bucket name is available, use it as title.
+        if let resolvedBucketName = resolvedBucketName, !resolvedBucketName.isEmpty {
+            newTitle = resolvedBucketName
+        }
+
+        return (title: newTitle, body: newBody, bucketName: resolvedBucketName, applied: true)
+    }
     
     /// Get recent notifications for widget display
     /// - Parameters:

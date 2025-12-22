@@ -222,6 +222,24 @@ class NotificationService: UNNotificationServiceExtension {
     
     // Update content.userInfo with normalized values
     content.userInfo = userInfo
+
+    // ---------------------------------------------------------------------
+    // Fallback title/body formatting (NSE)
+    // Centralized in DatabaseAccess to keep NSE/NCE/Widget consistent.
+    // ---------------------------------------------------------------------
+    let bucketIdForLookup = (userInfo["bid"] as? String) ?? (userInfo["b"] as? String) ?? (content.threadIdentifier as? String)
+    let fallback = DatabaseAccess.applySingleTextFieldTitleBodyBucketFallback(
+      title: content.title,
+      body: content.body,
+      bucketIdForLookup: bucketIdForLookup,
+      bucketNameFromPayload: nil,
+      source: "NSE"
+    )
+    if fallback.applied {
+      content.title = fallback.title
+      content.body = fallback.body
+      print("📱 [NotificationService] 🧩 Applied title/body fallback. title='\(content.title)' body='\(content.body)'")
+    }
     
     print("📱 [NotificationService] 🎭 UserInfo keys: \(userInfo.keys.sorted())")
     if let bid = normalizedBid { print("📱 [NotificationService] 🎭 Normalized Bucket ID: \(bid)") }
@@ -1121,32 +1139,21 @@ class NotificationService: UNNotificationServiceExtension {
 
       for action in actions {
         // Prefer explicit type string (uppercased), fallback to compact integer code
-        var resolvedType = (action["type"] as? String)?.uppercased()
-        if resolvedType == nil, let t = action["t"] as? Int {
-          resolvedType = NotificationActionType.stringFrom(int: t)
-        }
+        let resolvedType = NotificationActionHandler.resolveActionType(action)
 
         var normalized = action
 
         if let type = resolvedType {
           normalized["type"] = type
 
-          // Normalize value from compact format if needed
-          if normalized["value"] == nil, let v = normalized["v"] as? String {
-            normalized["value"] = v
-          }
-
-          // If backend omitted value for fixed-value actions, restore a
-          // canonical value so that UNNotificationAction identifiers and
-          // matching logic continue to work as before optimization.
+          // Normalize value from compact format + handle backend optimizations
           if normalized["value"] == nil {
-            switch type {
-            case "DELETE":
-              normalized["value"] = "delete_notification"
-            case "MARK_AS_READ":
-              normalized["value"] = "mark_as_read_notification"
-            default:
-              break
+            if let resolvedValue = NotificationActionHandler.resolveActionValue(
+              action,
+              type: type,
+              notificationId: notificationId
+            ) {
+              normalized["value"] = resolvedValue
             }
           }
 

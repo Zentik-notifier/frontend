@@ -38,6 +38,7 @@
     "ios": "expo run:ios",
     "regen:icons": "node scripts/regen-icons.js",
     "generate:i18n-types": "node scripts/generate-i18n-types.js",
+    "sync-ios-extensions": "bash scripts/sync-ios-extensions.sh",
     "eas-build-pre-install": "npm config set legacy-peer-deps true",
     "postinstall": "patch-package"
   },

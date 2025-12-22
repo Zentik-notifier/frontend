@@ -91,18 +91,40 @@ FirebaseApp.configure()
       source: "AppDelegate"
     )
     
-    // Handle the action in Swift (for background operations)
-    handleNotificationAction(response: response)
-    
-    // CRITICAL: Propagate event to Expo delegate for React Native listeners
-    if let expoDelegate = expoNotificationDelegate {
-      expoDelegate.userNotificationCenter?(
-        center,
-        didReceive: response,
-        withCompletionHandler: completionHandler
-      )
+    // Decide whether to propagate to React Native (Expo).
+    // For non-navigation actions (e.g. WEBHOOK/MARK_AS_READ/DELETE), we execute in Swift
+    // and avoid delegating to JS to prevent duplicate handling.
+    let shouldForwardToExpo: Bool = {
+      guard let parsed = NotificationActionHandler.parseActionIdentifier(response.actionIdentifier, from: userInfo),
+            let parsedType = parsed["type"]?.uppercased() else {
+        // Conservative: if we can't parse, keep the previous behavior.
+        return true
+      }
+
+      // Only forward navigation-like events to React.
+      // Everything else (including WEBHOOK) is handled purely in Swift.
+      return parsedType == "NAVIGATE" || parsedType == "OPEN_NOTIFICATION" || parsedType == "OPEN_APP"
+    }()
+
+    if shouldForwardToExpo {
+      // Handle the action in Swift (for background operations)
+      handleNotificationAction(response: response)
+
+      // Propagate event to Expo delegate for React Native listeners
+      if let expoDelegate = expoNotificationDelegate {
+        expoDelegate.userNotificationCenter?(
+          center,
+          didReceive: response,
+          withCompletionHandler: completionHandler
+        )
+      } else {
+        completionHandler()
+      }
     } else {
-      completionHandler()
+      // Execute fully in Swift; call completionHandler when done.
+      handleNotificationAction(response: response) {
+        completionHandler()
+      }
     }
   }
   
@@ -146,7 +168,7 @@ FirebaseApp.configure()
   
   // MARK: - Action Handling
   
-  private func handleNotificationAction(response: UNNotificationResponse) {
+  private func handleNotificationAction(response: UNNotificationResponse, completion: (() -> Void)? = nil) {
     let actionIdentifier = response.actionIdentifier
     let userInfo = response.notification.request.content.userInfo
     
@@ -224,6 +246,8 @@ FirebaseApp.configure()
           source: "AppDelegate"
         )
       }
+
+      completion?()
     }
   }
   

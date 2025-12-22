@@ -209,33 +209,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             print("📱 [ContentExtension] 🎭 Processing \(actionsData.count) actions for dynamic category")
             
             let notificationActions = actionsData.compactMap { actionData -> UNNotificationAction? in
-                var type = actionData["type"] as? String
-                if type == nil, let t = actionData["t"] as? Int {
-                    type = NotificationActionType.stringFrom(int: t)
-                }
-                
-                var value = (actionData["value"] as? String) ?? (actionData["v"] as? String)
-                
-                // Handle OPEN_NOTIFICATION optimization (value omitted if same as notificationId)
-                if type == "OPEN_NOTIFICATION" && value == nil {
-                    value = notificationId
-                }
-                
-                // Handle WEBHOOK optimization (value omitted if same as notificationId)
-                if type == "WEBHOOK" && value == nil {
-                    value = notificationId
-                }
-
-                // Handle fixed-value actions where backend now omits value
-                if type == "DELETE" && value == nil {
-                    value = "delete_notification"
-                }
-                if type == "MARK_AS_READ" && value == nil {
-                    value = "mark_as_read_notification"
-                }
-                
-                guard let type = type,
-                        let value = value else {
+                let normalized = NotificationActionHandler.normalizeAction(actionData, notificationId: notificationId)
+                guard let type = normalized?["type"] as? String,
+                      let value = normalized?["value"] as? String else {
                     print("📱 [ContentExtension] ⚠️ Invalid action data (missing type/value): \(actionData)")
                     
                     logToDatabase(
@@ -335,6 +311,30 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             // No newline, use original subtitle and body
             notificationSubtitleText = notification.request.content.subtitle
             notificationBodyText = rawBody
+        }
+
+        // ---------------------------------------------------------------------
+        // Fallback title/body formatting (NCE)
+        // Keep behavior aligned with NSE and Widget: if only one of title/body is present,
+        // show the message in the body and use the bucket name (from SQLite) as title.
+        // ---------------------------------------------------------------------
+        var bucketIdForLookup: String? = nil
+        if let ui = currentNotificationUserInfo {
+            if let rawBid = (ui["bid"] as? String) ?? (ui["b"] as? String) {
+                bucketIdForLookup = SharedUtils.normalizeUUID(rawBid)
+            }
+        }
+
+        let fallback = DatabaseAccess.applySingleTextFieldTitleBodyBucketFallback(
+            title: notificationTitleText,
+            body: notificationBodyText,
+            bucketIdForLookup: bucketIdForLookup,
+            bucketNameFromPayload: nil,
+            source: "NCE"
+        )
+        if fallback.applied {
+            notificationTitleText = fallback.title
+            notificationBodyText = fallback.body
         }
         
         // Store current notification data for tap actions
@@ -3067,29 +3067,13 @@ extension NotificationViewController {
             ]
             storeNavigationIntent(data: navigationData)
             print("📱 [ContentExtension] 📂 Stored default open notification intent")
-            
-            // Open the main app to process the navigation intent
+
+            // Use the system default action to open the host app.
+            // This is more reliable than dismissing the extension and then trying to open a deep link.
             DispatchQueue.main.async {
-                // Dismiss extension first
-                self.extensionContext?.dismissNotificationContentExtension()
-                
-                // Use URL scheme to open app (works even when app is closed)
-                if let url = URL(string: "zentik://notification/\(notificationId)") {
-                    print("📱 [ContentExtension] 🔗 Opening app via deep link: \(url.absoluteString)")
-                    self.extensionContext?.open(url, completionHandler: { success in
-                        if success {
-                            print("📱 [ContentExtension] ✅ App opened successfully via deep link")
-                        } else {
-                            print("📱 [ContentExtension] ⚠️ Failed to open app via deep link, falling back to default action")
-                            self.extensionContext?.performNotificationDefaultAction()
-                        }
-                    })
-                } else {
-                    // Fallback to default action
-                    self.extensionContext?.performNotificationDefaultAction()
-                }
+                self.extensionContext?.performNotificationDefaultAction()
             }
-            
+
             completion(true)
         }
     }
@@ -3143,13 +3127,7 @@ extension NotificationViewController {
     }
     
     private func extractTapAction(from userInfo: [AnyHashable: Any]) -> [String: Any]? {
-        if let tapAction = userInfo["tapAction"] as? [String: Any] {
-            return tapAction
-        } else if let payload = userInfo["payload"] as? [String: Any],
-                  let tapAction = payload["tapAction"] as? [String: Any] {
-            return tapAction
-        }
-        return nil
+        return NotificationActionHandler.extractTapAction(from: userInfo)
     }
     
     private func handleCustomActionInBackground(actionIdentifier: String, userInfo: [AnyHashable: Any], notificationId: String) {
@@ -3178,109 +3156,13 @@ extension NotificationViewController {
     }
     
     private func findMatchingAction(actionIdentifier: String, userInfo: [AnyHashable: Any]) -> [String: Any]? {
-        print("📱 [ContentExtension] 🔍 Looking for action with identifier: \(actionIdentifier)")
-        
-        var actions: [[String: Any]] = []
-        
-        // Extract actions from different payload structures
-        if let actionsArray = userInfo["actions"] as? [[String: Any]] {
-            actions = actionsArray
-            print("📱 [ContentExtension] 📄 Found \(actions.count) actions in userInfo")
-        } else if let singleAction = userInfo["action"] as? [String: Any] {
-            actions = [singleAction]
-            print("📱 [ContentExtension] 📄 Found single action in userInfo")
-        } else if let payload = userInfo["payload"] as? [String: Any] {
-            if let payloadActions = payload["actions"] as? [[String: Any]] {
-                actions = payloadActions
-                print("📱 [ContentExtension] 📄 Found \(actions.count) actions in payload")
-            } else if let singlePayloadAction = payload["action"] as? [String: Any] {
-                actions = [singlePayloadAction]
-                print("📱 [ContentExtension] 📄 Found single action in payload")
-            }
-        }
-        
-        // Try to match by action identifier pattern
-        // Format: action_TYPE_VALUE oppure action_TYPE_VALUE_NOTIFICATIONID (vecchio formato)
-        for (index, action) in actions.enumerated() {
-            // Handle minified keys (t -> type, v -> value)
-            var type = action["type"] as? String
-            if type == nil, let t = action["t"] as? Int {
-                type = NotificationActionType.stringFrom(int: t)
-            }
-            
-            var value = (action["value"] as? String) ?? (action["v"] as? String)
-            
-            // Handle OPEN_NOTIFICATION optimization (value omitted if same as notificationId)
-            if type == "OPEN_NOTIFICATION" && value == nil {
-                // Extract notification ID from userInfo (nid/n) or fallback to request identifier
-                let rawNid = (userInfo["nid"] as? String) ?? (userInfo["n"] as? String) ?? (userInfo["notificationId"] as? String)
-                value = SharedUtils.normalizeUUID(rawNid)
-            }
-            
-            // Handle WEBHOOK optimization (value omitted if same as notificationId)
-            if type == "WEBHOOK" && value == nil {
-                // Extract notification ID from userInfo (nid/n) or fallback to request identifier
-                let rawNid = (userInfo["nid"] as? String) ?? (userInfo["n"] as? String) ?? (userInfo["notificationId"] as? String)
-                value = SharedUtils.normalizeUUID(rawNid)
-            }
-            
-            guard let type = type,
-                  let value = value else { 
-                print("📱 [ContentExtension] ⚠️ Action \(index) missing type or value (raw: \(action))")
-                continue 
-            }
-            
-            // Check exact match: action_TYPE_VALUE
-            let exactMatch = "action_\(type)_\(value)"
-            if actionIdentifier == exactMatch {
-                print("📱 [ContentExtension] ✅ Found exact matching action: \(type) with value: \(value)")
-                // Return action with restored type/value
-                var resultAction = action
-                resultAction["type"] = type
-                resultAction["value"] = value
-                return resultAction
-            }
-            
-            // Check prefix match for old format: action_TYPE_VALUE_NOTIFICATIONID
-            let prefixMatch = "action_\(type)_\(value)_"
-            if actionIdentifier.hasPrefix(prefixMatch) {
-                print("📱 [ContentExtension] ✅ Found prefix matching action: \(type) with value: \(value)")
-                // Return action with restored type/value
-                var resultAction = action
-                resultAction["type"] = type
-                resultAction["value"] = value
-                return resultAction
-            }
-            
-            print("📱 [ContentExtension] 🔍 No match for '\(actionIdentifier)' with exact: '\(exactMatch)' or prefix: '\(prefixMatch)'")
-        }
-        
-        // Fallback: parse action identifier manually
-        // Format: action_TYPE_VALUE o action_TYPE_VALUE_NOTIFICATIONID
-        let parts = actionIdentifier.split(separator: "_")
-        if parts.count >= 3 {
-            let actionType = String(parts[1]).uppercased()
-            // Join middle parts as value (excluding "action" prefix and optional notificationId suffix)
-            let valueParts = parts[2...]
-            let actionValue = valueParts.joined(separator: "_")
-            
-            print("📱 [ContentExtension] 🔄 Fallback parsing - type: \(actionType), value: \(actionValue)")
-            
-            return [
-                "type": actionType,
-                "value": actionValue,
-                "destructive": false,
-                "title": actionValue
-            ]
-        }
-        
-        return nil
+        return NotificationActionHandler.findMatchingAction(actionIdentifier: actionIdentifier, userInfo: userInfo)
     }
     
     private func executeAction(action: [String: Any], notificationId: String, completion: @escaping (Bool) -> Void) {
-        // Extract action type and value from action dictionary
-        guard let type = action["type"] as? String,
-              let value = action["value"] as? String else {
+        guard let normalized = NotificationActionHandler.normalizeAction(action, notificationId: notificationId),
+              let type = normalized["type"] as? String,
+              let value = normalized["value"] as? String else {
             print("📱 [ContentExtension] ❌ Invalid action format")
             completion(false)
             return
@@ -3309,33 +3191,20 @@ extension NotificationViewController {
                     // Note: NCE cannot use WatchConnectivity (extension limitation)
                     // Watch will sync when app opens or via background refresh
                     
+                    // For WEBHOOK actions, dismiss the NCE UI after execution.
+                    // Header/media taps don't go through the UNNotificationResponse completion(.dismiss) path.
+                    if type == "WEBHOOK" {
+                        DispatchQueue.main.async {
+                            self?.extensionContext?.dismissNotificationContentExtension()
+                        }
+                    }
+
                     // For navigation actions, open the app after storing the intent
                     if isNavigationAction {
                         print("📱 [ContentExtension] 🚀 Opening app for navigation action: \(type)")
                         DispatchQueue.main.async {
-                            // Dismiss extension first
-                            self?.extensionContext?.dismissNotificationContentExtension()
-                            
-                            // Use URL scheme to open app (works even when app is closed)
-                            if type == "OPEN_NOTIFICATION" {
-                                if let url = URL(string: "zentik://notification/\(value)") {
-                                    print("📱 [ContentExtension] 🔗 Opening app via deep link: \(url.absoluteString)")
-                                    self?.extensionContext?.open(url, completionHandler: { success in
-                                        if success {
-                                            print("📱 [ContentExtension] ✅ App opened successfully via deep link")
-                                        } else {
-                                            print("📱 [ContentExtension] ⚠️ Failed to open app via deep link, falling back to default action")
-                                            self?.extensionContext?.performNotificationDefaultAction()
-                                        }
-                                    })
-                                } else {
-                                    // Fallback to default action
-                                    self?.extensionContext?.performNotificationDefaultAction()
-                                }
-                            } else {
-                                // For NAVIGATE actions, use default action
-                                self?.extensionContext?.performNotificationDefaultAction()
-                            }
+                            // Use default action to open the host app so it can consume the stored intent.
+                            self?.extensionContext?.performNotificationDefaultAction()
                         }
                     }
                     completion(true)
@@ -3351,20 +3220,10 @@ extension NotificationViewController {
         print("📱 [ContentExtension] 🔍 Executing action in background. Keys: \(action.keys), Action: \(action)")
         
         // Extract action type and value from action dictionary
-        guard let type = action["type"] as? String else {
-            print("📱 [ContentExtension] ❌ Invalid action format in background (missing type). Action data: \(action)")
-            return
-        }
-        
-        var value = action["value"] as? String
-        
-        // Handle OPEN_NOTIFICATION/WEBHOOK optimization (value omitted if same as notificationId)
-        if (type == "OPEN_NOTIFICATION" || type == "WEBHOOK") && value == nil {
-            value = notificationId
-        }
-        
-        guard let value = value else {
-            print("📱 [ContentExtension] ❌ Invalid action format in background (missing value)")
+        guard let normalized = NotificationActionHandler.normalizeAction(action, notificationId: notificationId),
+              let type = normalized["type"] as? String,
+              let value = normalized["value"] as? String else {
+            print("📱 [ContentExtension] ❌ Invalid action format in background. Action data: \(action)")
             return
         }
 
@@ -3397,30 +3256,8 @@ extension NotificationViewController {
                     if isNavigationAction {
                         print("📱 [ContentExtension] 🚀 Opening app for navigation action in background: \(type)")
                         DispatchQueue.main.async {
-                            // Dismiss extension first
-                            self?.extensionContext?.dismissNotificationContentExtension()
-                            
-                            // Use URL scheme to open app (works even when app is closed)
-                            if type == "OPEN_NOTIFICATION" {
-                                if let url = URL(string: "zentik://notification/\(value)") {
-                                    print("📱 [ContentExtension] 🔗 Opening app via deep link in background: \(url.absoluteString)")
-                                    self?.extensionContext?.open(url, completionHandler: { success in
-                                        if success {
-                                            print("📱 [ContentExtension] ✅ App opened successfully via deep link in background")
-                                        } else {
-                                            print("📱 [ContentExtension] ⚠️ Failed to open app via deep link in background, falling back to default action")
-                                            self?.extensionContext?.performNotificationDefaultAction()
-                                        }
-                                    })
-                                } else {
-                                    // Fallback to default action
-                                    print("📱 [ContentExtension] ⚠️ Failed to create URL, falling back to default action")
-                                    self?.extensionContext?.performNotificationDefaultAction()
-                                }
-                            } else {
-                                // For NAVIGATE actions, use default action
-                                self?.extensionContext?.performNotificationDefaultAction()
-                            }
+                            // Use default action to open the host app so it can consume the stored intent.
+                            self?.extensionContext?.performNotificationDefaultAction()
                         }
                     }
                     
