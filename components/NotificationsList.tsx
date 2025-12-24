@@ -313,8 +313,8 @@ export default function NotificationsList({
       }
 
       try {
-        const firstId = notifications[0]?.id;
-        setShowScrollTop(firstId ? !visibleSet.has(firstId) : false);
+        const secondId = notifications[1]?.id;
+        setShowScrollTop(secondId ? !visibleSet.has(secondId) : false);
       } catch {}
 
       if (settings.notificationsPreferences?.markAsReadMode !== "on-view")
