@@ -1046,6 +1046,14 @@ export function useCreateBucket(options?: {
         console.error('[useCreateBucket] Error updating appState:', error);
       }
 
+      // Step 2.5: Also update bucket detail cache for immediate use
+      try {
+        queryClient.setQueryData(bucketKeys.detail(bucket.id), bucket);
+        console.log('[useCreateBucket] Bucket detail cache updated');
+      } catch (error) {
+        console.error('[useCreateBucket] Error updating bucket detail cache:', error);
+      }
+
       // Step 3: Invalidate related queries
       await queryClient.invalidateQueries({
         queryKey: notificationKeys.bucketsStats(),

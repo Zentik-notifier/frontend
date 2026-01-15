@@ -278,9 +278,7 @@ export default function NotificationsList({
       // Aggiungi tutte le notifiche attualmente visibili al set di quelle mai visibili
       visibleIds.forEach((id) => everVisibleIdsRef.current.add(id));
 
-      // Determina il primo e ultimo indice visibile
-      const firstVisibleItem = viewableItems[0];
-      const secondVisibleItem = viewableItems[1];
+      const firstVisibleItem = viewableItems[1];
       const lastVisibleItem = viewableItems[viewableItems.length - 1];
 
       if (
@@ -290,17 +288,9 @@ export default function NotificationsList({
       ) {
         const firstIndex = firstVisibleItem.index;
         setFirstVisibleIndex(firstIndex);
-      }
-
-      if (
-        secondVisibleItem &&
-        secondVisibleItem.index !== null &&
-        secondVisibleItem.index !== undefined
-      ) {
-        const secondIndex = secondVisibleItem.index;
 
         const hasUnread = notifications
-          .slice(0, secondIndex)
+          .slice(0, firstIndex)
           .some((n: NotificationFragment) => !n.readAt);
         setHasUnreadAbove(hasUnread);
       }
