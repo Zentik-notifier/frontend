@@ -1,8 +1,8 @@
 import { useAppState } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import React, { useState, useMemo } from "react";
+import { StyleSheet, View, Linking } from "react-native";
 import {
   Icon,
   Text,
@@ -15,6 +15,7 @@ import BucketIcon from "./BucketIcon";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
 import PaperScrollView from "./ui/PaperScrollView";
 import RedeemInviteCodeModal from "./RedeemInviteCodeModal";
+import { BUCKET_PRESETS } from "@/config/bucketPresets";
 
 const BucketsSection: React.FC = () => {
   const { t } = useI18n();
@@ -188,6 +189,34 @@ const BucketsSection: React.FC = () => {
                       )}
                     </View>
 
+                    {/* Documentation link if preset matches */}
+                    {(() => {
+                      const bucketPreset = bucket.preset ? BUCKET_PRESETS.find(p => p.id === bucket.preset) : null;
+                      const docsUrl = bucketPreset?.docsUrl;
+                      
+                      if (docsUrl) {
+                        return (
+                          <TouchableRipple
+                            onPress={async () => {
+                              const canOpen = await Linking.canOpenURL(docsUrl);
+                              if (canOpen) {
+                                await Linking.openURL(docsUrl);
+                              }
+                            }}
+                            style={styles.docsButton}
+                            rippleColor={theme.colors.primaryContainer}
+                          >
+                            <Icon
+                              source="book-open"
+                              size={20}
+                              color={theme.colors.onSurfaceVariant}
+                            />
+                          </TouchableRipple>
+                        );
+                      }
+                      return null;
+                    })()}
+
                     <NotificationSnoozeButton
                       bucketId={bucket.id}
                       variant="swipeable"
@@ -296,6 +325,11 @@ const styles = StyleSheet.create({
   },
   bucketInfo: {
     flex: 1,
+  },
+  docsButton: {
+    padding: 8,
+    borderRadius: 20,
+    marginRight: 4,
   },
   bucketName: {
     marginBottom: 2,

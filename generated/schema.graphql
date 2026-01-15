@@ -78,6 +78,7 @@ type Bucket {
   messages: [Message!]
   name: String!
   permissions: [EntityPermission!]!
+  preset: String
   updatedAt: DateTime!
   user: User!
   userBucket: UserBucket
@@ -158,6 +159,7 @@ input CreateBucketDto {
   isProtected: Boolean
   isPublic: Boolean
   name: String!
+  preset: String
 }
 
 input CreateChangelogInput {
@@ -880,6 +882,7 @@ type PayloadMapper {
 enum PayloadMapperBuiltInType {
   ZENTIK_ATLAS_STATUSPAGE
   ZENTIK_AUTHENTIK
+  ZENTIK_EMQX
   ZENTIK_EXPO
   ZENTIK_GITHUB
   ZENTIK_INSTATUS
@@ -1265,6 +1268,7 @@ input UpdateBucketDto {
   isProtected: Boolean
   isPublic: Boolean
   name: String
+  preset: String
 }
 
 input UpdateChangelogInput {

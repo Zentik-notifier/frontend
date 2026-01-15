@@ -4,6 +4,7 @@ class AuthService {
   private static instance: AuthService;
   private isRefreshing = false;
   private refreshPromise: Promise<string | null> | null = null;
+  private ensureValidTokenPromise: Promise<string | null> | null = null;
 
   private constructor() { }
 
@@ -34,28 +35,39 @@ class AuthService {
   }
 
   public async ensureValidToken(rest?: boolean): Promise<string | null> {
-    try {
-      const currentToken = settingsService.getAuthData().accessToken;
-      if (!currentToken) return null;
-      if (!this.isTokenExpired(currentToken)) return currentToken;
-      if (rest) {
-        const refreshed = await this.refreshAccessTokenRest();
-        console.log('[authService] token expired and refreshed via REST');
-        if (!refreshed) {
-          return null;
-        }
-        return refreshed;
-      } else {
-        const refreshed = await this.refreshAccessToken();
-        console.log('[authService] token expired and refreshed via GraphQL');
-        if (!refreshed) {
-          return null;
-        }
-        return refreshed;
-      }
-    } catch (error) {
-      return null;
+    // If there's already a refresh in progress, return the existing promise
+    if (this.ensureValidTokenPromise) {
+      return this.ensureValidTokenPromise;
     }
+
+    this.ensureValidTokenPromise = (async () => {
+      try {
+        const currentToken = settingsService.getAuthData().accessToken;
+        if (!currentToken) return null;
+        if (!this.isTokenExpired(currentToken)) return currentToken;
+        if (rest) {
+          const refreshed = await this.refreshAccessTokenRest();
+          console.log('[authService] token expired and refreshed via REST');
+          if (!refreshed) {
+            return null;
+          }
+          return refreshed;
+        } else {
+          const refreshed = await this.refreshAccessToken();
+          console.log('[authService] token expired and refreshed via GraphQL');
+          if (!refreshed) {
+            return null;
+          }
+          return refreshed;
+        }
+      } catch (error) {
+        return null;
+      } finally {
+        this.ensureValidTokenPromise = null;
+      }
+    })();
+
+    return this.ensureValidTokenPromise;
   }
 
   public async refreshAccessTokenRest(): Promise<string | null> {

@@ -523,7 +523,6 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
         try {
           const bucket = await createBucket({
             name: step4BucketName.trim(),
-            description: "Bucket created during onboarding",
             color: step4TemplateColor || "#2196F3",
             icon: iconValue,
             generateMagicCode: true,

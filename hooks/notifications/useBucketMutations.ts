@@ -985,6 +985,7 @@ export function useCreateBucket(options?: {
           isProtected: bucket.isProtected,
           isPublic: bucket.isPublic,
           isAdmin: bucket.isAdmin,
+          preset: bucket.preset ?? null,
           userBucket: bucket.userBucket,
           user: bucket.user,
           permissions: bucket.permissions,
@@ -1019,6 +1020,7 @@ export function useCreateBucket(options?: {
             isProtected: bucket.isProtected,
             isPublic: bucket.isPublic,
             isAdmin: bucket.isAdmin,
+            preset: bucket.preset ?? null,
             totalMessages: 0,
             unreadCount: 0,
             lastNotificationAt: null,
@@ -1148,6 +1150,7 @@ export function useUpdateBucket(options?: {
           isProtected: bucket.isProtected,
           isPublic: bucket.isPublic,
           isAdmin: bucket.isAdmin,
+          preset: bucket.preset ?? null,
           userBucket: bucket.userBucket,
           user: bucket.user,
           permissions: bucket.permissions,
@@ -1191,6 +1194,7 @@ export function useUpdateBucket(options?: {
               icon: bucket.icon,
               iconAttachmentUuid: bucket.iconAttachmentUuid,
               iconUrl: bucket.iconUrl,
+              preset: bucket.preset ?? b.preset ?? null,
               updatedAt: bucket.updatedAt,
             };
           }

@@ -145,6 +145,9 @@ export interface BucketWithStats {
   /** Whether the bucket is admin-only */
   isAdmin?: boolean | null;
   
+  /** Preset ID that was used to create this bucket */
+  preset?: string | null;
+  
   /** Total number of notifications in this bucket */
   totalMessages: number;
   

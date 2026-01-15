@@ -33,6 +33,313 @@ const NOTIFICATION_REFRESH_TASK = 'zentik-notifications-refresh';
 const CHANGELOG_CHECK_TASK = 'zentik-changelog-check';
 const NO_PUSH_CHECK_TASK = 'zentik-no-push-check';
 
+// Global references for task callbacks (will be set during initialization)
+let globalCleanupCallback: ((options: { force: boolean; onRotateDeviceKeys?: () => Promise<boolean> }) => Promise<void>) | null = null;
+let globalRegisterDeviceCallback: (() => Promise<boolean>) | null = null;
+let globalUpdateReceivedNotificationsCallback: ((variables: { id: string }) => Promise<any>) | null = null;
+
+// Define tasks in global scope as required by TaskManager
+// These must be defined before the app can be launched in background to execute tasks
+if (!isWeb) {
+  try {
+    TaskManager.defineTask(NOTIFICATION_REFRESH_TASK, async () => {
+      try {
+        console.log("[BackgroundTask] Starting background task");
+        installConsoleLoggerBridge();
+        
+        await saveTaskToFile(
+          NOTIFICATION_REFRESH_TASK,
+          'started',
+          'Notifications refresh task started'
+        );
+
+        if (globalCleanupCallback && globalRegisterDeviceCallback) {
+          await globalCleanupCallback({ 
+            force: true, 
+            onRotateDeviceKeys: globalRegisterDeviceCallback as () => Promise<boolean>
+          });
+          
+          await saveTaskToFile(
+            NOTIFICATION_REFRESH_TASK,
+            'completed',
+            'Notifications refresh task completed successfully'
+          );
+        } else {
+          console.warn("[BackgroundTask] Cleanup callback not available yet");
+          await saveTaskToFile(
+            NOTIFICATION_REFRESH_TASK,
+            'failed',
+            'Cleanup callback not available yet'
+          );
+        }
+      } catch (e) {
+        console.warn("[BackgroundTask] Background fetch task failed:", e);
+        await saveTaskToFile(
+          NOTIFICATION_REFRESH_TASK,
+          'failed',
+          'Background fetch task failed',
+          { error: String(e) }
+        );
+      }
+    });
+  } catch (error) {
+    console.warn("[BackgroundTask] Failed to define background task:", error);
+  }
+
+  try {
+    TaskManager.defineTask(CHANGELOG_CHECK_TASK, async () => {
+      try {
+        console.log('[ChangelogBackgroundTask] Starting changelog background task');
+        installConsoleLoggerBridge();
+
+        await saveTaskToFile(
+          CHANGELOG_CHECK_TASK,
+          'started',
+          'Changelog check task started'
+        );
+
+        const apiBase = settingsService.getApiBaseWithPrefix().replace(/\/$/, '');
+
+        let changelogData: ChangelogsForModalQuery | undefined;
+        try {
+          const res = await fetch(`${apiBase}/changelogs`);
+          if (!res.ok) {
+            console.warn('[ChangelogBackgroundTask] Failed to fetch changelogs via REST:', res.status);
+          } else {
+            const list = (await res.json()) as ChangelogsForModalQuery['changelogs'];
+            changelogData = { changelogs: list };
+          }
+        } catch (e) {
+          console.warn('[ChangelogBackgroundTask] Error fetching changelogs via REST', e);
+        }
+
+        let backendVersion: string | null | undefined = undefined;
+        try {
+          if (apolloClient) {
+            const backendRes = await apolloClient.query({
+              query: GetBackendVersionDocument,
+              fetchPolicy: 'network-only',
+            });
+            backendVersion = (backendRes.data as any)?.getBackendVersion;
+          }
+        } catch (e) {
+          console.warn('[ChangelogBackgroundTask] Failed to fetch backend version', e);
+        }
+
+        const showNativeVersion = Platform.OS !== 'web';
+        const nativeVersion = showNativeVersion
+          ? Constants.expoConfig?.version || 'unknown'
+          : undefined;
+        const appVersion = (packageJson as any).version || 'unknown';
+
+        const { latestEntry, unreadIds, shouldOpenModal } = checkChangelogUpdates(
+          changelogData,
+          {
+            appVersion,
+            backendVersion,
+            nativeVersion,
+          },
+        );
+
+        if (!shouldOpenModal || !latestEntry || unreadIds.length === 0) {
+          await saveTaskToFile(
+            CHANGELOG_CHECK_TASK,
+            'completed',
+            'No new changelog entries to show',
+            {
+              appVersion,
+              backendVersion,
+              nativeVersion,
+            }
+          );
+          return;
+        }
+
+        const settings = settingsService.getSettings();
+        const locale = (settings.locale || 'en-EN') as Locale;
+
+        const title = translateInstant(locale, 'changelog.backgroundNotificationTitle') as string;
+        const bodyTemplate = translateInstant(locale, 'changelog.backgroundNotificationBody') as string;
+
+        const body =
+          (bodyTemplate.includes('{{version}}') && latestEntry.uiVersion
+            ? bodyTemplate.replace('{{version}}', latestEntry.uiVersion)
+            : bodyTemplate) || latestEntry.description;
+
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title,
+            body,
+            data: { changelogId: latestEntry.id },
+          },
+          trigger: null,
+        });
+
+        await saveTaskToFile(
+          CHANGELOG_CHECK_TASK,
+          'completed',
+          'Changelog notification scheduled',
+          {
+            changelogId: latestEntry.id,
+            unreadCount: unreadIds.length,
+            appVersion,
+            backendVersion,
+          }
+        );
+      } catch (e) {
+        console.warn('[ChangelogBackgroundTask] Background fetch task failed:', e);
+        await saveTaskToFile(
+          CHANGELOG_CHECK_TASK,
+          'failed',
+          'Background fetch task failed',
+          { error: String(e) }
+        );
+      }
+    });
+  } catch (error) {
+    console.warn('[BackgroundTask] Failed to define changelog background task:', error);
+  }
+
+  try {
+    TaskManager.defineTask(NO_PUSH_CHECK_TASK, async () => {
+      try {
+        console.log('[NoPushCheckTask] Starting NO_PUSH notifications check task');
+        installConsoleLoggerBridge();
+        
+        await saveTaskToFile(
+          NO_PUSH_CHECK_TASK,
+          'started',
+          'NO_PUSH check task started'
+        );
+
+        if (!apolloClient) {
+          console.warn('[NoPushCheckTask] Apollo client not available');
+          await saveTaskToFile(
+            NO_PUSH_CHECK_TASK,
+            'failed',
+            'Apollo client not available'
+          );
+          return;
+        }
+
+        const result = await apolloClient.query<GetNotificationsQuery>({
+          query: GetNotificationsDocument,
+          fetchPolicy: 'network-only',
+        });
+        const notifications: NotificationFragment[] = result.data?.notifications || [];
+
+        if (notifications.length === 0) {
+          console.log('[NoPushCheckTask] No notifications found');
+          await saveTaskToFile(
+            NO_PUSH_CHECK_TASK,
+            'completed',
+            'No notifications found',
+            { notificationCount: 0 }
+          );
+          return;
+        }
+
+        const noPushUnreceived: NotificationFragment[] = notifications.filter(
+          (notification: NotificationFragment) =>
+            notification.message.deliveryType === NotificationDeliveryType.NoPush &&
+            !notification.receivedAt
+        );
+
+        if (noPushUnreceived.length === 0) {
+          console.log('[NoPushCheckTask] No unreceived NO_PUSH notifications found');
+          await saveTaskToFile(
+            NO_PUSH_CHECK_TASK,
+            'completed',
+            'No unreceived NO_PUSH notifications found',
+            { 
+              totalNotifications: notifications.length,
+              unreceivedCount: 0,
+            }
+          );
+          return;
+        }
+
+        console.log(
+          `[NoPushCheckTask] Found ${noPushUnreceived.length} unreceived NO_PUSH notifications`
+        );
+
+        for (const notification of noPushUnreceived) {
+          try {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: notification.message.title,
+                body: notification.message.body || notification.message.subtitle || '',
+                data: {
+                  id: notification.id,
+                  route: `/notification/${notification.id}`,
+                  bucketId: notification.message.bucket.id,
+                  bucketColor: notification.message.bucket.color,
+                  deliveryType: notification.message.deliveryType,
+                },
+              },
+              trigger: null,
+            });
+            console.log(
+              `[NoPushCheckTask] Scheduled local notification for NO_PUSH notification ${notification.id}`
+            );
+          } catch (error) {
+            console.warn(
+              `[NoPushCheckTask] Failed to schedule notification for ${notification.id}:`,
+              error
+            );
+          }
+        }
+
+        if (noPushUnreceived.length > 0) {
+          const latestNotificationId = noPushUnreceived[0].id;
+          try {
+            if (globalUpdateReceivedNotificationsCallback) {
+              await globalUpdateReceivedNotificationsCallback({ id: latestNotificationId });
+              console.log(
+                `[NoPushCheckTask] Marked ${noPushUnreceived.length} NO_PUSH notifications as received (up to ${latestNotificationId})`
+              );
+            } else {
+              console.warn('[NoPushCheckTask] Update received notifications callback not available');
+            }
+            
+            await saveTaskToFile(
+              NO_PUSH_CHECK_TASK,
+              'completed',
+              `Processed ${noPushUnreceived.length} NO_PUSH notifications`,
+              {
+                totalNotifications: notifications.length,
+                processedCount: noPushUnreceived.length,
+                latestNotificationId,
+              }
+            );
+          } catch (error) {
+            console.warn(
+              '[NoPushCheckTask] Failed to mark notifications as received:',
+              error
+            );
+            await saveTaskToFile(
+              NO_PUSH_CHECK_TASK,
+              'failed',
+              'Failed to mark notifications as received',
+              { error: String(error) }
+            );
+          }
+        }
+      } catch (e) {
+        console.warn('[NoPushCheckTask] Background fetch task failed:', e);
+        await saveTaskToFile(
+          NO_PUSH_CHECK_TASK,
+          'failed',
+          'Background fetch task failed',
+          { error: String(e) }
+        );
+      }
+    });
+  } catch (error) {
+    console.warn('[BackgroundTask] Failed to define NO_PUSH check background task:', error);
+  }
+}
+
 export function usePushNotifications(versions: VersionsInfo) {
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
   const [deviceRegistered, setDeviceRegistered] = useState<boolean | undefined>(undefined);
@@ -124,6 +431,13 @@ export function usePushNotifications(versions: VersionsInfo) {
         return;
       }
 
+      // Update global callbacks with current hook functions
+      globalCleanupCallback = cleanup;
+      globalRegisterDeviceCallback = registerDevice;
+      globalUpdateReceivedNotificationsCallback = async (variables: { id: string }) => {
+        return updateReceivedNotifications({ variables });
+      };
+
       try {
         await BackgroundFetch.unregisterTaskAsync(NOTIFICATION_REFRESH_TASK);
       } catch {
@@ -137,254 +451,6 @@ export function usePushNotifications(versions: VersionsInfo) {
       try {
         await BackgroundFetch.unregisterTaskAsync(NO_PUSH_CHECK_TASK);
       } catch {
-      }
-
-      try {
-        TaskManager.defineTask(NOTIFICATION_REFRESH_TASK, async () => {
-          try {
-            console.log("[BackgroundTask] Starting background task");
-            installConsoleLoggerBridge();
-            await cleanup({ force: true, onRotateDeviceKeys: registerDevice });
-          } catch (e) {
-            console.warn("[BackgroundTask] Background fetch task failed:", e);
-          }
-        });
-      } catch (error) {
-        console.warn("[BackgroundTask] Failed to define background task:", error);
-      }
-
-      try {
-        TaskManager.defineTask(CHANGELOG_CHECK_TASK, async () => {
-          try {
-            console.log('[ChangelogBackgroundTask] Starting changelog background task');
-            installConsoleLoggerBridge();
-
-            const apiBase = settingsService.getApiBaseWithPrefix().replace(/\/$/, '');
-
-            let changelogData: ChangelogsForModalQuery | undefined;
-            try {
-              const res = await fetch(`${apiBase}/changelogs`);
-              if (!res.ok) {
-                console.warn('[ChangelogBackgroundTask] Failed to fetch changelogs via REST:', res.status);
-              } else {
-                const list = (await res.json()) as ChangelogsForModalQuery['changelogs'];
-                changelogData = { changelogs: list };
-              }
-            } catch (e) {
-              console.warn('[ChangelogBackgroundTask] Error fetching changelogs via REST', e);
-            }
-
-            let backendVersion: string | null | undefined = undefined;
-            try {
-              if (apolloClient) {
-                const backendRes = await apolloClient.query({
-                  query: GetBackendVersionDocument,
-                  fetchPolicy: 'network-only',
-                });
-                backendVersion = (backendRes.data as any)?.getBackendVersion;
-              }
-            } catch (e) {
-              console.warn('[ChangelogBackgroundTask] Failed to fetch backend version', e);
-            }
-
-            const showNativeVersion = Platform.OS !== 'web';
-            const nativeVersion = showNativeVersion
-              ? Constants.expoConfig?.version || 'unknown'
-              : undefined;
-            const appVersion = (packageJson as any).version || 'unknown';
-
-            const { latestEntry, unreadIds, shouldOpenModal } = checkChangelogUpdates(
-              changelogData,
-              {
-                appVersion,
-                backendVersion,
-                nativeVersion,
-              },
-            );
-
-            if (!shouldOpenModal || !latestEntry || unreadIds.length === 0) {
-              return;
-            }
-
-            const settings = settingsService.getSettings();
-            const locale = (settings.locale || 'en-EN') as Locale;
-
-            const title = translateInstant(locale, 'changelog.backgroundNotificationTitle') as string;
-            const bodyTemplate = translateInstant(locale, 'changelog.backgroundNotificationBody') as string;
-
-            const body =
-              (bodyTemplate.includes('{{version}}') && latestEntry.uiVersion
-                ? bodyTemplate.replace('{{version}}', latestEntry.uiVersion)
-                : bodyTemplate) || latestEntry.description;
-
-            await Notifications.scheduleNotificationAsync({
-              content: {
-                title,
-                body,
-                data: { changelogId: latestEntry.id },
-              },
-              trigger: null,
-            });
-          } catch (e) {
-            console.warn('[ChangelogBackgroundTask] Background fetch task failed:', e);
-          }
-        });
-      } catch (error) {
-        console.warn('[BackgroundTask] Failed to define changelog background task:', error);
-      }
-
-      try {
-        TaskManager.defineTask(NO_PUSH_CHECK_TASK, async () => {
-          try {
-            console.log('[NoPushCheckTask] Starting NO_PUSH notifications check task');
-            installConsoleLoggerBridge();
-            
-            await saveTaskToFile(
-              NO_PUSH_CHECK_TASK,
-              'started',
-              'NO_PUSH check task started'
-            );
-
-            // try {
-            //   await Notifications.scheduleNotificationAsync({
-            //     content: {
-            //       title: '[Test] NO_PUSH Check Task',
-            //       body: `Task eseguito alle ${new Date().toLocaleTimeString()}`,
-            //       data: {
-            //         test: true,
-            //         timestamp: new Date().toISOString(),
-            //       },
-            //     },
-            //     trigger: null,
-            //   });
-            //   console.log('[NoPushCheckTask] Test notification sent');
-            // } catch (error) {
-            //   console.warn('[NoPushCheckTask] Failed to send test notification:', error);
-            // }
-
-            if (!apolloClient) {
-              console.warn('[NoPushCheckTask] Apollo client not available');
-              await saveTaskToFile(
-                NO_PUSH_CHECK_TASK,
-                'failed',
-                'Apollo client not available'
-              );
-              return;
-            }
-
-            const result = await apolloClient.query<GetNotificationsQuery>({
-              query: GetNotificationsDocument,
-              fetchPolicy: 'network-only',
-            });
-            const notifications: NotificationFragment[] = result.data?.notifications || [];
-
-            if (notifications.length === 0) {
-              console.log('[NoPushCheckTask] No notifications found');
-              await saveTaskToFile(
-                NO_PUSH_CHECK_TASK,
-                'completed',
-                'No notifications found',
-                { notificationCount: 0 }
-              );
-              return;
-            }
-
-            const noPushUnreceived: NotificationFragment[] = notifications.filter(
-              (notification: NotificationFragment) =>
-                notification.message.deliveryType === NotificationDeliveryType.NoPush &&
-                !notification.receivedAt
-            );
-
-            if (noPushUnreceived.length === 0) {
-              console.log('[NoPushCheckTask] No unreceived NO_PUSH notifications found');
-              await saveTaskToFile(
-                NO_PUSH_CHECK_TASK,
-                'completed',
-                'No unreceived NO_PUSH notifications found',
-                { 
-                  totalNotifications: notifications.length,
-                  unreceivedCount: 0,
-                }
-              );
-              return;
-            }
-
-            console.log(
-              `[NoPushCheckTask] Found ${noPushUnreceived.length} unreceived NO_PUSH notifications`
-            );
-
-            for (const notification of noPushUnreceived) {
-              try {
-                await Notifications.scheduleNotificationAsync({
-                  content: {
-                    title: notification.message.title,
-                    body: notification.message.body || notification.message.subtitle || '',
-                    data: {
-                      id: notification.id,
-                      route: `/notification/${notification.id}`,
-                      bucketId: notification.message.bucket.id,
-                      bucketColor: notification.message.bucket.color,
-                      deliveryType: notification.message.deliveryType,
-                    },
-                  },
-                  trigger: null,
-                });
-                console.log(
-                  `[NoPushCheckTask] Scheduled local notification for NO_PUSH notification ${notification.id}`
-                );
-              } catch (error) {
-                console.warn(
-                  `[NoPushCheckTask] Failed to schedule notification for ${notification.id}:`,
-                  error
-                );
-              }
-            }
-
-            if (noPushUnreceived.length > 0) {
-              const latestNotificationId = noPushUnreceived[0].id;
-              try {
-                await updateReceivedNotifications({
-                  variables: { id: latestNotificationId },
-                });
-                console.log(
-                  `[NoPushCheckTask] Marked ${noPushUnreceived.length} NO_PUSH notifications as received (up to ${latestNotificationId})`
-                );
-                
-                await saveTaskToFile(
-                  NO_PUSH_CHECK_TASK,
-                  'completed',
-                  `Processed ${noPushUnreceived.length} NO_PUSH notifications`,
-                  {
-                    totalNotifications: notifications.length,
-                    processedCount: noPushUnreceived.length,
-                    latestNotificationId,
-                  }
-                );
-              } catch (error) {
-                console.warn(
-                  '[NoPushCheckTask] Failed to mark notifications as received:',
-                  error
-                );
-                await saveTaskToFile(
-                  NO_PUSH_CHECK_TASK,
-                  'failed',
-                  'Failed to mark notifications as received',
-                  { error: String(error) }
-                );
-              }
-            }
-          } catch (e) {
-            console.warn('[NoPushCheckTask] Background fetch task failed:', e);
-            await saveTaskToFile(
-              NO_PUSH_CHECK_TASK,
-              'failed',
-              'Background fetch task failed',
-              { error: String(e) }
-            );
-          }
-        });
-      } catch (error) {
-        console.warn('[BackgroundTask] Failed to define NO_PUSH check background task:', error);
       }
 
       try {

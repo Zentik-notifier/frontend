@@ -8,7 +8,7 @@ import {
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, Linking } from "react-native";
 import {
   Badge,
   Button,
@@ -17,8 +17,10 @@ import {
   IconButton,
   Surface,
   Text,
+  TouchableRipple,
   useTheme,
 } from "react-native-paper";
+import { BUCKET_PRESETS } from "@/config/bucketPresets";
 import BucketIcon from "./BucketIcon";
 import MessageBuilder from "./MessageBuilder";
 import { NotificationsListWithContext } from "./NotificationsList";
@@ -201,6 +203,40 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
                   },
                 ]}
               />
+
+              {(() => {
+                const bucketPreset = bucketStats?.preset ? BUCKET_PRESETS.find(p => p.id === bucketStats.preset) : null;
+                const docsUrl = bucketPreset?.docsUrl;
+
+                if (docsUrl) {
+                  return (
+                    <TouchableRipple
+                      onPress={async () => {
+                        const canOpen = await Linking.canOpenURL(docsUrl);
+                        if (canOpen) {
+                          await Linking.openURL(docsUrl);
+                        }
+                      }}
+                      style={[
+                        styles.actionButton,
+                        {
+                          backgroundColor: theme.colors.surfaceVariant,
+                          width: 26,
+                          height: 26,
+                        },
+                      ]}
+                      rippleColor={theme.colors.primaryContainer}
+                    >
+                      <Icon
+                        source="book-open"
+                        size={15}
+                        color={theme.colors.onSurfaceVariant}
+                      />
+                    </TouchableRipple>
+                  );
+                }
+                return null;
+              })()}
 
               <NotificationSnoozeButton
                 bucketId={bucketId}

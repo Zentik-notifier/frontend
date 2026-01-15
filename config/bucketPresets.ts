@@ -15,7 +15,7 @@ export const BUCKET_PRESETS: BucketPreset[] = [
     iconUrl:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQIFuncmk2AVu2LX3sQkmvbvoh1OjTVQt8CEsSA8pvGYw&s",
     color: "#6f42c1",
-    docsUrl: "https://docs.scrypted.app/",
+    docsUrl: "https://notifier-docs.zentik.app/docs/integrations/scrypted",
   },
   {
     id: "00ca9152-676e-4c79-9c95-d22ab98d236e",
@@ -45,7 +45,7 @@ export const BUCKET_PRESETS: BucketPreset[] = [
     iconUrl:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnIg3QZRQjQHTfdvS8hznyk9AelqjmI5_T1A&s",
     color: "#20c997",
-    docsUrl: "https://uptime.kuma.pet/",
+    docsUrl: "https://notifier-docs.zentik.app/docs/integrations/uptime-kuma",
   },
   {
     id: "dcbb2ee2-8098-492e-8a3c-3c6092865f60",

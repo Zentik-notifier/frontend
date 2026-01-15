@@ -127,6 +127,7 @@ fragment BucketFragment on Bucket {
   isProtected
   isPublic
   isAdmin
+  preset
 }
 
 fragment BucketWithDevicesFragment on Bucket {

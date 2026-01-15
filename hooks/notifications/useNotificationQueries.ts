@@ -237,6 +237,7 @@ export function useNotificationsState(
                         isProtected: bucket.isProtected ?? false,
                         isPublic: bucket.isPublic ?? false,
                         isAdmin: bucket.isAdmin ?? false,
+                        preset: bucket.preset ?? null,
                         totalMessages: bucketStat?.totalCount ?? 0,
                         unreadCount: bucketStat?.unreadCount ?? 0,
                         lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
