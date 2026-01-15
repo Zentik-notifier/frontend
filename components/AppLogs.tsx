@@ -35,8 +35,8 @@ export default function AppLogs() {
   const [query, setQuery] = useState<string>("");
   const [levelFilters, setLevelFilters] = useState<string[]>([]);
   const [sourceFilters, setSourceFilters] = useState<string[]>([]);
-  const [isExporting, setIsExporting] = useState<boolean>(false);
-  const [isClearing, setIsClearing] = useState<boolean>(false);
+  // const [isExporting, setIsExporting] = useState<boolean>(false);
+  // const [isClearing, setIsClearing] = useState<boolean>(false);
   const [selectedLog, setSelectedLog] = useState<AppLog | null>(null);
   const [showLogDialog, setShowLogDialog] = useState<boolean>(false);
   const [sourceOptions, setSourceOptions] = useState<
@@ -277,7 +277,7 @@ export default function AppLogs() {
 
   const handleExportLogs = useCallback(async () => {
     try {
-      setIsExporting(true);
+      // setIsExporting(true);
       const logs = await readLogs(0);
 
       const formattedLogs = logs.map((l: any) => ({
@@ -319,7 +319,7 @@ export default function AppLogs() {
       console.error("Error exporting logs:", error);
       Alert.alert(t("appSettings.logs.exportError"));
     } finally {
-      setIsExporting(false);
+      // setIsExporting(false);
     }
   }, [t]);
 
@@ -337,7 +337,7 @@ export default function AppLogs() {
           style: "destructive",
           onPress: async () => {
             try {
-              setIsClearing(true);
+              // setIsClearing(true);
               await clearAllLogs();
               await loadLogs();
             } catch (error) {
@@ -347,7 +347,7 @@ export default function AppLogs() {
                 t("appSettings.logs.clearErrorMessage")
               );
             } finally {
-              setIsClearing(false);
+              // setIsClearing(false);
             }
           },
         },

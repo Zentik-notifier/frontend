@@ -142,6 +142,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           console.error("Error setting locale:", e);
         }
       }
+      // await push.checkBackgroundTaskStatus();
+      // await push.testNoPushCheckTask();
     };
     checkAndSetLocale();
   }, [userSettings]);

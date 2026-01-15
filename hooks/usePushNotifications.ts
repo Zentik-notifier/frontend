@@ -1,6 +1,6 @@
 import { apolloClient } from '@/config/apollo-client';
 import { deviceRegistrationInvalidatedVar } from '@/config/apollo-vars';
-import { ChangelogsForModalQuery, DevicePlatform, GetBackendVersionDocument, GetUserDevicesDocument, NotificationServiceType, RegisterDeviceDto, useGetNotificationServicesLazyQuery, useGetUserDevicesLazyQuery, useRegisterDeviceMutation, useRemoveDeviceMutation } from '@/generated/gql-operations-generated';
+import { ChangelogsForModalQuery, DevicePlatform, GetBackendVersionDocument, GetNotificationsDocument, GetNotificationsQuery, GetUserDevicesDocument, NotificationDeliveryType, NotificationFragment, NotificationServiceType, RegisterDeviceDto, useGetNotificationServicesLazyQuery, useGetUserDevicesLazyQuery, useRegisterDeviceMutation, useRemoveDeviceMutation, useUpdateReceivedNotificationsMutation } from '@/generated/gql-operations-generated';
 import { useNotificationActions } from '@/hooks/useNotificationActions';
 import { translateInstant, Locale } from '@/hooks/useI18n';
 import { settingsService } from '@/services/settings-service';
@@ -22,6 +22,7 @@ import { installConsoleLoggerBridge } from '@/services/console-logger-hook';
 import { useCleanup } from './useCleanup';
 import { useReactiveVar } from '@apollo/client';
 import { VersionsInfo } from './useGetVersionsInfo';
+import { saveTaskToFile } from '@/services/logger';
 
 const isWeb = Platform.OS === 'web';
 const isAndroid = Platform.OS === 'android';
@@ -30,6 +31,7 @@ const isSimulator = !Device.isDevice;
 
 const NOTIFICATION_REFRESH_TASK = 'zentik-notifications-refresh';
 const CHANGELOG_CHECK_TASK = 'zentik-changelog-check';
+const NO_PUSH_CHECK_TASK = 'zentik-no-push-check';
 
 export function usePushNotifications(versions: VersionsInfo) {
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
@@ -64,6 +66,7 @@ export function usePushNotifications(versions: VersionsInfo) {
   const [removeDeviceMutation] = useRemoveDeviceMutation();
   const [fetchUserDevices] = useGetUserDevicesLazyQuery();
   const [getPushTypes] = useGetNotificationServicesLazyQuery();
+  const [updateReceivedNotifications] = useUpdateReceivedNotificationsMutation();
 
   const initialize = async () => {
     const { pushNotificationsInitialized, deviceId, deviceToken } = settingsService.getAuthData();
@@ -128,6 +131,11 @@ export function usePushNotifications(versions: VersionsInfo) {
 
       try {
         await BackgroundFetch.unregisterTaskAsync(CHANGELOG_CHECK_TASK);
+      } catch {
+      }
+
+      try {
+        await BackgroundFetch.unregisterTaskAsync(NO_PUSH_CHECK_TASK);
       } catch {
       }
 
@@ -226,6 +234,160 @@ export function usePushNotifications(versions: VersionsInfo) {
       }
 
       try {
+        TaskManager.defineTask(NO_PUSH_CHECK_TASK, async () => {
+          try {
+            console.log('[NoPushCheckTask] Starting NO_PUSH notifications check task');
+            installConsoleLoggerBridge();
+            
+            await saveTaskToFile(
+              NO_PUSH_CHECK_TASK,
+              'started',
+              'NO_PUSH check task started'
+            );
+
+            // try {
+            //   await Notifications.scheduleNotificationAsync({
+            //     content: {
+            //       title: '[Test] NO_PUSH Check Task',
+            //       body: `Task eseguito alle ${new Date().toLocaleTimeString()}`,
+            //       data: {
+            //         test: true,
+            //         timestamp: new Date().toISOString(),
+            //       },
+            //     },
+            //     trigger: null,
+            //   });
+            //   console.log('[NoPushCheckTask] Test notification sent');
+            // } catch (error) {
+            //   console.warn('[NoPushCheckTask] Failed to send test notification:', error);
+            // }
+
+            if (!apolloClient) {
+              console.warn('[NoPushCheckTask] Apollo client not available');
+              await saveTaskToFile(
+                NO_PUSH_CHECK_TASK,
+                'failed',
+                'Apollo client not available'
+              );
+              return;
+            }
+
+            const result = await apolloClient.query<GetNotificationsQuery>({
+              query: GetNotificationsDocument,
+              fetchPolicy: 'network-only',
+            });
+            const notifications: NotificationFragment[] = result.data?.notifications || [];
+
+            if (notifications.length === 0) {
+              console.log('[NoPushCheckTask] No notifications found');
+              await saveTaskToFile(
+                NO_PUSH_CHECK_TASK,
+                'completed',
+                'No notifications found',
+                { notificationCount: 0 }
+              );
+              return;
+            }
+
+            const noPushUnreceived: NotificationFragment[] = notifications.filter(
+              (notification: NotificationFragment) =>
+                notification.message.deliveryType === NotificationDeliveryType.NoPush &&
+                !notification.receivedAt
+            );
+
+            if (noPushUnreceived.length === 0) {
+              console.log('[NoPushCheckTask] No unreceived NO_PUSH notifications found');
+              await saveTaskToFile(
+                NO_PUSH_CHECK_TASK,
+                'completed',
+                'No unreceived NO_PUSH notifications found',
+                { 
+                  totalNotifications: notifications.length,
+                  unreceivedCount: 0,
+                }
+              );
+              return;
+            }
+
+            console.log(
+              `[NoPushCheckTask] Found ${noPushUnreceived.length} unreceived NO_PUSH notifications`
+            );
+
+            for (const notification of noPushUnreceived) {
+              try {
+                await Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: notification.message.title,
+                    body: notification.message.body || notification.message.subtitle || '',
+                    data: {
+                      id: notification.id,
+                      route: `/notification/${notification.id}`,
+                      bucketId: notification.message.bucket.id,
+                      bucketColor: notification.message.bucket.color,
+                      deliveryType: notification.message.deliveryType,
+                    },
+                  },
+                  trigger: null,
+                });
+                console.log(
+                  `[NoPushCheckTask] Scheduled local notification for NO_PUSH notification ${notification.id}`
+                );
+              } catch (error) {
+                console.warn(
+                  `[NoPushCheckTask] Failed to schedule notification for ${notification.id}:`,
+                  error
+                );
+              }
+            }
+
+            if (noPushUnreceived.length > 0) {
+              const latestNotificationId = noPushUnreceived[0].id;
+              try {
+                await updateReceivedNotifications({
+                  variables: { id: latestNotificationId },
+                });
+                console.log(
+                  `[NoPushCheckTask] Marked ${noPushUnreceived.length} NO_PUSH notifications as received (up to ${latestNotificationId})`
+                );
+                
+                await saveTaskToFile(
+                  NO_PUSH_CHECK_TASK,
+                  'completed',
+                  `Processed ${noPushUnreceived.length} NO_PUSH notifications`,
+                  {
+                    totalNotifications: notifications.length,
+                    processedCount: noPushUnreceived.length,
+                    latestNotificationId,
+                  }
+                );
+              } catch (error) {
+                console.warn(
+                  '[NoPushCheckTask] Failed to mark notifications as received:',
+                  error
+                );
+                await saveTaskToFile(
+                  NO_PUSH_CHECK_TASK,
+                  'failed',
+                  'Failed to mark notifications as received',
+                  { error: String(error) }
+                );
+              }
+            }
+          } catch (e) {
+            console.warn('[NoPushCheckTask] Background fetch task failed:', e);
+            await saveTaskToFile(
+              NO_PUSH_CHECK_TASK,
+              'failed',
+              'Background fetch task failed',
+              { error: String(e) }
+            );
+          }
+        });
+      } catch (error) {
+        console.warn('[BackgroundTask] Failed to define NO_PUSH check background task:', error);
+      }
+
+      try {
         await BackgroundFetch.registerTaskAsync(NOTIFICATION_REFRESH_TASK, {
           minimumInterval: 180
         });
@@ -242,6 +404,19 @@ export function usePushNotifications(versions: VersionsInfo) {
         console.debug('[usePushNotifications] Changelog background task registered successfully');
       } catch (e) {
         console.debug('[usePushNotifications] Changelog background task already registered or not supported', e);
+      }
+
+      try {
+        await BackgroundFetch.registerTaskAsync(NO_PUSH_CHECK_TASK, {
+          minimumInterval: 15,
+        });
+        const status = await BackgroundFetch.getStatusAsync();
+        console.log('[usePushNotifications] NO_PUSH check background task registered successfully');
+        console.log('[usePushNotifications] Background fetch status:', BackgroundFetch.BackgroundTaskStatus[status]);
+        console.log('[usePushNotifications] Task will run approximately every 15 minutes (system controlled)');
+        console.log('[usePushNotifications] Note: Background tasks on iOS/Android are controlled by the system and may not run exactly on schedule');
+      } catch (e) {
+        console.warn('[usePushNotifications] NO_PUSH check background task registration error:', e);
       }
     } catch (error) {
       console.error("[usePushNotifications] Error enabling background fetch:", error);
@@ -417,6 +592,117 @@ export function usePushNotifications(versions: VersionsInfo) {
     return `local-${hex}`;
   }
 
+  const testNoPushCheckTask = async (): Promise<void> => {
+    console.log('[usePushNotifications] Manually triggering NO_PUSH check task...');
+    try {
+      if (!apolloClient) {
+        console.warn('[usePushNotifications] Apollo client not available for test');
+        return;
+      }
+
+      try {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: '[Test] NO_PUSH Check Task (Manual)',
+            body: `Task eseguito manualmente alle ${new Date().toLocaleTimeString()}`,
+            data: {
+              test: true,
+              manual: true,
+              timestamp: new Date().toISOString(),
+            },
+          },
+          trigger: null,
+        });
+        console.log('[usePushNotifications] Test notification sent (manual trigger)');
+      } catch (error) {
+        console.warn('[usePushNotifications] Failed to send test notification:', error);
+      }
+
+      const result = await apolloClient.query<GetNotificationsQuery>({
+        query: GetNotificationsDocument,
+        fetchPolicy: 'network-only',
+      });
+      const notifications: NotificationFragment[] = result.data?.notifications || [];
+
+      console.log(`[usePushNotifications] Found ${notifications.length} total notifications`);
+
+      if (notifications.length === 0) {
+        console.log('[usePushNotifications] No notifications found');
+        return;
+      }
+
+      const noPushUnreceived: NotificationFragment[] = notifications.filter(
+        (notification: NotificationFragment) =>
+          notification.message.deliveryType === NotificationDeliveryType.NoPush &&
+          !notification.receivedAt
+      );
+
+      console.log(`[usePushNotifications] Found ${noPushUnreceived.length} unreceived NO_PUSH notifications`);
+
+      if (noPushUnreceived.length === 0) {
+        console.log('[usePushNotifications] No unreceived NO_PUSH notifications found');
+        return;
+      }
+
+      for (const notification of noPushUnreceived) {
+        try {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: notification.message.title,
+              body: notification.message.body || notification.message.subtitle || '',
+              data: {
+                id: notification.id,
+                route: `/notification/${notification.id}`,
+                bucketId: notification.message.bucket.id,
+                bucketColor: notification.message.bucket.color,
+                deliveryType: notification.message.deliveryType,
+              },
+            },
+            trigger: null,
+          });
+          console.log(
+            `[usePushNotifications] Scheduled local notification for NO_PUSH notification ${notification.id}`
+          );
+        } catch (error) {
+          console.warn(
+            `[usePushNotifications] Failed to schedule notification for ${notification.id}:`,
+            error
+          );
+        }
+      }
+
+      if (noPushUnreceived.length > 0) {
+        const latestNotificationId = noPushUnreceived[0].id;
+        try {
+          await updateReceivedNotifications({
+            variables: { id: latestNotificationId },
+          });
+          console.log(
+            `[usePushNotifications] Marked ${noPushUnreceived.length} NO_PUSH notifications as received (up to ${latestNotificationId})`
+          );
+        } catch (error) {
+          console.warn(
+            '[usePushNotifications] Failed to mark notifications as received:',
+            error
+          );
+        }
+      }
+    } catch (e) {
+      console.error('[usePushNotifications] Test task failed:', e);
+    }
+  };
+
+  const checkBackgroundTaskStatus = async (): Promise<void> => {
+    try {
+      const status = await BackgroundFetch.getStatusAsync();
+      console.log('[usePushNotifications] Background fetch status:', BackgroundFetch.BackgroundTaskStatus[status]);
+      console.log('[usePushNotifications] Task registered:', NO_PUSH_CHECK_TASK);
+      console.log('[usePushNotifications] Minimum interval: 15 minutes');
+    } catch (e) {
+      console.warn('[usePushNotifications] Failed to check background task status:', e);
+    }
+  };
+
   return {
     initialize,
     registerDevice,
@@ -430,6 +716,8 @@ export function usePushNotifications(versions: VersionsInfo) {
     registeringDevice,
     pushPermissionError,
     needsPwa,
+    testNoPushCheckTask,
+    checkBackgroundTaskStatus,
   };
 }
 

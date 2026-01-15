@@ -24,6 +24,15 @@ const MAX_LOGS = 2000; // Keep max 2000 logs
 const BATCH_SIZE = 20; // Write to file after 20 logs
 const BATCH_TIMEOUT_MS = 5000; // Write to file after 5 seconds
 
+// Generate UUID v4 (shared utility function)
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 function extractCaller(): string | undefined {
   try {
     const err = new Error();
@@ -58,15 +67,6 @@ class JsonFileLogger {
   private flushTimeout: NodeJS.Timeout | null = null;
   private isFlushingPromise: Promise<void> | null = null;
   private logsDir: string | null = null;
-
-  // Generate UUID v4 (simplified version)
-  private generateUUID(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0;
-      const v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    });
-  }
 
   private async getLogsDirectory(): Promise<string> {
     if (!this.logsDir) {
@@ -263,7 +263,7 @@ class JsonFileLogger {
     try {
       const origin = extractCaller();
       const log: AppLog = {
-        id: this.generateUUID(),
+        id: generateUUID(),
         level,
         tag,
         message,
@@ -308,15 +308,6 @@ class WebJsonFileLogger {
   private flushTimeout: number | null = null;
   private isFlushingPromise: Promise<void> | null = null;
   private logKey = 'zentik-logs-json';
-
-  // Generate UUID v4 (simplified version)
-  private generateUUID(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0;
-      const v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    });
-  }
 
   private async flushLogs(): Promise<void> {
     // Prevent concurrent flushes
@@ -495,7 +486,7 @@ class WebJsonFileLogger {
     try {
       const origin = extractCaller();
       const log: AppLog = {
-        id: this.generateUUID(),
+        id: generateUUID(),
         level,
         tag,
         message,
@@ -726,6 +717,61 @@ export async function deleteLogFile(fileName: string): Promise<void> {
   } catch (error) {
     console.warn(`Failed to delete log file ${fileName}:`, error);
     throw error;
+  }
+}
+
+// Function to save task logs to tasks.json file (compatible with AppLog structure)
+export async function saveTaskToFile(
+  task: string,
+  status: 'started' | 'completed' | 'failed',
+  message: string,
+  metadata?: any
+): Promise<void> {
+  try {
+    const logsDir = await getLogsDirectory();
+    const tasksFilePath = `${logsDir}/tasks.json`;
+    
+    const directory = new Directory(logsDir);
+    if (!directory.exists) {
+      await directory.create();
+    }
+
+    const taskFile = new File(tasksFilePath);
+    
+    let existingLogs: AppLog[] = [];
+    if (taskFile.exists) {
+      try {
+        const content = await taskFile.read();
+        if (content) {
+          existingLogs = JSON.parse(content);
+        }
+      } catch (e) {
+        console.warn('[TaskLogger] Failed to parse existing tasks, starting fresh', e);
+      }
+    }
+
+    const level: LogLevel = status === 'failed' ? 'error' : 'info';
+    
+    const newLog: AppLog = {
+      id: generateUUID(),
+      level,
+      tag: task,
+      message,
+      metadata,
+      timestamp: Date.now(),
+      source: 'tasks',
+    };
+
+    existingLogs.push(newLog);
+
+    const MAX_LOGS = 2000;
+    if (existingLogs.length > MAX_LOGS) {
+      existingLogs = existingLogs.slice(-MAX_LOGS);
+    }
+
+    await taskFile.write(JSON.stringify(existingLogs, null, 2));
+  } catch (e) {
+    console.warn('[TaskLogger] Failed to save task to file', e);
   }
 }
 
