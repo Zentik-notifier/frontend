@@ -519,10 +519,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
             name: step4BucketName.trim(),
             description: "Bucket created during onboarding",
             color: step4TemplateColor || "#2196F3",
-            // Usa direttamente l'iconUrl del template come campo `icon`
-            // (come fa CreateBucketForm con bucketIconSourceUrl)
             icon: step4TemplateIconUrl || "inbox",
-            generateIconWithInitials: !step4TemplateIconUrl,
             generateMagicCode: true,
             isProtected: false,
             isPublic: false,
