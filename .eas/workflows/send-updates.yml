@@ -1,0 +1,13 @@
+name: Send updates
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  send_updates:
+    name: Send updates
+    type: update
+    params:
+      channel: production
+      environment: production
