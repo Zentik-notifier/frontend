@@ -580,31 +580,6 @@ export interface Translation {
       grantedBy: string;
       grantedByWithOwner: string;
     };
-    shareExtension: {
-      notAuthenticated: string;
-      loading: string;
-      retry: string;
-      noBuckets: string;
-      noBucketsHelper: string;
-      header: string;
-      updating: string;
-      selectBucket: string;
-      titleRequired: string;
-      titlePlaceholder: string;
-      messageLabel: string;
-      messagePlaceholder: string;
-      sendButton: string;
-      errors: {
-        titleRequired: string;
-        bucketRequired: string;
-        notAuthenticated: string;
-        sendFailed: string;
-      };
-      success: {
-        title: string;
-        message: string;
-      };
-    };
     delete: {
       modalTitle: string;
       modalDescription: string;
@@ -2666,27 +2641,26 @@ export interface Translation {
     };
   };
   shareExtension: {
+    notAuthenticated: string;
+    loading: string;
+    retry: string;
+    noBuckets: string;
+    noBucketsHelper: string;
     header: string;
+    updating: string;
     selectBucket: string;
-    titleLabel: string;
     titleRequired: string;
     titlePlaceholder: string;
     messageLabel: string;
     messagePlaceholder: string;
     sendButton: string;
-    sendingButton: string;
-    loading: string;
-    updating: string;
-    notAuthenticated: string;
-    noBuckets: string;
-    noBucketsHelper: string;
-    retry: string;
+    loginRequired: string;
+    openApp: string;
     errors: {
       titleRequired: string;
       bucketRequired: string;
       notAuthenticated: string;
       sendFailed: string;
-      loadFailed: string;
     };
     success: {
       title: string;

@@ -1,10 +1,8 @@
 import { useAppContext } from "@/contexts/AppContext";
-import { useGetBackendVersionQuery } from "@/generated/gql-operations-generated";
 import { useGetVersionsInfo, VersionsInfo } from "@/hooks/useGetVersionsInfo";
 import { useI18n } from "@/hooks/useI18n";
 import Constants from "expo-constants";
-import * as Updates from "expo-updates";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import {
   Button,
@@ -57,6 +55,8 @@ export function VersionInfo({
 
   const reloadApp = async () => {
     try {
+      const Updates = await import("expo-updates");
+
       await Updates.reloadAsync();
     } catch (error) {
       console.error("Failed to reload app:", error);

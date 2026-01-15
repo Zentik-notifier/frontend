@@ -1,15 +1,17 @@
 import { QueryProviders } from "@/components/QueryProviders";
 import { MediaType, MediaViewer } from "@/components/ui";
 import { useI18n } from "@/hooks/useI18n";
+import { ThemeProvider, useAppTheme } from "@/hooks/useTheme";
 import { authService } from "@/services/auth-service";
 import { settingsService } from "@/services/settings-service";
 import { Image } from "expo-image";
+import * as Linking from "expo-linking";
 import {
   InitialProps,
   clearAppGroupContainer,
   close,
 } from "expo-share-extension";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -21,6 +23,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useTheme } from "react-native-paper";
+import { getCustomScheme } from "@/utils/universal-links";
 import { NotificationDeliveryType } from "./generated/gql-operations-generated";
 
 // Bucket type from REST
@@ -70,6 +74,8 @@ const MediaPreviewItem: React.FC<MediaPreviewItemProps> = ({
 function ShareExtensionContent(props: InitialProps) {
   const { url, images = [], videos = [] } = props;
   const { t } = useI18n();
+  const { themeMode, setThemeMode } = useAppTheme();
+  const theme = useTheme();
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedBucket, setSelectedBucket] = useState<Bucket | null>(null);
@@ -86,6 +92,7 @@ function ShareExtensionContent(props: InitialProps) {
   const [apiUrl, setApiUrl] = useState<string | null>(null);
   const [buckets, setBuckets] = useState<Bucket[] | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
 
   const loadBuckets = async () => {
     try {
@@ -108,16 +115,37 @@ function ShareExtensionContent(props: InitialProps) {
   };
 
   useEffect(() => {
-    settingsService.isInitialized$.subscribe(async (initialized) => {
-      if (initialized) {
-        const apiUrl = settingsService.getApiUrl();
-        if (!apiUrl) throw new Error("API URL not configured");
-        const token = await authService.ensureValidToken(true);
-        if (!token) throw new Error("Not authenticated");
-        setToken(token);
-        setApiUrl(apiUrl);
+    const sub = settingsService.isInitialized$.subscribe(
+      async (initialized) => {
+        if (!initialized) return;
+        try {
+          const apiUrl = settingsService.getApiUrl();
+          if (!apiUrl) throw new Error("API URL not configured");
+
+          const authData = settingsService.getAuthData();
+          if (!authData.accessToken || !authData.refreshToken) {
+            setNeedsLogin(true);
+            setLoading(false);
+            return;
+          }
+
+          const token = await authService.ensureValidToken(true);
+          if (!token) {
+            setNeedsLogin(true);
+            setLoading(false);
+            return;
+          }
+
+          setToken(token);
+          setApiUrl(apiUrl);
+        } catch (e: any) {
+          setError(e);
+          setLoading(false);
+        }
       }
-    });
+    );
+
+    return () => sub.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -208,9 +236,9 @@ function ShareExtensionContent(props: InitialProps) {
             name: originalFilename,
             type: mimeType,
           };
-          (formData as any).append("file", filePart);
-          formData.append("filename", originalFilename as any);
-          formData.append("mediaType", media.mediaType as any);
+          formData.append("file", filePart);
+          formData.append("filename", originalFilename);
+          formData.append("mediaType", media.mediaType);
 
           // Upload attachment
           const uploadResponse = await fetch(
@@ -296,8 +324,40 @@ function ShareExtensionContent(props: InitialProps) {
     }
   };
 
+  const handleToggleTheme = () => {
+    const nextMode =
+      themeMode === "light"
+        ? "dark"
+        : themeMode === "dark"
+        ? "system"
+        : "light";
+    setThemeMode(nextMode);
+  };
+
+  const handleOpenApp = async () => {
+    try {
+      const scheme = getCustomScheme();
+      const url = `${scheme}://`;
+      const canOpen = await Linking.canOpenURL(url);
+      if (!canOpen) {
+        Alert.alert(
+          t("common.error") || "Errore",
+          "Impossibile aprire l'app Zentik. Assicurati che sia installata."
+        );
+        return;
+      }
+      await Linking.openURL(url);
+    } catch (error) {
+      console.error("[ShareExtension] Error opening app:", error);
+      Alert.alert(
+        t("common.error") || "Errore",
+        "Impossibile aprire l'app Zentik."
+      );
+    }
+  };
+
   const renderBucketIcon = (bucket: Bucket) => {
-    const backgroundColor = bucket.color || "#6200EE";
+    const backgroundColor = bucket.color || theme.colors.primary;
     const initials = bucket.name.substring(0, 2).toUpperCase();
 
     // Priority: iconUrl (preferred) > iconAttachmentUuid > icon URL > color + initials
@@ -339,23 +399,80 @@ function ShareExtensionContent(props: InitialProps) {
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
+      <View
+        style={[
+          styles.centerContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+      >
         <Text style={styles.errorText}>
           {error.message || "Failed to load buckets"}
         </Text>
         <TouchableOpacity style={styles.retryButton} onPress={loadBuckets}>
-          <Text style={styles.retryButtonText}>
-            {t("shareExtension.retry")}
-          </Text>
+          {t("shareExtension.retry")}
         </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (needsLogin) {
+    return (
+      <View
+        style={[
+          styles.centerContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+      >
+        <Text style={styles.errorText}>
+          {t("shareExtension.errors.notAuthenticated")}
+        </Text>
+        <Text style={styles.helperText}>
+          {t("shareExtension.loginRequired")}
+        </Text>
+        <View style={styles.loginButtonsContainer}>
+          {/* <TouchableOpacity
+              style={[
+                styles.openAppButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+              onPress={handleOpenApp}
+            >
+              <Text
+                style={[
+                  styles.openAppButtonText,
+                  { color: theme.colors.onPrimary },
+                ]}
+              >
+                {t("shareExtension.openApp")}
+              </Text>
+            </TouchableOpacity> */}
+          <TouchableOpacity
+            style={[styles.closeButton, { borderColor: theme.colors.outline }]}
+            onPress={close}
+          >
+            <Text
+              style={[
+                styles.closeButtonText,
+                { color: theme.colors.onSurface },
+              ]}
+            >
+              {"Chiudi"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#6200EE" />
+      <View
+        style={[
+          styles.centerContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+      >
+        <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.loadingText}>{t("shareExtension.loading")}</Text>
       </View>
     );
@@ -363,7 +480,12 @@ function ShareExtensionContent(props: InitialProps) {
 
   if (!buckets || buckets.length === 0) {
     return (
-      <View style={styles.centerContainer}>
+      <View
+        style={[
+          styles.centerContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+      >
         <Text style={styles.errorText}>{t("shareExtension.noBuckets")}</Text>
         <Text style={styles.helperText}>
           {t("shareExtension.noBucketsHelper")}
@@ -373,19 +495,43 @@ function ShareExtensionContent(props: InitialProps) {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Form inputs at the top */}
-      <View style={styles.topForm}>
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      {/* Header + Form inputs at the top */}
+      <View style={[styles.topForm, { backgroundColor: theme.colors.surface }]}>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Zentik</Text>
+          <TouchableOpacity
+            onPress={handleToggleTheme}
+            style={styles.themeToggle}
+          >
+            <Text style={styles.themeToggleText}>
+              {themeMode === "light"
+                ? "☀️"
+                : themeMode === "dark"
+                ? "🌙"
+                : "🌓"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.formSection}>
           <Text style={styles.formLabel}>
             {t("shareExtension.titleRequired")}
           </Text>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                borderColor: theme.colors.outline,
+                color: theme.colors.onSurface,
+              },
+            ]}
             value={title}
             onChangeText={setTitle}
             placeholder={t("shareExtension.titlePlaceholder")}
-            placeholderTextColor="#999"
+            placeholderTextColor={theme.colors.onSurfaceVariant}
           />
         </View>
 
@@ -394,11 +540,18 @@ function ShareExtensionContent(props: InitialProps) {
             {t("shareExtension.messageLabel")}
           </Text>
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[
+              styles.input,
+              styles.textArea,
+              {
+                borderColor: theme.colors.outline,
+                color: theme.colors.onSurface,
+              },
+            ]}
             value={message}
             onChangeText={setMessage}
             placeholder={t("shareExtension.messagePlaceholder")}
-            placeholderTextColor="#999"
+            placeholderTextColor={theme.colors.onSurfaceVariant}
             multiline
             numberOfLines={3}
           />
@@ -407,7 +560,12 @@ function ShareExtensionContent(props: InitialProps) {
 
       {/* Media preview section */}
       {allMedia.length > 0 && (
-        <View style={styles.mediaPreviewSection}>
+        <View
+          style={[
+            styles.mediaPreviewSection,
+            { backgroundColor: theme.colors.surface },
+          ]}
+        >
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {allMedia.map((media, index: number) => (
               <MediaPreviewItem key={index} media={media} index={index} />
@@ -431,16 +589,24 @@ function ShareExtensionContent(props: InitialProps) {
       </ScrollView>
 
       {/* Send button at bottom */}
-      <View style={styles.bottomButton}>
+      <View
+        style={[styles.bottomButton, { backgroundColor: theme.colors.surface }]}
+      >
         <TouchableOpacity
-          style={[styles.sendButton, sending && styles.sendButtonDisabled]}
           onPress={sendMessage}
           disabled={sending}
+          style={[
+            styles.sendButton,
+            { backgroundColor: theme.colors.primary },
+            sending && styles.sendButtonDisabled,
+          ]}
         >
           {sending ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator color={theme.colors.onPrimary} />
           ) : (
-            <Text style={styles.sendButtonText}>
+            <Text
+              style={[styles.sendButtonText, { color: theme.colors.onPrimary }]}
+            >
               {t("shareExtension.sendButton")}
             </Text>
           )}
@@ -453,11 +619,27 @@ function ShareExtensionContent(props: InitialProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
   },
   topForm: {
-    backgroundColor: "#fff",
     padding: 16,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  themeToggle: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 16,
+  },
+  themeToggleText: {
+    fontSize: 18,
   },
   scrollContent: {
     flex: 1,
@@ -467,13 +649,11 @@ const styles = StyleSheet.create({
     paddingBottom: 80, // Space for bottom button
   },
   bottomButton: {
-    backgroundColor: "#fff",
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: "#e0e0e0",
   },
   mediaPreviewSection: {
-    backgroundColor: "#fff",
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#e0e0e0",
@@ -490,7 +670,6 @@ const styles = StyleSheet.create({
   },
   mediaPreviewLabel: {
     fontSize: 12,
-    color: "#666",
     marginTop: 4,
     textAlign: "center",
     maxWidth: 80,
@@ -500,13 +679,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 16,
-    backgroundColor: "#fff",
   },
   sectionLabel: {
     fontSize: 18,
     fontWeight: "600",
     marginBottom: 16,
-    color: "#000",
   },
   bucketsGrid: {
     flexDirection: "row",
@@ -550,7 +727,6 @@ const styles = StyleSheet.create({
   bucketName: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#000",
     textAlign: "center",
   },
   formSection: {
@@ -560,26 +736,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     marginBottom: 6,
-    color: "#000",
   },
   input: {
+    marginTop: 4,
+    fontSize: 16,
     borderWidth: 1,
-    borderColor: "#ddd",
     borderRadius: 8,
     padding: 12,
-    fontSize: 16,
-    backgroundColor: "#fff",
-    color: "#000",
+    backgroundColor: "transparent",
   },
   textArea: {
     height: 80,
     textAlignVertical: "top",
   },
   sendButton: {
-    backgroundColor: "#6200EE",
-    padding: 14,
+    marginTop: 4,
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: "center",
+    justifyContent: "center",
   },
   sendButtonDisabled: {
     opacity: 0.6,
@@ -592,28 +767,55 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: "#666",
   },
   errorText: {
     fontSize: 16,
-    color: "#d32f2f",
     textAlign: "center",
     marginBottom: 16,
   },
   helperText: {
     fontSize: 14,
-    color: "#666",
     textAlign: "center",
   },
   retryButton: {
     marginTop: 16,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    backgroundColor: "#6200EE",
     borderRadius: 8,
   },
   retryButtonText: {
     color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  loginButtonsContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 16,
+    width: "100%",
+    paddingHorizontal: 16,
+  },
+  openAppButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  openAppButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  closeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    backgroundColor: "transparent",
+  },
+  closeButtonText: {
     fontSize: 16,
     fontWeight: "600",
   },
@@ -622,7 +824,9 @@ const styles = StyleSheet.create({
 export default function ShareExtension(props: InitialProps) {
   return (
     <QueryProviders>
-      <ShareExtensionContent {...props} />
+      <ThemeProvider>
+        <ShareExtensionContent {...props} />
+      </ThemeProvider>
     </QueryProviders>
   );
 }

@@ -5,7 +5,6 @@ import {
   useGetMeQuery,
 } from "@/generated/gql-operations-generated";
 import Constants from "expo-constants";
-import * as Updates from "expo-updates";
 import { Platform } from "react-native";
 import packageJson from "../package.json";
 

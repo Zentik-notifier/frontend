@@ -1,13 +1,12 @@
 import { useGetMeQuery, useHealthcheckLazyQuery } from '@/generated/gql-operations-generated';
 import NetInfo from '@react-native-community/netinfo';
-import * as Updates from 'expo-updates';
 import { File, Paths } from 'expo-file-system/next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UsePushNotifications } from './usePushNotifications';
 import { Platform } from 'react-native';
 import { settingsService } from '@/services/settings-service';
 import { mediaCache } from '@/services/media-cache-service';
-
+import { safeUpdates } from '@/utils/safe-updates';
 
 interface ConnectionStatus {
   type: 'update' | 'offline' | 'backend' | 'network' | 'push-notifications' | 'push-permissions' | 'push-needs-pwa' | 'filesystem-permission';
@@ -296,7 +295,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
   }, [isOnline, isWifi]);
 
   const isOtaUpdatesEnabled = useMemo(() => {
-    return !__DEV__ && Updates.isEnabled;
+    return safeUpdates.isOtaUpdatesEnabled;
   }, []);
 
   const checkForUpdates = useCallback(async () => {
@@ -304,7 +303,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
 
     setIsCheckingUpdate(true);
     try {
-      const update = await Updates.checkForUpdateAsync();
+      const update = await safeUpdates.checkForUpdateAsync();
       setHasUpdateAvailable(update.isAvailable);
     } catch (error) {
       console.error('[useConnectionStatus] Error checking for updates:', error);
@@ -381,7 +380,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
     try {
       // Apply OTA update (native apps)
       if (isOtaUpdatesEnabled) {
-        await Updates.reloadAsync();
+        await safeUpdates.reloadAsync();
         return;
       }
 

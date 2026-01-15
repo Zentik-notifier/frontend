@@ -626,31 +626,6 @@
       "grantedBy": "Concesso da {{user}}",
       "grantedByWithOwner": "Concesso da {{user}} (proprietario)"
     },
-    "shareExtension": {
-      "notAuthenticated": "Non autenticato. Effettua prima l'accesso nell'app principale.",
-      "loading": "Caricamento bucket...",
-      "retry": "Riprova",
-      "noBuckets": "Nessun bucket disponibile",
-      "noBucketsHelper": "Crea prima un bucket nell'app principale.",
-      "header": "Condividi nel Bucket",
-      "updating": "Aggiornamento...",
-      "selectBucket": "Seleziona un bucket",
-      "titleRequired": "Titolo",
-      "titlePlaceholder": "Inserisci il titolo del messaggio",
-      "messageLabel": "Messaggio",
-      "messagePlaceholder": "Inserisci il tuo messaggio",
-      "sendButton": "Invia",
-      "errors": {
-        "titleRequired": "Il titolo è obbligatorio",
-        "bucketRequired": "Seleziona un bucket",
-        "notAuthenticated": "Non autenticato. Effettua prima l'accesso nell'app principale.",
-        "sendFailed": "Invio del messaggio fallito"
-      },
-      "success": {
-        "title": "Successo",
-        "message": "Messaggio inviato con successo!"
-      }
-    },
     "delete": {
       "modalTitle": "Elimina Bucket",
       "modalDescription": "Scegli un'azione per il bucket \"{{bucketName}}\":",
@@ -2668,27 +2643,26 @@
     }
   },
   "shareExtension": {
-    "header": "Invia a Zentik",
-    "selectBucket": "Seleziona Bucket",
-    "titleLabel": "Titolo",
-    "titleRequired": "Titolo *",
-    "titlePlaceholder": "Inserisci il titolo",
-    "messageLabel": "Messaggio",
-    "messagePlaceholder": "Inserisci il messaggio",
-    "sendButton": "Invia Messaggio",
-    "sendingButton": "Invio in corso...",
+    "notAuthenticated": "Non autenticato. Effettua prima l'accesso nell'app principale.",
     "loading": "Caricamento bucket...",
-    "updating": "Aggiornamento...",
-    "notAuthenticated": "Non autenticato. Apri l'app ed effettua l'accesso.",
-    "noBuckets": "Nessun bucket disponibile",
-    "noBucketsHelper": "Crea prima un bucket nell'app",
     "retry": "Riprova",
+    "noBuckets": "Nessun bucket disponibile",
+    "noBucketsHelper": "Crea prima un bucket nell'app principale.",
+    "header": "Condividi nel Bucket",
+    "updating": "Aggiornamento...",
+    "selectBucket": "Seleziona un bucket",
+    "titleRequired": "Titolo",
+    "titlePlaceholder": "Inserisci il titolo del messaggio",
+    "messageLabel": "Messaggio",
+    "messagePlaceholder": "Inserisci il tuo messaggio",
+    "sendButton": "Invia",
+    "loginRequired": "Apri l'app Zentik e accedi per usare la Share Extension.",
+    "openApp": "Apri Zentik",
     "errors": {
-      "titleRequired": "Inserisci un titolo",
+      "titleRequired": "Il titolo è obbligatorio",
       "bucketRequired": "Seleziona un bucket",
-      "notAuthenticated": "Non autenticato",
-      "sendFailed": "Invio del messaggio fallito",
-      "loadFailed": "Caricamento bucket fallito"
+      "notAuthenticated": "Non autenticato. Effettua prima l'accesso nell'app principale.",
+      "sendFailed": "Invio del messaggio fallito"
     },
     "success": {
       "title": "Successo",

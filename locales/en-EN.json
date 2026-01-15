@@ -577,31 +577,6 @@
       "grantedBy": "Granted by {{user}}",
       "grantedByWithOwner": "Granted by {{user}} (owner)"
     },
-    "shareExtension": {
-      "notAuthenticated": "Not authenticated. Please log in to the main app first.",
-      "loading": "Loading buckets...",
-      "retry": "Retry",
-      "noBuckets": "No buckets available",
-      "noBucketsHelper": "Create a bucket in the main app first.",
-      "header": "Share to Bucket",
-      "updating": "Updating...",
-      "selectBucket": "Select a bucket",
-      "titleRequired": "Title",
-      "titlePlaceholder": "Enter message title",
-      "messageLabel": "Message",
-      "messagePlaceholder": "Enter your message",
-      "sendButton": "Send",
-      "errors": {
-        "titleRequired": "Title is required",
-        "bucketRequired": "Please select a bucket",
-        "notAuthenticated": "Not authenticated. Please log in to the main app first.",
-        "sendFailed": "Failed to send message"
-      },
-      "success": {
-        "title": "Success",
-        "message": "Message sent successfully!"
-      }
-    },
     "delete": {
       "modalTitle": "Delete Bucket",
       "modalDescription": "Choose an action for the bucket \"{{bucketName}}\":",
@@ -2663,27 +2638,26 @@
     }
   },
   "shareExtension": {
-    "header": "Send to Zentik",
-    "selectBucket": "Select Bucket",
-    "titleLabel": "Title",
-    "titleRequired": "Title *",
-    "titlePlaceholder": "Enter title",
-    "messageLabel": "Message",
-    "messagePlaceholder": "Enter message",
-    "sendButton": "Send Message",
-    "sendingButton": "Sending...",
+    "notAuthenticated": "Not authenticated. Please log in to the main app first.",
     "loading": "Loading buckets...",
-    "updating": "Updating...",
-    "notAuthenticated": "Not authenticated. Please open the app and sign in.",
-    "noBuckets": "No buckets available",
-    "noBucketsHelper": "Please create a bucket in the app first",
     "retry": "Retry",
+    "noBuckets": "No buckets available",
+    "noBucketsHelper": "Create a bucket in the main app first.",
+    "header": "Share to Bucket",
+    "updating": "Updating...",
+    "selectBucket": "Select a bucket",
+    "titleRequired": "Title",
+    "titlePlaceholder": "Enter message title",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Enter your message",
+    "sendButton": "Send",
+    "loginRequired": "Open the Zentik app and log in to use the Share Extension.",
+    "openApp": "Open Zentik",
     "errors": {
-      "titleRequired": "Please enter a title",
+      "titleRequired": "Title is required",
       "bucketRequired": "Please select a bucket",
-      "notAuthenticated": "Not authenticated",
-      "sendFailed": "Failed to send message",
-      "loadFailed": "Failed to load buckets"
+      "notAuthenticated": "Not authenticated. Please log in to the main app first.",
+      "sendFailed": "Failed to send message"
     },
     "success": {
       "title": "Success",
