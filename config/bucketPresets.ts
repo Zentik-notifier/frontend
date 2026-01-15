@@ -7,7 +7,7 @@ export const BUCKET_PRESETS: BucketPreset[] = [
     iconUrl:
       "https://www.drupal.org/files/project-images/home-assistant-social-media-logo-round.png",
     color: "#17a2b8",
-    docsUrl: "https://www.home-assistant.io/docs/",
+    docsUrl: "https://notifier-docs.zentik.app/docs/integrations/homeassistant",
   },
   {
     id: "7b9fb48f-97f1-4512-a6a3-32877708e795",
@@ -22,7 +22,7 @@ export const BUCKET_PRESETS: BucketPreset[] = [
     name: "Unraid",
     iconUrl: "https://avatars.githubusercontent.com/u/42099010?s=200&v=4",
     color: "#efefef",
-    docsUrl: "https://docs.unraid.net/",
+    docsUrl: "https://notifier-docs.zentik.app/docs/integrations/unraid",
   },
   {
     id: "2a211775-9d9f-487c-807d-3b01636b5795",
@@ -30,14 +30,14 @@ export const BUCKET_PRESETS: BucketPreset[] = [
     iconUrl:
       "https://notifier-api.zentik.app/api/v1/attachments/5c90332a-9d4a-438a-8816-144bc5812a76/download/public",
     color: "#fd7e14",
-    docsUrl: "https://docs.unraid.net/",
+    docsUrl: "https://notifier-docs.zentik.app/docs/integrations/unraid",
   },
   {
     id: "d60cd989-5be3-4749-8dd5-456b98059c41",
     name: "Servarr",
     iconUrl: "https://avatars.githubusercontent.com/u/57051827?s=280&v=4",
     color: "#343a40",
-    docsUrl: "https://wiki.servarr.com/",
+    docsUrl: "https://notifier-docs.zentik.app/docs/integrations/servarr",
   },
   {
     id: "a9bc3f2d-d9ed-4f6c-9e1f-383d626f9868",
@@ -76,7 +76,7 @@ export const BUCKET_PRESETS: BucketPreset[] = [
     iconUrl:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS7hVC3Er1meNSBtXnI4PRzaAJ8A0nQUxiAgQ&s",
     color: "#fd7e14",
-    docsUrl: "https://goauthentik.io/docs/",
+    docsUrl: "https://notifier-docs.zentik.app/docs/integrations/authentik",
   },
   {
     id: "f4409bef-b8df-40bd-90a5-e5022147d236",

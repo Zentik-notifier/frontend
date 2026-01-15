@@ -78,7 +78,13 @@ export const BucketPresetSelector: React.FC<BucketPresetSelectorProps> = ({
                 </View>
               )}
             </View>
-            <Text style={styles.name} numberOfLines={1}>
+            <Text 
+              style={[
+                styles.name,
+                { color: theme.colors.onSurface }
+              ]} 
+              numberOfLines={1}
+            >
               {preset.name}
             </Text>
           </TouchableOpacity>

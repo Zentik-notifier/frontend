@@ -529,6 +529,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
             generateMagicCode: true,
             isProtected: false,
             isPublic: false,
+            preset: step4SelectedTemplateId || undefined,
           });
 
           if (bucket?.id) {

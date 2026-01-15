@@ -946,6 +946,7 @@ export function useCreateBucket(options?: {
       isProtected?: boolean;
       isPublic?: boolean;
       generateMagicCode?: boolean;
+      preset?: string;
     }) => {
       console.log('[useCreateBucket] Creating bucket:', input.name);
 

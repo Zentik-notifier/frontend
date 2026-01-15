@@ -280,6 +280,7 @@ export default function NotificationsList({
 
       // Determina il primo e ultimo indice visibile
       const firstVisibleItem = viewableItems[0];
+      const secondVisibleItem = viewableItems[1];
       const lastVisibleItem = viewableItems[viewableItems.length - 1];
 
       if (
@@ -289,10 +290,17 @@ export default function NotificationsList({
       ) {
         const firstIndex = firstVisibleItem.index;
         setFirstVisibleIndex(firstIndex);
+      }
 
-        // Controlla se ci sono notifiche non lette prima di questo indice
+      if (
+        secondVisibleItem &&
+        secondVisibleItem.index !== null &&
+        secondVisibleItem.index !== undefined
+      ) {
+        const secondIndex = secondVisibleItem.index;
+
         const hasUnread = notifications
-          .slice(0, firstIndex)
+          .slice(0, secondIndex)
           .some((n: NotificationFragment) => !n.readAt);
         setHasUnreadAbove(hasUnread);
       }

@@ -239,6 +239,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
           isProtected: bucketData.isProtected || undefined,
           isPublic: bucketData.isPublic || undefined,
           generateMagicCode: generateMagicCode,
+          preset: selectedPresetId || undefined,
         });
       }
     } catch (error: any) {
