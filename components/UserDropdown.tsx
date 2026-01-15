@@ -7,6 +7,7 @@ import React, { useEffect, useState } from "react";
 import { Image } from "expo-image";
 import { Linking, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Avatar, Icon, Surface, Text, useTheme } from "react-native-paper";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 import { VersionInfo } from "./VersionInfo";
 import {
   Menu,
@@ -48,26 +49,6 @@ export default function UserDropdown({
     return "?";
   }
 
-  function getNextThemeMode(): "system" | "light" | "dark" {
-    // ciclo: System -> Light -> Dark -> System
-    if (themeMode === "system") return "light";
-    if (themeMode === "light") return "dark";
-    return "system";
-  }
-
-  function getThemeCycleLabel() {
-    const next = getNextThemeMode();
-    if (next === "system") return t("userDropdown.themes.system");
-    if (next === "light") return t("userDropdown.themes.light");
-    return t("userDropdown.themes.dark");
-  }
-
-  function getThemeCycleIcon(): string {
-    const next = getNextThemeMode();
-    if (next === "system") return "theme-light-dark";
-    if (next === "light") return "white-balance-sunny";
-    return "weather-night";
-  }
 
   function closeMenu() {
     setIsMenuOpen(false);
@@ -216,7 +197,8 @@ export default function UserDropdown({
           {/* Theme Toggle */}
           <MenuOption
             onSelect={() => {
-              setThemeMode(getNextThemeMode());
+              const next = themeMode === "system" ? "light" : themeMode === "light" ? "dark" : "system";
+              setThemeMode(next);
             }}
           >
             <View
@@ -225,16 +207,7 @@ export default function UserDropdown({
                 { backgroundColor: theme.colors.surface },
               ]}
             >
-              <Icon
-                source={getThemeCycleIcon()}
-                size={20}
-                color={theme.colors.onSurface}
-              />
-              <Text
-                style={[styles.menuItemText, { color: theme.colors.onSurface }]}
-              >
-                {getThemeCycleLabel()}
-              </Text>
+              <ThemeSwitcher variant="inline" />
             </View>
           </MenuOption>
 

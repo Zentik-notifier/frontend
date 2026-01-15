@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HelpModal } from "./Help";
 import { LoginModal } from "./LoginModal";
 import StatusBadge from "./StatusBadge";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 import { FeedbackButton } from "./ui";
 import UserDropdown from "./UserDropdown";
 
@@ -266,23 +267,6 @@ export default function Header() {
 
   const currentTitle = ROUTE_TITLES[currentRoute];
 
-  function getNextThemeMode(): "system" | "light" | "dark" {
-    // ciclo: System -> Light -> Dark -> System
-    if (themeMode === "system") return "light";
-    if (themeMode === "light") return "dark";
-    return "system";
-  }
-
-  function getThemeCycleIcon(): string {
-    const next = getNextThemeMode();
-    if (next === "system") return "theme-light-dark";
-    if (next === "light") return "white-balance-sunny";
-    return "weather-night";
-  }
-
-  function handleThemeToggle() {
-    setThemeMode(getNextThemeMode());
-  }
 
   return (
     <>
@@ -534,26 +518,7 @@ export default function Header() {
               segments[1] !== "terms-acceptance" && (
                 <View style={styles.publicButtonsContainer}>
                   {/* Theme Toggle Button */}
-                  <Surface style={styles.unauthButtonWrapper} elevation={2}>
-                    <TouchableRipple
-                      style={[
-                        styles.unauthSettingsButton,
-                        {
-                          backgroundColor: theme.colors.surfaceVariant,
-                          borderColor: theme.colors.outline,
-                        },
-                      ]}
-                      onPress={handleThemeToggle}
-                      accessibilityLabel={t("userDropdown.themes.theme")}
-                      accessibilityRole="button"
-                    >
-                      <Icon
-                        source={getThemeCycleIcon()}
-                        size={20}
-                        color={theme.colors.onSurfaceVariant}
-                      />
-                    </TouchableRipple>
-                  </Surface>
+                  <ThemeSwitcher variant="button" />
 
                   {/* Settings Button */}
                   {isPublic && (

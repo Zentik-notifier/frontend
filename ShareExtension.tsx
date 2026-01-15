@@ -1,9 +1,11 @@
 import { QueryProviders } from "@/components/QueryProviders";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { MediaType, MediaViewer } from "@/components/ui";
 import { useI18n } from "@/hooks/useI18n";
-import { ThemeProvider, useAppTheme } from "@/hooks/useTheme";
+import { ThemeProvider } from "@/hooks/useTheme";
 import { authService } from "@/services/auth-service";
 import { settingsService } from "@/services/settings-service";
+import { getCustomScheme } from "@/utils/universal-links";
 import { Image } from "expo-image";
 import * as Linking from "expo-linking";
 import {
@@ -11,7 +13,7 @@ import {
   clearAppGroupContainer,
   close,
 } from "expo-share-extension";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -24,7 +26,6 @@ import {
   View,
 } from "react-native";
 import { useTheme } from "react-native-paper";
-import { getCustomScheme } from "@/utils/universal-links";
 import { NotificationDeliveryType } from "./generated/gql-operations-generated";
 
 // Bucket type from REST
@@ -50,19 +51,29 @@ const MediaPreviewItem: React.FC<MediaPreviewItemProps> = ({
   media,
   index,
 }) => {
+  const theme = useTheme();
   return (
     <View style={styles.mediaPreviewItem}>
       <MediaViewer
         url={media.url}
         mediaType={media.mediaType as MediaType}
-        style={styles.mediaPreview}
+        style={[
+          styles.mediaPreview,
+          { backgroundColor: theme.colors.surfaceVariant },
+        ]}
         contentFit="cover"
         showVideoControls={false}
         isMuted
         autoPlay
         isLooping
       />
-      <Text style={styles.mediaPreviewLabel} numberOfLines={1}>
+      <Text
+        style={[
+          styles.mediaPreviewLabel,
+          { color: theme.colors.onSurfaceVariant },
+        ]}
+        numberOfLines={1}
+      >
         {media.mediaType === "IMAGE"
           ? `Image ${index + 1}`
           : `Video ${index + 1}`}
@@ -74,7 +85,6 @@ const MediaPreviewItem: React.FC<MediaPreviewItemProps> = ({
 function ShareExtensionContent(props: InitialProps) {
   const { url, images = [], videos = [] } = props;
   const { t } = useI18n();
-  const { themeMode, setThemeMode } = useAppTheme();
   const theme = useTheme();
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -324,16 +334,6 @@ function ShareExtensionContent(props: InitialProps) {
     }
   };
 
-  const handleToggleTheme = () => {
-    const nextMode =
-      themeMode === "light"
-        ? "dark"
-        : themeMode === "dark"
-        ? "system"
-        : "light";
-    setThemeMode(nextMode);
-  };
-
   const handleOpenApp = async () => {
     try {
       const scheme = getCustomScheme();
@@ -386,11 +386,26 @@ function ShareExtensionContent(props: InitialProps) {
     return (
       <TouchableOpacity
         key={bucket.id}
-        style={[styles.bucketItem, isSelected && styles.bucketItemSelected]}
+        style={[
+          styles.bucketItem,
+          {
+            backgroundColor: theme.colors.surface,
+          },
+          isSelected && [
+            styles.bucketItemSelected,
+            {
+              borderColor: theme.colors.primary,
+              backgroundColor: theme.colors.primaryContainer,
+            },
+          ],
+        ]}
         onPress={() => setSelectedBucket(bucket)}
       >
         {renderBucketIcon(bucket)}
-        <Text style={styles.bucketName} numberOfLines={1}>
+        <Text
+          style={[styles.bucketName, { color: theme.colors.onSurface }]}
+          numberOfLines={1}
+        >
           {bucket.name}
         </Text>
       </TouchableOpacity>
@@ -405,7 +420,7 @@ function ShareExtensionContent(props: InitialProps) {
           { backgroundColor: theme.colors.background },
         ]}
       >
-        <Text style={styles.errorText}>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>
           {error.message || "Failed to load buckets"}
         </Text>
         <TouchableOpacity style={styles.retryButton} onPress={loadBuckets}>
@@ -423,10 +438,12 @@ function ShareExtensionContent(props: InitialProps) {
           { backgroundColor: theme.colors.background },
         ]}
       >
-        <Text style={styles.errorText}>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>
           {t("shareExtension.errors.notAuthenticated")}
         </Text>
-        <Text style={styles.helperText}>
+        <Text
+          style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}
+        >
           {t("shareExtension.loginRequired")}
         </Text>
         <View style={styles.loginButtonsContainer}>
@@ -473,7 +490,9 @@ function ShareExtensionContent(props: InitialProps) {
         ]}
       >
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>{t("shareExtension.loading")}</Text>
+        <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>
+          {t("shareExtension.loading")}
+        </Text>
       </View>
     );
   }
@@ -486,8 +505,12 @@ function ShareExtensionContent(props: InitialProps) {
           { backgroundColor: theme.colors.background },
         ]}
       >
-        <Text style={styles.errorText}>{t("shareExtension.noBuckets")}</Text>
-        <Text style={styles.helperText}>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>
+          {t("shareExtension.noBuckets")}
+        </Text>
+        <Text
+          style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}
+        >
           {t("shareExtension.noBucketsHelper")}
         </Text>
       </View>
@@ -501,23 +524,14 @@ function ShareExtensionContent(props: InitialProps) {
       {/* Header + Form inputs at the top */}
       <View style={[styles.topForm, { backgroundColor: theme.colors.surface }]}>
         <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Zentik</Text>
-          <TouchableOpacity
-            onPress={handleToggleTheme}
-            style={styles.themeToggle}
-          >
-            <Text style={styles.themeToggleText}>
-              {themeMode === "light"
-                ? "☀️"
-                : themeMode === "dark"
-                ? "🌙"
-                : "🌓"}
-            </Text>
-          </TouchableOpacity>
+          {/* <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>
+            Zentik
+          </Text>
+          <ThemeSwitcher variant="button" /> */}
         </View>
 
         <View style={styles.formSection}>
-          <Text style={styles.formLabel}>
+          <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>
             {t("shareExtension.titleRequired")}
           </Text>
           <TextInput
@@ -536,7 +550,7 @@ function ShareExtensionContent(props: InitialProps) {
         </View>
 
         <View style={styles.formSection}>
-          <Text style={styles.formLabel}>
+          <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>
             {t("shareExtension.messageLabel")}
           </Text>
           <TextInput
@@ -563,7 +577,10 @@ function ShareExtensionContent(props: InitialProps) {
         <View
           style={[
             styles.mediaPreviewSection,
-            { backgroundColor: theme.colors.surface },
+            {
+              backgroundColor: theme.colors.surface,
+              borderBottomColor: theme.colors.outline,
+            },
           ]}
         >
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -579,7 +596,7 @@ function ShareExtensionContent(props: InitialProps) {
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollContentContainer}
       >
-        <Text style={styles.sectionLabel}>
+        <Text style={[styles.sectionLabel, { color: theme.colors.onSurface }]}>
           {t("shareExtension.selectBucket")}
         </Text>
 
@@ -590,7 +607,13 @@ function ShareExtensionContent(props: InitialProps) {
 
       {/* Send button at bottom */}
       <View
-        style={[styles.bottomButton, { backgroundColor: theme.colors.surface }]}
+        style={[
+          styles.bottomButton,
+          {
+            backgroundColor: theme.colors.surface,
+            borderTopColor: theme.colors.outline,
+          },
+        ]}
       >
         <TouchableOpacity
           onPress={sendMessage}
@@ -633,14 +656,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
   },
-  themeToggle: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 16,
-  },
-  themeToggleText: {
-    fontSize: 18,
-  },
   scrollContent: {
     flex: 1,
   },
@@ -651,12 +666,10 @@ const styles = StyleSheet.create({
   bottomButton: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
   },
   mediaPreviewSection: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
   },
   mediaPreviewItem: {
     marginRight: 12,
@@ -666,7 +679,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 8,
-    backgroundColor: "#f5f5f5",
   },
   mediaPreviewLabel: {
     fontSize: 12,
@@ -695,7 +707,6 @@ const styles = StyleSheet.create({
     width: (SCREEN_WIDTH - 64) / BUCKETS_PER_ROW,
     alignItems: "center",
     padding: 12,
-    backgroundColor: "#fff",
     borderRadius: 16,
     borderWidth: 3,
     borderColor: "transparent",
@@ -706,8 +717,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   bucketItemSelected: {
-    borderColor: "#6200EE",
-    backgroundColor: "#F3E5F5",
     shadowOpacity: 0.2,
     elevation: 5,
   },

@@ -508,18 +508,24 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
         step4BucketName.trim() &&
         !step4BucketGenerated
       ) {
+        const iconValue =
+          step4TemplateIconUrl && step4TemplateIconUrl.trim()
+            ? step4TemplateIconUrl.trim()
+            : undefined;
         console.log(
           "[Onboarding] Creating bucket automatically:",
           step4BucketName,
           "with color:",
-          step4TemplateColor
+          step4TemplateColor,
+          "with icon:",
+          iconValue
         );
         try {
           const bucket = await createBucket({
             name: step4BucketName.trim(),
             description: "Bucket created during onboarding",
             color: step4TemplateColor || "#2196F3",
-            icon: step4TemplateIconUrl || "inbox",
+            icon: iconValue,
             generateMagicCode: true,
             isProtected: false,
             isPublic: false,
