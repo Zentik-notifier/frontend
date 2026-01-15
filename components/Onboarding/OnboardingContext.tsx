@@ -75,10 +75,16 @@ interface OnboardingContextType {
   step4BucketName: string;
   step4BucketSelectionMode: "existing" | "create";
   step4MagicCode: string | null;
+  step4SelectedTemplateId: string | null;
+  step4TemplateColor: string | null;
+  step4TemplateIconUrl: string | null;
   setStep4SelectedBucketId: (id: string) => void;
   setStep4BucketName: (name: string) => void;
   setStep4BucketSelectionMode: (mode: "existing" | "create") => void;
   setStep4MagicCode: (code: string | null) => void;
+  setStep4SelectedTemplateId: (id: string | null) => void;
+  setStep4TemplateColor: (color: string | null) => void;
+  setStep4TemplateIconUrl: (iconUrl: string | null) => void;
   isStep4Complete: () => boolean;
 
   // Step 5: Test Notification
@@ -215,6 +221,15 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
   const [step4BucketSelectionMode, setStep4BucketSelectionMode] = useState<
     "existing" | "create"
   >("existing");
+  const [step4SelectedTemplateId, setStep4SelectedTemplateId] = useState<
+    string | null
+  >(null);
+  const [step4TemplateColor, setStep4TemplateColor] = useState<string | null>(
+    null
+  );
+  const [step4TemplateIconUrl, setStep4TemplateIconUrl] = useState<
+    string | null
+  >(null);
 
   // Step 6: API Integration
   const [magicCode, setMagicCode] = useState<string | null>(null);
@@ -480,7 +495,8 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
       console.log(
         "[Onboarding] Creating Step 4 resources...",
         step4BucketSelectionMode,
-        step4BucketName
+        step4BucketName,
+        step4TemplateColor
       );
 
       // Create bucket automatically if in create mode and not already created
@@ -494,14 +510,20 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
       ) {
         console.log(
           "[Onboarding] Creating bucket automatically:",
-          step4BucketName
+          step4BucketName,
+          "with color:",
+          step4TemplateColor
         );
         try {
           const bucket = await createBucket({
             name: step4BucketName.trim(),
             description: "Bucket created during onboarding",
-            color: "#2196F3",
-            icon: "inbox",
+            color: step4TemplateColor || "#2196F3",
+            // Usa direttamente l'iconUrl del template come campo `icon`
+            // (come fa CreateBucketForm con bucketIconSourceUrl)
+            icon: step4TemplateIconUrl || "inbox",
+            generateIconWithInitials: !step4TemplateIconUrl,
+            generateMagicCode: true,
             isProtected: false,
             isPublic: false,
           });
@@ -586,6 +608,8 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     step4BucketName,
     step4SelectedBucketId,
     step4BucketGenerated,
+    step4TemplateColor,
+    step4TemplateIconUrl,
     createBucket,
     getBucket,
     setStep4SelectedBucketId,
@@ -676,10 +700,16 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     step4BucketName,
     step4BucketSelectionMode,
     step4MagicCode,
+    step4SelectedTemplateId,
+    step4TemplateColor,
+    step4TemplateIconUrl,
     setStep4SelectedBucketId,
     setStep4BucketName,
     setStep4BucketSelectionMode,
     setStep4MagicCode,
+    setStep4SelectedTemplateId,
+    setStep4TemplateColor,
+    setStep4TemplateIconUrl,
     isStep4Complete,
     sendTestNotification,
     magicCode,

@@ -2620,6 +2620,9 @@ export interface Translation {
       missingTokenOrBucket: string;
       missingFields: string;
       info: string;
+      docsTitle: string;
+      docsDescription: string;
+      openDocs: string;
     };
     step6: {
       title: string;

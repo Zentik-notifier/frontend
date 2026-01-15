@@ -9,6 +9,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Keyboard,
 } from "react-native";
 import { Icon, Portal, useTheme } from "react-native-paper";
 import { IconSource } from "react-native-paper/lib/typescript/components/Icon";
@@ -499,6 +500,8 @@ export default function Selector({
                     placeholderTextColor={theme.colors.onSurfaceVariant}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
+                    returnKeyType="done"
+                    onSubmitEditing={() => Keyboard.dismiss()}
                   />
                 </View>
               )}

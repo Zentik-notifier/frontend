@@ -1,5 +1,5 @@
-import React, { memo, useState, useCallback } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import React, { memo, useState, useCallback, useMemo } from "react";
+import { ScrollView, StyleSheet, View, Linking, Keyboard } from "react-native";
 import {
   Button,
   Card,
@@ -10,11 +10,28 @@ import {
 } from "react-native-paper";
 import { useOnboarding } from "./OnboardingContext";
 import { useI18n } from "@/hooks/useI18n";
+import { BUCKET_PRESETS } from "@/config/bucketPresets";
 
 const Step5 = memo(() => {
   const theme = useTheme();
   const { t } = useI18n();
-  const { sendTestNotification } = useOnboarding();
+  const { sendTestNotification, step4SelectedTemplateId, step4BucketSelectionMode } = useOnboarding();
+
+  const selectedPreset = useMemo(() => {
+    if (step4BucketSelectionMode === "create" && step4SelectedTemplateId) {
+      return BUCKET_PRESETS.find((p) => p.id === step4SelectedTemplateId);
+    }
+    return null;
+  }, [step4SelectedTemplateId, step4BucketSelectionMode]);
+
+  const handleOpenDocs = useCallback(async () => {
+    if (selectedPreset?.docsUrl) {
+      const canOpen = await Linking.canOpenURL(selectedPreset.docsUrl);
+      if (canOpen) {
+        await Linking.openURL(selectedPreset.docsUrl);
+      }
+    }
+  }, [selectedPreset]);
 
   const [title, setTitle] = useState(t("onboardingV2.step5.defaultTitle"));
   const [body, setBody] = useState(t("onboardingV2.step5.defaultBody"));
@@ -61,6 +78,8 @@ const Step5 = memo(() => {
             onChangeText={setTitle}
             style={styles.input}
             left={<TextInput.Icon icon="format-title" />}
+            returnKeyType="next"
+            onSubmitEditing={() => Keyboard.dismiss()}
           />
           <TextInput
             mode="outlined"
@@ -71,6 +90,8 @@ const Step5 = memo(() => {
             numberOfLines={3}
             style={styles.input}
             left={<TextInput.Icon icon="text" />}
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
           />
 
           <Button
@@ -115,6 +136,33 @@ const Step5 = memo(() => {
             </Card>
           )}
         </View>
+
+        {selectedPreset?.docsUrl && (
+          <Card style={styles.docsCard} elevation={0}>
+            <Card.Content>
+              <View style={styles.docsRow}>
+                <Icon source="book-open" size={24} color={theme.colors.primary} />
+                <View style={styles.docsContent}>
+                  <Text variant="titleSmall" style={styles.docsTitle}>
+                    {t("onboardingV2.step5.docsTitle", { name: selectedPreset.name })}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.docsDescription}>
+                    {t("onboardingV2.step5.docsDescription")}
+                  </Text>
+                  <Button
+                    mode="text"
+                    icon="open-in-new"
+                    onPress={handleOpenDocs}
+                    style={styles.docsButton}
+                    textColor={theme.colors.primary}
+                  >
+                    {t("onboardingV2.step5.openDocs")}
+                  </Button>
+                </View>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
 
         <View style={styles.infoBox}>
           <Icon source="information" size={20} color={theme.colors.primary} />
@@ -182,6 +230,32 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     opacity: 0.8,
+  },
+  docsCard: {
+    width: "100%",
+    marginBottom: 24,
+    backgroundColor: "rgba(33, 150, 243, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(33, 150, 243, 0.2)",
+  },
+  docsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  docsContent: {
+    flex: 1,
+  },
+  docsTitle: {
+    marginBottom: 4,
+  },
+  docsDescription: {
+    marginBottom: 8,
+    opacity: 0.7,
+  },
+  docsButton: {
+    alignSelf: "flex-start",
+    marginTop: 4,
   },
 });
 

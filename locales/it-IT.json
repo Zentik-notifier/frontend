@@ -2621,7 +2621,10 @@
       "sendError": "❌ Errore durante l'invio della notifica. Verifica il token e riprova.",
       "missingTokenOrBucket": "❌ Token o bucket mancante. Torna allo Step 4 per generare il token.",
       "missingFields": "❌ Compila tutti i campi prima di inviare.",
-      "info": "Dovresti ricevere una notifica a breve. Se non la ricevi, controlla le impostazioni delle notifiche del tuo dispositivo."
+      "info": "Dovresti ricevere una notifica a breve. Se non la ricevi, controlla le impostazioni delle notifiche del tuo dispositivo.",
+      "docsTitle": "Documentazione {{name}}",
+      "docsDescription": "Consulta la documentazione ufficiale per configurare le notifiche con questo template.",
+      "openDocs": "Apri Documentazione"
     },
     "step6": {
       "title": "Tutto Pronto!",

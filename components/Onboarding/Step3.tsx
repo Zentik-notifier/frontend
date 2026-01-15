@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useMemo } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View, Keyboard } from "react-native";
 import { Card, Chip, Icon, Switch, Text, TextInput, useTheme } from "react-native-paper";
 import { useI18n } from "@/hooks/useI18n";
 import { useOnboarding } from "./OnboardingContext";
@@ -214,6 +214,8 @@ const Step3 = memo(() => {
                         placeholder="500"
                         style={styles.inlineInput}
                         dense
+                        returnKeyType="done"
+                        onSubmitEditing={() => Keyboard.dismiss()}
                       />
                     </View>
                   </View>
@@ -231,6 +233,8 @@ const Step3 = memo(() => {
                         placeholder="30"
                         style={styles.inlineInput}
                         dense
+                        returnKeyType="done"
+                        onSubmitEditing={() => Keyboard.dismiss()}
                       />
                     </View>
                   </View>
@@ -246,6 +250,8 @@ const Step3 = memo(() => {
                       placeholder="500"
                       style={styles.inlineInput}
                       dense
+                      returnKeyType="done"
+                      onSubmitEditing={() => Keyboard.dismiss()}
                     />
                   </View>
                   <View style={styles.presetDetailRow}>
@@ -262,6 +268,8 @@ const Step3 = memo(() => {
                         placeholder="30"
                         style={styles.inlineInput}
                         dense
+                        returnKeyType="done"
+                        onSubmitEditing={() => Keyboard.dismiss()}
                       />
                     </View>
                   </View>

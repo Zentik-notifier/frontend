@@ -2616,7 +2616,10 @@
       "sendError": "❌ Error sending notification. Check the token and try again.",
       "missingTokenOrBucket": "❌ Missing token or bucket. Go back to Step 4 to generate the token.",
       "missingFields": "❌ Fill in all fields before sending.",
-      "info": "You should receive a notification shortly. If you don't receive it, check your device's notification settings."
+      "info": "You should receive a notification shortly. If you don't receive it, check your device's notification settings.",
+      "docsTitle": "{{name}} Documentation",
+      "docsDescription": "Check the official documentation to configure notifications with this template.",
+      "openDocs": "Open Documentation"
     },
     "step6": {
       "title": "All Set!",

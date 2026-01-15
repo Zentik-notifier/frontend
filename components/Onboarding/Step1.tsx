@@ -1,5 +1,5 @@
 import React, { memo, useCallback } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View, Keyboard } from "react-native";
 import {
   Button,
   Card,
@@ -74,6 +74,8 @@ const Step1 = memo(() => {
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
+                returnKeyType="done"
+                onSubmitEditing={() => Keyboard.dismiss()}
               />
               <Button
                 mode="contained-tonal"

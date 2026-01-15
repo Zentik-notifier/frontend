@@ -1,10 +1,18 @@
 import BucketSelector from "@/components/BucketSelector";
+import { BucketPresetSelector } from "@/components/BucketPresetSelector";
 import { useNotificationsState } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
 import { useAppLog } from "@/hooks/useAppLog";
-import React, { memo, useCallback, useEffect } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import React, { memo, useCallback, useEffect, useState } from "react";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  Keyboard,
+} from "react-native";
 import {
   Button,
   Card,
@@ -29,9 +37,13 @@ const Step4 = memo(({ push }: Step4Props) => {
     step4SelectedBucketId: selectedBucketId,
     step4BucketName: bucketName,
     step4BucketSelectionMode: bucketSelectionMode,
+    step4SelectedTemplateId: selectedTemplateId,
     setStep4SelectedBucketId: setSelectedBucketId,
     setStep4BucketName: setBucketName,
     setStep4BucketSelectionMode: setBucketSelectionMode,
+    setStep4SelectedTemplateId: setSelectedTemplateId,
+    setStep4TemplateColor: setTemplateColor,
+    setStep4TemplateIconUrl: setTemplateIconUrl,
   } = useOnboarding();
 
   // Get buckets from app state (same as BucketSelector)
@@ -125,100 +137,121 @@ const Step4 = memo(({ push }: Step4Props) => {
   }
 
   return (
-    <ScrollView style={styles.stepContainer}>
-      <View style={styles.stepContent}>
-        <Icon source="key" size={64} color={theme.colors.primary} />
-        <Text variant="headlineMedium" style={styles.stepTitle}>
-          {t("onboardingV2.step4.title")}
-        </Text>
-        <Text variant="bodyLarge" style={styles.stepDescription}>
-          {t("onboardingV2.step4.description")}
-        </Text>
-
-        {/* Device Status */}
-        <Card style={styles.statusCard} elevation={0}>
-          <Card.Content>
-            <View style={styles.statusRow}>
-              <Icon
-                source="check-circle"
-                size={24}
-                color={theme.colors.primary}
-              />
-              <Text variant="bodyMedium" style={styles.statusText}>
-                {t("onboardingV2.step4.deviceRegistered")}
-              </Text>
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Bucket Selection */}
-        <View style={styles.section}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            {t("onboardingV2.step4.selectBucket")}
+    <KeyboardAvoidingView
+      style={styles.stepContainer}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+    >
+      <ScrollView
+        style={styles.stepContainer}
+        contentContainerStyle={styles.scrollContentContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.stepContent}>
+          <Icon source="key" size={64} color={theme.colors.primary} />
+          <Text variant="headlineMedium" style={styles.stepTitle}>
+            {t("onboardingV2.step4.title")}
           </Text>
-          <Text variant="bodyMedium" style={styles.sectionDescription}>
-            {t("onboardingV2.step4.selectBucketDescription")}
+          <Text variant="bodyLarge" style={styles.stepDescription}>
+            {t("onboardingV2.step4.description")}
           </Text>
 
-          {/* Bucket Selection Mode */}
-          <RadioButton.Group
-            value={bucketSelectionMode}
-            onValueChange={(value) =>
-              setBucketSelectionMode(value as "existing" | "create")
-            }
-          >
-            <RadioButton.Item
-              label={t("onboardingV2.step4.createNewBucket")}
-              value="create"
-            />
-            <RadioButton.Item
-              label={t("onboardingV2.step4.useExistingBucket")}
-              value="existing"
-            />
-          </RadioButton.Group>
+          {/* Device Status */}
+          <Card style={styles.statusCard} elevation={0}>
+            <Card.Content>
+              <View style={styles.statusRow}>
+                <Icon
+                  source="check-circle"
+                  size={24}
+                  color={theme.colors.primary}
+                />
+                <Text variant="bodyMedium" style={styles.statusText}>
+                  {t("onboardingV2.step4.deviceRegistered")}
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
 
-          {/* Existing Buckets */}
-          {bucketSelectionMode === "existing" &&
-            availableBuckets.length > 0 && (
-              <BucketSelector
-                label={t("onboardingV2.step4.bucketLabel")}
-                selectedBucketId={selectedBucketId}
-                onBucketChange={handleBucketSelect}
-              />
-            )}
-
-          {/* Create New Bucket */}
-          {bucketSelectionMode === "create" && (
-            <View style={styles.createBucketContainer}>
-              <TextInput
-                placeholder={t("onboardingV2.step4.bucketNamePlaceholder")}
-                value={bucketName}
-                onChangeText={setBucketName}
-                style={styles.input}
-                mode="outlined"
-              />
-            </View>
-          )}
-        </View>
-
-        {/* Magic Code Disclaimer */}
-        <Surface style={styles.warningSurface} elevation={0}>
-          <View style={styles.warningHeader}>
-            <Icon
-              source="alert"
-              size={24}
-              color={theme.colors.error}
-            />
-            <Text variant="titleSmall" style={styles.warningTitle}>
-              {t("onboardingV2.step4.magicCodeWarningTitle")}
+          {/* Bucket Selection */}
+          <View style={styles.section}>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              {t("onboardingV2.step4.selectBucket")}
             </Text>
+            <Text variant="bodyMedium" style={styles.sectionDescription}>
+              {t("onboardingV2.step4.selectBucketDescription")}
+            </Text>
+
+            {/* Bucket Selection Mode */}
+            <RadioButton.Group
+              value={bucketSelectionMode}
+              onValueChange={(value) =>
+                setBucketSelectionMode(value as "existing" | "create")
+              }
+            >
+              <RadioButton.Item
+                label={t("onboardingV2.step4.createNewBucket")}
+                value="create"
+              />
+              <RadioButton.Item
+                label={t("onboardingV2.step4.useExistingBucket")}
+                value="existing"
+              />
+            </RadioButton.Group>
+
+            {/* Existing Buckets */}
+            {bucketSelectionMode === "existing" &&
+              availableBuckets.length > 0 && (
+                <BucketSelector
+                  label={t("onboardingV2.step4.bucketLabel")}
+                  selectedBucketId={selectedBucketId}
+                  onBucketChange={handleBucketSelect}
+                />
+              )}
+
+            {/* Create New Bucket */}
+            {bucketSelectionMode === "create" && (
+              <View style={styles.createBucketContainer}>
+                <BucketPresetSelector
+                  selectedId={selectedTemplateId}
+                  onSelect={(preset) => {
+                    setSelectedTemplateId(preset.id);
+                    setBucketName(preset.name);
+                    setTemplateColor(preset.color || null);
+                    setTemplateIconUrl(preset.iconUrl || null);
+                  }}
+                />
+
+                <TextInput
+                  placeholder={t("onboardingV2.step4.bucketNamePlaceholder")}
+                  value={bucketName}
+                  onChangeText={setBucketName}
+                  style={styles.input}
+                  mode="outlined"
+                  returnKeyType="done"
+                  onSubmitEditing={() => Keyboard.dismiss()}
+                />
+              </View>
+            )}
           </View>
-          <Text variant="bodySmall" style={styles.warningText}>
-            {t("onboardingV2.step4.magicCodeWarning")}
-          </Text>
-        </Surface>
-      </View>
-    </ScrollView>
+
+          {/* Magic Code Disclaimer */}
+          {/* {bucketSelectionMode === "create" && (
+            <Surface style={styles.warningSurface} elevation={0}>
+              <View style={styles.warningHeader}>
+                <Icon source="alert" size={24} color={theme.colors.error} />
+                <Text variant="titleSmall" style={styles.warningTitle}>
+                  {t("onboardingV2.step4.magicCodeWarningTitle")}
+                </Text>
+              </View>
+              <Text variant="bodySmall" style={styles.warningText}>
+                {t("onboardingV2.step4.magicCodeWarning")}
+              </Text>
+            </Surface>
+          )} */}
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 });
 
@@ -303,6 +336,11 @@ const styles = StyleSheet.create({
   },
   createBucketContainer: {
     marginTop: 8,
+    width: "100%",
+  },
+  scrollContentContainer: {
+    flexGrow: 1,
+    paddingBottom: 100,
   },
   warningSurface: {
     width: "100%",
@@ -327,4 +365,3 @@ const styles = StyleSheet.create({
 });
 
 export default Step4;
-

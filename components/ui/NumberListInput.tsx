@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Keyboard } from 'react-native';
 import { TextInput, Button, Text, TouchableRipple, useTheme } from 'react-native-paper';
 import { useI18n } from '@/hooks/useI18n';
 
@@ -61,6 +61,7 @@ export default function NumberListInput({
 
   const handleInputSubmit = useCallback(() => {
     addValue();
+    Keyboard.dismiss();
   }, [addValue]);
 
   const styles = StyleSheet.create({
@@ -115,6 +116,7 @@ export default function NumberListInput({
           keyboardType="numeric"
           style={styles.textInput}
           onSubmitEditing={handleInputSubmit}
+          returnKeyType="done"
           disabled={disabled}
           dense={compact}
         />

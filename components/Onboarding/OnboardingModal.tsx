@@ -1,5 +1,5 @@
-import React, { memo, useCallback, useMemo } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import React, { memo, useCallback, useMemo, useState, useEffect } from "react";
+import { Platform, StyleSheet, View, Keyboard } from "react-native";
 import { Button, Modal, Portal, Text, useTheme } from "react-native-paper";
 import { OnboardingProvider, useOnboarding } from "./OnboardingContext";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
@@ -77,7 +77,24 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
   } = useOnboarding();
   const { completeOnboarding, skipOnboarding } = useSettings();
   const [isApplying, setIsApplying] = React.useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const { logAppEvent } = useAppLog();
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setKeyboardVisible(true)
+    );
+    const hideSubscription = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const handleNext = useCallback(async () => {
     if (currentStep === 4) {
@@ -144,7 +161,12 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
     isApplying || (currentStep === 4 && !isStep4Complete());
 
   return (
-    <View style={styles.navigationButtons}>
+    <View
+      style={[
+        styles.navigationButtons,
+        keyboardVisible && styles.navigationButtonsWithKeyboard,
+      ]}
+    >
       {currentStep > 1 && (
         <Button
           mode="outlined"
@@ -296,6 +318,17 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#e0e0e0",
     gap: 12,
+  },
+  navigationButtonsWithKeyboard: {
+    ...Platform.select({
+      ios: {
+        paddingBottom: 16,
+      },
+      android: {
+        paddingBottom: 8,
+      },
+      default: {},
+    }),
   },
   navButton: {
     flex: 1,

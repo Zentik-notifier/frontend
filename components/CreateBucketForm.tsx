@@ -30,6 +30,7 @@ import {
 import ColorPicker, { ColorPickerRef } from "./ColorPicker";
 import IconEditor from "./IconEditor";
 import DetailSectionCard from "./ui/DetailSectionCard";
+import { BucketPresetSelector } from "./BucketPresetSelector";
 
 const defaultColor = "#0a7ea4";
 
@@ -55,6 +56,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const [isIconEditorVisible, setIsIconEditorVisible] = useState(false);
   const [createAccessToken, setCreateAccessToken] = useState(false);
   const [generateMagicCode, setGenerateMagicCode] = useState(true);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const colorPickerRef = useRef<ColorPickerRef>(null);
   const isEditing = !!bucketId;
   const { navigateToBucketDetail } = useNavigationUtils();
@@ -302,6 +304,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       setBucketColor(defaultColor);
       setCreateAccessToken(false);
       setGenerateMagicCode(true);
+      setSelectedPresetId(null);
     }
     setBucketIconError("");
   };
@@ -383,8 +386,27 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
         //     : t("buckets.form.createDescription")
         // }
         items={[{ key: "form" }]}
+        maxHeight={1000}
         renderItem={() => (
           <>
+            {/* Preset selector (only when creating a new bucket) */}
+            {!isEditing && !isProtectedBucket && !isSharedBucket && (
+              <View style={styles.presetSection}>
+                <BucketPresetSelector
+                  selectedId={selectedPresetId}
+                  onSelect={(preset) => {
+                    setSelectedPresetId(preset.id);
+                    setBucketName(preset.name);
+                    setBucketColor(preset.color || defaultColor);
+                    if (preset.iconUrl) {
+                      setBucketIcon(preset.iconUrl);
+                      setBucketIconSourceUrl(preset.iconUrl);
+                    }
+                  }}
+                />
+              </View>
+            )}
+
             {/* Bucket Name and Color Row */}
             <View style={styles.nameColorRow}>
               <TextInput
@@ -799,6 +821,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.7,
     fontStyle: "italic",
+  },
+  presetSection: {
+    marginBottom: 16,
   },
   warningContainer: {
     flexDirection: "row",
