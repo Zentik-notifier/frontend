@@ -1790,6 +1790,7 @@ export enum ServerSettingType {
   ServerStableIdentifier = 'ServerStableIdentifier',
   SocialLoginEnabled = 'SocialLoginEnabled',
   SocialRegistrationEnabled = 'SocialRegistrationEnabled',
+  StoreLogsOnFs = 'StoreLogsOnFs',
   SystemTokenUsageStats = 'SystemTokenUsageStats',
   VapidSubject = 'VapidSubject',
   WebPush = 'WebPush'

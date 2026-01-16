@@ -319,9 +319,19 @@ const settingSections: Record<string, SectionConfig> = {
     title: "Logging",
     icon: "file-document",
     settings: [
-      ServerSettingType.LogLevel,
-      ServerSettingType.LogRetentionDays,
-      ServerSettingType.LogStorageDirectory,
+      ServerSettingType.StoreLogsOnFs,
+      {
+        key: ServerSettingType.LogLevel,
+        dependsOn: { field: ServerSettingType.StoreLogsOnFs, values: [true] },
+      },
+      {
+        key: ServerSettingType.LogRetentionDays,
+        dependsOn: { field: ServerSettingType.StoreLogsOnFs, values: [true] },
+      },
+      {
+        key: ServerSettingType.LogStorageDirectory,
+        dependsOn: { field: ServerSettingType.StoreLogsOnFs, values: [true] },
+      },
     ],
   },
   prometheus: {

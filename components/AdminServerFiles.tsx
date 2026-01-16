@@ -15,6 +15,7 @@ import {
   useServerFilesQuery,
   useDeleteServerFileMutation,
 } from "@/generated/gql-operations-generated";
+import { formatFileSize } from "@/utils/fileUtils";
 import PaperScrollView from "./ui/PaperScrollView";
 
 export default function AdminServerFiles() {
@@ -235,7 +236,7 @@ export default function AdminServerFiles() {
                   { color: theme.colors.onSurfaceVariant },
                 ]}
               >
-                {item.isDir ? "—" : (item.size || 0) + " bytes"} ·{" "}
+                {item.isDir ? "—" : formatFileSize(item.size || 0)} ·{" "}
                 {new Date(item.mtime).toLocaleString()}
               </Text>
             </View>

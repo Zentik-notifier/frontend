@@ -2389,6 +2389,7 @@ export interface Translation {
       RateLimitMessagesTtlMs: string;
       CorsOrigin: string;
       CorsCredentials: string;
+      StoreLogsOnFs: string;
       LogLevel: string;
       LogRetentionDays: string;
       LogStorageDirectory: string;
@@ -2446,6 +2447,7 @@ export interface Translation {
     RateLimitMessagesTtlMs: string;
     CorsOrigin: string;
     CorsCredentials: string;
+    StoreLogsOnFs: string;
     LogLevel: string;
     LogRetentionDays: string;
     LogStorageDirectory: string;

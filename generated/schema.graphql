@@ -1144,6 +1144,7 @@ enum ServerSettingType {
   ServerStableIdentifier
   SocialLoginEnabled
   SocialRegistrationEnabled
+  StoreLogsOnFs
   SystemTokenUsageStats
   VapidSubject
   WebPush
