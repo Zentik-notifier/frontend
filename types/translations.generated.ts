@@ -1636,6 +1636,13 @@ export interface Translation {
       title: string;
       description: string;
       generatedUrl: string;
+      authType: string;
+      token: string;
+      tokenDescription: string;
+      magicCode: string;
+      magicCodeDescription: string;
+      magicCodeAvailable: string;
+      magicCodeNotAvailable: string;
     };
   };
   userTemplates: {

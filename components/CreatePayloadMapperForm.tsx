@@ -1,4 +1,3 @@
-import { settingsService } from "@/services/settings-service";
 import { useAppContext } from "@/contexts/AppContext";
 import {
   CreatePayloadMapperDto,
@@ -10,17 +9,15 @@ import {
   UserSettingType,
   useCreatePayloadMapperMutation,
   useDeletePayloadMapperMutation,
+  useGetAccessTokensForBucketQuery,
+  useGetBucketQuery,
   useGetPayloadMapperQuery,
   useGetUserSettingsQuery,
   useUpdatePayloadMapperMutation,
   useUpsertUserSettingMutation,
-  useGetBucketsQuery,
-  useGetAccessTokensForBucketQuery,
 } from "@/generated/gql-operations-generated";
-import CopyButton from "./ui/CopyButton";
-import Selector from "./ui/Selector";
-import BucketSelector from "./BucketSelector";
 import { useI18n } from "@/hooks/useI18n";
+import { settingsService } from "@/services/settings-service";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
@@ -35,9 +32,12 @@ import {
   TextInput,
   useTheme,
 } from "react-native-paper";
+import BucketSelector from "./BucketSelector";
 import CodeEditor from "./CodeEditor";
 import EntityExecutionsSection from "./EntityExecutionsSection";
+import CopyButton from "./ui/CopyButton";
 import PaperScrollView from "./ui/PaperScrollView";
+import Selector from "./ui/Selector";
 
 interface CreatePayloadMapperFormProps {
   payloadMapperId?: string;
@@ -93,6 +93,7 @@ export default function CreatePayloadMapperForm({
   const [selectedTokenId, setSelectedTokenId] = useState<string | undefined>(
     undefined
   );
+  const [authType, setAuthType] = useState<"token" | "magicCode">("token");
   const [apiUrl, setApiUrl] = useState("https://your-server.com");
 
   // Load tokens for selected bucket
@@ -101,12 +102,21 @@ export default function CreatePayloadMapperForm({
     skip: !selectedBucketId,
   });
 
+  // Load bucket with magicCode
+  const { data: bucketData } = useGetBucketQuery({
+    variables: { id: selectedBucketId || "" },
+    skip: !selectedBucketId,
+  });
+
+  const magicCode = bucketData?.bucket?.userBucket?.magicCode ?? null;
+
   useEffect(() => {
     loadApiUrl();
   }, []);
 
   useEffect(() => {
     setSelectedTokenId(undefined);
+    setAuthType("token");
   }, [selectedBucketId]);
 
   const loadApiUrl = async () => {
@@ -123,18 +133,39 @@ export default function CreatePayloadMapperForm({
 
   // Generate transformer URL
   const generatedTransformerUrl = useMemo(() => {
-    if (!selectedBucketId || !selectedTokenId || !payloadMapper) {
+    if (!selectedBucketId || !payloadMapper) {
       return "";
     }
 
-    const selectedToken = availableTokens.find(
-      (t: any) => t.id === selectedTokenId
-    );
-    const token = selectedToken?.token ?? "zat_<TOKEN>";
+    // Check if we need token or magicCode
+    if (authType === "magicCode") {
+      if (!magicCode) {
+        return "";
+      }
+      const parserIdentifier = payloadMapper.builtInName || payloadMapper.id;
+      return `${apiUrl}/transform?parser=${parserIdentifier}&magicCode=${magicCode}`;
+    } else {
+      // Token mode
+      if (!selectedTokenId) {
+        return "";
+      }
+      const selectedToken = availableTokens.find(
+        (t: any) => t.id === selectedTokenId
+      );
+      const token = selectedToken?.token ?? "zat_<TOKEN>";
 
-    const parserIdentifier = payloadMapper.builtInName || payloadMapper.id;
-    return `${apiUrl}/transform?parser=${parserIdentifier}&token=${token}&bucketId=${selectedBucketId}`;
-  }, [selectedBucketId, selectedTokenId, payloadMapper, availableTokens, apiUrl]);
+      const parserIdentifier = payloadMapper.builtInName || payloadMapper.id;
+      return `${apiUrl}/transform?parser=${parserIdentifier}&token=${token}&bucketId=${selectedBucketId}`;
+    }
+  }, [
+    selectedBucketId,
+    selectedTokenId,
+    payloadMapper,
+    availableTokens,
+    apiUrl,
+    authType,
+    magicCode,
+  ]);
 
   // Load user settings
   const {
@@ -148,16 +179,20 @@ export default function CreatePayloadMapperForm({
 
   // Local state for editing user settings
   const [editingSettings, setEditingSettings] = useState<
-    Record<UserSettingType, { valueText?: string; valueBool?: boolean }>
-  >({} as any);
+    Partial<
+      Record<UserSettingType, { valueText?: string; valueBool?: boolean }>
+    >
+  >({});
 
   // Track which settings have been modified and their original values
   const [modifiedSettings, setModifiedSettings] = useState<
     Set<UserSettingType>
   >(new Set());
   const [originalSettings, setOriginalSettings] = useState<
-    Record<UserSettingType, { valueText?: string; valueBool?: boolean }>
-  >({} as any);
+    Partial<
+      Record<UserSettingType, { valueText?: string; valueBool?: boolean }>
+    >
+  >({});
 
   // Helper function to determine if a setting type is boolean
   const isBooleanSetting = (settingType: UserSettingType): boolean => {
@@ -172,10 +207,9 @@ export default function CreatePayloadMapperForm({
   // Initialize editing settings from loaded user settings
   useEffect(() => {
     if (userSettingsData?.userSettings) {
-      const settings: Record<
-        UserSettingType,
-        { valueText?: string; valueBool?: boolean }
-      > = {} as any;
+      const settings: Partial<
+        Record<UserSettingType, { valueText?: string; valueBool?: boolean }>
+      > = {};
 
       userSettingsData.userSettings.forEach((setting) => {
         settings[setting.configType] = {
@@ -845,12 +879,50 @@ export default function CreatePayloadMapperForm({
                 selectedBucketId={selectedBucketId}
                 onBucketChange={setSelectedBucketId}
                 label={t("bucketSelector.selectBucket")}
-                searchable
+                preferredDropdownDirection={isBuiltIn ? "down" : "up"}
               />
             </View>
 
-            {/* Token Selector */}
+            {/* Auth Type Selector */}
             {selectedBucketId && (
+              <View style={styles.input}>
+                <Selector
+                  mode="inline"
+                  label={t("payloadMappers.urlGenerator.authType")}
+                  placeholder={t("payloadMappers.urlGenerator.authType")}
+                  options={[
+                    {
+                      id: "token",
+                      name: t("payloadMappers.urlGenerator.token"),
+                      description: t(
+                        "payloadMappers.urlGenerator.tokenDescription"
+                      ),
+                    },
+                    ...(magicCode
+                      ? [
+                          {
+                            id: "magicCode",
+                            name: t("payloadMappers.urlGenerator.magicCode"),
+                            description: t(
+                              "payloadMappers.urlGenerator.magicCodeDescription"
+                            ),
+                          },
+                        ]
+                      : []),
+                  ]}
+                  selectedValue={authType}
+                  onValueChange={(value) => {
+                    setAuthType(value as "token" | "magicCode");
+                    if (value === "magicCode") {
+                      setSelectedTokenId(undefined);
+                    }
+                  }}
+                />
+              </View>
+            )}
+
+            {/* Token Selector - Only shown when authType is "token" */}
+            {selectedBucketId && authType === "token" && (
               <View style={styles.input}>
                 <Selector
                   mode="inline"
@@ -868,6 +940,15 @@ export default function CreatePayloadMapperForm({
                   isSearchable
                   searchPlaceholder={t("common.search")}
                 />
+              </View>
+            )}
+
+            {/* Magic Code Info - Only shown when authType is "magicCode" and magicCode is not available */}
+            {selectedBucketId && authType === "magicCode" && !magicCode && (
+              <View style={styles.input}>
+                <Text variant="bodySmall" style={{ color: theme.colors.error }}>
+                  {t("payloadMappers.urlGenerator.magicCodeNotAvailable")}
+                </Text>
               </View>
             )}
 
@@ -950,6 +1031,9 @@ const styles = StyleSheet.create({
   },
   urlInput: {
     fontSize: 12,
+  },
+  magicCodeInfo: {
+    marginTop: 8,
   },
   userSettingsSection: {
     marginTop: 8,

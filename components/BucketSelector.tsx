@@ -2,20 +2,25 @@ import { useNotificationsState } from "@/hooks/notifications/useNotificationQuer
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";
 import BucketIcon from "./BucketIcon";
-import Selector, { SelectorOption } from "./ui/Selector";
+import Selector, {
+  PreferredDropdownDirection,
+  SelectorOption,
+} from "./ui/Selector";
 
 interface BucketSelectorProps {
   selectedBucketId?: string;
   onBucketChange: (bucketId: string) => void;
   label?: string;
   searchable?: boolean;
+  preferredDropdownDirection?: PreferredDropdownDirection;
 }
 
 export default function BucketSelector({
   selectedBucketId,
   onBucketChange,
   label,
-  searchable = false,
+  searchable: searchableParent,
+  preferredDropdownDirection = "down",
 }: BucketSelectorProps) {
   const { t } = useI18n();
   const { data: appState } = useNotificationsState();
@@ -32,17 +37,15 @@ export default function BucketSelector({
         id: bucket.id,
         name: bucket.name,
         iconElement: (
-          <BucketIcon
-            bucketId={bucket.id}
-            size="sm"
-            noRouting={true}
-          />
+          <BucketIcon bucketId={bucket.id} size="sm" noRouting={true} />
         ),
       });
     });
 
     return options;
   }, [appState, t]);
+
+  const searchable = searchableParent ?? bucketOptions.length > 15;
 
   const selectedOption = bucketOptions.find(
     (option) => option.id === selectedBucketId
@@ -57,6 +60,7 @@ export default function BucketSelector({
       onValueChange={(value) => onBucketChange(value)}
       isSearchable={searchable}
       mode="inline"
+      preferredDropdownDirection={preferredDropdownDirection}
     />
   );
 }

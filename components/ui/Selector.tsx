@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Icon, Portal, useTheme } from "react-native-paper";
 import { IconSource } from "react-native-paper/lib/typescript/components/Icon";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ThemedBottomSheet, { ThemedBottomSheetRef } from "./ThemedBottomSheet";
 
 export interface SelectorOption {
@@ -24,6 +25,8 @@ export interface SelectorOption {
   iconUrl?: string;
   iconElement?: React.ReactNode;
 }
+
+export type PreferredDropdownDirection = "up" | "down";
 
 interface SelectorProps {
   label?: string;
@@ -38,7 +41,7 @@ interface SelectorProps {
   error?: boolean;
   errorText?: string;
   mode?: "modal" | "inline";
-  preferredDropdownDirection?: "up" | "down";
+  preferredDropdownDirection?: PreferredDropdownDirection;
 }
 
 const { height: screenHeight } = Dimensions.get("window");
@@ -60,6 +63,7 @@ export default function Selector({
 }: SelectorProps) {
   const theme = useTheme();
   const { t } = useI18n();
+  const insets = useSafeAreaInsets();
   const [isInlineDropdownOpen, setIsInlineDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [dropdownPosition, setDropdownPosition] = useState({
@@ -96,9 +100,12 @@ export default function Selector({
 
           const verticalMargin = 8;
           const horizontalMargin = 8;
+          
+          // Account for header height (safe area + appbar)
+          const headerHeight = insets.top + 64;
 
           const spaceBelow = screenHeight - verticalMargin - (pageY + height);
-          const spaceAbove = pageY - verticalMargin;
+          const spaceAbove = pageY - Math.max(verticalMargin, headerHeight);
 
           const maxDropdownHeight = 350;
           const minDropdownHeight = 120;
@@ -155,8 +162,10 @@ export default function Selector({
 
           if (shouldOpenUpward) {
             // Align dropdown bottom to the trigger when opening upward
+            // Account for safe area top (iOS header/island area)
+            const headerHeight = insets.top + 64; // safe area + appbar height
             top = pageY - desiredHeight;
-            const topMin = verticalMargin;
+            const topMin = Math.max(verticalMargin, headerHeight);
             top = Math.max(topMin, top);
           } else {
             // Align dropdown top to the trigger when opening downward,
@@ -284,6 +293,8 @@ export default function Selector({
       },
       shadowOpacity: 0.3,
       shadowRadius: 4.65,
+      overflow: "hidden",
+      flexDirection: "column",
     },
     inlineSearchContainer: {
       paddingHorizontal: 16,
@@ -302,7 +313,9 @@ export default function Selector({
       color: theme.colors.onSurface,
     },
     inlineOptionsList: {
-      maxHeight: dropdownPosition.maxHeight,
+      flexGrow: 1,
+      flexShrink: 1,
+      minHeight: 0,
     },
     inlineOptionItem: {
       flexDirection: "row",
@@ -491,50 +504,49 @@ export default function Selector({
           />
 
           <View style={styles.inlineDropdown}>
-            <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-              {isSearchable && (
-                <View style={styles.inlineSearchContainer}>
-                  <TextInput
-                    style={styles.inlineSearchInput}
-                    placeholder={searchPlaceholder || t("common.search")}
-                    placeholderTextColor={theme.colors.onSurfaceVariant}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    returnKeyType="done"
-                    onSubmitEditing={() => Keyboard.dismiss()}
-                  />
-                </View>
-              )}
+            {isSearchable && (
+              <View style={styles.inlineSearchContainer}>
+                <TextInput
+                  style={styles.inlineSearchInput}
+                  placeholder={searchPlaceholder || t("common.search")}
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  returnKeyType="done"
+                  onSubmitEditing={() => Keyboard.dismiss()}
+                />
+              </View>
+            )}
 
-              <FlatList
-                style={styles.inlineOptionsList}
-                data={filteredOptions}
-                keyExtractor={(item) => String(item.id)}
-                renderItem={({ item }) => {
-                  const isSelected = item.id === selectedValue;
-                  return (
-                    <TouchableOpacity
-                      style={[
-                        styles.inlineOptionItem,
-                        isSelected && styles.inlineSelectedOption,
-                      ]}
-                      onPress={() => handleSelectOption(item)}
-                    >
-                      {renderItem(item)}
-                    </TouchableOpacity>
-                  );
-                }}
-                ListEmptyComponent={
-                  <View style={styles.inlineEmptyState}>
-                    <Text style={styles.inlineEmptyStateText}>
-                      {searchQuery.trim()
-                        ? t("common.noResults")
-                        : t("common.noOptions")}
-                    </Text>
-                  </View>
-                }
-              />
-            </TouchableOpacity>
+            <FlatList
+              style={styles.inlineOptionsList}
+              data={filteredOptions}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => {
+                const isSelected = item.id === selectedValue;
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.inlineOptionItem,
+                      isSelected && styles.inlineSelectedOption,
+                    ]}
+                    onPress={() => handleSelectOption(item)}
+                  >
+                    {renderItem(item)}
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={styles.inlineEmptyState}>
+                  <Text style={styles.inlineEmptyStateText}>
+                    {searchQuery.trim()
+                      ? t("common.noResults")
+                      : t("common.noOptions")}
+                  </Text>
+                </View>
+              }
+              nestedScrollEnabled={true}
+            />
           </View>
         </Portal>
       )}

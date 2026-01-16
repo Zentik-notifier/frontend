@@ -1632,7 +1632,14 @@
     "urlGenerator": {
       "title": "Transformer URL Generator",
       "description": "Generate a URL to transform payloads using this parser",
-      "generatedUrl": "Generated URL"
+      "generatedUrl": "Generated URL",
+      "authType": "Authentication Type",
+      "token": "Access Token",
+      "tokenDescription": "Use an access token for authentication",
+      "magicCode": "Magic Code",
+      "magicCodeDescription": "Use magic code for authentication (simpler, no token needed)",
+      "magicCodeAvailable": "Magic code is available for this bucket",
+      "magicCodeNotAvailable": "Magic code is not available for this bucket"
     }
   },
   "userTemplates": {
