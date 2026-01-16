@@ -289,10 +289,12 @@ export default function NotificationsList({
         const firstIndex = firstVisibleItem.index;
         setFirstVisibleIndex(firstIndex);
 
+        const isOnTop = firstIndex <= 2
+
         const hasUnread = notifications
           .slice(0, firstIndex)
           .some((n: NotificationFragment) => !n.readAt);
-        setHasUnreadAbove(hasUnread);
+        setHasUnreadAbove(hasUnread && !isOnTop);
       }
 
       if (
@@ -590,6 +592,8 @@ export default function NotificationsList({
           data={notifications}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1 }}
           extraData={{
             selectedItems: Array.from(selectedItems),
             selectionMode,
@@ -598,6 +602,10 @@ export default function NotificationsList({
           onViewableItemsChanged={onViewableItemsChanged}
           onScroll={() => {
             didUserScrollRef.current = true;
+          }}
+          viewabilityConfig={{
+            itemVisiblePercentThreshold: 20,
+            waitForInteraction: false,
           }}
           scrollEventThrottle={16}
           onEndReached={handleLoadMore}

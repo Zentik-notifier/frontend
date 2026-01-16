@@ -298,7 +298,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                 }
             },
         },
-        owner: "apocaliss92",
+        owner: "zentik-notifier",
         runtimeVersion: "1.0.1",
         updates: {
             url: "https://u.expo.dev/17f4d8f2-e90d-4862-ae67-97592dbcb8b7",
