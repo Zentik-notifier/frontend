@@ -1880,6 +1880,16 @@ export interface Translation {
       uploadSuccess: string;
       uploadError: string;
       downloadError: string;
+      viewMode: string;
+      structure: string;
+      allFiles: string;
+      sortBy: string;
+      sortOrder: string;
+      sortByName: string;
+      sortBySize: string;
+      sortByDate: string;
+      ascending: string;
+      descending: string;
     };
     serverStatus: string;
     logs: string;
@@ -2468,6 +2478,9 @@ export interface Translation {
     cleanupSuccessMessage: string;
     cleanupError: string;
     cleanupErrorMessage: string;
+    downloadButton: string;
+    downloadError: string;
+    downloadSuccess: string;
     level: string;
     timestamp: string;
     context: string;

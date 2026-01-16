@@ -1498,9 +1498,23 @@ fragment ServerFileFragment on FileInfoDto {
   isDir
 }
 
+fragment ServerFileWithPathFragment on FileInfoWithPathDto {
+  name
+  fullPath
+  size
+  mtime
+  isDir
+}
+
 query ServerFiles($path: String) {
   serverFiles(path: $path) {
     ...ServerFileFragment
+  }
+}
+
+query AllServerFiles($path: String) {
+  allServerFiles(path: $path) {
+    ...ServerFileWithPathFragment
   }
 }
 

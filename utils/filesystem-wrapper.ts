@@ -230,19 +230,26 @@ class WebFile {
     }
   }
 
-  // Write string content to file (for web, writes to IndexedDB)
-  async write(content: string): Promise<void> {
+  // Write string or binary content to file (for web, writes to IndexedDB)
+  async write(content: string | Uint8Array, options?: any): Promise<void> {
     if (!isWeb) return;
 
     try {
-      // Convert string to ArrayBuffer
-      const encoder = new TextEncoder();
-      const arrayBuffer = encoder.encode(content);
+      let arrayBuffer: ArrayBuffer;
+      
+      if (typeof content === 'string') {
+        // Convert string to ArrayBuffer
+        const encoder = new TextEncoder();
+        arrayBuffer = encoder.encode(content).buffer;
+      } else {
+        // Uint8Array - use its buffer
+        arrayBuffer = content.buffer;
+      }
 
       const repo = await getWebRepo();
       await repo.saveMediaItem({
         key: this.path,
-        data: arrayBuffer.buffer,
+        data: arrayBuffer,
       });
 
       this._exists = true;
@@ -328,9 +335,9 @@ class NativeFileWrapper {
     }
   }
 
-  async write(content: string): Promise<void> {
+  async write(content: string | Uint8Array, options?: any): Promise<void> {
     try {
-      await this.file.write(content);
+      await this.file.write(content, options);
     } catch (error) {
       console.warn('[NativeFS] Failed to write file:', error);
       throw error;

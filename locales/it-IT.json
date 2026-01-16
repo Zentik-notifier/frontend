@@ -1941,7 +1941,17 @@
       "confirmDeleteMessage": "Eliminare il file \"{name}\"?",
       "uploadSuccess": "File caricato con successo",
       "uploadError": "Caricamento file non riuscito",
-      "downloadError": "Download del file non riuscito"
+      "downloadError": "Download del file non riuscito",
+      "viewMode": "Modalità Visualizzazione",
+      "structure": "Struttura",
+      "allFiles": "Tutti i File",
+      "sortBy": "Ordina Per",
+      "sortOrder": "Ordine",
+      "sortByName": "Nome",
+      "sortBySize": "Dimensione",
+      "sortByDate": "Data",
+      "ascending": "Crescente",
+      "descending": "Decrescente"
     },
     "serverStatus": "Stato del Server",
     "logs": "Log di Sistema",
@@ -2465,6 +2475,9 @@
     "cleanupSuccessMessage": "I log vecchi sono stati puliti con successo.",
     "cleanupError": "Errore",
     "cleanupErrorMessage": "Impossibile pulire i log vecchi. Riprova.",
+    "downloadButton": "Scarica Tutti i Log",
+    "downloadError": "Impossibile scaricare i log",
+    "downloadSuccess": "Log scaricati con successo",
     "fields": {
       "level": "Livello",
       "timestamp": "Timestamp",

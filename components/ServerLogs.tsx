@@ -12,11 +12,20 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { ActivityIndicator, Icon, Surface, Text, useTheme } from "react-native-paper";
+import {
+  ActivityIndicator,
+  Icon,
+  Surface,
+  Text,
+  useTheme,
+} from "react-native-paper";
 import {
   useGetServerLogsQuery,
   useTriggerLogCleanupMutation,
 } from "@/generated/gql-operations-generated";
+import { settingsService } from "@/services/settings-service";
+import { File, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import PaperScrollView from "./ui/PaperScrollView";
 import CopyButton from "./ui/CopyButton";
 
@@ -113,6 +122,80 @@ export default function ServerLogs() {
       },
     ]);
   }, [t, triggerCleanup, refetch]);
+
+  const handleDownloadLogs = useCallback(async () => {
+    try {
+      const apiBase = settingsService.getApiBaseWithPrefix();
+      const url = `${apiBase}/server-manager/logs/download`;
+
+      if (Platform.OS === "web") {
+        const token = settingsService.getAuthData().accessToken;
+        const resp = await fetch(url, {
+          headers: { Authorization: token ? `Bearer ${token}` : "" },
+        });
+        if (!resp.ok) throw new Error("Download failed");
+        const blob = await resp.blob();
+        const a = document.createElement("a");
+        const href = URL.createObjectURL(blob);
+        a.href = href;
+        const contentDisposition = resp.headers.get("content-disposition");
+        const filename = contentDisposition
+          ? contentDisposition.split("filename=")[1]?.replace(/"/g, "") ||
+            "logs.json"
+          : `logs-${new Date().toISOString().split("T")[0]}.json`;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(href);
+      } else {
+        // On mobile, download and share
+        const token = settingsService.getAuthData().accessToken;
+        const response = await fetch(url, {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Download failed");
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        const contentDisposition = response.headers.get("content-disposition");
+        const filename = contentDisposition
+          ? contentDisposition.split("filename=")[1]?.replace(/"/g, "") ||
+            "logs.json"
+          : `logs-${new Date().toISOString().split("T")[0]}.json`;
+
+        const fileUri = `${Paths.document.uri}${filename}`;
+        const file = new File(fileUri);
+        await file.write(uint8Array, {});
+
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(fileUri);
+        } else {
+          Alert.alert(
+            t("common.success"),
+            t("serverLogs.downloadSuccess" as any) as string
+          );
+        }
+
+        // Cleanup
+        try {
+          await file.delete();
+        } catch (cleanupError) {
+          console.log("File cleanup failed:", cleanupError);
+        }
+      }
+    } catch (e) {
+      console.error("Error downloading logs:", e);
+      Alert.alert(t("common.error"), t("serverLogs.downloadError"));
+    }
+  }, [t]);
 
   const refreshFromDb = useCallback(async () => {
     setIsRefreshing(true);
@@ -321,6 +404,12 @@ export default function ServerLogs() {
       loading={isRefreshing}
       customActions={[
         {
+          icon: "download",
+          label: t("serverLogs.downloadButton"),
+          onPress: handleDownloadLogs,
+          style: { backgroundColor: theme.colors.secondaryContainer },
+        },
+        {
           icon: "delete-sweep",
           label: t("serverLogs.cleanupButton"),
           onPress: handleCleanupLogs,
@@ -367,7 +456,11 @@ export default function ServerLogs() {
         ListFooterComponent={
           isLoadingMore ? (
             <View style={styles.footerLoading}>
-              <ActivityIndicator size="small" animating color={theme.colors.primary} />
+              <ActivityIndicator
+                size="small"
+                animating
+                color={theme.colors.primary}
+              />
             </View>
           ) : null
         }
