@@ -42,331 +42,108 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
         }
     }
     
-    // MARK: - Send Messages to Watch
+    // MARK: - Send Messages to Watch (DISABLED - Only Full Sync On Demand)
     
     /**
      * Notify Watch that a notification was marked as read
+     * DISABLED: Operations are queued, no automatic sync
      */
     func notifyWatchNotificationRead(notificationId: String, readAt: String) {
-        let message: [String: Any] = [
-            "action": "notificationRead",
-            "notificationId": notificationId,
-            "readAt": readAt
-        ]
-        
-        sendMessageToWatch(message, description: "notification \(notificationId) marked as read")
+        logger.debug(
+            tag: "WatchSync",
+            message: "Automatic sync disabled - operations queued",
+            metadata: ["notificationId": notificationId],
+            source: "iPhoneWatchManager"
+        )
     }
     
     /**
      * Notify Watch that a notification was marked as unread
+     * DISABLED: Operations are queued, no automatic sync
      */
     func notifyWatchNotificationUnread(notificationId: String) {
-        let message: [String: Any] = [
-            "action": "notificationUnread",
-            "notificationId": notificationId
-        ]
-        
-        sendMessageToWatch(message, description: "notification \(notificationId) marked as unread")
+        logger.debug(
+            tag: "WatchSync",
+            message: "Automatic sync disabled - operations queued",
+            metadata: ["notificationId": notificationId],
+            source: "iPhoneWatchManager"
+        )
     }
     
     /**
      * Notify Watch that multiple notifications were marked as read or unread
-     * @param notificationIds - IDs of the notifications
-     * @param readAt - Timestamp if marking as read, nil if marking as unread
+     * DISABLED: Operations are queued, no automatic sync
      */
     func notifyWatchNotificationsRead(notificationIds: [String], readAt: String?) {
-        let action = readAt != nil ? "notificationsRead" : "notificationsUnread"
-        var message: [String: Any] = [
-            "action": action,
-            "notificationIds": notificationIds
-        ]
-        
-        // Add readAt only if not nil (marking as read)
-        if let readAt = readAt {
-            message["readAt"] = readAt
-        }
-        
-        let description = readAt != nil 
-            ? "\(notificationIds.count) notifications marked as read"
-            : "\(notificationIds.count) notifications marked as unread"
-        
-        sendMessageToWatch(message, description: description)
+        logger.debug(
+            tag: "WatchSync",
+            message: "Automatic sync disabled - operations queued",
+            metadata: ["count": String(notificationIds.count)],
+            source: "iPhoneWatchManager"
+        )
     }
     
     /**
      * Notify Watch that a notification was deleted
+     * DISABLED: Operations are queued, no automatic sync
      */
     func notifyWatchNotificationDeleted(notificationId: String) {
-        let message: [String: Any] = [
-            "action": "notificationDeleted",
-            "notificationId": notificationId
-        ]
-        
-        sendMessageToWatch(message, description: "notification \(notificationId) deleted")
+        logger.debug(
+            tag: "WatchSync",
+            message: "Automatic sync disabled - operations queued",
+            metadata: ["notificationId": notificationId],
+            source: "iPhoneWatchManager"
+        )
     }
     
     /**
-     * Notify Watch that a new notification was added (without fragment)
-     * Watch will need to fetch the full data via reply message
+     * Notify Watch that a new notification was added
+     * DISABLED: Operations are queued, no automatic sync
      */
     func notifyWatchNotificationAdded(notificationId: String) {
-        let message: [String: Any] = [
-            "action": "notificationAdded",
-            "notificationId": notificationId
-        ]
-        
-        sendMessageToWatch(message, description: "notification \(notificationId) added (Watch will fetch)")
+        logger.debug(
+            tag: "WatchSync",
+            message: "Automatic sync disabled - operations queued",
+            metadata: ["notificationId": notificationId],
+            source: "iPhoneWatchManager"
+        )
     }
     
     /**
      * Alias for notifyWatchNotificationAdded - clearer name for AppDelegate usage
+     * DISABLED: Operations are queued, no automatic sync
      */
     func sendNewNotificationToWatch(notificationId: String) {
-        notifyWatchNotificationAdded(notificationId: notificationId)
+        logger.debug(
+            tag: "WatchSync",
+            message: "Automatic sync disabled - operations queued",
+            metadata: ["notificationId": notificationId],
+            source: "iPhoneWatchManager"
+        )
     }
     
     /**
      * Notify Watch that a new notification was added with complete fragment
-     * DEPRECATED: Use notifyWatchNotificationAdded(notificationId:) instead
+     * DISABLED: Operations are queued, no automatic sync
      */
     func notifyWatchNotificationAdded(notificationId: String, fragment: [String: Any]) {
-        let message: [String: Any] = [
-            "action": "notificationAdded",
-            "notificationId": notificationId,
-            "fragment": fragment
-        ]
-        
-        // Log the complete notification being sent to Watch
-        var metadata: [String: String] = [
-            "notificationId": notificationId,
-            "action": "notificationAdded"
-        ]
-        
-        // Add fragment details
-        if let title = fragment["title"] as? String {
-            metadata["title"] = title
-        }
-        if let body = fragment["body"] as? String {
-            metadata["body"] = body
-        }
-        if let bucketId = fragment["bucketId"] as? String {
-            metadata["bucketId"] = bucketId
-        }
-        if let bucketName = fragment["bucketName"] as? String {
-            metadata["bucketName"] = bucketName
-        }
-        
-        // Convert full fragment to JSON string for logging
-        if let fragmentData = try? JSONSerialization.data(withJSONObject: fragment, options: .prettyPrinted),
-           let fragmentString = String(data: fragmentData, encoding: .utf8) {
-            metadata["fragmentData"] = fragmentString
-        }
-        
-        logger.log(
-            level: "INFO",
-            tag: "WatchNotification",
-            message: "Sending notification to Watch via Darwin->WatchConnectivity",
-            metadata: metadata,
+        logger.debug(
+            tag: "WatchSync",
+            message: "Automatic sync disabled - operations queued",
+            metadata: ["notificationId": notificationId],
             source: "iPhoneWatchManager"
         )
-        
-        sendMessageToWatch(message, description: "notification \(notificationId) added with fragment")
     }
     
     /**
      * Sync specific notification from SQLite to Watch
-     * Called by AppDelegate when receiving Darwin notification from NSE
-     * @param notificationId - Specific notification ID to sync, or nil to sync latest
+     * DISABLED: Operations are queued, no automatic sync
      */
     func syncLatestNotificationToWatch(notificationId: String? = nil) {
-        let targetId = notificationId ?? {
-            // Read from UserDefaults App Group if not provided
-            let mainBundleId = KeychainAccess.getMainBundleIdentifier()
-            let suiteName = "group.\(mainBundleId)"
-            let sharedDefaults = UserDefaults(suiteName: suiteName)
-            let id = sharedDefaults?.string(forKey: "pending_watch_notification_id")
-            logger.info(
-                tag: "WatchSync",
-                message: "Reading notification ID from UserDefaults",
-                metadata: [
-                    "notificationId": id ?? "nil",
-                    "suiteName": suiteName
-                ],
-                source: "iPhoneWatchManager"
-            )
-            return id
-        }()
-        
-        guard let targetId = targetId else {
-            logger.warn(
-                tag: "WatchSync",
-                message: "No notification ID provided or found in UserDefaults",
-                source: "iPhoneWatchManager"
-            )
-            return
-        }
-        
-        logger.info(
+        logger.debug(
             tag: "WatchSync",
-            message: "Syncing specific notification to Watch from SQLite",
-            metadata: ["notificationId": targetId],
-            source: "iPhoneWatchManager"
-        )
-        
-        // Read specific notification from SQLite
-        guard let dbPath = DatabaseAccess.getDbPath() else {
-            logger.error(
-                tag: "WatchSync",
-                message: "Failed to get database path",
-                source: "iPhoneWatchManager"
-            )
-            return
-        }
-        
-        var db: OpaquePointer?
-        guard sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
-            logger.error(
-                tag: "WatchSync",
-                message: "Failed to open database",
-                source: "iPhoneWatchManager"
-            )
-            return
-        }
-        defer { sqlite3_close(db) }
-        
-        // Get the specific notification by ID
-        let sql = "SELECT id, fragment FROM notifications WHERE id = ? LIMIT 1"
-        var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            logger.error(
-                tag: "WatchSync",
-                message: "Failed to prepare SQL query",
-                source: "iPhoneWatchManager"
-            )
-            return
-        }
-        defer { sqlite3_finalize(stmt) }
-        
-        sqlite3_bind_text(stmt, 1, (targetId as NSString).utf8String, -1, nil)
-        
-        guard sqlite3_step(stmt) == SQLITE_ROW else {
-            logger.warn(
-                tag: "WatchSync",
-                message: "Notification not found in database",
-                metadata: ["notificationId": targetId],
-                source: "iPhoneWatchManager"
-            )
-            return
-        }
-        
-        guard let idCString = sqlite3_column_text(stmt, 0),
-              let fragmentCString = sqlite3_column_text(stmt, 1) else {
-            logger.error(
-                tag: "WatchSync",
-                message: "Failed to read notification data",
-                source: "iPhoneWatchManager"
-            )
-            return
-        }
-        
-        let notificationId = String(cString: idCString)
-        let fragmentString = String(cString: fragmentCString)
-        
-        // Parse JSON fragment
-        guard let fragmentData = fragmentString.data(using: .utf8),
-              let fragment = try? JSONSerialization.jsonObject(with: fragmentData) as? [String: Any] else {
-            logger.error(
-                tag: "WatchSync",
-                message: "Failed to parse notification fragment",
-                metadata: ["notificationId": notificationId],
-                source: "iPhoneWatchManager"
-            )
-            return
-        }
-        
-        // Extract message and bucket objects from fragment
-        let message = fragment["message"] as? [String: Any] ?? [:]
-        let bucket = message["bucket"] as? [String: Any] ?? [:]
-        
-        // Extract attachments array
-        let attachmentsData = message["attachments"] as? [[String: Any]] ?? []
-        let attachments: [[String: Any]] = attachmentsData.map { attachment in
-            return [
-                "mediaType": attachment["mediaType"] as? String ?? "IMAGE",
-                "url": attachment["url"] as? String ?? "",
-                "name": attachment["name"] as? String ?? ""
-            ]
-        }
-        
-        // Extract actions array
-        let actionsData = message["actions"] as? [[String: Any]] ?? []
-        let actions: [[String: Any]] = actionsData.map { action in
-            var actionDict: [String: Any] = [
-                "type": action["type"] as? String ?? "CUSTOM",
-                "label": action["title"] as? String ?? ""
-            ]
-            if let value = action["value"] as? String {
-                actionDict["value"] = value
-            }
-            if let id = action["id"] as? String {
-                actionDict["id"] = id
-            }
-            if let url = action["url"] as? String {
-                actionDict["url"] = url
-            }
-            if let bucketId = action["bucketId"] as? String {
-                actionDict["bucketId"] = bucketId
-            }
-            if let minutes = action["minutes"] as? Int {
-                actionDict["minutes"] = minutes
-            }
-            return actionDict
-        }
-        
-        // Extract only essential fields for Watch JSON (lightweight payload)
-        let compactNotification: [String: Any] = [
-            "id": fragment["id"] as? String ?? notificationId,
-            "title": message["title"] as? String ?? "",
-            "body": message["body"] as? String ?? "",
-            "subtitle": message["subtitle"] as? String ?? "",
-            "bucketId": bucket["id"] as? String ?? "",
-            "bucketName": bucket["name"] as? String ?? "",
-            "bucketColor": bucket["color"] as? String ?? "",
-            "createdAt": fragment["createdAt"] as? String ?? "",
-            "receivedAt": fragment["receivedAt"] as? String ?? "",
-            "sentAt": fragment["sentAt"] as? String ?? "",
-            "isRead": (fragment["readAt"] as? String) == nil ? false : true,
-            "readAt": fragment["readAt"] as? String ?? "",
-            "attachments": attachments,
-            "actions": actions
-        ]
-        
-        logger.info(
-            tag: "WatchSync",
-            message: "Sending new notification to Watch (incremental)",
-            metadata: [
-                "notificationId": notificationId,
-                "method": "notificationAdded",
-                "strategy": "compact-model"
-            ],
-            source: "iPhoneWatchManager"
-        )
-        
-        // Send to Watch using notificationAdded with compact notification data
-        // This keeps the message small and reliable for background delivery
-        notifyWatchNotificationAdded(notificationId: notificationId, fragment: compactNotification)
-        
-        // Clear the UserDefaults flag after processing
-        let mainBundleId = KeychainAccess.getMainBundleIdentifier()
-        let suiteName = "group.\(mainBundleId)"
-        let sharedDefaults = UserDefaults(suiteName: suiteName)
-        sharedDefaults?.removeObject(forKey: "pending_watch_notification_id")
-        sharedDefaults?.synchronize()
-        
-        logger.info(
-            tag: "WatchSync",
-            message: "Cleared notification ID from UserDefaults after sync",
-            metadata: ["suiteName": suiteName],
+            message: "Automatic sync disabled - operations queued",
+            metadata: ["notificationId": notificationId ?? "nil"],
             source: "iPhoneWatchManager"
         )
     }

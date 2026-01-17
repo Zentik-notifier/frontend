@@ -62,9 +62,6 @@ FirebaseApp.configure()
     // Initialize WatchConnectivity early to handle background transfers from Watch
     // This ensures WCSession is activated even if React Native hasn't started yet
     _ = iPhoneWatchConnectivityManager.shared
-    
-    // Listen for Darwin notifications from NSE about new notifications
-    setupDarwinNotificationListener()
 
     return result
   }
@@ -145,9 +142,6 @@ FirebaseApp.configure()
       metadata: ["notificationId": notificationId],
       source: "AppDelegate"
     )
-    
-    // NOTE: No need to notify Watch here - NSE already sent Darwin notification
-    // Darwin system handles all cases: foreground, background, app closed
     
     // CRITICAL: Propagate event to Expo delegate for React Native listeners
     if let expoDelegate = expoNotificationDelegate {
@@ -268,68 +262,5 @@ FirebaseApp.configure()
   ) -> Bool {
     let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
-  }
-  
-  // MARK: - Darwin Notifications
-  
-  /// Setup listener for Darwin notifications from NSE
-  private func setupDarwinNotificationListener() {
-    let notificationName = KeychainAccess.getDarwinNotificationName() as CFString
-    
-    // Use Darwin notification center (works across processes)
-    let observer = Unmanaged.passUnretained(self).toOpaque()
-    CFNotificationCenterAddObserver(
-      CFNotificationCenterGetDarwinNotifyCenter(),
-      observer,
-      { (center, observer, name, object, userInfo) in
-        // This callback is called when NSE posts a Darwin notification
-        guard let observer = observer else { return }
-        let appDelegate = Unmanaged<AppDelegate>.fromOpaque(observer).takeUnretainedValue()
-        appDelegate.handleNewNotificationFromNSE()
-      },
-      notificationName,
-      nil,
-      .deliverImmediately
-    )
-    
-    LoggingSystem.shared.info(
-      tag: "Darwin",
-      message: "Listener setup complete",
-      metadata: ["darwinName": notificationName as String],
-      source: "AppDelegate"
-    )
-  }
-  
-  /// Handle notification from NSE via Darwin notification
-  /// Reads notification ID from UserDefaults and forwards it to Watch
-  private func handleNewNotificationFromNSE() {
-    // Read notification ID from UserDefaults
-    let mainBundleId = KeychainAccess.getMainBundleIdentifier()
-    let suiteName = "group.\(mainBundleId)"
-    
-    if let sharedDefaults = UserDefaults(suiteName: suiteName),
-       let notificationId = sharedDefaults.string(forKey: "pending_watch_notification_id") {
-      
-      LoggingSystem.shared.info(
-        tag: "Darwin",
-        message: "Forwarding notification ID to Watch",
-        metadata: ["notificationId": notificationId],
-        source: "AppDelegate"
-      )
-      
-      // Send only notification ID to Watch - Watch will fetch full data when needed
-      iPhoneWatchConnectivityManager.shared.sendNewNotificationToWatch(notificationId: notificationId)
-      
-      // Clear the pending ID
-      sharedDefaults.removeObject(forKey: "pending_watch_notification_id")
-      sharedDefaults.synchronize()
-    } else {
-      LoggingSystem.shared.warn(
-        tag: "Darwin",
-        message: "No notification ID found in UserDefaults",
-        metadata: ["suiteName": suiteName],
-        source: "AppDelegate"
-      )
-    }
   }
 }

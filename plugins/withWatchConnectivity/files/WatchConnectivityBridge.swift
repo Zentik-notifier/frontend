@@ -115,89 +115,66 @@ class WatchConnectivityBridge: RCTEventEmitter {
   
   @objc
   func notifyWatchOfUpdate(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    logger.info(
+    logger.debug(
       tag: "ReactNative→Watch",
-      message: "React Native requested Watch full sync",
-      metadata: ["action": "fullSync"],
+      message: "Automatic sync disabled - operations are queued",
       source: "WatchBridge"
     )
-    
-    iPhoneWatchConnectivityManager.shared.sendFullSyncToWatch { success, notificationCount, bucketCount in
-      if success {
-        resolve([
-          "success": true,
-          "notificationCount": notificationCount,
-          "bucketCount": bucketCount
-        ])
-      } else {
-        resolve(["success": false])
-      }
-    }
+    resolve(["success": true])
   }
   
   @objc
   func notifyWatchNotificationRead(_ notificationId: String, readAt: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    logger.info(
+    logger.debug(
       tag: "ReactNative→Watch",
-      message: "React Native requested mark as read",
-      metadata: ["notificationId": notificationId, "readAt": readAt, "action": "read"],
+      message: "Automatic sync disabled - operations are queued",
+      metadata: ["notificationId": notificationId],
       source: "WatchBridge"
     )
-    
-    iPhoneWatchConnectivityManager.shared.notifyWatchNotificationRead(notificationId: notificationId, readAt: readAt)
     resolve(["success": true])
   }
   
   @objc
   func notifyWatchNotificationUnread(_ notificationId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    logger.info(
+    logger.debug(
       tag: "ReactNative→Watch",
-      message: "React Native requested mark as unread",
-      metadata: ["notificationId": notificationId, "action": "unread"],
+      message: "Automatic sync disabled - operations are queued",
+      metadata: ["notificationId": notificationId],
       source: "WatchBridge"
     )
-    
-    iPhoneWatchConnectivityManager.shared.notifyWatchNotificationUnread(notificationId: notificationId)
     resolve(["success": true])
   }
   
   @objc
   func notifyWatchNotificationsRead(_ notificationIds: [String], readAt: String?, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    let status = readAt != nil ? "read" : "unread"
-    logger.info(
+    logger.debug(
       tag: "ReactNative→Watch",
-      message: "React Native requested batch mark as \(status)",
-      metadata: ["count": String(notificationIds.count), "readAt": readAt ?? "null", "action": "batchStatusChange"],
+      message: "Automatic sync disabled - operations are queued",
+      metadata: ["count": String(notificationIds.count)],
       source: "WatchBridge"
     )
-    
-    iPhoneWatchConnectivityManager.shared.notifyWatchNotificationsRead(notificationIds: notificationIds, readAt: readAt)
     resolve(["success": true])
   }
   
   @objc
   func notifyWatchNotificationDeleted(_ notificationId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    logger.info(
+    logger.debug(
       tag: "ReactNative→Watch",
-      message: "React Native requested delete notification",
-      metadata: ["notificationId": notificationId, "action": "delete"],
+      message: "Automatic sync disabled - operations are queued",
+      metadata: ["notificationId": notificationId],
       source: "WatchBridge"
     )
-    
-    iPhoneWatchConnectivityManager.shared.notifyWatchNotificationDeleted(notificationId: notificationId)
     resolve(["success": true])
   }
   
   @objc
   func notifyWatchNotificationAdded(_ notificationId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    logger.info(
+    logger.debug(
       tag: "ReactNative→Watch",
-      message: "React Native requested add notification",
-      metadata: ["notificationId": notificationId, "action": "add"],
+      message: "Automatic sync disabled - operations are queued",
+      metadata: ["notificationId": notificationId],
       source: "WatchBridge"
     )
-    
-    iPhoneWatchConnectivityManager.shared.notifyWatchNotificationAdded(notificationId: notificationId)
     resolve(["success": true])
   }
   

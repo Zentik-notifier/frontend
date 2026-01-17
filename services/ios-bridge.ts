@@ -185,113 +185,38 @@ class IosBridgeService {
   }
 
   /**
-   * Notify Watch that a notification was marked as read
+   * DISABLED: Automatic sync methods - operations are queued, only full sync on demand is available
+   * These methods are kept for backward compatibility but do nothing (no-op)
    */
+  
   async notifyWatchNotificationRead(notificationId: string, readAt: string): Promise<boolean> {
-    if (!isIOS || !WatchConnectivityBridge) {
-      return false;
-    }
-
-    try {
-      await WatchConnectivityBridge.notifyWatchNotificationRead(notificationId, readAt);
-      console.log('[WatchSync] Notified Watch: notification read', notificationId);
-      return true;
-    } catch (error) {
-      console.error('[WatchSync] Failed to notify Watch about notification read:', error);
-      return false;
-    }
+    // No-op: automatic sync disabled - operations are queued
+    return true;
   }
 
-  /**
-   * Notify Watch that a notification was marked as unread
-   */
   async notifyWatchNotificationUnread(notificationId: string): Promise<boolean> {
-    if (!isIOS || !WatchConnectivityBridge) {
-      return false;
-    }
-
-    try {
-      await WatchConnectivityBridge.notifyWatchNotificationUnread(notificationId);
-      console.log('[WatchSync] Notified Watch: notification unread', notificationId);
-      return true;
-    } catch (error) {
-      console.error('[WatchSync] Failed to notify Watch about notification unread:', error);
-      return false;
-    }
+    // No-op: automatic sync disabled - operations are queued
+    return true;
   }
 
-  /**
-   * Notify Watch that multiple notifications were marked as read or unread
-   * @param notificationIds - IDs of the notifications
-   * @param readAt - Timestamp if marking as read, null if marking as unread
-   */
   async notifyWatchNotificationsRead(notificationIds: string[], readAt: string | null): Promise<boolean> {
-    if (!isIOS || !WatchConnectivityBridge) {
-      return false;
-    }
-
-    try {
-      await WatchConnectivityBridge.notifyWatchNotificationsRead(notificationIds, readAt);
-      console.log('[WatchSync] Notified Watch: bulk notifications status change', notificationIds.length, readAt ? 'read' : 'unread');
-      return true;
-    } catch (error) {
-      console.error('[WatchSync] Failed to notify Watch about bulk notifications status change:', error);
-      return false;
-    }
+    // No-op: automatic sync disabled - operations are queued
+    return true;
   }
 
-  /**
-   * Notify Watch that a notification was deleted
-   */
   async notifyWatchNotificationDeleted(notificationId: string): Promise<boolean> {
-    if (!isIOS || !WatchConnectivityBridge) {
-      return false;
-    }
-
-    try {
-      await WatchConnectivityBridge.notifyWatchNotificationDeleted(notificationId);
-      console.log('[WatchSync] Notified Watch: notification deleted', notificationId);
-      return true;
-    } catch (error) {
-      console.error('[WatchSync] Failed to notify Watch about notification deleted:', error);
-      return false;
-    }
+    // No-op: automatic sync disabled - operations are queued
+    return true;
   }
 
-  /**
-   * Notify Watch that a new notification was added
-   */
   async notifyWatchNotificationAdded(notificationId: string): Promise<boolean> {
-    if (!isIOS || !WatchConnectivityBridge) {
-      return false;
-    }
-
-    try {
-      await WatchConnectivityBridge.notifyWatchNotificationAdded(notificationId);
-      console.log('[WatchSync] Notified Watch: notification added', notificationId);
-      return true;
-    } catch (error) {
-      console.error('[WatchSync] Failed to notify Watch about notification added:', error);
-      return false;
-    }
+    // No-op: automatic sync disabled - operations are queued
+    return true;
   }
 
-  /**
-   * Send generic update notification to Watch
-   */
   async notifyWatchOfUpdate(): Promise<boolean> {
-    if (!isIOS || !WatchConnectivityBridge) {
-      return false;
-    }
-
-    try {
-      await WatchConnectivityBridge.notifyWatchOfUpdate();
-      console.log('[WatchSync] Notified Watch: generic update');
-      return true;
-    } catch (error) {
-      console.error('[WatchSync] Failed to notify Watch about update:', error);
-      return false;
-    }
+    // No-op: automatic sync disabled - use sendFullSyncToWatch instead
+    return true;
   }
 
   // ========== Database Access Methods (iOS only) ==========
