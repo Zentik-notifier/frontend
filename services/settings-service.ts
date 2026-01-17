@@ -873,9 +873,13 @@ class SettingsService {
 
   public async saveTokens(accessToken: string, refreshToken: string): Promise<void> {
     const current = this.authDataSubject.value;
-    current.accessToken = accessToken;
-    current.refreshToken = refreshToken;
-    this.authDataSubject.next(current);
+    // Create a new object to ensure reactivity
+    const updated = {
+      ...current,
+      accessToken,
+      refreshToken,
+    };
+    this.authDataSubject.next(updated);
 
     if (Platform.OS === 'ios' || Platform.OS === 'macos') {
       const options: Keychain.SetOptions = Device.isDevice

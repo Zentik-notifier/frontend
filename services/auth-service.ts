@@ -35,6 +35,14 @@ class AuthService {
   }
 
   public async ensureValidToken(rest?: boolean): Promise<string | null> {
+    // Always read the latest token from BehaviorSubject
+    // This ensures we get the most recent token even if saveTokens was just called
+    const currentToken = settingsService.getAuthData().accessToken;
+    if (!currentToken) return null;
+    
+    // If token is not expired, return it immediately (no need to refresh)
+    if (!this.isTokenExpired(currentToken)) return currentToken;
+    
     // If there's already a refresh in progress, return the existing promise
     if (this.ensureValidTokenPromise) {
       return this.ensureValidTokenPromise;
@@ -42,9 +50,10 @@ class AuthService {
 
     this.ensureValidTokenPromise = (async () => {
       try {
-        const currentToken = settingsService.getAuthData().accessToken;
-        if (!currentToken) return null;
-        if (!this.isTokenExpired(currentToken)) return currentToken;
+        // Re-read token in case it was updated while we were waiting
+        const latestToken = settingsService.getAuthData().accessToken;
+        if (!latestToken) return null;
+        if (!this.isTokenExpired(latestToken)) return latestToken;
         if (rest) {
           const refreshed = await this.refreshAccessTokenRest();
           console.log('[authService] token expired and refreshed via REST');

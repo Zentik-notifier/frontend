@@ -285,6 +285,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await settingsService.saveTokens(accessToken, refreshToken);
 
+      // Ensure tokens are available in the BehaviorSubject before making API calls
+      // The authLink reads from settingsService.getAuthData(), so we need to ensure
+      // the BehaviorSubject has been updated
+      let savedAuthData = settingsService.getAuthData();
+      if (!savedAuthData.accessToken || savedAuthData.accessToken !== accessToken) {
+        // Wait a tick to ensure BehaviorSubject is updated
+        await new Promise(resolve => setTimeout(resolve, 0));
+        savedAuthData = settingsService.getAuthData();
+        if (!savedAuthData.accessToken || savedAuthData.accessToken !== accessToken) {
+          console.error('[completeAuth] Tokens not properly saved, retrying...');
+          await settingsService.saveTokens(accessToken, refreshToken);
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      }
+
       const newUserId = await refreshUserData();
       if (!newUserId) {
         setIsInitializing(false);
