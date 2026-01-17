@@ -242,8 +242,9 @@ class WebFile {
         const encoder = new TextEncoder();
         arrayBuffer = encoder.encode(content).buffer;
       } else {
-        // Uint8Array - use its buffer
-        arrayBuffer = content.buffer;
+        // Uint8Array - create a new ArrayBuffer and copy data to avoid SharedArrayBuffer issues
+        arrayBuffer = new ArrayBuffer(content.byteLength);
+        new Uint8Array(arrayBuffer).set(content);
       }
 
       const repo = await getWebRepo();
