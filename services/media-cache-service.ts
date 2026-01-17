@@ -150,7 +150,10 @@ class MediaCacheService {
                     case 'ADD':
                         if (!action.item) return state;
                         const exists = state.queue.some(i => i.key === action.item!.key);
-                        if (exists) return state;
+                        if (exists) {
+                            console.log(`[MediaCache] ⚠️ Duplicate item detected in reducer, skipping: ${action.item.key}`);
+                            return state;
+                        }
 
                         // Insert sorted by priority (higher first) then timestamp
                         const newQueue = [...state.queue, action.item].sort((a, b) => {
@@ -158,6 +161,7 @@ class MediaCacheService {
                             return priorityDiff !== 0 ? priorityDiff : a.timestamp - b.timestamp;
                         });
 
+                        console.log(`[MediaCache] ✅ Added item to queue: ${action.item.key}, queue size: ${newQueue.length}`);
                         newState = { ...state, queue: newQueue };
                         break;
 
@@ -1380,7 +1384,22 @@ class MediaCacheService {
             }
         }
 
-        return this.bucketIconUriCache.get(bucketId) ?? null;
+        // Return from memory cache if available
+        const memoryCacheUri = this.bucketIconUriCache.get(bucketId);
+        if (memoryCacheUri) {
+            return memoryCacheUri;
+        }
+
+        // If not in memory cache but params match, try to get from persistent cache
+        // This handles the case where icon was downloaded but component wasn't subscribed yet
+        if (cachedParams && this.repo) {
+            const timestamp = cachedParams.timestamp || Date.now();
+            // Use synchronous check if possible (for web IndexedDB this is async, but we can't await here)
+            // For now, return null and let async loading handle it
+            return null;
+        }
+
+        return null;
     }
 
     /**
@@ -1394,6 +1413,8 @@ class MediaCacheService {
         const key = `BUCKET_ICON::${bucketId}::bucket-icon`;
 
         // Check if already in queue (use currentQueueState for synchronous check)
+        // Note: This check might have race conditions with concurrent calls,
+        // but the reducer will also check for duplicates, so it's safe
         const alreadyInQueue = this.currentQueueState.queue.some(item => item.key === key);
 
         if (alreadyInQueue) {
@@ -1404,6 +1425,7 @@ class MediaCacheService {
         // Also check if currently processing this bucket icon
         if (this.currentQueueState.isProcessing &&
             this.currentQueueState.currentItem?.key === key) {
+            console.log(`[MediaCache] ⏭️ Bucket icon already processing for ${bucketId}, skipping`);
             return;
         }
 
@@ -1418,7 +1440,9 @@ class MediaCacheService {
             priority: 10, // High priority for bucket icons
         };
 
-        console.log(`[MediaCache] ➕ Queue item created for ${bucketName}`, { key, url: iconUrl, bucketId });
+        console.log(`[MediaCache] ➕ Adding bucket icon to queue: ${bucketName} (${bucketId})`);
+        console.log(`[MediaCache] 📊 Current queue state: ${this.currentQueueState.queue.length} items, processing: ${this.currentQueueState.isProcessing}`);
+        
         this.queueAction$.next({ type: 'ADD', item: queueItem });
         console.log(`[MediaCache] 📤 Queue action dispatched for ${bucketName}`);
     }

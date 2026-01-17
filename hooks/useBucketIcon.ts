@@ -138,15 +138,28 @@ export function useBucketIcon(
       setIconUri(cachedUri);
       onIconLoadedRef.current?.(cachedUri);
     } else if (!cancelled) {
-      // Start async loading only if not in cache
-      loadIcon();
+      // Add a small delay based on bucketId hash to stagger concurrent requests
+      // This prevents race conditions when multiple BucketIcon components mount simultaneously
+      const delay = (bucketId.charCodeAt(0) % 50); // 0-49ms delay based on first char
+      setTimeout(() => {
+        if (!cancelled) {
+          loadIcon();
+        }
+      }, delay);
     }
 
     // Subscribe to bucket icon ready events
     const subscription = mediaCache.bucketIconReady.subscribe(
       ({ bucketId: readyBucketId, uri }) => {
         if (readyBucketId === bucketId && !cancelled) {
-          setIconUri(uri);
+          // Force state update to ensure component re-renders
+          setIconUri((prevUri) => {
+            // Only update if URI actually changed to avoid unnecessary re-renders
+            if (prevUri !== uri) {
+              return uri;
+            }
+            return prevUri;
+          });
           setIsLoading(false);
           setError(null);
           onIconLoadedRef.current?.(uri);

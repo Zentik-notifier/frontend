@@ -117,6 +117,7 @@ export default function BucketIcon({
           >
             {iconUri ? (
               <Image
+                key={`bucket-icon-${bucketId}-${iconUri}`}
                 source={{ uri: iconUri }}
                 style={{
                   width: currentSize.icon,
