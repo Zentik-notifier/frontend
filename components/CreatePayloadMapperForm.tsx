@@ -27,6 +27,7 @@ import {
   Checkbox,
   Dialog,
   IconButton,
+  List,
   Portal,
   Text,
   TextInput,
@@ -85,6 +86,11 @@ export default function CreatePayloadMapperForm({
 
   const [name, setName] = useState("");
   const [jsEvalFn, setJsEvalFn] = useState("");
+  
+  // Collapsible sections state (all collapsed by default)
+  const [jsEvalFnExpanded, setJsEvalFnExpanded] = useState(false);
+  const [testInputExpanded, setTestInputExpanded] = useState(false);
+  const [testHeadersExpanded, setTestHeadersExpanded] = useState(false);
 
   // States for URL generator
   const [selectedBucketId, setSelectedBucketId] = useState<string | undefined>(
@@ -707,29 +713,32 @@ export default function CreatePayloadMapperForm({
         )}
 
       {!isBuiltIn && (
-        <View style={styles.codeSection}>
-          <Text variant="bodyLarge" style={styles.sectionTitle}>
-            {t("payloadMappers.form.jsEvalFn")}
-          </Text>
-          <Text style={styles.helpText}>
-            {t("payloadMappers.form.jsEvalFnHelp")}
-          </Text>
-
-          <CodeEditor
-            value={jsEvalFn}
-            onChange={(text: string) => {
-              setJsEvalFn(text);
-              if (fieldErrors.jsEvalFn) {
-                setFieldErrors({ ...fieldErrors, jsEvalFn: undefined });
-              }
-            }}
-            language="typescript"
-            error={!!fieldErrors.jsEvalFn}
-            errorText={fieldErrors.jsEvalFn}
-            placeholder={t("payloadMappers.form.jsEvalFnPlaceholder")}
-            label={t("payloadMappers.form.jsEvalFn")}
-          />
-        </View>
+        <Card style={styles.codeSectionCard}>
+          <List.Accordion
+            title={t("payloadMappers.form.jsEvalFn")}
+            description={t("payloadMappers.form.jsEvalFnHelp")}
+            expanded={jsEvalFnExpanded}
+            onPress={() => setJsEvalFnExpanded(!jsEvalFnExpanded)}
+            left={(props) => <List.Icon {...props} icon="code-tags" />}
+          >
+            <Card.Content>
+              <CodeEditor
+                value={jsEvalFn}
+                onChange={(text: string) => {
+                  setJsEvalFn(text);
+                  if (fieldErrors.jsEvalFn) {
+                    setFieldErrors({ ...fieldErrors, jsEvalFn: undefined });
+                  }
+                }}
+                language="typescript"
+                error={!!fieldErrors.jsEvalFn}
+                errorText={fieldErrors.jsEvalFn}
+                placeholder={t("payloadMappers.form.jsEvalFnPlaceholder")}
+                label={t("payloadMappers.form.jsEvalFn")}
+              />
+            </Card.Content>
+          </List.Accordion>
+        </Card>
       )}
 
       {/* Test Section */}
@@ -739,38 +748,56 @@ export default function CreatePayloadMapperForm({
             {t("payloadMappers.form.test")}
           </Text>
 
-          <CodeEditor
-            value={testInput}
-            onChange={(text: string) => {
-              setTestInput(text);
-              if (fieldErrors.testInput) {
-                setFieldErrors({ ...fieldErrors, testInput: undefined });
-              }
-            }}
-            placeholder={t("payloadMappers.form.testInputPlaceholder")}
-            label={t("payloadMappers.form.testInput")}
-            language="json"
-            error={!!fieldErrors.testInput}
-            errorText={fieldErrors.testInput}
-          />
+          <Card style={styles.codeSectionCard}>
+            <List.Accordion
+              title={t("payloadMappers.form.testInput")}
+              description={t("payloadMappers.form.testInputHelp")}
+              expanded={testInputExpanded}
+              onPress={() => setTestInputExpanded(!testInputExpanded)}
+              left={(props) => <List.Icon {...props} icon="file-document-edit" />}
+            >
+              <Card.Content>
+                <CodeEditor
+                  value={testInput}
+                  onChange={(text: string) => {
+                    setTestInput(text);
+                    if (fieldErrors.testInput) {
+                      setFieldErrors({ ...fieldErrors, testInput: undefined });
+                    }
+                  }}
+                  placeholder={t("payloadMappers.form.testInputPlaceholder")}
+                  label={t("payloadMappers.form.testInput")}
+                  language="json"
+                  error={!!fieldErrors.testInput}
+                  errorText={fieldErrors.testInput}
+                  height={150}
+                />
+              </Card.Content>
+            </List.Accordion>
+          </Card>
 
-          <Text style={styles.helpText}>
-            {t("payloadMappers.form.testInputHelp")}
-          </Text>
-
-          <CodeEditor
-            value={testHeaders}
-            onChange={(text: string) => {
-              setTestHeaders(text);
-            }}
-            placeholder={t("payloadMappers.form.testHeadersPlaceholder")}
-            label={t("payloadMappers.form.testHeaders")}
-            language="json"
-          />
-
-          <Text style={styles.helpText}>
-            {t("payloadMappers.form.testHeadersHelp")}
-          </Text>
+          <Card style={styles.codeSectionCard}>
+            <List.Accordion
+              title={t("payloadMappers.form.testHeaders")}
+              description={t("payloadMappers.form.testHeadersHelp")}
+              expanded={testHeadersExpanded}
+              onPress={() => setTestHeadersExpanded(!testHeadersExpanded)}
+              left={(props) => <List.Icon {...props} icon="file-document-edit-outline" />}
+            >
+              <Card.Content>
+                <CodeEditor
+                  value={testHeaders}
+                  onChange={(text: string) => {
+                    setTestHeaders(text);
+                  }}
+                  placeholder={t("payloadMappers.form.testHeadersPlaceholder")}
+                  label={t("payloadMappers.form.testHeaders")}
+                  language="json"
+                  height={150}
+                />
+              </Card.Content>
+            </List.Accordion>
+          </Card>
 
           <Button
             mode="outlined"
@@ -1088,6 +1115,10 @@ const styles = StyleSheet.create({
   },
   codeSection: {
     marginTop: 16,
+  },
+  codeSectionCard: {
+    marginTop: 16,
+    marginBottom: 8,
   },
   sectionTitle: {
     marginBottom: 8,

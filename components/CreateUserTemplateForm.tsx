@@ -346,7 +346,6 @@ export default function CreateUserTemplateForm({
         style={styles.input}
         mode="outlined"
         multiline
-        numberOfLines={3}
       />
       {fieldErrors.description && (
         <Text style={styles.errorText}>{fieldErrors.description}</Text>
@@ -366,7 +365,6 @@ export default function CreateUserTemplateForm({
         error={!!fieldErrors.title}
         errorText={fieldErrors.title}
         height={72}
-        numberOfLines={3}
       />
       {fieldErrors.title && (
         <Text style={styles.errorText}>{fieldErrors.title}</Text>
@@ -386,7 +384,6 @@ export default function CreateUserTemplateForm({
         error={!!fieldErrors.subtitle}
         errorText={fieldErrors.subtitle}
         height={72}
-        numberOfLines={3}
       />
       {fieldErrors.subtitle && (
         <Text style={styles.errorText}>{fieldErrors.subtitle}</Text>

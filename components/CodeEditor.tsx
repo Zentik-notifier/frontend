@@ -116,7 +116,6 @@ interface CodeEditorProps {
   language?: string;
   readOnly?: boolean;
   height?: string | number;
-  numberOfLines?: number;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -129,7 +128,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   language = "typescript",
   readOnly = false,
   height = "300px",
-  numberOfLines,
 }) => {
   const shouldUseMonaco = Platform.OS === "web";
 
@@ -272,7 +270,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     );
   }
 
-  // Fallback to TextInput on mobile
+  const calculatedHeight =
+    typeof height === "number" ? height : parseInt(height) || 300;
+
   return (
     <View style={[styles.codeEditor, { borderWidth: 0 }]}>
       <TextInput
@@ -282,12 +282,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         placeholder={placeholder}
         error={!!error}
         multiline
-        numberOfLines={numberOfLines || 12}
+        // numberOfLines={numberOfLines || 12}
         style={[
           styles.codeInput,
           {
-            height:
-              typeof height === "number" ? height : parseInt(height) || 300,
+            height: calculatedHeight,
           },
         ]}
         mode="outlined"
