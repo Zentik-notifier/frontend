@@ -7,6 +7,7 @@ import {
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import packageJson from "../package.json";
+import { useSettings } from "./useSettings";
 
 export type AppLogLevel = "debug" | "info" | "warn" | "error";
 
@@ -46,6 +47,7 @@ export function useAppLog() {
     fetchPolicy: "cache-first",
   });
   const [mutate, { loading, error }] = useCreateUserLogMutation();
+  const { settings } = useSettings();
 
   const logAppEvent = useCallback(
     async ({
@@ -56,6 +58,11 @@ export function useAppLog() {
       error,
       data,
     }: AppLogPayload) => {
+      // Check if user tracking is disabled
+      if (settings.disableUserTracking) {
+        return;
+      }
+
       try {
         const me = meData?.me;
         const userId = me?.id ?? null;
@@ -101,7 +108,7 @@ export function useAppLog() {
         console.debug("[AppLog] Failed to send app log", e);
       }
     },
-    [meData, mutate]
+    [meData, mutate, settings.disableUserTracking]
   );
 
   const sendFeedback = useCallback(

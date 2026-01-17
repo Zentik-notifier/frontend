@@ -149,6 +149,18 @@ export function useSettings() {
     await syncWithBackend(UserSettingType.GithubEventsFilter, JSON.stringify(events));
   }, [syncWithBackend]);
 
+  const setDisableUserTracking = useCallback(async (value: boolean) => {
+    await updateSettings({ disableUserTracking: value });
+    // Note: UserSettingType.DisableUserTracking will be available after codegen
+    // For now, we'll sync it manually when the enum is regenerated
+    try {
+      await syncWithBackend('DisableUserTracking' as any, null, value);
+    } catch (error) {
+      // If enum not yet available, just update local setting
+      console.warn('DisableUserTracking enum not yet available, setting saved locally only');
+    }
+  }, [updateSettings, syncWithBackend]);
+
   const setGalleryGridSize = useCallback(async (size: number) => {
     await settingsService.setGalleryGridSize(size);
   }, []);
@@ -241,6 +253,7 @@ export function useSettings() {
     setDefaultPostpones,
     setDefaultSnoozes,
     setGithubEventsFilter,
+    setDisableUserTracking,
     updateGalleryVisualization,
     setGalleryGridSize,
     updateOnboardingSettings,

@@ -1,244 +1,232 @@
 export default `# Privacy Policy
 
-**Effective Date:** [DATE]
+**Effective Date:** 2026-01-17
 
-**Last Updated:** [DATE]
-
-**Data Controller:** [COMPANY NAME]
+**Last Updated:** 2026-01-17
 
 ## 1. Introduction
 
-This Privacy Policy describes how Zentik ("we", "our", "Zentik") collects, uses, and protects your personal information when you use our application and services.
+This Privacy Policy describes how Zentik collects, uses, and protects the personal data of users who use the Zentik platform. We are committed to protecting user privacy and ensuring transparency regarding data processing.
 
-We respect your privacy and are committed to protecting your personal data in compliance with the General Data Protection Regulation (GDPR) and other applicable privacy laws.
+## 2. Data Collected
 
-## 2. Data We Collect
+### 2.1 Registration Data
 
-### 2.1 Data You Provide Directly
-- **Registration Information**: first name, last name, email, username
-- **Profile Information**: profile photo, biographical information
-- **Content**: uploaded files, messages, comments
-- **Communications**: messages sent to support, feedback
+During registration, Zentik collects the following minimum required data:
 
-### 2.2 Data Collected Automatically
-- **Usage Data**: how you use the application, pages visited, features used
-- **Technical Data**: IP address, device type, operating system, browser
-- **Session Data**: authentication tokens, login timestamps
-- **Location Data**: country/region (derived from IP)
+- **Email**: Email address used for authentication and communications
+- **Username**: Unique username for account identification
+- **First Name and Last Name**: Optional data provided by the user during registration
+- **Password**: Encrypted password (hash) for authentication
 
-### 2.3 Third-Party Data (OAuth)
-- **GitHub**: user ID, username, email, display name, avatar
-- **Google**: user ID, email, first name, last name, profile photo
-- **Custom Providers**: specific data configured for each provider
+### 2.2 SSO/OAuth Authentication Data
 
-## 3. How We Use Your Data
+When you use authentication through external providers (GitHub, Google, Apple, etc.), Zentik may collect:
 
-### 3.1 Service Provision
-- Creating and managing your account
-- Authentication and authorization
-- Push notification management
-- File storage and management
-- Webhook configuration
+- **Email**: Email address associated with the OAuth provider
+- **Avatar URL**: Profile image URL from the provider
+- **Provider Type**: Identification of the OAuth provider used
+- **Metadata**: Additional information provided by the provider (in JSON format)
 
-### 3.2 Service Improvement
-- Usage analysis to improve features
-- Research and development of new features
-- Performance optimization
-- User experience personalization
+This data is saved in the database to enable future authentication and improve user experience.
 
-### 3.3 Communications
-- Important service notifications
-- Security updates
-- Newsletter and marketing communications (with consent)
-- Technical support and assistance
+### 2.3 Session Data
 
-### 3.4 Security and Compliance
-- Fraud and abuse prevention
-- Compliance with applicable laws
-- Protection of rights and security
-- Investigation of terms violations
+For each login session, Zentik records:
 
-## 4. Legal Basis for Processing
+- **User ID**: Unique user identifier
+- **IP Address**: IP address used for access
+- **User Agent**: Information about the browser or application used
+- **Operating System**: Device operating system
+- **Browser**: Browser name and version (for web access)
+- **Device Name**: Name or description of the device
+- **Login Provider**: OAuth provider used (if applicable)
+- **Last Activity Date**: Timestamp of the last activity in the session
 
-We process your personal data based on the following legal grounds:
+Sessions are retained for a maximum of **14 days** of inactivity, after which they are automatically deleted.
 
-- **Contract Performance**: to provide requested services
-- **Legitimate Interest**: to improve services and ensure security
-- **Consent**: for marketing communications and non-essential cookies
-- **Legal Obligation**: for compliance with applicable laws
+### 2.4 Device Data
+
+When you register a device to receive push notifications, Zentik collects:
+
+- **Device Token**: Unique token for push notifications (APNS for iOS, FCM for Android, WebPush for web)
+- **Device Model**: Device model
+- **OS Version**: Operating system version
+- **Device Name**: Name assigned to the device
+- **Encryption Keys**: Public/private keys for end-to-end encryption (if enabled)
+- **Metadata**: Additional information about the device (app versions, build info, etc.)
+
+### 2.5 Messages and Notifications
+
+Messages sent through Zentik are retained on the server for:
+
+- **Maximum 7 days** from creation, or
+- **Until all user devices confirm receipt** of the notification
+
+Once all devices have confirmed receipt or 7 days have passed, messages are automatically deleted from the server. Messages are retained locally on user devices.
+
+### 2.6 Attachments
+
+Attachments (images, videos, audio, documents) uploaded to Zentik are retained on the server for a maximum of **7 days**. Attachments are automatically deleted from the server after this period, regardless of whether they are still referenced in messages.
+
+Attachments are retained locally on user devices.
+
+### 2.7 Tracked Events
+
+Zentik tracks certain key events for service operation and to improve user experience. These events are tracked on the server and are essential for service operation. These events include:
+
+- User authentication activities (logins, logouts)
+- Account registrations
+- Sending and receiving messages and notifications
+- Bucket management operations (creation, sharing, deletion)
+- Device registration and removal
+- Account deletion
+- System token requests
+- User feedback submissions
+- Email delivery status
+
+Each event includes:
+- **Event Type**: Type of tracked event
+- **User ID**: User identifier associated with the event
+- **Object ID**: Identifier of the related object (if applicable)
+- **Target ID**: Identifier of the event target (if applicable)
+- **Additional Information**: Additional data in JSON format (if necessary)
+- **Creation Date**: Event creation timestamp
+
+### 2.8 Application Logs
+
+The mobile application tracks certain user interface events for debugging and service improvement. **You can disable this UI tracking at any time through the Privacy settings in the app.** When disabled, these logs will not include your user ID.
+
+- **App Logs**: Error events and information about app usage
+- **User Feedback**: Feedback and reports sent by users
+
+These logs include:
+- **User ID**: User identifier (when available)
+- **Payload**: Structured data in JSON format containing information about the event, app version, context, error messages, etc.
+
+## 3. Data Usage
+
+The collected data is used exclusively for:
+
+- **Providing the Service**: Authentication management, notification delivery, device management
+- **Improving the Service**: Event analysis to identify issues and improve functionality
+- **Security**: Prevention of fraud, abuse, and unauthorized access
+- **Support**: User assistance and resolution of technical issues
+- **Communications**: Sending confirmation emails, password resets, and important service-related communications
+
+## 4. Data Retention
+
+### 4.1 Messages and Notifications
+
+- **Server Retention**: Maximum 7 days or until receipt confirmation by all devices
+- **Local Retention**: Messages are retained locally on devices
+
+### 4.2 Attachments
+
+- **Server Retention**: Maximum 7 days
+- **Local Retention**: Attachments are retained locally on devices
+
+### 4.3 Sessions
+
+- **Retention**: Sessions are automatically deleted after **14 days of inactivity**
+
+### 4.4 Account Data
+
+- **Retention**: Account data is retained until the account is deleted by the user
+- **Deletion**: When a user deletes their account, all associated data is permanently deleted
+
+### 4.5 Events and Logs
+
+- **Retention**: Events and logs are retained for a period necessary for service operation and platform improvement
 
 ## 5. Data Sharing
 
-### 5.1 We Don't Sell Your Data
-Zentik does not sell, rent, or commercialize your personal data to third parties.
+**Zentik does not share, sell, or rent user personal data to third parties.**
 
-### 5.2 Limited Sharing
-We may share your data only in the following cases:
+### 5.1 No Advertising
 
-- **Service Providers**: partners who help us provide the service (hosting, analytics, support)
-- **Technology Partners**: push notification services (Expo, Firebase, APN)
-- **Legal Authorities**: when required by law or to protect our rights
-- **Business Transfers**: in case of merger, acquisition, or asset sale
+Zentik does not use any advertising system and does not share data with advertisers or advertising networks.
 
-### 5.3 Partner Requirements
-All partners must:
-- Use data only for specified purposes
-- Implement appropriate security measures
-- Respect applicable privacy laws
+### 5.2 No Third-Party Tracking
 
-## 6. International Transfers
+Zentik does not integrate third-party analytics services that track user behavior for advertising or profiling purposes.
 
-Your data may be transferred and processed in countries outside your country of residence. We ensure such transfers are protected by:
+### 5.3 OAuth Providers
 
-- European Commission adequacy decisions
-- Standard contractual clauses
-- Recognized data protection certifications
+When you use SSO authentication, data is shared only with the chosen OAuth provider (GitHub, Google, Apple, etc.) according to their respective privacy policies. Zentik receives only the minimum data necessary for authentication.
 
-## 7. Data Security
+### 5.4 Push Notification Services
 
-### 7.1 Security Measures Implemented
-- **Encryption**: data encrypted in transit and at rest
-- **Authentication**: secure OAuth system with JWT
-- **Access Control**: role-based access control
-- **Monitoring**: continuous security surveillance
-- **Backup**: regular and secure data backups
+To send push notifications, Zentik uses official services:
+- **Apple Push Notification Service (APNS)** for iOS
+- **Firebase Cloud Messaging (FCM)** for Android
+- **Web Push API** for web browsers
 
-### 7.2 Account Security
-- Passwords encrypted with bcrypt
-- Two-factor authentication available
-- Secure sessions with automatic expiration
-- Suspicious access notifications
+These services receive only device tokens and notification content necessary for delivery.
 
-## 8. Your Rights
+## 6. Data Security
 
-Under GDPR, you have the following rights:
+Zentik implements security measures to protect personal data:
 
-### 8.1 Right of Access
-- Obtain a copy of your personal data
-- Verify how we use your data
+- **Encryption**: Passwords are encrypted using secure hashing algorithms
+- **HTTPS**: All communications occur through encrypted HTTPS connections
+- **Authentication**: Authentication system based on JWT (JSON Web Tokens)
+- **Limited Access**: Only authorized personnel have access to data, and only for legitimate purposes
 
-### 8.2 Right of Rectification
-- Correct inaccurate or incomplete data
-- Update your profile information
+## 7. Your Rights
 
-### 8.3 Right to Erasure
-- Request deletion of your data
-- Close your account
+You have the right to:
 
-### 8.4 Right to Portability
-- Receive your data in structured format
-- Transfer data to another provider
+- **Access**: Request a copy of your personal data
+- **Correction**: Correct inaccurate or incomplete data
+- **Deletion**: Delete your account and all associated data
+- **Portability**: Export your data in a structured format
+- **Objection**: Object to the processing of your data for legitimate purposes
+- **Disable Tracking**: Disable user action tracking for non-commercial purposes through the app settings
 
-### 8.5 Right to Object
-- Object to processing for specific purposes
-- Withdraw consent when applicable
+### 7.1 Disabling UI Action Tracking
 
-### 8.6 Right to Restriction
-- Limit processing in certain circumstances
-- Temporarily suspend processing
+You can disable user interface action tracking at any time through the Privacy settings in the app. When tracking is disabled:
 
-## 9. Data Retention
+- **Application Logs**: App logs and error tracking sent from the mobile application will not include your user ID
+- **User Feedback**: Feedback submissions will not be associated with your user ID
+- **Backend Events**: Server-side events (logins, notifications, bucket operations, etc.) will continue to be tracked for service operation and security purposes
+- **Service Functionality**: All service functionality (notifications, authentication, etc.) will continue to work normally
 
-### 9.1 Retention Periods
-- **Account Data**: until account deletion
-- **Usage Data**: up to 2 years from last access
-- **Security Logs**: up to 1 year for security purposes
-- **Billing Data**: up to 7 years for tax obligations
+To disable UI tracking, go to App Settings > Privacy and toggle "Enable Usage Tracking" to off.
 
-### 9.2 Automatic Deletion
-- Inactive accounts for more than 2 years may be deleted
-- Deleted data is permanently removed within 30 days
-- Backups are deleted within 90 days
+To exercise these rights, contact us using the contact information provided below.
 
-## 10. Cookies and Similar Technologies
+## 8. Cookies and Similar Technologies
 
-### 10.1 Types of Cookies Used
-- **Essential Cookies**: necessary for app functionality
-- **Functional Cookies**: to remember your preferences
-- **Analytics Cookies**: to understand app usage
-- **Marketing Cookies**: only with your consent
+Zentik uses local storage technologies for application operation:
 
-### 10.2 Cookie Management
-- You can control cookies in browser settings
-- Some cookies are necessary for app functionality
-- Disabling non-essential cookies doesn't affect functionality
+- **Local Storage / AsyncStorage**: To store user preferences, authentication tokens, and settings
+- **Session Storage**: To store temporary session data
+- **Secure Storage**: To store sensitive data in encrypted form
 
-## 11. Push Notifications
+These technologies are essential for application operation and are not used for tracking or advertising.
 
-### 11.1 Types of Notifications
-- **System Notifications**: updates, maintenance, security
-- **Content Notifications**: new messages, updates
-- **Marketing Notifications**: only with explicit consent
+## 9. Privacy Policy Changes
 
-### 11.2 Notification Management
-- You can disable notifications in app settings
-- System notifications cannot be disabled
-- You can customize preferences by notification type
+We reserve the right to modify this Privacy Policy. Significant changes will be communicated to users via email or notifications in the application. The "Last Updated" date indicates when the policy was last modified.
 
-## 12. Minors
+## 10. Contact
 
-### 12.1 Minimum Age
-- The service is not intended for minors under 16
-- We do not knowingly collect data from minors
-- If you are a parent and believe your child has provided data, contact us
+For questions, requests, or reports regarding this Privacy Policy or the processing of personal data, you can contact us:
 
-### 12.2 Parental Consent
-- For users between 16 and 18, parental consent may be required
-- We verify age during registration
-- We implement controls to prevent unauthorized access
+- **Email**: [CONTACT EMAIL]
+- **Website**: [WEBSITE URL]
 
-## 13. Privacy Policy Changes
+## 11. Legal Basis for Processing
 
-### 13.1 Change Notifications
-- We will notify you of significant changes via email
-- Changes will be published on this page
-- "Last Updated" date will be updated
+The processing of personal data is based on:
 
-### 13.2 Material Changes
-- For changes affecting your rights, we will send 30 days' notice
-- You may terminate the service if you don't accept changes
-- Non-retroactive changes apply only to future uses
-
-## 14. Contact and Complaints
-
-### 14.1 Main Contacts
-For privacy questions:
-
-**Email:** [PRIVACY EMAIL]
-**Address:** [ADDRESS]
-**Phone:** [PHONE]
-
-### 14.2 Data Protection Officer (DPO)
-If you have a DPO:
-
-**DPO Email:** [DPO EMAIL]
-**DPO Address:** [DPO ADDRESS]
-
-### 14.3 Supervisory Authority
-You have the right to lodge a complaint with the competent supervisory authority:
-
-**Italian Data Protection Authority (Garante)**
-Address: Piazza di Monte Citorio, 121, 00186 Roma
-Email: garante@gpdp.it
-Phone: +39 06 69677 1
-
-## 15. Country-Specific Provisions
-
-### 15.1 European Union
-- This policy complies with GDPR
-- Your rights are protected by EU laws
-- You can contact the DPO for any questions
-
-### 15.2 United Kingdom
-- Compliant with UK GDPR
-- Your rights are protected by UK laws
-- You can contact the Information Commissioner's Office (ICO)
-
-### 15.3 Other Countries
-- We respect local privacy laws
-- We implement additional measures when necessary
-- Contact us for country-specific information
+- **Contract Performance**: To provide the service requested by the user
+- **Consent**: For processing optional data and using additional services
+- **Legitimate Interest**: For service improvement, security, and fraud prevention
+- **Legal Obligations**: To comply with legal and regulatory obligations
 
 ---
 
-**Note:** This Privacy Policy is a template and must be customized according to your specific legal and business needs. We recommend consulting a privacy law attorney for final review.`;
+**Note**: This Privacy Policy applies to both the official Zentik instance and self-hosted instances. For self-hosted instances, the data controller is the administrator of that instance.`;

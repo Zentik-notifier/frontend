@@ -15,8 +15,9 @@ import {
   useTheme,
 } from "react-native-paper";
 import { reinitializeApolloClient } from "../config/apollo-client";
-import { LegalDocumentsSettings } from "./LegalDocumentsSettings";
 import { LocalizationSettings } from "./LocalizationSettings";
+import { LegalDocumentViewer } from "./LegalDocumentViewer";
+import { LEGAL_DOCUMENTS } from "../services/legal-documents";
 import ThemeSettings from "./ThemeSettings";
 import UnifiedCacheSettings from "./UnifiedCacheSettings";
 import { VersionInfo } from "./VersionInfo";
@@ -27,10 +28,11 @@ export function AppSettings() {
   const { t } = useI18n();
   const {
     settings: {
-      termsAcceptance: { termsEnabled },
       hideHints,
+      disableUserTracking,
     },
     updateSettings,
+    setDisableUserTracking,
   } = useSettings();
 
   // API URL state
@@ -42,6 +44,10 @@ export function AppSettings() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [dialogMessage, setDialogMessage] = useState("");
+  
+  // Privacy policy viewer state
+  const [privacyPolicyVisible, setPrivacyPolicyVisible] = useState(false);
+  const privacyPolicyDocument = LEGAL_DOCUMENTS.find(doc => doc.id === 'privacy-policy');
 
   useEffect(() => {
     loadApiUrl();
@@ -108,6 +114,10 @@ export function AppSettings() {
 
   const handleToggleHints = async (value: boolean) => {
     await updateSettings({ hideHints: !value });
+  };
+
+  const handleToggleUserTracking = async (value: boolean) => {
+    await setDisableUserTracking(!value);
   };
 
   const handleRefresh = async () => {
@@ -209,11 +219,60 @@ export function AppSettings() {
           </Card.Content>
         </Card>
 
-        {/* Legal Documents */}
-        {termsEnabled && (
-          <Surface style={styles.settingsSurface} elevation={1}>
-            <LegalDocumentsSettings />
-          </Surface>
+        {/* Privacy Settings */}
+        <Card style={styles.apiUrlCard}>
+          <Card.Content>
+            <Text variant="headlineSmall" style={styles.sectionTitle}>
+              {t("appSettings.privacy.title")}
+            </Text>
+            <Text
+              variant="bodyMedium"
+              style={[
+                styles.sectionDescription,
+                { color: theme.colors.onSurfaceVariant, marginBottom: 16 },
+              ]}
+            >
+              {t("appSettings.privacy.description")}
+            </Text>
+            <View style={styles.hintsSettingRow}>
+              <View style={styles.hintsSettingInfo}>
+                <Text variant="titleMedium" style={styles.hintsSettingTitle}>
+                  {t("appSettings.privacy.enableTrackingTitle")}
+                </Text>
+                <Text
+                  variant="bodySmall"
+                  style={[
+                    styles.sectionDescription,
+                    { color: theme.colors.onSurfaceVariant, marginTop: 4 },
+                  ]}
+                >
+                  {t("appSettings.privacy.enableTrackingDescription")}
+                </Text>
+              </View>
+              <Switch
+                value={!disableUserTracking}
+                onValueChange={handleToggleUserTracking}
+              />
+            </View>
+            {privacyPolicyDocument && (
+              <Button
+                mode="outlined"
+                icon="shield-check"
+                onPress={() => setPrivacyPolicyVisible(true)}
+                style={{ marginTop: 16 }}
+              >
+                {t("appSettings.privacy.viewPrivacyPolicy")}
+              </Button>
+            )}
+          </Card.Content>
+        </Card>
+        
+        {privacyPolicyDocument && (
+          <LegalDocumentViewer
+            document={privacyPolicyDocument}
+            visible={privacyPolicyVisible}
+            onClose={() => setPrivacyPolicyVisible(false)}
+          />
         )}
 
         {/* Version Information */}

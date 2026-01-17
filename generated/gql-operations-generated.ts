@@ -2238,6 +2238,7 @@ export enum UserSettingType {
   AutoAddOpenNotificationAction = 'AutoAddOpenNotificationAction',
   DefaultPostpones = 'DefaultPostpones',
   DefaultSnoozes = 'DefaultSnoozes',
+  DisableUserTracking = 'DisableUserTracking',
   ExpoKey = 'ExpoKey',
   GithubEventsFilter = 'GithubEventsFilter',
   HomeassistantToken = 'HomeassistantToken',

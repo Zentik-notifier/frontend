@@ -83,6 +83,13 @@
       "description": "Configure the display of hints and guides in the app",
       "showHintsTitle": "Show Hints"
     },
+    "privacy": {
+      "title": "Privacy",
+      "description": "Control how your UI actions are tracked for service improvement",
+      "enableTrackingTitle": "Enable UI Action Tracking",
+      "enableTrackingDescription": "When enabled, the app tracks your UI navigation events and errors to improve the service. When disabled, UI navigation events will not be tracked.",
+      "viewPrivacyPolicy": "View Privacy Policy"
+    },
     "gqlCache": {
       "title": "Notifications cache",
       "notificationsCount": "Saved notifications",
@@ -1925,7 +1932,6 @@
     "acceptanceRequired": "Terms Acceptance Required",
     "acceptanceDescription": "Before continuing, please review and accept our terms and policies.",
     "acceptanceFooterText": "By accepting, you agree to be bound by these terms and policies.",
-    "allDocuments": "Legal Documents",
     "version": "Version {{version}}"
   },
   "feedbackModal": {

@@ -83,6 +83,13 @@
       "description": "Configura la visualizzazione dei suggerimenti e delle guide nell'app",
       "showHintsTitle": "Mostra Suggerimenti"
     },
+    "privacy": {
+      "title": "Privacy",
+      "description": "Controlla come vengono tracciate le tue azioni sull'interfaccia utente per il miglioramento del servizio",
+      "enableTrackingTitle": "Abilita Tracciamento Azioni UI",
+      "enableTrackingDescription": "Quando abilitato, l'app traccia gli eventi di navigazione dell'interfaccia utente e gli errori per migliorare il servizio. Quando disabilitato, gli eventi di navigazione UI non verranno tracciati.",
+      "viewPrivacyPolicy": "Visualizza Privacy Policy"
+    },
     "gqlCache": {
       "title": "Cache notifiche",
       "notificationsCount": "Notifiche salvate",
@@ -1980,7 +1987,6 @@
     "acceptanceRequired": "Accettazione Termini Richiesta",
     "acceptanceDescription": "Prima di continuare, rivedi e accetta i nostri termini e politiche.",
     "acceptanceFooterText": "Accettando, accetti di essere vincolato da questi termini e politiche.",
-    "allDocuments": "Documenti Legali",
     "version": "Versione {{version}}"
   },
   "feedbackModal": {

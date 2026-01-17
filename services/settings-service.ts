@@ -133,6 +133,8 @@ export interface UserSettings {
   changelogSeenVersions?: ChangelogSeenVersions;
   // List of recently used bucket sharing identifiers (emails/usernames/userIds)
   bucketSharingHints?: string[];
+  // Privacy: disable user action tracking for non-commercial purposes
+  disableUserTracking?: boolean;
 }
 
 export interface AuthData {
@@ -220,6 +222,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   lastKeysRotation: undefined,
   changelogSeenVersions: undefined,
   bucketSharingHints: [],
+  disableUserTracking: false,
 };
 
 const DEFAULT_AUTH_DATA: AuthData = {
@@ -302,7 +305,8 @@ class SettingsService {
         'notificationsLastSeenId',
         'lastCleanup',
         'lastKeysRotation',
-        'hideHints'
+        'hideHints',
+        'disableUserTracking'
       ];
 
       // Settings that are stored as JSON objects
@@ -328,7 +332,7 @@ class SettingsService {
             const stored = await settingsRepository.getSetting(key);
             if (stored !== null && stored !== undefined) {
               // For boolean values, convert string to boolean
-              if (key === 'hideHints') {
+              if (key === 'hideHints' || key === 'disableUserTracking') {
                 settings[key] = (stored === 'true') as any;
               } else {
                 settings[key] = stored as any;
@@ -1091,7 +1095,8 @@ class SettingsService {
         'notificationsLastSeenId',
         'lastCleanup',
         'lastKeysRotation',
-        'hideHints'
+        'hideHints',
+        'disableUserTracking'
       ]);
 
       await Promise.all(
@@ -1140,6 +1145,7 @@ class SettingsService {
         'lastCleanup',
         'lastKeysRotation',
         'hideHints',
+        'disableUserTracking',
         'changelogSeenVersions',
         'bucketSharingHints',
       ];

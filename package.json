@@ -14,6 +14,7 @@
     "lint": "npx expo lint",
     "ts-check": "tsc --noEmit",
     "codegen": "graphql-codegen",
+    "sync:privacy-policy": "node scripts/sync-privacy-policy.js",
     "release:ios:patch": "node scripts/release-ios.js patch",
     "release:ios:minor": "node scripts/release-ios.js minor",
     "release:ios:major": "node scripts/release-ios.js major",

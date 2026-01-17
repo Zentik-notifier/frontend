@@ -86,6 +86,13 @@ export interface Translation {
       description: string;
       showHintsTitle: string;
     };
+    privacy: {
+      title: string;
+      description: string;
+      enableTrackingTitle: string;
+      enableTrackingDescription: string;
+      viewPrivacyPolicy: string;
+    };
     gqlCache: {
       title: string;
       notificationsCount: string;
@@ -1928,7 +1935,6 @@ export interface Translation {
     acceptanceRequired: string;
     acceptanceDescription: string;
     acceptanceFooterText: string;
-    allDocuments: string;
     version: string;
   };
   feedbackModal: {
