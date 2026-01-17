@@ -1,7 +1,7 @@
+import MonacoEditor from "@monaco-editor/react";
 import React from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { Text, TextInput } from "react-native-paper";
-import MonacoEditor from "@monaco-editor/react";
 
 // TypeScript definitions for Monaco Editor IntelliSense
 const typescriptDefinitions = `
@@ -131,9 +131,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   height = "300px",
   numberOfLines,
 }) => {
-  const shouldUseMonaco = Platform.OS === "web" || Platform.OS === "macos";
-  
-  if (shouldUseMonaco && MonacoEditor) {
+  const shouldUseMonaco = true;
+  // const shouldUseMonaco = Platform.OS === "web" || Platform.OS === "macos";
+
+  if (shouldUseMonaco) {
     return (
       <View style={styles.codeEditor}>
         <MonacoEditor
@@ -146,6 +147,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               : (newValue: string | undefined) => onChange(newValue || "")
           }
           theme="vs-dark"
+          loading={
+            <View
+              style={{
+                height:
+                  typeof height === "number" ? height : parseInt(height) || 300,
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Text>Loading editor...</Text>
+            </View>
+          }
           beforeMount={(monaco) => {
             // Configure TypeScript compiler options for better IntelliSense
             monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
