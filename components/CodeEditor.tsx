@@ -131,7 +131,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   height = "300px",
   numberOfLines,
 }) => {
-  if ((Platform.OS === "web" || Platform.OS === "macos") && MonacoEditor) {
+  const shouldUseMonaco = Platform.OS === "web" || Platform.OS === "macos";
+  
+  if (shouldUseMonaco && MonacoEditor) {
     return (
       <View style={styles.codeEditor}>
         <MonacoEditor
