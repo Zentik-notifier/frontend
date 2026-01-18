@@ -2022,18 +2022,22 @@ public class CloudKitManager: NSObject {
         #else
         // Delete from SQLite database
         if recordType == RecordType.notification.rawValue {
-            Swift.print("☁️ [CloudKitManager] 🗑️ Deleting notification from SQLite: \(recordId)")
             DatabaseAccess.deleteNotification(notificationId: recordId, source: "CloudKitManager") { success in
                 if success {
-                    Swift.print("☁️ [CloudKitManager] ✅ Notification deleted from SQLite")
                     LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Notification deleted from SQLite from CloudKit", metadata: ["notificationId": recordId], source: "CloudKitManager")
+                    // Emit React Native event if CloudKitSyncBridge is available (main app only)
+                    if !suppressNotification, let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
+                        let selector = NSSelectorFromString("notifyNotificationDeleted:")
+                        if bridgeClass.responds(to: selector) {
+                            _ = bridgeClass.perform(selector, with: recordId)
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Notification deleted from SQLite and React Native event emitted", metadata: ["notificationId": recordId], source: "CloudKitManager")
+                        }
+                    }
                 } else {
-                    Swift.print("☁️ [CloudKitManager] ❌ Failed to delete notification from SQLite")
                     LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to delete notification from SQLite", metadata: ["notificationId": recordId], source: "CloudKitManager")
                 }
             }
         } else if recordType == RecordType.bucket.rawValue {
-            Swift.print("☁️ [CloudKitManager] 🗑️ Bucket deletion from CloudKit (bucket updates not yet implemented in SQLite)")
             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Bucket deletion logged (bucket updates not yet implemented)", metadata: ["bucketId": recordId], source: "CloudKitManager")
         }
         #endif
@@ -2250,7 +2254,24 @@ public class CloudKitManager: NSObject {
                     completion(false, error)
                 }
             } else {
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Notification deleted successfully", source: "CloudKitManager")
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Notification deleted successfully from CloudKit", metadata: ["notificationId": notificationId], source: "CloudKitManager")
+                
+                // Update SQLite immediately (don't wait for CloudKit notification)
+                #if os(iOS)
+                DatabaseAccess.deleteNotification(notificationId: notificationId, source: "CloudKitManager") { success in
+                    if success {
+                        // Emit React Native event if CloudKitSyncBridge is available (main app only)
+                        if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
+                            let selector = NSSelectorFromString("notifyNotificationDeleted:")
+                            if bridgeClass.responds(to: selector) {
+                                _ = bridgeClass.perform(selector, with: notificationId)
+                                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Notification deleted from CloudKit, SQLite, and React Native event emitted", metadata: ["notificationId": notificationId], source: "CloudKitManager")
+                            }
+                        }
+                    }
+                }
+                #endif
+                
                 completion(true, nil)
             }
         }

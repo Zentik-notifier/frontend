@@ -35,6 +35,20 @@ export function useCloudKitEvents() {
       }
     };
 
+    const handleNotificationDeleted = async (event: { notificationId: string }) => {
+      console.log('[CloudKitEvents] Notification deleted:', event.notificationId);
+
+      try {
+        // Invalidate React Query to refresh UI immediately
+        queryClient.invalidateQueries({ queryKey: notificationKeys.detail(event.notificationId) });
+        queryClient.invalidateQueries({ queryKey: notificationKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: notificationKeys.stats() });
+        queryClient.invalidateQueries({ queryKey: ['app-state'] });
+      } catch (error) {
+        console.error('[CloudKitEvents] ❌ Error handling notification deletion:', error);
+      }
+    };
+
     const handleRecordChanged = async (event: {
       recordType: string;
       recordId: string;
@@ -69,11 +83,13 @@ export function useCloudKitEvents() {
     };
 
     const subscription1 = eventEmitter.addListener('cloudKitNotificationUpdated', handleNotificationUpdated);
-    const subscription2 = eventEmitter.addListener('cloudKitRecordChanged', handleRecordChanged);
-
+    const subscription2 = eventEmitter.addListener('cloudKitNotificationDeleted', handleNotificationDeleted);
+    const subscription3 = eventEmitter.addListener('cloudKitRecordChanged', handleRecordChanged);
+    
     return () => {
       subscription1.remove();
       subscription2.remove();
+      subscription3.remove();
     };
   }, [queryClient]);
 }

@@ -591,27 +591,35 @@ public class NotificationActionHandler {
                     )
 
                 case "DELETE":
+                    // Order: 1) Server API, 2) CloudKit (which updates SQLite and emits React Native events)
                     try await deleteNotificationFromServer(notificationId: notificationId, userInfo: userInfo)
-                    DatabaseAccess.deleteNotification(notificationId: notificationId, source: source)
                     
                     // Delete from CloudKit for Watch synchronization
+                    // This will update SQLite immediately and emit React Native events
                     CloudKitManager.shared.deleteNotificationFromCloudKit(notificationId: notificationId) { success, error in
                         if success {
-                            print("🔧 [ActionHandler] ✅ Notification deleted from CloudKit")
+                            // SQLite is updated immediately by deleteNotificationFromCloudKit
+                            // React Native events are emitted by deleteNotificationFromCloudKit
+                            LoggingSystem.shared.info(
+                                tag: source,
+                                message: "[Action] Delete completed - Server, CloudKit, and SQLite updated",
+                                metadata: ["notificationId": notificationId],
+                                source: source
+                            )
                         } else {
-                            print("🔧 [ActionHandler] ⚠️ Failed to delete from CloudKit: \(error?.localizedDescription ?? "Unknown error")")
+                            // If CloudKit delete fails, still delete from SQLite as fallback
+                            DatabaseAccess.deleteNotification(notificationId: notificationId, source: source)
+                            LoggingSystem.shared.error(
+                                tag: source,
+                                message: "[Action] CloudKit delete failed, deleted from SQLite only",
+                                metadata: ["notificationId": notificationId, "error": error?.localizedDescription ?? "Unknown error"],
+                                source: source
+                            )
                         }
                     }
                     
                     // Decrement badge count for both NCE and AppDelegate
                     KeychainAccess.decrementBadgeCount(source: source)
-                    
-                    LoggingSystem.shared.info(
-                        tag: source,
-                        message: "[Action] Delete completed",
-                        metadata: ["notificationId": notificationId],
-                        source: source
-                    )
                     
                 case "POSTPONE":
                     guard let minutes = Int(normalizedValue) else {
