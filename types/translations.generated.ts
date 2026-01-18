@@ -86,6 +86,14 @@ export interface Translation {
       description: string;
       showHintsTitle: string;
     };
+    cloudKit: {
+      title: string;
+      description: string;
+      syncButton: string;
+      syncing: string;
+      syncSuccess: string;
+      syncError: string;
+    };
     privacy: {
       title: string;
       description: string;
