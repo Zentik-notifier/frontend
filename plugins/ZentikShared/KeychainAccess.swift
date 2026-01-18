@@ -567,6 +567,15 @@ public class KeychainAccess {
         print("🔑 [KeychainAccess] 🔢 Badge count decremented from \(currentCount) to \(newCount) (source: \(source))")
     }
     
+    /// Increment badge count in SQLite database
+    public static func incrementBadgeCount(source: String) {
+        let currentCount = getBadgeCountFromKeychain()
+        let newCount = currentCount + 1
+        saveBadgeCountToKeychain(count: newCount)
+        
+        print("🔑 [KeychainAccess] 🔢 Badge count incremented from \(currentCount) to \(newCount) (source: \(source))")
+    }
+    
     // MARK: - Intent Storage Operations
     
     /// Store intent data in SQLite database (replaces keychain storage)

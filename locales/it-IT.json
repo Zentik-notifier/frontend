@@ -83,6 +83,14 @@
       "description": "Configura la visualizzazione dei suggerimenti e delle guide nell'app",
       "showHintsTitle": "Mostra Suggerimenti"
     },
+    "cloudKit": {
+      "title": "Sincronizzazione CloudKit",
+      "description": "Sincronizza le tue notifiche e i bucket con CloudKit per mantenerli sincronizzati tra i tuoi dispositivi Apple",
+      "syncButton": "Sincronizza con CloudKit",
+      "syncing": "Sincronizzazione...",
+      "syncSuccess": "Sincronizzazione CloudKit completata con successo. Sincronizzate {{notifications}} notifiche e {{buckets}} bucket. Aggiornate {{updatedNotifications}} notifiche e {{updatedBuckets}} bucket.",
+      "syncError": "Impossibile sincronizzare con CloudKit. Riprova."
+    },
     "privacy": {
       "title": "Privacy",
       "description": "Controlla come vengono tracciate le tue azioni sull'interfaccia utente per il miglioramento del servizio",

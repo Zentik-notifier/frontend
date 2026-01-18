@@ -439,14 +439,16 @@ public class MediaAccess {
                 let data = try Data(contentsOf: fileURL)
                 return data
             } catch {
+                #if os(watchOS)
+                print("⌚ [MediaAccess] ❌ Failed to load cached bucket icon: \(error)")
+                #else
                 print("📱 [MediaAccess] ❌ Failed to load cached bucket icon: \(error)")
+                #endif
             }
         }
         
         // Icon not in cache, try to download from iconUrl if provided
         if let iconUrlString = iconUrl, let url = URL(string: iconUrlString) {
-            print("📱 [MediaAccess] 🌐 Downloading bucket icon from: \(iconUrlString)")
-            
             // Create semaphore for synchronous download (required in NSE/NCE context)
             let semaphore = DispatchSemaphore(value: 0)
             var downloadedData: Data?
@@ -455,20 +457,26 @@ public class MediaAccess {
                 defer { semaphore.signal() }
                 
                 if let httpResponse = response as? HTTPURLResponse {
-                    print("📱 [MediaAccess] 🌐 HTTP Status: \(httpResponse.statusCode) for \(iconUrlString)")
                     if httpResponse.statusCode != 200 {
+                        #if os(watchOS)
+                        print("⌚ [MediaAccess] ❌ HTTP Error \(httpResponse.statusCode): Failed to download bucket icon")
+                        #else
                         print("📱 [MediaAccess] ❌ HTTP Error \(httpResponse.statusCode): Failed to download bucket icon")
+                        #endif
                         return
                     }
                 }
                 
                 if let error = error {
+                    #if os(watchOS)
+                    print("⌚ [MediaAccess] ❌ Failed to download bucket icon: \(error.localizedDescription)")
+                    #else
                     print("📱 [MediaAccess] ❌ Failed to download bucket icon: \(error.localizedDescription)")
+                    #endif
                     return
                 }
                 
                 guard let data = data, !data.isEmpty else {
-                    print("📱 [MediaAccess] ❌ Downloaded data is empty")
                     return
                 }
                 
@@ -476,10 +484,13 @@ public class MediaAccess {
                 do {
                     try FileManager.default.createDirectory(at: bucketIconDirectory, withIntermediateDirectories: true, attributes: nil)
                     try data.write(to: fileURL)
-                    print("📱 [MediaAccess] ✅ Saved bucket icon to cache: \(fileName)")
                     downloadedData = data
                 } catch {
+                    #if os(watchOS)
+                    print("⌚ [MediaAccess] ❌ Failed to save bucket icon to cache: \(error)")
+                    #else
                     print("📱 [MediaAccess] ❌ Failed to save bucket icon to cache: \(error)")
+                    #endif
                 }
             }
             
@@ -495,11 +506,9 @@ public class MediaAccess {
         
         // Icon not in cache and download failed/unavailable, generate temporary placeholder if bucketName provided
         guard let bucketName = bucketName else {
-            print("📱 [MediaAccess] ⚠️ No bucket icon in cache, download failed, and no bucketName for placeholder")
             return nil
         }
         
-        print("📱 [MediaAccess] 🎭 Generating placeholder for \(bucketName)")
         return generatePlaceholderWithInitials(bucketName: bucketName, hexColor: bucketColor)
     }
     

@@ -179,39 +179,7 @@ else
     print_warning "AppDelegate non trovato: $APPDELEGATE_SOURCE"
 fi
 
-# 3.5 WatchConnectivity (per app iOS principale)
-print_status "Sincronizzazione WatchConnectivity files..."
-
-WATCH_CONNECTIVITY_SOURCE="plugins/withWatchConnectivity/files"
-WATCH_CONNECTIVITY_DEST="$IOS_DIR/ZentikDev"
-
-WATCH_CONNECTIVITY_FILES=(
-    "WatchConnectivityManager.swift"
-    "WatchConnectivityBridge.swift"
-    "WatchConnectivityBridge.m"
-    "iPhoneWatchConnectivityManager.swift"
-)
-
-watch_conn_copied=0
-for file in "${WATCH_CONNECTIVITY_FILES[@]}"; do
-    source_file="$WATCH_CONNECTIVITY_SOURCE/$file"
-    dest_file="$WATCH_CONNECTIVITY_DEST/$file"
-    
-    if [ -f "$source_file" ]; then
-        cp -f "$source_file" "$dest_file"
-        replace_placeholders "$dest_file" "$BUNDLE_ID"
-        print_status "  ✅ $file copiato in iOS App"
-        ((watch_conn_copied++))
-    else
-        print_warning "  ⚠️  $file non trovato in $WATCH_CONNECTIVITY_SOURCE"
-    fi
-done
-
-if [ $watch_conn_copied -gt 0 ]; then
-    print_success "WatchConnectivity: $watch_conn_copied file copiati in iOS App"
-fi
-
-# 3.6 DatabaseAccessBridge (per app iOS principale)
+# 3.5 DatabaseAccessBridge (per app iOS principale)
 print_status "Sincronizzazione DatabaseAccessBridge files..."
 
 DATABASE_ACCESS_BRIDGE_SOURCE="plugins/withDatabaseAccessBridge/files"
@@ -239,6 +207,37 @@ done
 
 if [ $db_bridge_copied -gt 0 ]; then
     print_success "DatabaseAccessBridge: $db_bridge_copied file copiati in iOS App"
+fi
+
+# 3.7 CloudKitSyncBridge (per app iOS principale)
+# CloudKitSyncBridge.swift viene copiato automaticamente dalla sezione file condivisi
+# Qui copiamo solo il file .m (Objective-C bridge)
+print_status "Sincronizzazione CloudKitSyncBridge files..."
+
+CLOUDKIT_SYNC_BRIDGE_SOURCE="plugins/ZentikShared"
+CLOUDKIT_SYNC_BRIDGE_DEST="$IOS_DIR/ZentikDev"
+
+CLOUDKIT_SYNC_BRIDGE_FILES=(
+    "CloudKitSyncBridge.m"
+)
+
+cloudkit_bridge_copied=0
+for file in "${CLOUDKIT_SYNC_BRIDGE_FILES[@]}"; do
+    source_file="$CLOUDKIT_SYNC_BRIDGE_SOURCE/$file"
+    dest_file="$CLOUDKIT_SYNC_BRIDGE_DEST/$file"
+    
+    if [ -f "$source_file" ]; then
+        cp -f "$source_file" "$dest_file"
+        replace_placeholders "$dest_file" "$BUNDLE_ID"
+        print_status "  ✅ $file copiato in iOS App"
+        ((cloudkit_bridge_copied++))
+    else
+        print_warning "  ⚠️  $file non trovato in $CLOUDKIT_SYNC_BRIDGE_SOURCE"
+    fi
+done
+
+if [ $cloudkit_bridge_copied -gt 0 ]; then
+    print_success "CloudKitSyncBridge: $cloudkit_bridge_copied file .m copiato in iOS App (CloudKitSyncBridge.swift copiato automaticamente dalla sezione file condivisi)"
 fi
 
 # 4. Shared Files (copiati in ogni target: AppDelegate, NSE, NCE)
@@ -270,14 +269,38 @@ copy_shared_files() {
     
     print_status "  Copiando file condivisi in $target_name..."
     
+    # First, remove excluded files if they exist
+    local removed_count=0
+    if [ -n "$exclude_pattern" ]; then
+        IFS='|' read -ra PATTERNS <<< "$exclude_pattern"
+        for pattern in "${PATTERNS[@]}"; do
+            local excluded_file="$dest_dir/$pattern"
+            if [ -f "$excluded_file" ]; then
+                rm -f "$excluded_file"
+                print_status "    🗑️  $pattern rimosso da $target_name"
+                ((removed_count++))
+            fi
+        done
+    fi
+    
     local copied_count=0
     local skipped_count=0
     for file in "${files_array[@]}"; do
-        # Salta i file che matchano il pattern di esclusione
-        if [ -n "$exclude_pattern" ] && [[ "$file" == $exclude_pattern ]]; then
-            print_status "    ⏭️  $file saltato (non necessario per $target_name)"
-            ((skipped_count++))
-            continue
+        # Salta i file che matchano il pattern di esclusione (supporta pattern multipli separati da |)
+        if [ -n "$exclude_pattern" ]; then
+            local should_skip=false
+            IFS='|' read -ra PATTERNS <<< "$exclude_pattern"
+            for pattern in "${PATTERNS[@]}"; do
+                if [[ "$file" == $pattern ]]; then
+                    should_skip=true
+                    break
+                fi
+            done
+            if [ "$should_skip" = true ]; then
+                print_status "    ⏭️  $file saltato (non necessario per $target_name)"
+                ((skipped_count++))
+                continue
+            fi
         fi
         
         local source_file="$SHARED_SOURCE/$file"
@@ -293,8 +316,12 @@ copy_shared_files() {
         fi
     done
     
-    if [ $skipped_count -gt 0 ]; then
-        print_success "  $target_name: $copied_count/${#files_array[@]} file copiati ($skipped_count saltati)"
+    if [ $skipped_count -gt 0 ] || [ $removed_count -gt 0 ]; then
+        if [ $removed_count -gt 0 ]; then
+            print_success "  $target_name: $copied_count/${#files_array[@]} file copiati ($skipped_count saltati, $removed_count rimossi)"
+        else
+            print_success "  $target_name: $copied_count/${#files_array[@]} file copiati ($skipped_count saltati)"
+        fi
     else
         print_success "  $target_name: $copied_count/${#files_array[@]} file copiati"
     fi
@@ -304,11 +331,13 @@ if [ -d "$SHARED_SOURCE" ]; then
     # Copia file condivisi in iOS App principale
     copy_shared_files "$IOS_DIR/ZentikDev" "iOS App" "" "${SHARED_FILES[@]}"
     
-    # Copia file condivisi in Notification Service Extension
-    copy_shared_files "$SERVICE_DEST" "NSE" "" "${SHARED_FILES[@]}"
+    # Copia file condivisi in Notification Service Extension (escludi solo CloudKitSyncBridge.swift)
+    # CloudKitManager.swift è necessario per NotificationActionHandler
+    copy_shared_files "$SERVICE_DEST" "NSE" "CloudKitSyncBridge.swift" "${SHARED_FILES[@]}"
     
-    # Copia file condivisi in Content Extension
-    copy_shared_files "$CONTENT_DEST" "NCE" "" "${SHARED_FILES[@]}"
+    # Copia file condivisi in Content Extension (escludi solo CloudKitSyncBridge.swift)
+    # CloudKitManager.swift è necessario per NotificationActionHandler
+    copy_shared_files "$CONTENT_DEST" "NCE" "CloudKitSyncBridge.swift" "${SHARED_FILES[@]}"
     
     # 5. Watch Extension (escludi NotificationActionHandler)
     print_status "Sincronizzazione Watch Extension..."
@@ -316,20 +345,23 @@ if [ -d "$SHARED_SOURCE" ]; then
     WATCH_DIR="targets/watch"
     
     if [ -d "$WATCH_DIR" ]; then
-        copy_shared_files "$WATCH_DIR" "Watch" "NotificationActionHandler.swift" "${SHARED_FILES[@]}"
+        # Exclude NotificationActionHandler.swift and CloudKitSyncBridge.swift (React Native bridge, not needed on Watch)
+        copy_shared_files "$WATCH_DIR" "Watch" "NotificationActionHandler.swift|CloudKitSyncBridge.swift" "${SHARED_FILES[@]}"
         
         print_success "Watch Extension sincronizzata"
     else
         print_warning "Cartella Watch Extension non trovata: $WATCH_DIR"
     fi
     
-    # 6. Widget Extension (escludi NotificationActionHandler)
+    # 6. Widget Extension (escludi NotificationActionHandler, CloudKitSyncBridge.swift e CloudKitManager.swift)
     print_status "Sincronizzazione Widget Extension..."
     
     WIDGET_DIR="targets/widget"
     
     if [ -d "$WIDGET_DIR" ]; then
-        copy_shared_files "$WIDGET_DIR" "Widget" "NotificationActionHandler.swift" "${SHARED_FILES[@]}"
+        # Exclude NotificationActionHandler.swift, CloudKitSyncBridge.swift and CloudKitManager.swift
+        # Widget Extension doesn't handle CloudKit remote notifications and doesn't need CloudKit sync
+        copy_shared_files "$WIDGET_DIR" "Widget" "NotificationActionHandler.swift|CloudKitSyncBridge.swift|CloudKitManager.swift" "${SHARED_FILES[@]}"
         
         print_success "Widget Extension sincronizzata"
     else
@@ -360,11 +392,11 @@ print_status "  🎨 Content Extension: $CONTENT_FILES file"
 if [ -f "$APPDELEGATE_DEST" ]; then
     print_status "  🎯 AppDelegate: copiato + file condivisi"
 fi
-if [ $watch_conn_copied -gt 0 ]; then
-    print_status "  📡 WatchConnectivity: $watch_conn_copied file copiati in iOS App"
-fi
 if [ $db_bridge_copied -gt 0 ]; then
     print_status "  💾 DatabaseAccessBridge: $db_bridge_copied file copiati in iOS App"
+fi
+if [ $cloudkit_bridge_copied -gt 0 ]; then
+    print_status "  ☁️  CloudKitSyncBridge: $cloudkit_bridge_copied file copiati in iOS App"
 fi
 if [ -d "$WATCH_DIR" ]; then
     print_status "  ⌚ Watch Extension: $WATCH_FILES file"

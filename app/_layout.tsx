@@ -3,7 +3,7 @@ import { QueryProviders } from "@/components/QueryProviders";
 import { AlertDialog } from "@/components/ui/AlertDialog";
 import { useDeviceType } from "@/hooks/useDeviceType";
 // import { useForegroundNotificationHandler } from "@/hooks/useForegroundNotificationHandler";
-import { useWatchConnectivityEvents } from "@/hooks/useWatchConnectivityEvents";
+import { useCloudKitEvents } from "@/hooks/useCloudKitEvents";
 import { ThemeProvider } from "@/hooks/useTheme";
 import MobileLayout from "@/layouts/mobile";
 import TabletLayout from "@/layouts/tablet";
@@ -89,10 +89,9 @@ function DeepLinkHandler() {
 }
 
 function AppContent() {
+  // Listen to CloudKit events and update SQLite/React Query
+  useCloudKitEvents();
   const { isMobile } = useDeviceType();
-
-  // Initialize Watch connectivity event listeners (iOS only)
-  useWatchConnectivityEvents();
 
   // Handle foreground notifications with toast
   // useForegroundNotificationHandler();

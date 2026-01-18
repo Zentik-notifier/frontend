@@ -95,10 +95,10 @@ if (fs.existsSync(sharedFilesDir)) {
   
   const iosTargets = [
     { path: path.join(iosDir, 'ZentikDev'), name: 'iOS App (ZentikDev)', exclude: [] },
-    { path: path.join(iosDir, 'ZentikNotificationService'), name: 'Notification Service Extension', exclude: [] },
-    { path: path.join(iosDir, 'ZentikNotificationContentExtension'), name: 'Notification Content Extension', exclude: [] },
-    { path: watchTargetDir, name: 'Watch Target', exclude: ['NotificationActionHandler.swift'] },
-    { path: path.join(__dirname, '..', 'targets', 'widget'), name: 'Widget Target', exclude: ['NotificationActionHandler.swift'] }
+    { path: path.join(iosDir, 'ZentikNotificationService'), name: 'Notification Service Extension', exclude: ['CloudKitSyncBridge.swift'] },
+    { path: path.join(iosDir, 'ZentikNotificationContentExtension'), name: 'Notification Content Extension', exclude: ['CloudKitSyncBridge.swift'] },
+    { path: watchTargetDir, name: 'Watch Target', exclude: ['NotificationActionHandler.swift', 'CloudKitSyncBridge.swift'] },
+    { path: path.join(__dirname, '..', 'targets', 'widget'), name: 'Widget Target', exclude: ['NotificationActionHandler.swift', 'CloudKitSyncBridge.swift', 'CloudKitManager.swift'] }
   ];
   
   let totalCopied = 0;
@@ -112,6 +112,19 @@ if (fs.existsSync(sharedFilesDir)) {
     console.log(`\n  📁 ${target.name}:`);
     let copiedFiles = 0;
     let skippedFiles = 0;
+    let removedFiles = 0;
+    
+    // First, remove excluded files if they exist
+    if (target.exclude && target.exclude.length > 0) {
+      for (const excludedFile of target.exclude) {
+        const excludedFilePath = path.join(target.path, excludedFile);
+        if (fs.existsSync(excludedFilePath)) {
+          fs.unlinkSync(excludedFilePath);
+          console.log(`    🗑️  Removed ${excludedFile} from ${target.name}`);
+          removedFiles++;
+        }
+      }
+    }
     
     for (const fileName of sharedFiles) {
       // Skip files in the exclude list for this target
@@ -138,12 +151,87 @@ if (fs.existsSync(sharedFilesDir)) {
       }
     }
     
-    if (skippedFiles > 0) {
-      console.log(`    Total: ${copiedFiles}/${sharedFiles.length} files copied (${skippedFiles} skipped)`);
+    if (skippedFiles > 0 || removedFiles > 0) {
+      console.log(`    Total: ${copiedFiles}/${sharedFiles.length} files copied (${skippedFiles} skipped, ${removedFiles} removed)`);
     } else {
       console.log(`    Total: ${copiedFiles}/${sharedFiles.length} files`);
     }
   }
   
   console.log(`\n✅ Successfully copied ${totalCopied} files across all targets!`);
+  
+  // Remove CloudKit files from extension targets in Xcode project
+  console.log('\n🔧 Removing CloudKit files from extension targets in Xcode project...');
+  const pbxprojPath = path.join(iosDir, 'ZentikDev.xcodeproj', 'project.pbxproj');
+  
+  if (fs.existsSync(pbxprojPath)) {
+    let pbxprojContent = fs.readFileSync(pbxprojPath, 'utf-8');
+    let modified = false;
+    
+    // Files to remove from extensions
+    // CloudKitManager.swift is needed in both NSE and NCE for NotificationActionHandler
+    const excludedFiles = ['CloudKitSyncBridge.swift'];
+    const extensionTargets = ['ZentikNotificationService', 'ZentikNotificationContentExtension'];
+    
+    for (const target of extensionTargets) {
+      for (const file of excludedFiles) {
+        // Remove PBXBuildFile entries for excluded files in extension targets
+        const buildFilePattern = new RegExp(
+          `\\s+[A-F0-9]{24}\\s+/\\* ${file} in Sources \\*/ = \\{isa = PBXBuildFile; fileRef = [A-F0-9]{24} /\\* ${file} \\*/; \\};.*?\\/\\* ${target} \\*/`,
+          'gs'
+        );
+        if (buildFilePattern.test(pbxprojContent)) {
+          pbxprojContent = pbxprojContent.replace(buildFilePattern, '');
+          modified = true;
+          console.log(`  🗑️  Removed ${file} build file reference from ${target}`);
+        }
+        
+        // Remove PBXFileReference entries for excluded files in extension directories
+        const fileRefPattern = new RegExp(
+          `\\s+[A-F0-9]{24}\\s+/\\* ${file} \\*/ = \\{isa = PBXFileReference; lastKnownFileType = sourcecode\\.swift; path = "${file}"; sourceTree = "<group>"; \\};`,
+          'g'
+        );
+        if (fileRefPattern.test(pbxprojContent)) {
+          // Find the fileRef ID and remove it from the group
+          const fileRefMatch = pbxprojContent.match(new RegExp(`([A-F0-9]{24})\\s+/\\* ${file} \\*/ = \\{isa = PBXFileReference`, 'g'));
+          if (fileRefMatch) {
+            const fileRefId = fileRefMatch[0].substring(0, 24);
+            // Remove from group children
+            const groupPattern = new RegExp(`(\\s+${fileRefId}\\s+/\\* ${file} \\*/,\\s*)`, 'g');
+            pbxprojContent = pbxprojContent.replace(groupPattern, '');
+            // Remove the file reference definition
+            pbxprojContent = pbxprojContent.replace(fileRefPattern, '');
+            modified = true;
+            console.log(`  🗑️  Removed ${file} file reference from ${target} group`);
+          }
+        }
+      }
+    }
+    
+    if (modified) {
+      fs.writeFileSync(pbxprojPath, pbxprojContent, 'utf-8');
+      console.log('  ✅ Updated project.pbxproj');
+    } else {
+      console.log('  ℹ️  No changes needed in project.pbxproj');
+    }
+  } else {
+    console.log('  ⚠️  project.pbxproj not found');
+  }
+  
+  // Copy CloudKitSyncBridge.m to iOS App only (Objective-C bridge file)
+  const cloudkitBridgeM = 'CloudKitSyncBridge.m';
+  const cloudkitBridgeMSource = path.join(sharedFilesDir, cloudkitBridgeM);
+  const iosAppPath = path.join(iosDir, 'ZentikDev');
+  
+  if (fs.existsSync(cloudkitBridgeMSource) && fs.existsSync(iosAppPath)) {
+    const cloudkitBridgeMDest = path.join(iosAppPath, cloudkitBridgeM);
+    fs.copyFileSync(cloudkitBridgeMSource, cloudkitBridgeMDest);
+    
+    // Replace bundle ID placeholder
+    let content = fs.readFileSync(cloudkitBridgeMDest, 'utf-8');
+    content = content.replace(/BUNDLE_ID_PLACEHOLDER/g, bundleIdentifier);
+    fs.writeFileSync(cloudkitBridgeMDest, content, 'utf-8');
+    
+    console.log(`\n✅ ${cloudkitBridgeM} copied to iOS App`);
+  }
 }

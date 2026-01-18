@@ -1,223 +1,19 @@
-import { NativeModules, Platform, NativeEventEmitter, EmitterSubscription } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 
-const { WidgetReloadBridge, WatchConnectivityBridge, DatabaseAccessBridge } = NativeModules;
+const { WidgetReloadBridge, DatabaseAccessBridge, CloudKitSyncBridge } = NativeModules;
 
 // Debug: log available bridges
 console.log('[IosBridge] Available bridges:', {
   WidgetReloadBridge: !!WidgetReloadBridge,
-  WatchConnectivityBridge: !!WatchConnectivityBridge,
   DatabaseAccessBridge: !!DatabaseAccessBridge,
+  CloudKitSyncBridge: !!CloudKitSyncBridge,
 });
 
 const isIOS = Platform.OS === 'ios';
 
-// Event emitter for WatchConnectivity events
-const watchEventEmitter = isIOS && WatchConnectivityBridge
-  ? new NativeEventEmitter(WatchConnectivityBridge)
-  : null;
-
-// ========== WatchConnectivity Event Types ==========
-
-export type WatchRefreshEvent = {
-  timestamp: number;
-};
-
-export type WatchNotificationReadEvent = {
-  notificationId: string;
-  readAt: string;
-};
-
-export type WatchNotificationsReadEvent = {
-  notificationIds: string[];
-  readAt: string;
-  count: number;
-};
-
-export type WatchNotificationUnreadEvent = {
-  notificationId: string;
-};
-
-export type WatchNotificationDeletedEvent = {
-  notificationId: string;
-};
-
 // ========== IosBridgeService ==========
 
 class IosBridgeService {
-  private watchListeners: EmitterSubscription[] = [];
-
-  // ========== Watch Connectivity Availability ==========
-
-  /**
-   * Check if WatchConnectivity is available on this platform
-   * Returns true only on iOS when WatchConnectivityBridge native module is available
-   */
-  isWatchConnectivityAvailable(): boolean {
-    return isIOS && !!WatchConnectivityBridge && !!watchEventEmitter;
-  }
-
-  // ========== WatchConnectivity Event Listeners ==========
-
-  /**
-   * Listen to Watch refresh events (when Watch requests a full sync)
-   */
-  onWatchRefresh(callback: (event: WatchRefreshEvent) => void): () => void {
-    if (!watchEventEmitter) {
-      return () => {};
-    }
-
-    const subscription = watchEventEmitter.addListener('onWatchRefresh', callback);
-    this.watchListeners.push(subscription);
-    
-    return () => {
-      subscription.remove();
-      this.watchListeners = this.watchListeners.filter(s => s !== subscription);
-      console.log('[WatchEvents] Unsubscribed from Watch refresh events');
-    };
-  }
-
-  /**
-   * Listen to Watch notification read events
-   */
-  onWatchNotificationRead(callback: (event: WatchNotificationReadEvent) => void): () => void {
-    if (!watchEventEmitter) {
-      return () => {};
-    }
-
-    const subscription = watchEventEmitter.addListener('onWatchNotificationRead', callback);
-    this.watchListeners.push(subscription);
-    
-    return () => {
-      subscription.remove();
-      this.watchListeners = this.watchListeners.filter(s => s !== subscription);
-      console.log('[WatchEvents] Unsubscribed from Watch notification read events');
-    };
-  }
-
-  /**
-   * Listen to Watch notifications read events (bulk)
-   */
-  onWatchNotificationsRead(callback: (event: WatchNotificationsReadEvent) => void): () => void {
-    if (!watchEventEmitter) {
-      return () => {};
-    }
-
-    const subscription = watchEventEmitter.addListener('onWatchNotificationsRead', callback);
-    this.watchListeners.push(subscription);
-    
-    return () => {
-      subscription.remove();
-      this.watchListeners = this.watchListeners.filter(s => s !== subscription);
-      console.log('[WatchEvents] Unsubscribed from Watch notifications read events (bulk)');
-    };
-  }
-
-  /**
-   * Listen to Watch notification unread events
-   */
-  onWatchNotificationUnread(callback: (event: WatchNotificationUnreadEvent) => void): () => void {
-    if (!watchEventEmitter) {
-      return () => {};
-    }
-
-    const subscription = watchEventEmitter.addListener('onWatchNotificationUnread', callback);
-    this.watchListeners.push(subscription);
-    
-    return () => {
-      subscription.remove();
-      this.watchListeners = this.watchListeners.filter(s => s !== subscription);
-      console.log('[WatchEvents] Unsubscribed from Watch notification unread events');
-    };
-  }
-
-  /**
-   * Listen to Watch notification deleted events
-   */
-  onWatchNotificationDeleted(callback: (event: WatchNotificationDeletedEvent) => void): () => void {
-    if (!watchEventEmitter) {
-      return () => {};
-    }
-
-    const subscription = watchEventEmitter.addListener('onWatchNotificationDeleted', callback);
-    this.watchListeners.push(subscription);
-    
-    return () => {
-      subscription.remove();
-      this.watchListeners = this.watchListeners.filter(s => s !== subscription);
-      console.log('[WatchEvents] Unsubscribed from Watch notification deleted events');
-    };
-  }
-
-  /**
-   * Remove all Watch event listeners
-   */
-  removeAllWatchListeners(): void {
-    this.watchListeners.forEach(subscription => subscription.remove());
-    this.watchListeners = [];
-    console.log('[WatchEvents] All Watch listeners removed');
-  }
-
-  // ========== WatchConnectivity Methods ==========
-
-  /**
-   * Send full sync data to Watch via transferFile
-   * This will export all notifications and buckets from SQLite and send as JSON file
-   */
-  async sendFullSyncToWatch(): Promise<{
-    success: boolean;
-    notificationsCount: number;
-    bucketsCount: number;
-  }> {
-    if (!isIOS || !WatchConnectivityBridge) {
-      console.log('[WatchSync] Not available on this platform');
-      return { success: false, notificationsCount: 0, bucketsCount: 0 };
-    }
-
-    try {
-      console.log('[WatchSync] 🚀 Starting full sync to Watch via transferFile...');
-      const result = await WatchConnectivityBridge.sendFullSyncToWatch();
-      console.log('[WatchSync] ✅ Full sync sent:', result);
-      return result;
-    } catch (error) {
-      console.error('[WatchSync] ❌ Failed to send full sync to Watch:', error);
-      return { success: false, notificationsCount: 0, bucketsCount: 0 };
-    }
-  }
-
-  /**
-   * DISABLED: Automatic sync methods - operations are queued, only full sync on demand is available
-   * These methods are kept for backward compatibility but do nothing (no-op)
-   */
-  
-  async notifyWatchNotificationRead(notificationId: string, readAt: string): Promise<boolean> {
-    // No-op: automatic sync disabled - operations are queued
-    return true;
-  }
-
-  async notifyWatchNotificationUnread(notificationId: string): Promise<boolean> {
-    // No-op: automatic sync disabled - operations are queued
-    return true;
-  }
-
-  async notifyWatchNotificationsRead(notificationIds: string[], readAt: string | null): Promise<boolean> {
-    // No-op: automatic sync disabled - operations are queued
-    return true;
-  }
-
-  async notifyWatchNotificationDeleted(notificationId: string): Promise<boolean> {
-    // No-op: automatic sync disabled - operations are queued
-    return true;
-  }
-
-  async notifyWatchNotificationAdded(notificationId: string): Promise<boolean> {
-    // No-op: automatic sync disabled - operations are queued
-    return true;
-  }
-
-  async notifyWatchOfUpdate(): Promise<boolean> {
-    // No-op: automatic sync disabled - use sendFullSyncToWatch instead
-    return true;
-  }
 
   // ========== Database Access Methods (iOS only) ==========
 
@@ -569,6 +365,241 @@ class IosBridgeService {
     } catch (error) {
       console.error('[Widget] Failed to reload widgets:', error);
       return false;
+    }
+  }
+
+  // ========== CloudKit Sync Methods ==========
+
+  /**
+   * Trigger CloudKit sync immediately (debounce removed for faster sync)
+   * CloudKit sync always happens regardless of Watch availability
+   * Multiple calls will trigger multiple syncs, but CloudKit handles rate limiting
+   */
+  async triggerCloudKitSyncWithDebounce(): Promise<void> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return;
+    }
+
+    try {
+      await CloudKitSyncBridge.triggerSyncToCloudWithDebounce();
+    } catch (error) {
+      console.error('[CloudKit] Failed to trigger sync:', error);
+    }
+  }
+
+  /**
+   * Trigger immediate CloudKit sync
+   * Returns sync statistics
+   */
+  async triggerCloudKitSync(): Promise<{
+    success: boolean;
+    notificationsSynced: number;
+    bucketsSynced: number;
+    notificationsUpdated: number;
+    bucketsUpdated: number;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return {
+        success: false,
+        notificationsSynced: 0,
+        bucketsSynced: 0,
+        notificationsUpdated: 0,
+        bucketsUpdated: 0,
+      };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.triggerSyncToCloud();
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to trigger sync:', error);
+      return {
+        success: false,
+        notificationsSynced: 0,
+        bucketsSynced: 0,
+        notificationsUpdated: 0,
+        bucketsUpdated: 0,
+      };
+    }
+  }
+
+  /**
+   * Update notification read status in CloudKit (single notification)
+   * More efficient than triggering a full sync when only updating read status
+   */
+  async updateNotificationReadStatusInCloudKit(
+    notificationId: string,
+    isRead: boolean,
+    readAt: string | null
+  ): Promise<boolean> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return false;
+    }
+
+    try {
+      // Convert ISO8601 string to timestamp (milliseconds since epoch)
+      const readAtTimestamp = readAt ? new Date(readAt).getTime() : null;
+      
+      await CloudKitSyncBridge.updateNotificationReadStatus(
+        notificationId,
+        isRead,
+        readAtTimestamp
+      );
+      return true;
+    } catch (error) {
+      console.error('[CloudKit] Failed to update notification read status:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Update multiple notifications read status in CloudKit (batch)
+   * More efficient than triggering a full sync when updating multiple notifications
+   */
+  async updateNotificationsReadStatusInCloudKit(
+    notificationIds: string[],
+    isRead: boolean,
+    readAt: string | null
+  ): Promise<{ success: boolean; updatedCount: number }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return { success: false, updatedCount: 0 };
+    }
+
+    try {
+      // Convert ISO8601 string to timestamp (milliseconds since epoch)
+      const readAtTimestamp = readAt ? new Date(readAt).getTime() : null;
+      
+      const result = await CloudKitSyncBridge.updateNotificationsReadStatus(
+        notificationIds,
+        isRead,
+        readAtTimestamp
+      );
+      return { success: result.success, updatedCount: result.updatedCount || 0 };
+    } catch (error) {
+      console.error('[CloudKit] Failed to update notifications read status:', error);
+      return { success: false, updatedCount: 0 };
+    }
+  }
+
+  /**
+   * Delete notification from CloudKit (single notification)
+   * More efficient than triggering a full sync when only deleting one notification
+   */
+  async deleteNotificationFromCloudKit(notificationId: string): Promise<boolean> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return false;
+    }
+
+    try {
+      await CloudKitSyncBridge.deleteNotification(notificationId);
+      return true;
+    } catch (error) {
+      console.error('[CloudKit] Failed to delete notification:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Delete multiple notifications from CloudKit (batch)
+   * More efficient than triggering a full sync when deleting multiple notifications
+   */
+  async deleteNotificationsFromCloudKit(
+    notificationIds: string[]
+  ): Promise<{ success: boolean; deletedCount: number }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return { success: false, deletedCount: 0 };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.deleteNotifications(notificationIds);
+      return { success: result.success, deletedCount: result.deletedCount || 0 };
+    } catch (error) {
+      console.error('[CloudKit] Failed to delete notifications:', error);
+      return { success: false, deletedCount: 0 };
+    }
+  }
+
+  /**
+   * Trigger full sync with verification
+   * Resets sync timestamp, performs complete sync, and verifies counts
+   * Useful for debugging and ensuring all data is synced
+   */
+  /**
+   * Perform incremental sync from CloudKit
+   * Fetches only records that have changed since the last sync
+   */
+  async syncFromCloudKitIncremental(fullSync: boolean = false): Promise<{
+    success: boolean;
+    updatedCount: number;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return {
+        success: false,
+        updatedCount: 0,
+      };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.syncFromCloudKitIncremental(fullSync);
+      console.log('[CloudKit] Incremental sync completed:', result);
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to perform incremental sync:', error);
+      return {
+        success: false,
+        updatedCount: 0,
+      };
+    }
+  }
+
+  async triggerFullSyncWithVerification(): Promise<{
+    success: boolean;
+    sqliteNotifications: number;
+    cloudKitNotifications: number;
+    notificationsMatch: boolean;
+    sqliteBuckets: number;
+    cloudKitBuckets: number;
+    bucketsMatch: boolean;
+    notificationsSynced: number;
+    notificationsUpdated: number;
+    bucketsSynced: number;
+    bucketsUpdated: number;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return {
+        success: false,
+        sqliteNotifications: 0,
+        cloudKitNotifications: 0,
+        notificationsMatch: false,
+        sqliteBuckets: 0,
+        cloudKitBuckets: 0,
+        bucketsMatch: false,
+        notificationsSynced: 0,
+        notificationsUpdated: 0,
+        bucketsSynced: 0,
+        bucketsUpdated: 0,
+      };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.triggerFullSyncWithVerification();
+      console.log('[CloudKit] Full sync with verification completed:', result);
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to trigger full sync with verification:', error);
+      return {
+        success: false,
+        sqliteNotifications: 0,
+        cloudKitNotifications: 0,
+        notificationsMatch: false,
+        sqliteBuckets: 0,
+        cloudKitBuckets: 0,
+        bucketsMatch: false,
+        notificationsSynced: 0,
+        notificationsUpdated: 0,
+        bucketsSynced: 0,
+        bucketsUpdated: 0,
+      };
     }
   }
 }

@@ -15,6 +15,7 @@ import Security
 import SQLite3
 import MobileCoreServices
 import SafariServices
+import CloudKit
 
 // SQLite helper for Swift bindings
 private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -3188,9 +3189,6 @@ extension NotificationViewController {
             onComplete: { [weak self] result in
                 switch result {
                 case .success:
-                    // Note: NCE cannot use WatchConnectivity (extension limitation)
-                    // Watch will sync when app opens or via background refresh
-                    
                     // For WEBHOOK actions, dismiss the NCE UI after execution.
                     // Header/media taps don't go through the UNNotificationResponse completion(.dismiss) path.
                     if type == "WEBHOOK" {
@@ -3249,8 +3247,6 @@ extension NotificationViewController {
                 switch result {
                 case .success:
                     print("📱 [ContentExtension] ✅ Action completed successfully in background: \(type)")
-                    // Note: NCE cannot use WatchConnectivity (extension limitation)
-                    // Watch will sync when app opens or via background refresh
                     
                     // For navigation actions, open the app after storing the intent
                     if isNavigationAction {

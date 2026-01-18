@@ -20,6 +20,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     @Published var isWaitingForResponse: Bool = false
     
     private let dataStore = WatchDataStore.shared
+    private var pollingTimer: Timer?
+    private let pollingInterval: TimeInterval = 10.0 // Poll every 10 seconds when app is active
     
     private override init() {
         super.init()
@@ -36,7 +38,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             }
         }
         
-        // Listen for CloudKit data updates (from remote notifications)
+        // Listen for CloudKit data updates
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleCloudKitDataUpdate),
@@ -59,49 +61,62 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             object: nil
         )
         
-        // Initial incremental sync on app open (to catch up on any missed updates)
-        // After this, we rely on CloudKit remote notifications via subscriptions
-        syncFromCloudKitIncremental()
+        // Fetch initial data from CloudKit
+        fetchDataFromCloudKit()
+        
+        // Start polling when app is active
+        startPolling()
     }
     
     @objc private func appDidBecomeActive() {
-        // Perform incremental sync when app becomes active (to catch up on missed updates)
-        // CloudKit subscriptions with shouldSendContentAvailable should work in foreground,
-        // but we do a one-time sync to ensure we're up to date
-        syncFromCloudKitIncremental()
+        print("⌚ [WatchConnectivityManager] App became active - starting polling")
+        startPolling()
     }
     
     @objc private func appWillResignActive() {
-        // No polling to stop - we rely on CloudKit subscriptions
+        print("⌚ [WatchConnectivityManager] App will resign active - stopping polling")
+        stopPolling()
+    }
+    
+    private func startPolling() {
+        stopPolling() // Stop any existing timer
+        
+        print("⌚ [WatchConnectivityManager] 🔄 Starting CloudKit incremental sync polling (interval: \(pollingInterval)s)")
+        pollingTimer = Timer.scheduledTimer(withTimeInterval: pollingInterval, repeats: true) { [weak self] _ in
+            print("⌚ [WatchConnectivityManager] 🔄 Polling CloudKit for incremental updates...")
+            self?.syncFromCloudKitIncremental()
+        }
     }
     
     private func syncFromCloudKitIncremental() {
         CloudKitManager.shared.syncFromCloudKitIncremental(fullSync: false) { count, error in
             if let error = error {
+                print("⌚ [WatchConnectivityManager] ❌ Incremental sync failed: \(error.localizedDescription)")
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Incremental sync failed", metadata: ["error": error.localizedDescription], source: "Watch")
             } else {
+                print("⌚ [WatchConnectivityManager] ✅ Incremental sync completed - updated: \(count)")
                 if count > 0 {
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Incremental sync completed", metadata: ["updatedCount": "\(count)"], source: "Watch")
-                    // Reload cache and update UI on main thread
-                    DispatchQueue.main.async { [weak self] in
-                        self?.loadCachedData()
-                        self?.updateBucketCounts()
-                    }
+                    // Reload cache and update UI
+                    self.loadCachedData()
+                    self.updateBucketCounts()
                 }
             }
         }
     }
     
+    private func stopPolling() {
+        pollingTimer?.invalidate()
+        pollingTimer = nil
+    }
+    
     deinit {
+        stopPolling()
         NotificationCenter.default.removeObserver(self)
     }
     
     @objc private func handleCloudKitDataUpdate() {
-        // Ensure UI updates happen on main thread
-        DispatchQueue.main.async { [weak self] in
-            self?.loadCachedData()
-            self?.updateBucketCounts()
-        }
+        loadCachedData()
+        updateBucketCounts()
     }
     
     private func loadCachedData() {
@@ -218,11 +233,14 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                         unreadCount: unreadCount
                     )
             
-            // Reload from cache and update UI (already on main thread from group.notify)
+            // Reload from cache
             self.loadCachedData()
+            
+            // Update buckets with notification counts
             self.updateBucketCounts()
-            self.lastUpdate = Date()
-            self.isWaitingForResponse = false
+            
+                            self.lastUpdate = Date()
+                            self.isWaitingForResponse = false
                             
             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Data fetched and cached successfully", metadata: ["notifications": "\(enrichedNotifications.count)", "buckets": "\(fetchedBuckets.count)", "unread": "\(unreadCount)"], source: "Watch")
         }
@@ -280,14 +298,13 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         // Perform full sync (ignoring change token)
         CloudKitManager.shared.syncFromCloudKitIncremental(fullSync: true) { count, error in
             if let error = error {
+                print("⌚ [WatchConnectivityManager] ❌ Full sync failed: \(error.localizedDescription)")
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Full sync failed", metadata: ["error": error.localizedDescription], source: "Watch")
             } else {
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Full sync completed", metadata: ["updatedCount": "\(count)"], source: "Watch")
-                // Reload cache and update UI on main thread
-                DispatchQueue.main.async { [weak self] in
-                    self?.loadCachedData()
-                    self?.updateBucketCounts()
-                }
+                print("⌚ [WatchConnectivityManager] ✅ Full sync completed - updated: \(count)")
+                // Reload cache and update UI
+                self.loadCachedData()
+                self.updateBucketCounts()
             }
         }
     }
@@ -303,10 +320,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                     updatedCache.unreadCount = max(0, updatedCache.unreadCount - 1)
                 }
                 dataStore.saveCache(updatedCache)
-                DispatchQueue.main.async { [weak self] in
-                    self?.loadCachedData()
-                    self?.updateBucketCounts()
-                }
+                loadCachedData()
+                updateBucketCounts()
             }
         }
         
@@ -336,10 +351,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         
         updatedCache.unreadCount = max(0, updatedCache.unreadCount - unreadReduction)
         dataStore.saveCache(updatedCache)
-        DispatchQueue.main.async { [weak self] in
-            self?.loadCachedData()
-            self?.updateBucketCounts()
-        }
+        loadCachedData()
+        updateBucketCounts()
         
         // Update CloudKit using shared batch method
         CloudKitManager.shared.updateNotificationsReadStatusInCloudKit(notificationIds: ids, isRead: true, readAt: Date()) { success, count, error in
@@ -360,10 +373,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                     updatedCache.unreadCount += 1
                 }
                 dataStore.saveCache(updatedCache)
-                DispatchQueue.main.async { [weak self] in
-                    self?.loadCachedData()
-                    self?.updateBucketCounts()
-                }
+                loadCachedData()
+                updateBucketCounts()
             }
         }
         
@@ -387,10 +398,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 updatedCache.unreadCount = max(0, updatedCache.unreadCount - 1)
             }
             dataStore.saveCache(updatedCache)
-            DispatchQueue.main.async { [weak self] in
-                self?.loadCachedData()
-                self?.updateBucketCounts()
-            }
+            loadCachedData()
+            updateBucketCounts()
         }
         
         // Delete from CloudKit using shared method

@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import CloudKit
 
 /**
  * NotificationActionHandler - Shared notification action handling
@@ -129,6 +130,7 @@ public class NotificationActionHandler {
         // Known action types (in order of specificity to match longest first)
         let knownTypes = [
             "MARK_AS_READ",
+            "MARK_AS_UNREAD",
             "BACKGROUND_CALL",
             "OPEN_NOTIFICATION",
             "POSTPONE",
@@ -186,6 +188,38 @@ public class NotificationActionHandler {
         
         if let httpResponse = response as? HTTPURLResponse {
             print("🔧 [ActionHandler] 📥 Mark as read response: \(httpResponse.statusCode)")
+            if httpResponse.statusCode >= 400 {
+                let responseString = String(data: data, encoding: .utf8) ?? "Unknown error"
+                throw NSError(domain: "APIError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode): \(responseString)"])
+            }
+        }
+    }
+    
+    /// Mark notification as unread on server
+    public static func markNotificationAsUnread(notificationId: String, userInfo: [AnyHashable: Any]) async throws {
+        print("🔧 [ActionHandler] 📡 Marking notification as unread: \(notificationId)")
+        
+        guard let apiEndpoint = KeychainAccess.getApiEndpoint() else {
+            throw NSError(domain: "APIError", code: -1, userInfo: [NSLocalizedDescriptionKey: "API endpoint not found"])
+        }
+        
+        let urlString = "\(apiEndpoint)/api/v1/notifications/\(notificationId)/unread"
+        guard let url = URL(string: urlString) else {
+            throw NSError(domain: "APIError", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid API URL"])
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        if let authToken = await KeychainAccess.getValidAuthToken() {
+            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        if let httpResponse = response as? HTTPURLResponse {
+            print("🔧 [ActionHandler] 📥 Mark as unread response: \(httpResponse.statusCode)")
             if httpResponse.statusCode >= 400 {
                 let responseString = String(data: data, encoding: .utf8) ?? "Unknown error"
                 throw NSError(domain: "APIError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode): \(responseString)"])
@@ -487,12 +521,52 @@ public class NotificationActionHandler {
                     try await markNotificationAsRead(notificationId: notificationId, userInfo: userInfo)
                     DatabaseAccess.markNotificationAsRead(notificationId: notificationId, source: source)
                     
+                    // Update CloudKit for Watch synchronization
+                    CloudKitManager.shared.updateNotificationReadStatusInCloudKit(
+                        notificationId: notificationId,
+                        isRead: true,
+                        readAt: Date()
+                    ) { success, error in
+                        if success {
+                            print("🔧 [ActionHandler] ✅ Notification read status updated in CloudKit")
+                        } else {
+                            print("🔧 [ActionHandler] ⚠️ Failed to update CloudKit: \(error?.localizedDescription ?? "Unknown error")")
+                        }
+                    }
+                    
                     // Decrement badge count for both NCE and AppDelegate
                     KeychainAccess.decrementBadgeCount(source: source)
                     
                     LoggingSystem.shared.info(
                         tag: source,
                         message: "[Action] Mark as read completed",
+                        metadata: ["notificationId": notificationId],
+                        source: source
+                    )
+                    
+                case "MARK_AS_UNREAD":
+                    try await markNotificationAsUnread(notificationId: notificationId, userInfo: userInfo)
+                    DatabaseAccess.markNotificationAsUnread(notificationId: notificationId, source: source)
+                    
+                    // Update CloudKit for Watch synchronization
+                    CloudKitManager.shared.updateNotificationReadStatusInCloudKit(
+                        notificationId: notificationId,
+                        isRead: false,
+                        readAt: nil
+                    ) { success, error in
+                        if success {
+                            print("🔧 [ActionHandler] ✅ Notification unread status updated in CloudKit")
+                        } else {
+                            print("🔧 [ActionHandler] ⚠️ Failed to update CloudKit: \(error?.localizedDescription ?? "Unknown error")")
+                        }
+                    }
+                    
+                    // Increment badge count for both NCE and AppDelegate
+                    KeychainAccess.incrementBadgeCount(source: source)
+                    
+                    LoggingSystem.shared.info(
+                        tag: source,
+                        message: "[Action] Mark as unread completed",
                         metadata: ["notificationId": notificationId],
                         source: source
                     )
@@ -519,6 +593,15 @@ public class NotificationActionHandler {
                 case "DELETE":
                     try await deleteNotificationFromServer(notificationId: notificationId, userInfo: userInfo)
                     DatabaseAccess.deleteNotification(notificationId: notificationId, source: source)
+                    
+                    // Delete from CloudKit for Watch synchronization
+                    CloudKitManager.shared.deleteNotificationFromCloudKit(notificationId: notificationId) { success, error in
+                        if success {
+                            print("🔧 [ActionHandler] ✅ Notification deleted from CloudKit")
+                        } else {
+                            print("🔧 [ActionHandler] ⚠️ Failed to delete from CloudKit: \(error?.localizedDescription ?? "Unknown error")")
+                        }
+                    }
                     
                     // Decrement badge count for both NCE and AppDelegate
                     KeychainAccess.decrementBadgeCount(source: source)

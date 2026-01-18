@@ -6,6 +6,7 @@ import UIKit
 import UniformTypeIdentifiers
 import UserNotifications
 import WatchConnectivity
+import CloudKit
 
 // SQLite helper for Swift bindings
 private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -2311,11 +2312,94 @@ class NotificationService: UNNotificationServiceExtension {
     if sqlite3_step(stmt) == SQLITE_DONE {
       print("📱 [NotificationService] ✅ Notification saved to database: \(notificationId)")
       
+      // Save to CloudKit for Watch synchronization
+      let dateFormatter = ISO8601DateFormatter()
+      dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+      
+      self.saveNotificationToCloudKit(
+        notificationId: notificationId,
+        bucketId: bucketId,
+        title: content.title,
+        body: content.body,
+        subtitle: content.subtitle.isEmpty ? nil : content.subtitle,
+        createdAt: dateFormatter.date(from: now) ?? Date(),
+        readAt: nil, // New notifications are unread
+        attachments: attachments.map { attachment -> [String: Any] in
+          var dict: [String: Any] = [
+            "mediaType": (attachment["mediaType"] as? String ?? "IMAGE").uppercased()
+          ]
+          if let url = attachment["url"] as? String {
+            dict["url"] = url
+          }
+          if let name = attachment["name"] as? String {
+            dict["name"] = name
+          }
+          return dict
+        },
+        actions: (messageObj["actions"] as? [[String: Any]]) ?? []
+      )
+      
       // Notify main app via Darwin notification (works across processes)
       // Main app will forward notification ID to Watch, which will fetch full data
       self.notifyMainAppOfNewNotification(notificationId: notificationId)
     } else {
       print("📱 [NotificationService] ❌ Failed to save notification to database")
+    }
+  }
+  
+  // MARK: - CloudKit Sync
+  
+  private func saveNotificationToCloudKit(
+    notificationId: String,
+    bucketId: String,
+    title: String,
+    body: String,
+    subtitle: String?,
+    createdAt: Date,
+    readAt: Date?,
+    attachments: [[String: Any]],
+    actions: [[String: Any]]
+  ) {
+    // Convert actions to CloudKit format
+    let cloudKitActions = actions.map { action -> [String: Any] in
+      var dict: [String: Any] = [
+        "type": (action["type"] as? String ?? "CUSTOM").uppercased(),
+        "label": (action["title"] as? String) ?? ""
+      ]
+      if let value = action["value"] as? String {
+        dict["value"] = value
+      }
+      if let id = action["id"] as? String {
+        dict["id"] = id
+      }
+      if let url = action["url"] as? String {
+        dict["url"] = url
+      }
+      if let bucketId = action["bucketId"] as? String {
+        dict["bucketId"] = bucketId
+      }
+      if let minutes = action["minutes"] as? Int {
+        dict["minutes"] = minutes
+      }
+      return dict
+    }
+    
+    CloudKitManager.shared.saveNotificationToCloudKit(
+      notificationId: notificationId,
+      bucketId: bucketId,
+      title: title,
+      body: body,
+      subtitle: subtitle,
+      createdAt: createdAt,
+      readAt: readAt,
+      attachments: attachments,
+      actions: cloudKitActions
+    ) { success, error in
+      if success {
+        print("📱 [NotificationService] ✅ Notification saved to CloudKit: \(notificationId)")
+      } else {
+        print("📱 [NotificationService] ⚠️ Failed to save notification to CloudKit: \(error?.localizedDescription ?? "Unknown error")")
+      }
     }
   }
 

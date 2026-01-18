@@ -21,6 +21,20 @@ function getSharedSwiftFiles(sharedFilesSource: string): string[] {
     .map(entry => entry.name);
 }
 
+/**
+ * Get all Objective-C files (.m) from the ZentikShared directory
+ */
+function getSharedObjCFiles(sharedFilesSource: string): string[] {
+  if (!fs.existsSync(sharedFilesSource)) {
+    return [];
+  }
+
+  const entries = fs.readdirSync(sharedFilesSource, { withFileTypes: true });
+  return entries
+    .filter(entry => entry.isFile() && entry.name.endsWith('.m'))
+    .map(entry => entry.name);
+}
+
 function copySharedFilesToAppDelegate(
   pluginDir: string,
   appDelegateDir: string
@@ -33,21 +47,32 @@ function copySharedFilesToAppDelegate(
   }
 
   // Get all Swift files from ZentikShared directory
-  const sharedFiles = getSharedSwiftFiles(sharedFilesSource);
+  const sharedSwiftFiles = getSharedSwiftFiles(sharedFilesSource);
+  const sharedObjCFiles = getSharedObjCFiles(sharedFilesSource);
 
-  if (sharedFiles.length === 0) {
-    console.log(`[AppDelegate] ⚠️  No Swift files found in: ${sharedFilesSource}`);
+  if (sharedSwiftFiles.length === 0 && sharedObjCFiles.length === 0) {
+    console.log(`[AppDelegate] ⚠️  No Swift or Objective-C files found in: ${sharedFilesSource}`);
     return;
   }
 
-  console.log(`[AppDelegate] 📦 Found ${sharedFiles.length} shared Swift files`);
+  console.log(`[AppDelegate] 📦 Found ${sharedSwiftFiles.length} Swift files and ${sharedObjCFiles.length} Objective-C files`);
 
-  for (const file of sharedFiles) {
+  // Copy Swift files
+  for (const file of sharedSwiftFiles) {
     const sourcePath = path.join(sharedFilesSource, file);
     const destPath = path.join(appDelegateDir, file);
 
     fs.copyFileSync(sourcePath, destPath);
-    console.log(`[AppDelegate] ✓ Copied shared file: ${file}`);
+    console.log(`[AppDelegate] ✓ Copied Swift file: ${file}`);
+  }
+
+  // Copy Objective-C files (.m)
+  for (const file of sharedObjCFiles) {
+    const sourcePath = path.join(sharedFilesSource, file);
+    const destPath = path.join(appDelegateDir, file);
+
+    fs.copyFileSync(sourcePath, destPath);
+    console.log(`[AppDelegate] ✓ Copied Objective-C file: ${file}`);
   }
 }
 
@@ -99,13 +124,29 @@ const withCustomAppDelegate: ConfigPlugin = (config) => {
 
     // Get all Swift files from ZentikShared directory
     const sharedFilesSource = path.join(projectRoot, 'plugins', 'ZentikShared');
-    const sharedFiles = getSharedSwiftFiles(sharedFilesSource);
+    const sharedSwiftFiles = getSharedSwiftFiles(sharedFilesSource);
+    const sharedObjCFiles = getSharedObjCFiles(sharedFilesSource);
 
     // Add all files to the project
     const pbxGroupKey = pbxProject.findPBXGroupKey({ name: appDirName });
 
-    for (const file of sharedFiles) {
+    // Add Swift files
+    for (const file of sharedSwiftFiles) {
       // Use path relative to the app directory (e.g., "ZentikDev/filename.swift")
+      const relativeFilePath = `${appDirName}/${file}`;
+
+      // Add file to project
+      pbxProject.addSourceFile(
+        relativeFilePath,
+        { target: mainTargetKey },
+        pbxGroupKey
+      );
+      console.log(`[AppDelegate] ✓ Added ${file} to Xcode project (${relativeFilePath})`);
+    }
+
+    // Add Objective-C files (.m)
+    for (const file of sharedObjCFiles) {
+      // Use path relative to the app directory (e.g., "ZentikDev/filename.m")
       const relativeFilePath = `${appDirName}/${file}`;
 
       // Add file to project

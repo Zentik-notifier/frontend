@@ -5,6 +5,7 @@
 
 import { Platform } from 'react-native';
 import { executeQuery as executeQuerySafe } from '../../services/db-setup';
+import iosBridgeService from '../../services/ios-bridge';
 
 /**
  * Bucket interface matching GraphQL BucketFragment
@@ -95,7 +96,7 @@ function parseBucketFromDB(record: any): BucketData {
  * Save a single bucket to local storage
  */
 export async function saveBucket(bucket: BucketData): Promise<void> {
-  return await executeQuery(async (db) => {
+  await executeQuery(async (db) => {
     const record = parseBucketForDB(bucket);
 
     if (Platform.OS === 'web') {
@@ -122,6 +123,13 @@ export async function saveBucket(bucket: BucketData): Promise<void> {
       );
     }
   }, 'saveBucket');
+
+  // Trigger CloudKit sync with debounce on iOS
+  if (Platform.OS === 'ios') {
+    iosBridgeService.triggerCloudKitSyncWithDebounce().catch((error) => {
+      console.error('[BucketsRepository] Failed to trigger CloudKit sync:', error);
+    });
+  }
 }
 
 /**
@@ -130,7 +138,7 @@ export async function saveBucket(bucket: BucketData): Promise<void> {
 export async function saveBuckets(buckets: BucketData[]): Promise<void> {
   if (!buckets || buckets.length === 0) return;
 
-  return await executeQuery(async (db) => {
+  await executeQuery(async (db) => {
     if (Platform.OS === 'web') {
       // IndexedDB - use transaction for bulk insert
       const tx = db.transaction('buckets', 'readwrite');
@@ -170,6 +178,13 @@ export async function saveBuckets(buckets: BucketData[]): Promise<void> {
       });
     }
   }, 'saveBuckets');
+
+  // Trigger CloudKit sync with debounce on iOS
+  if (Platform.OS === 'ios') {
+    iosBridgeService.triggerCloudKitSyncWithDebounce().catch((error) => {
+      console.error('[BucketsRepository] Failed to trigger CloudKit sync:', error);
+    });
+  }
 }
 
 /**

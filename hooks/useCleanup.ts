@@ -10,6 +10,7 @@ import { getAllBuckets } from "@/db/repositories/buckets-repository";
 import { Platform } from "react-native";
 import { useNotificationActions } from "./useNotificationActions";
 import { useGetVersionsInfo } from "./useGetVersionsInfo";
+import iosBridgeService from "@/services/ios-bridge";
 
 // Polyfill for requestIdleCallback (not available in React Native)
 const requestIdleCallbackPolyfill = (callback: () => void) => {
@@ -156,6 +157,30 @@ export const useCleanup = () => {
                 console.log(`[Cleanup] ✓ Network skip, using cache only`);
             }
             await waitRAF();
+
+            // 3.1. Trigger CloudKit incremental sync (iOS only)
+            // Syncs only records that have changed since the last sync
+            if (Platform.OS === 'ios' && !skipNetwork) {
+                await executeWithRAF(
+                    async () => {
+                        try {
+                            const result = await iosBridgeService.syncFromCloudKitIncremental(false);
+                            if (result.success) {
+                                console.log(`[Cleanup] ✓ CloudKit incremental sync completed - Updated: ${result.updatedCount} records`);
+                                // Invalidate React Query to refresh UI
+                                queryClient.invalidateQueries({ queryKey: ['notifications'] });
+                                queryClient.invalidateQueries({ queryKey: ['app-state'] });
+                            } else {
+                                console.warn(`[Cleanup] ⚠️ CloudKit incremental sync failed`);
+                            }
+                        } catch (error) {
+                            console.warn(`[Cleanup] ⚠️ CloudKit incremental sync error:`, error);
+                        }
+                    },
+                    'CloudKit incremental sync'
+                ).catch(() => { });
+                await waitRAF();
+            }
 
             // 4. Update device metadata (app versions, build info) for the current user device
             try {

@@ -83,6 +83,14 @@
       "description": "Configure the display of hints and guides in the app",
       "showHintsTitle": "Show Hints"
     },
+    "cloudKit": {
+      "title": "CloudKit Sync",
+      "description": "Synchronize your notifications and buckets with CloudKit to keep them in sync across your Apple devices",
+      "syncButton": "Sync to CloudKit",
+      "syncing": "Syncing...",
+      "syncSuccess": "CloudKit sync completed successfully. Synced {{notifications}} notifications and {{buckets}} buckets. Updated {{updatedNotifications}} notifications and {{updatedBuckets}} buckets.",
+      "syncError": "Failed to sync with CloudKit. Please try again."
+    },
     "privacy": {
       "title": "Privacy",
       "description": "Control how your UI actions are tracked for service improvement",

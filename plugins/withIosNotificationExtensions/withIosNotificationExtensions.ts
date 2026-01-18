@@ -40,16 +40,23 @@ function copySharedFilesToTarget(
     return;
   }
 
+  // Files to exclude from extensions (React Native bridges)
+  // CloudKitManager.swift is needed in both NSE and NCE for NotificationActionHandler
+  const excludedFiles = [
+    'CloudKitSyncBridge.swift'  // React Native bridge, not needed in extensions
+  ];
+
   // Read all .swift files from the ZentikShared directory
   const sharedFiles = fs.readdirSync(sharedFilesSource)
-    .filter(file => file.endsWith('.swift'));
+    .filter(file => file.endsWith('.swift'))
+    .filter(file => !excludedFiles.includes(file));
 
   if (sharedFiles.length === 0) {
     console.log(`[${targetName}] ⚠️  No .swift files found in ${sharedFilesSource}`);
     return;
   }
 
-  console.log(`[${targetName}] 📦 Found ${sharedFiles.length} shared files to copy`);
+  console.log(`[${targetName}] 📦 Found ${sharedFiles.length} shared files to copy (${excludedFiles.length} excluded)`);
 
   for (const file of sharedFiles) {
     const sourcePath = path.join(sharedFilesSource, file);
@@ -60,6 +67,15 @@ function copySharedFilesToTarget(
       console.log(`[${targetName}] ✓ Copied shared file: ${file}`);
     } else {
       console.log(`[${targetName}] ⚠️  Shared file not found: ${file}`);
+    }
+  }
+
+  // Remove excluded files if they exist (in case they were copied previously)
+  for (const excludedFile of excludedFiles) {
+    const excludedFilePath = path.join(targetDir, excludedFile);
+    if (fs.existsSync(excludedFilePath)) {
+      fs.unlinkSync(excludedFilePath);
+      console.log(`[${targetName}] 🗑️  Removed excluded file: ${excludedFile}`);
     }
   }
 }
@@ -75,9 +91,26 @@ async function addAppExtensionTarget(
 ): Promise<string> {  // Return target UUID
   const pbxProject = newConfig.modResults;
 
+  // Files to exclude from extensions (React Native bridges)
+  // CloudKitManager.swift is needed in both NSE and NCE for NotificationActionHandler
+  const excludedFiles = [
+    'CloudKitSyncBridge.swift'  // React Native bridge, not needed in extensions
+  ];
+
   const existingTargetKey = pbxProject.findTargetKey(targetName);
   if (existingTargetKey) {
-    console.log(`Target ${targetName} già presente, salto aggiunta.`);
+    console.log(`Target ${targetName} già presente, aggiornando file condivisi...`);
+    
+    // Update shared files even if target exists
+    const iosDir = path.join(projectRoot, 'ios');
+    const destDir = path.join(iosDir, targetName);
+    
+    // Copy shared files into the target directory (will exclude CloudKit files)
+    copySharedFilesToTarget(pluginDir, destDir, targetName);
+    
+    // Note: Files are excluded from being added to Xcode project in the main loop below
+    // If files were previously added, they will be removed by post-build-ios.js script
+    
     return existingTargetKey;
   }
 
@@ -97,6 +130,12 @@ async function addAppExtensionTarget(
 
   const entries = fs.readdirSync(destDir);
   for (const file of entries) {
+    // Skip excluded files for extensions
+    if (excludedFiles.includes(file)) {
+      console.log(`[${targetName}] ⏭️  Skipping ${file} in Xcode project (excluded)`);
+      continue;
+    }
+
     const absPath = path.join(destDir, file);
     const pbxGroupKey = pbxProject.pbxCreateGroup(targetName, targetName);
     if (file.endsWith('.plist')) {

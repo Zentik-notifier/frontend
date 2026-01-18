@@ -356,6 +356,7 @@ class DatabaseAccessBridge: NSObject {
       type: .read,
       name: "executeQuery",
       source: "RNBridge",
+      verboseLogging: false,
       operation: { db in
         var statement: OpaquePointer?
         

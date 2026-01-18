@@ -3,6 +3,7 @@ import FirebaseCore
 import React
 import ReactAppDependencyProvider
 import UserNotifications
+import CloudKit
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
@@ -59,9 +60,26 @@ FirebaseApp.configure()
     
     UNUserNotificationCenter.current().delegate = self
     
-    // Initialize WatchConnectivity early to handle background transfers from Watch
-    // This ensures WCSession is activated even if React Native hasn't started yet
-    _ = iPhoneWatchConnectivityManager.shared
+    // Initialize CloudKit schema if needed (creates record types automatically)
+    CloudKitManager.shared.initializeSchemaIfNeeded { success, error in
+      if success {
+        print("☁️ [AppDelegate] CloudKit schema initialized successfully")
+        
+        // Setup CloudKit subscriptions after schema is initialized
+        CloudKitManager.shared.setupSubscriptions { success, error in
+          if success {
+            print("☁️ [AppDelegate] CloudKit subscriptions setup successfully")
+          } else if let error = error {
+            print("☁️ [AppDelegate] CloudKit subscriptions setup failed: \(error.localizedDescription)")
+          }
+        }
+      } else if let error = error {
+        print("☁️ [AppDelegate] CloudKit schema initialization failed: \(error.localizedDescription)")
+      }
+    }
+    
+    // Register for remote notifications (required for CloudKit subscriptions)
+    application.registerForRemoteNotifications()
 
     return result
   }
@@ -214,18 +232,8 @@ FirebaseApp.configure()
     ) { result in
       switch result {
       case .success:
-        // Notify Watch via WatchConnectivity after successful action
-        if type.uppercased() == "MARK_AS_READ" {
-          let readAt = ISO8601DateFormatter().string(from: Date())
-          iPhoneWatchConnectivityManager.shared.notifyWatchNotificationRead(
-            notificationId: notificationId,
-            readAt: readAt
-          )
-        } else if type.uppercased() == "DELETE" {
-          iPhoneWatchConnectivityManager.shared.notifyWatchNotificationDeleted(
-            notificationId: notificationId
-          )
-        }
+        // CloudKit sync will handle Watch updates automatically
+        break
         
       case .failure(let error):
         LoggingSystem.shared.error(
@@ -263,4 +271,48 @@ FirebaseApp.configure()
     let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
   }
+  
+  // MARK: - Remote Notifications (CloudKit)
+  
+  /// Called when app successfully registers for remote notifications
+  public override func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    print("☁️ [AppDelegate] ✅ Registered for remote notifications")
+    print("☁️ [AppDelegate] Device token: \(deviceToken.map { String(format: "%02.2hhx", $0) }.joined())")
+    super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+  }
+  
+  /// Called when app fails to register for remote notifications
+  public override func application(
+    _ application: UIApplication,
+    didFailToRegisterForRemoteNotificationsWithError error: Error
+  ) {
+    print("☁️ [AppDelegate] ❌ Failed to register for remote notifications: \(error.localizedDescription)")
+    super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+  }
+  
+  /// Called when app receives remote notification (CloudKit changes)
+  public override func application(
+    _ application: UIApplication,
+    didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    // Check if this is a CloudKit notification
+    if let notification = CKNotification(fromRemoteNotificationDictionary: userInfo as! [String: NSObject]) {
+      let subscriptionID = notification.subscriptionID ?? "unknown"
+      // Reduced verbosity - only log errors
+      CloudKitManager.shared.handleRemoteNotification(userInfo: userInfo, completion: completionHandler)
+    } else {
+      LoggingSystem.shared.log(
+        level: "INFO",
+        tag: "CloudKit",
+        message: "Non-CloudKit notification - forwarding to super",
+        source: "AppDelegate"
+      )
+      super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
+    }
+  }
+  
 }

@@ -1,0 +1,295 @@
+import Foundation
+import WatchKit
+import CloudKit
+import UserNotifications
+
+/**
+ * WatchExtensionDelegate - Handles CloudKit remote notifications for Watch
+ * 
+ * Receives CloudKit change notifications and updates local cache
+ * Implements UNUserNotificationCenterDelegate to handle notifications in foreground
+ */
+class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationCenterDelegate {
+    
+    func applicationDidFinishLaunching() {
+        print("⌚ [WatchExtensionDelegate] Application did finish launching")
+        
+        // Set up UNUserNotificationCenter delegate for foreground notifications
+        UNUserNotificationCenter.current().delegate = self
+        
+        // Request notification permissions (required for CloudKit subscriptions)
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if granted {
+                print("⌚ [WatchExtensionDelegate] ✅ Notification permissions granted")
+                LoggingSystem.shared.log(
+                    level: "INFO",
+                    tag: "Watch",
+                    message: "Notification permissions granted",
+                    source: "WatchExtensionDelegate"
+                )
+            } else if let error = error {
+                print("⌚ [WatchExtensionDelegate] ❌ Notification permissions denied: \(error.localizedDescription)")
+                LoggingSystem.shared.log(
+                    level: "ERROR",
+                    tag: "Watch",
+                    message: "Notification permissions denied",
+                    metadata: ["error": error.localizedDescription],
+                    source: "WatchExtensionDelegate"
+                )
+            } else {
+                print("⌚ [WatchExtensionDelegate] ⚠️ Notification permissions denied by user")
+                LoggingSystem.shared.log(
+                    level: "WARN",
+                    tag: "Watch",
+                    message: "Notification permissions denied by user",
+                    source: "WatchExtensionDelegate"
+                )
+            }
+        }
+        
+        // Register for remote notifications (required for CloudKit subscriptions)
+        print("⌚ [WatchExtensionDelegate] 📱 Registering for remote notifications...")
+        WKExtension.shared().registerForRemoteNotifications()
+        
+        LoggingSystem.shared.log(
+            level: "INFO",
+            tag: "Watch",
+            message: "Application did finish launching - registering for remote notifications",
+            source: "WatchExtensionDelegate"
+        )
+        
+        // Initialize CloudKit schema and subscriptions
+        CloudKitManager.shared.initializeSchemaIfNeeded { success, error in
+            if success {
+                print("⌚ [WatchExtensionDelegate] ✅ CloudKit schema initialized")
+                
+                // Setup CloudKit subscriptions
+                CloudKitManager.shared.setupSubscriptions { success, error in
+                    if success {
+                        print("⌚ [WatchExtensionDelegate] ✅ CloudKit subscriptions setup successfully")
+                        
+                        // Re-register for remote notifications after subscriptions are setup
+                        // This ensures we're registered even if the first attempt failed
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            print("⌚ [WatchExtensionDelegate] 📱 Re-registering for remote notifications after subscription setup...")
+                            WKExtension.shared().registerForRemoteNotifications()
+                        }
+                    } else if let error = error {
+                        print("⌚ [WatchExtensionDelegate] ❌ CloudKit subscriptions setup failed: \(error.localizedDescription)")
+                        LoggingSystem.shared.log(
+                            level: "ERROR",
+                            tag: "Watch",
+                            message: "CloudKit subscriptions setup failed",
+                            metadata: ["error": error.localizedDescription],
+                            source: "WatchExtensionDelegate"
+                        )
+                    }
+                }
+            } else if let error = error {
+                print("⌚ [WatchExtensionDelegate] ❌ CloudKit schema initialization failed: \(error.localizedDescription)")
+                LoggingSystem.shared.log(
+                    level: "ERROR",
+                    tag: "Watch",
+                    message: "CloudKit schema initialization failed",
+                    metadata: ["error": error.localizedDescription],
+                    source: "WatchExtensionDelegate"
+                )
+            }
+        }
+    }
+    
+    func didRegisterForRemoteNotifications(withDeviceToken deviceToken: Data) {
+        let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
+        print("⌚ [WatchExtensionDelegate] ✅ Registered for remote notifications")
+        print("⌚ [WatchExtensionDelegate] Device token: \(tokenString)")
+        
+        LoggingSystem.shared.log(
+            level: "INFO",
+            tag: "Watch",
+            message: "Successfully registered for remote notifications",
+            metadata: ["deviceTokenLength": "\(deviceToken.count)", "deviceTokenPrefix": String(tokenString.prefix(16))],
+            source: "WatchExtensionDelegate"
+        )
+    }
+    
+    func didFailToRegisterForRemoteNotifications(withError error: Error) {
+        print("⌚ [WatchExtensionDelegate] ❌ Failed to register for remote notifications: \(error.localizedDescription)")
+        
+        LoggingSystem.shared.log(
+            level: "ERROR",
+            tag: "Watch",
+            message: "Failed to register for remote notifications",
+            metadata: ["error": error.localizedDescription],
+            source: "WatchExtensionDelegate"
+        )
+    }
+    
+    func applicationDidBecomeActive() {
+        print("⌚ [WatchExtensionDelegate] Application became active")
+        
+        // Re-register for remote notifications in case registration failed
+        // CloudKit subscriptions with shouldSendContentAvailable should work in foreground
+        WKExtension.shared().registerForRemoteNotifications()
+        
+        // Notify WatchConnectivityManager that app became active (for one-time sync)
+        NotificationCenter.default.post(name: NSNotification.Name("WatchAppDidBecomeActive"), object: nil)
+    }
+    
+    func applicationWillResignActive() {
+        print("⌚ [WatchExtensionDelegate] Application will resign active")
+        
+        // Notify WatchConnectivityManager that app will resign active (so it can stop polling)
+        NotificationCenter.default.post(name: NSNotification.Name("WatchAppWillResignActive"), object: nil)
+    }
+    
+    func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
+        print("⌚ [WatchExtensionDelegate] Handling background tasks: \(backgroundTasks.count)")
+        
+        for task in backgroundTasks {
+            print("⌚ [WatchExtensionDelegate] Background task type: \(type(of: task))")
+            
+            if let refreshTask = task as? WKApplicationRefreshBackgroundTask {
+                print("⌚ [WatchExtensionDelegate] Application refresh background task")
+                // Handle CloudKit sync here if needed
+                refreshTask.setTaskCompletedWithSnapshot(false)
+            } else if let snapshotTask = task as? WKSnapshotRefreshBackgroundTask {
+                print("⌚ [WatchExtensionDelegate] Snapshot refresh background task")
+                snapshotTask.setTaskCompleted(restoredDefaultState: true, estimatedSnapshotExpiration: Date.distantFuture, userInfo: nil)
+            } else if let connectivityTask = task as? WKWatchConnectivityRefreshBackgroundTask {
+                print("⌚ [WatchExtensionDelegate] WatchConnectivity refresh background task")
+                connectivityTask.setTaskCompletedWithSnapshot(false)
+            } else if let urlSessionTask = task as? WKURLSessionRefreshBackgroundTask {
+                print("⌚ [WatchExtensionDelegate] URL session refresh background task")
+                urlSessionTask.setTaskCompletedWithSnapshot(false)
+            } else {
+                print("⌚ [WatchExtensionDelegate] Unknown background task type")
+                task.setTaskCompletedWithSnapshot(false)
+            }
+        }
+    }
+    
+    // MARK: - Remote Notifications (CloudKit)
+    
+    func didReceiveRemoteNotification(_ userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (WKBackgroundFetchResult) -> Void) {
+        print("⌚ [WatchExtensionDelegate] 📬 Received remote notification")
+        print("⌚ [WatchExtensionDelegate] Notification userInfo keys: \(userInfo.keys)")
+        print("⌚ [WatchExtensionDelegate] Notification userInfo: \(userInfo)")
+        
+        LoggingSystem.shared.log(
+            level: "INFO",
+            tag: "Watch",
+            message: "Received remote notification",
+            metadata: [
+                "userInfoKeys": "\(Array(userInfo.keys))",
+                "userInfoCount": "\(userInfo.count)"
+            ],
+            source: "WatchExtensionDelegate"
+        )
+        
+        // Check if this is a CloudKit notification
+        if let notification = CKNotification(fromRemoteNotificationDictionary: userInfo as! [String: NSObject]) {
+            print("⌚ [WatchExtensionDelegate] ☁️ CloudKit notification detected")
+            print("⌚ [WatchExtensionDelegate] Notification type: \(notification.notificationType.rawValue)")
+            print("⌚ [WatchExtensionDelegate] Subscription ID: \(notification.subscriptionID ?? "nil")")
+            
+            // Extract record information if available
+            if let queryNotification = notification as? CKQueryNotification {
+                print("⌚ [WatchExtensionDelegate] 📝 Query notification - recordName: \(queryNotification.recordID?.recordName ?? "nil"), reason: \(queryNotification.queryNotificationReason.rawValue)")
+            }
+            
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "Watch",
+                message: "CloudKit notification detected",
+                metadata: [
+                    "notificationType": "\(notification.notificationType.rawValue)",
+                    "subscriptionID": notification.subscriptionID ?? "nil"
+                ],
+                source: "WatchExtensionDelegate"
+            )
+            
+            // Convert WKBackgroundFetchResult to UIBackgroundFetchResult for CloudKitManager
+            CloudKitManager.shared.handleRemoteNotification(userInfo: userInfo) { result in
+                let watchResult: WKBackgroundFetchResult
+                switch result {
+                case .newData:
+                    watchResult = .newData
+                case .noData:
+                    watchResult = .noData
+                case .failed:
+                    watchResult = .failed
+                @unknown default:
+                    watchResult = .noData
+                }
+                print("⌚ [WatchExtensionDelegate] ✅ CloudKit notification processed - result: \(watchResult)")
+                LoggingSystem.shared.log(
+                    level: "INFO",
+                    tag: "Watch",
+                    message: "CloudKit notification processed",
+                    metadata: ["result": "\(watchResult)"],
+                    source: "WatchExtensionDelegate"
+                )
+                completionHandler(watchResult)
+            }
+        } else {
+            print("⌚ [WatchExtensionDelegate] ⚠️ Not a CloudKit notification")
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "CloudKit",
+                message: "Non-CloudKit notification on Watch",
+                source: "WatchExtensionDelegate"
+            )
+            completionHandler(.noData)
+        }
+    }
+    
+    // MARK: - UNUserNotificationCenterDelegate (for foreground notifications)
+    
+    /// Called when a notification is delivered while the app is in the foreground
+    /// This allows us to handle CloudKit subscription notifications even when the app is active
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        print("⌚ [WatchExtensionDelegate] 📬 Notification received in foreground")
+        
+        let userInfo = notification.request.content.userInfo
+        
+        LoggingSystem.shared.log(
+            level: "INFO",
+            tag: "Watch",
+            message: "Notification received in foreground",
+            metadata: [
+                "userInfoKeys": "\(Array(userInfo.keys))",
+                "identifier": notification.request.identifier
+            ],
+            source: "WatchExtensionDelegate"
+        )
+        
+        // Check if this is a CloudKit notification
+        if let ckNotification = CKNotification(fromRemoteNotificationDictionary: userInfo as! [String: NSObject]) {
+            print("⌚ [WatchExtensionDelegate] ☁️ CloudKit notification in foreground - processing silently")
+            
+            // Process CloudKit notification silently (don't show alert)
+            // The notification will be handled by didReceiveRemoteNotification or we can process it here
+            CloudKitManager.shared.handleRemoteNotification(userInfo: userInfo) { result in
+                print("⌚ [WatchExtensionDelegate] ✅ CloudKit notification processed in foreground - result: \(result)")
+                // Don't show notification banner - we handle it silently
+                completionHandler([])
+            }
+        } else {
+            // For non-CloudKit notifications, show them normally
+            print("⌚ [WatchExtensionDelegate] 📢 Non-CloudKit notification - showing normally")
+            completionHandler([.banner, .sound, .badge])
+        }
+    }
+    
+    /// Called when user interacts with a notification
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        print("⌚ [WatchExtensionDelegate] 👆 User interacted with notification")
+        
+        let userInfo = response.notification.request.content.userInfo
+        
+        // Handle notification interaction if needed
+        // For CloudKit notifications, we might want to navigate to specific content
+        
+        completionHandler()
+    }
+}

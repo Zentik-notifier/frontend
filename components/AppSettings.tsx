@@ -2,7 +2,7 @@ import { settingsService } from "@/services/settings-service";
 import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, Platform } from "react-native";
 import {
   Button,
   Card,
@@ -22,6 +22,7 @@ import ThemeSettings from "./ThemeSettings";
 import UnifiedCacheSettings from "./UnifiedCacheSettings";
 import { VersionInfo } from "./VersionInfo";
 import { useSettings } from "@/hooks/useSettings";
+import iosBridgeService from "@/services/ios-bridge";
 
 export function AppSettings() {
   const theme = useTheme();
@@ -48,6 +49,9 @@ export function AppSettings() {
   // Privacy policy viewer state
   const [privacyPolicyVisible, setPrivacyPolicyVisible] = useState(false);
   const privacyPolicyDocument = LEGAL_DOCUMENTS.find(doc => doc.id === 'privacy-policy');
+  
+  // CloudKit sync state
+  const [cloudKitSyncing, setCloudKitSyncing] = useState(false);
 
   useEffect(() => {
     loadApiUrl();
@@ -118,6 +122,37 @@ export function AppSettings() {
 
   const handleToggleUserTracking = async (value: boolean) => {
     await setDisableUserTracking(!value);
+  };
+
+  const handleCloudKitSync = async () => {
+    if (Platform.OS !== 'ios') {
+      return;
+    }
+    
+    setCloudKitSyncing(true);
+    try {
+      const result = await iosBridgeService.triggerCloudKitSync();
+      if (result.success) {
+        setDialogMessage(
+          t("appSettings.cloudKit.syncSuccess", {
+            notifications: result.notificationsSynced,
+            buckets: result.bucketsSynced,
+            updatedNotifications: result.notificationsUpdated,
+            updatedBuckets: result.bucketsUpdated,
+          })
+        );
+        setShowSuccessDialog(true);
+      } else {
+        setDialogMessage(t("appSettings.cloudKit.syncError"));
+        setShowErrorDialog(true);
+      }
+    } catch (error) {
+      console.error("Failed to sync CloudKit:", error);
+      setDialogMessage(t("appSettings.cloudKit.syncError"));
+      setShowErrorDialog(true);
+    } finally {
+      setCloudKitSyncing(false);
+    }
   };
 
   const handleRefresh = async () => {
@@ -218,6 +253,38 @@ export function AppSettings() {
             </View>
           </Card.Content>
         </Card>
+
+        {/* CloudKit Sync Settings (iOS only) */}
+        {Platform.OS === 'ios' && (
+          <Card style={styles.apiUrlCard}>
+            <Card.Content>
+              <Text variant="headlineSmall" style={styles.sectionTitle}>
+                {t("appSettings.cloudKit.title")}
+              </Text>
+              <Text
+                variant="bodyMedium"
+                style={[
+                  styles.sectionDescription,
+                  { color: theme.colors.onSurfaceVariant, marginBottom: 16 },
+                ]}
+              >
+                {t("appSettings.cloudKit.description")}
+              </Text>
+              <Button
+                mode="contained"
+                icon="cloud-sync"
+                onPress={handleCloudKitSync}
+                disabled={cloudKitSyncing}
+                loading={cloudKitSyncing}
+                style={{ marginTop: 8 }}
+              >
+                {cloudKitSyncing
+                  ? t("appSettings.cloudKit.syncing")
+                  : t("appSettings.cloudKit.syncButton")}
+              </Button>
+            </Card.Content>
+          </Card>
+        )}
 
         {/* Privacy Settings */}
         <Card style={styles.apiUrlCard}>

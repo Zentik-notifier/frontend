@@ -2,6 +2,7 @@ import { NotificationFragment } from '@/generated/gql-operations-generated';
 import { Platform } from 'react-native';
 import { executeQuery as executeQuerySafe, parseNotificationForDB, parseNotificationFromDB } from './db-setup';
 import { settingsService } from './settings-service';
+import iosBridgeService from './ios-bridge';
 
 /**
  * Notification repository for managing notification storage operations
@@ -114,6 +115,13 @@ export async function saveNotificationToCache(notificationData: NotificationFrag
       );
     }
   }, 'saveNotificationToCache');
+
+  // Trigger CloudKit sync with debounce on iOS
+  if (Platform.OS === 'ios') {
+    iosBridgeService.triggerCloudKitSyncWithDebounce().catch((error) => {
+      console.error('[NotificationsRepository] Failed to trigger CloudKit sync:', error);
+    });
+  }
 }
 
 /**
@@ -537,6 +545,17 @@ export async function updateNotificationReadStatus(notificationId: string, readA
       throw error;
     }
   }, 'updateNotificationReadStatus');
+
+  // Update CloudKit directly (more efficient than full sync)
+  if (Platform.OS === 'ios') {
+    iosBridgeService.updateNotificationReadStatusInCloudKit(
+      notificationId,
+      readAt !== null,
+      readAt
+    ).catch((error) => {
+      console.error('[NotificationsRepository] Failed to update CloudKit read status:', error);
+    });
+  }
 }
 
 /**
@@ -656,6 +675,20 @@ export async function updateNotificationsReadStatus(notificationIds: string[], r
       throw error;
     }
   }, 'updateNotificationsReadStatus');
+
+  // Update CloudKit directly (more efficient than full sync)
+  if (Platform.OS === 'ios') {
+    console.log(`[updateNotificationsReadStatus] Updating ${notificationIds.length} notifications in CloudKit - isRead: ${readAt !== null}`);
+    iosBridgeService.updateNotificationsReadStatusInCloudKit(
+      notificationIds,
+      readAt !== null,
+      readAt
+    ).then((result) => {
+      console.log(`[updateNotificationsReadStatus] ✅ CloudKit batch update completed - success: ${result.success}, updatedCount: ${result.updatedCount}`);
+    }).catch((error) => {
+      console.error('[NotificationsRepository] Failed to update CloudKit read status:', error);
+    });
+  }
 }
 
 /**
@@ -703,6 +736,13 @@ export async function deleteNotificationFromCache(notificationId: string): Promi
       throw error;
     }
   }, 'deleteNotificationFromCache');
+
+  // Delete from CloudKit directly (more efficient than full sync)
+  if (Platform.OS === 'ios') {
+    iosBridgeService.deleteNotificationFromCloudKit(notificationId).catch((error) => {
+      console.error('[NotificationsRepository] Failed to delete notification from CloudKit:', error);
+    });
+  }
 }
 
 /**
@@ -764,6 +804,13 @@ export async function deleteNotificationsFromCache(notificationIds: string[]): P
       throw error;
     }
   }, 'deleteNotificationsFromCache');
+
+  // Delete from CloudKit directly (more efficient than full sync)
+  if (Platform.OS === 'ios') {
+    iosBridgeService.deleteNotificationsFromCloudKit(notificationIds).catch((error) => {
+      console.error('[NotificationsRepository] Failed to delete notifications from CloudKit:', error);
+    });
+  }
 }
 
 /**

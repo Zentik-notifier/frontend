@@ -39,7 +39,6 @@ class BucketIconCache: ObservableObject {
             iconUrl: iconUrl
         ), let image = UIImage(data: iconData) {
             bucketIcons[bucketId] = image
-            print("⌚ [BucketIconCache] ✅ Loaded icon for bucket \(bucketId) (\(bucketName))")
         }
     }
     
@@ -369,7 +368,11 @@ struct BucketMenuView: View {
     /// Load ALL icons needed for UI (buckets + notifications)
     /// This is the ONLY place where icons are loaded - child components never load icons
     private func loadAllIcons() {
-        print("⌚ [BucketMenuView] 🔄 Loading all icons...")
+        // Create a lookup map for buckets by ID
+        var bucketMap: [String: BucketItem] = [:]
+        for bucket in buckets {
+            bucketMap[bucket.id] = bucket
+        }
         
         // 1. Load bucket icons for buckets with notifications
         let bucketsWithNotifications = buckets.filter { $0.unreadCount > 0 || $0.totalCount > 0 }
@@ -385,15 +388,23 @@ struct BucketMenuView: View {
         // 2. Load icons for all notifications (some notifications may have buckets not in bucket list)
         for notificationData in connectivityManager.notifications {
             let notification = notificationData.notification
-            iconCache.loadIcon(
-                bucketId: notification.bucketId,
-                bucketName: notification.bucketName ?? "Notification",
-                bucketColor: notification.bucketColor,
-                iconUrl: notification.bucketIconUrl
-            )
+            
+            // Try to get bucket info from bucketMap first, then from notification
+            let bucketInfo = bucketMap[notification.bucketId]
+            let bucketName = notification.bucketName ?? bucketInfo?.name
+            let bucketColor = notification.bucketColor ?? bucketInfo?.color
+            let bucketIconUrl = notification.bucketIconUrl ?? bucketInfo?.iconUrl
+            
+            // Only load icon if we have at least a bucketName or bucketInfo
+            if let bucketName = bucketName {
+                iconCache.loadIcon(
+                    bucketId: notification.bucketId,
+                    bucketName: bucketName,
+                    bucketColor: bucketColor,
+                    iconUrl: bucketIconUrl
+                )
+            }
         }
-        
-        print("⌚ [BucketMenuView] ✅ Loaded \(iconCache.bucketIcons.count) icons")
     }
 }
 

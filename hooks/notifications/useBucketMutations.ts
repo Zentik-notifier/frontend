@@ -188,9 +188,6 @@ export function useDeleteBucketWithNotifications(options?: {
 
       console.log('[useDeleteBucketWithNotifications] AppState updated with recalculated stats');
 
-      // Trigger WatchConnectivity event: data updated
-      // IosBridgeService.notifyWatchOfUpdate();
-
       if (options?.onSuccess) {
         options.onSuccess();
       }
@@ -385,9 +382,6 @@ export function useSetBucketSnooze(options?: {
 
       console.log('[useSetBucketSnooze] appState invalidated - all components will update');
 
-      // Trigger WatchConnectivity event: data updated
-      // IosBridgeService.notifyWatchOfUpdate();
-
       if (options?.onSuccess) {
         options.onSuccess(data.snoozeUntil);
       }
@@ -511,9 +505,6 @@ export function useUpdateBucketSnoozes(options?: {
       });
 
       console.log('[useUpdateBucketSnoozes] Queries invalidated');
-
-      // Trigger WatchConnectivity event: data updated
-      // IosBridgeService.notifyWatchOfUpdate();
 
       if (options?.onSuccess) {
         options.onSuccess();
@@ -727,9 +718,6 @@ export function useShareBucket(options?: {
       });
       console.log('[useShareBucket] AppState updated with new permission');
 
-      // Trigger WatchConnectivity event: data updated
-      // IosBridgeService.notifyWatchOfUpdate();
-
       if (options?.onSuccess) {
         options.onSuccess();
       }
@@ -870,9 +858,6 @@ export function useUnshareBucket(options?: {
 
       // No need to update cache again, optimistic update is already correct
       console.log('[useUnshareBucket] Optimistic update confirmed');
-
-      // Trigger WatchConnectivity event: data updated
-      // IosBridgeService.notifyWatchOfUpdate();
 
       if (options?.onSuccess) {
         options.onSuccess();
@@ -1065,9 +1050,6 @@ export function useCreateBucket(options?: {
       });
       console.log('[useCreateBucket] Related queries invalidated');
 
-      // Trigger WatchConnectivity event: data updated
-      // IosBridgeService.notifyWatchOfUpdate();
-
       if (options?.onSuccess) {
         options.onSuccess(bucket);
       }
@@ -1089,7 +1071,7 @@ export function useCreateBucket(options?: {
 }
 
 /**
- * Hook for updating an existing bucket with WatchConnection sync
+ * Hook for updating an existing bucket with Cloudkit sync
  * 
  * @example
  * ```typescript
@@ -1227,9 +1209,6 @@ export function useUpdateBucket(options?: {
         refetchType: 'none',
       });
       console.log('[useUpdateBucket] Related queries invalidated');
-
-      // Trigger WatchConnectivity event: data updated
-      // IosBridgeService.notifyWatchOfUpdate();
 
       if (options?.onSuccess) {
         options.onSuccess(bucket.id);

@@ -291,6 +291,7 @@ public class DatabaseAccess {
             type: .read,
             name: "FetchNotification",
             source: source,
+            verboseLogging: false,
             operation: { db in
                 let sql = "SELECT id, created_at, read_at, bucket_id, has_attachments, fragment FROM notifications WHERE id = ? LIMIT 1"
                 var stmt: OpaquePointer?
@@ -378,7 +379,7 @@ public class DatabaseAccess {
         }
     }
     
-    /// Get notification count from database
+    /// Get notification count from database (unread only)
     /// - Parameters:
     ///   - source: Source identifier for logging (default: "DatabaseAccess")
     ///   - completion: Completion handler with count (0 if error)
@@ -392,8 +393,51 @@ public class DatabaseAccess {
             type: .read,
             name: "GetNotificationCount",
             source: source,
+            verboseLogging: false,
             operation: { db in
                 let sql = "SELECT COUNT(*) FROM notifications WHERE read_at IS NULL"
+                var stmt: OpaquePointer?
+                
+                guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                    return .failure("Failed to prepare statement")
+                }
+                
+                defer { sqlite3_finalize(stmt) }
+                
+                guard sqlite3_step(stmt) == SQLITE_ROW else {
+                    return .failure("No row returned")
+                }
+                
+                resultCount = Int(sqlite3_column_int(stmt, 0))
+                return .success
+            }
+        ) { (dbResult: DatabaseOperationResult) in
+            switch dbResult {
+            case .success:
+                completion(resultCount)
+            default:
+                completion(0)
+            }
+        }
+    }
+    
+    /// Get total notification count from database (all notifications, read and unread)
+    /// - Parameters:
+    ///   - source: Source identifier for logging (default: "DatabaseAccess")
+    ///   - completion: Completion handler with count (0 if error)
+    public static func getTotalNotificationCount(
+        source: String = "DatabaseAccess",
+        completion: @escaping (Int) -> Void
+    ) {
+        var resultCount = 0
+        
+        performDatabaseOperation(
+            type: .read,
+            name: "GetTotalNotificationCount",
+            source: source,
+            verboseLogging: false,
+            operation: { db in
+                let sql = "SELECT COUNT(*) FROM notifications"
                 var stmt: OpaquePointer?
                 
                 guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
@@ -433,6 +477,7 @@ public class DatabaseAccess {
             type: .read,
             name: "NotificationExists",
             source: source,
+            verboseLogging: false,
             operation: { db in
                 let sql = "SELECT id FROM notifications WHERE id = ? LIMIT 1"
                 var stmt: OpaquePointer?
@@ -470,12 +515,14 @@ public class DatabaseAccess {
     ///   - timeout: Maximum time allowed for operation (default: 10 seconds)
     ///   - source: Source identifier for logging (NSE/NCE/AppDelegate)
     ///   - operation: The actual database operation to perform
+    ///   - verboseLogging: Whether to log detailed operation steps (default: true for write operations, false for read)
     ///   - completion: Completion handler with result
     public static func performDatabaseOperation(
         type operationType: DatabaseOperationType,
         name operationName: String,
         timeout: TimeInterval = DB_OPERATION_TIMEOUT,
         source: String = "Unknown",
+        verboseLogging: Bool? = nil,
         operation: @escaping (OpaquePointer) -> DatabaseOperationResult,
         completion: @escaping (DatabaseOperationResult) -> Void
     ) {
@@ -485,9 +532,14 @@ public class DatabaseAccess {
             var operationCompleted = false
             var finalResult: DatabaseOperationResult = .timeout
             
+            // Determine if verbose logging should be enabled (default: true for write, false for read)
+            let isVerbose = verboseLogging ?? (operationType == .write)
+            
             // Timeout protection: dispatch operation with timeout
             let timeoutWorkItem = DispatchWorkItem {
-                print("📱 [\(source)] 🔓 [\(operationName)] Starting database operation...")
+                if isVerbose {
+                    print("📱 [\(source)] 🔓 [\(operationName)] Starting database operation...")
+                }
                 
                 guard let dbPath = getDbPath() else {
                     print("📱 [\(source)] ❌ [\(operationName)] Failed to get DB path")
@@ -496,7 +548,9 @@ public class DatabaseAccess {
                     return
                 }
                 
-                print("📱 [\(source)] 📂 [\(operationName)] DB path: \(dbPath)")
+                if isVerbose {
+                    print("📱 [\(source)] 📂 [\(operationName)] DB path: \(dbPath)")
+                }
                 
                 // Acquire file lock to prevent conflicts with expo-sqlite
                 guard acquireLock(for: dbPath, type: operationType) else {
@@ -507,7 +561,15 @@ public class DatabaseAccess {
                 }
                 
                 defer {
-                    releaseLock()
+                    if isVerbose {
+                        releaseLock()
+                    } else {
+                        // Release lock silently
+                        if lockFileDescriptor >= 0 {
+                            close(lockFileDescriptor)
+                            lockFileDescriptor = -1
+                        }
+                    }
                 }
                 
                 // Check if database file exists
@@ -516,7 +578,9 @@ public class DatabaseAccess {
                 
                 // For read operations, if database doesn't exist, return empty result
                 if operationType == .read && !dbExists {
-                    print("📱 [\(source)] ℹ️ [\(operationName)] Database does not exist yet, returning empty result")
+                    if isVerbose {
+                        print("📱 [\(source)] ℹ️ [\(operationName)] Database does not exist yet, returning empty result")
+                    }
                     finalResult = .success
                     operationCompleted = true
                     return
@@ -531,11 +595,15 @@ public class DatabaseAccess {
                     SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX :
                     SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
                 
-                print("📱 [\(source)] 🔐 [\(operationName)] Attempting to open database with flags: \(openFlags)...")
+                if isVerbose {
+                    print("📱 [\(source)] 🔐 [\(operationName)] Attempting to open database with flags: \(openFlags)...")
+                }
                 let openStartTime = Date()
                 var result = sqlite3_open_v2(dbPath, &db, openFlags, nil)
                 let openElapsed = Date().timeIntervalSince(openStartTime)
-                print("📱 [\(source)] 🔓 [\(operationName)] Database open attempt completed in \(String(format: "%.3f", openElapsed))s with result: \(result)")
+                if isVerbose {
+                    print("📱 [\(source)] 🔓 [\(operationName)] Database open attempt completed in \(String(format: "%.3f", openElapsed))s with result: \(result)")
+                }
                 
                 if result != SQLITE_OK {
                     let errorMsg = "Failed to open database: \(result)"
@@ -573,7 +641,9 @@ public class DatabaseAccess {
                     if stepResult == SQLITE_ROW {
                         if let modeCString = sqlite3_column_text(pragmaStmt, 0) {
                             let mode = String(cString: modeCString)
-                            print("📱 [\(source)] ℹ️ [\(operationName)] Current journal mode: \(mode)")
+                            if isVerbose {
+                                print("📱 [\(source)] ℹ️ [\(operationName)] Current journal mode: \(mode)")
+                            }
                             
                             // Only set WAL mode for write operations or if not already in WAL mode
                             if operationType == .write && mode.uppercased() != "WAL" {
@@ -621,7 +691,9 @@ public class DatabaseAccess {
                 if sqlite3_prepare_v2(database, createNotificationsTableSQL, -1, &createStmt, nil) == SQLITE_OK {
                     sqlite3_step(createStmt)
                     sqlite3_finalize(createStmt)
-                    print("📱 [\(source)] ✅ [\(operationName)] Notifications table schema verified")
+                    if isVerbose {
+                        print("📱 [\(source)] ✅ [\(operationName)] Notifications table schema verified")
+                    }
                 } else {
                     let errorMsg = String(cString: sqlite3_errmsg(database))
                     print("📱 [\(source)] ⚠️ [\(operationName)] Failed to create notifications table: \(errorMsg)")
@@ -639,7 +711,9 @@ public class DatabaseAccess {
                 if sqlite3_prepare_v2(database, createBucketsTableSQL, -1, &createStmt, nil) == SQLITE_OK {
                     sqlite3_step(createStmt)
                     sqlite3_finalize(createStmt)
-                    print("📱 [\(source)] ✅ [\(operationName)] Buckets table schema verified")
+                    if isVerbose {
+                        print("📱 [\(source)] ✅ [\(operationName)] Buckets table schema verified")
+                    }
                 } else {
                     let errorMsg = String(cString: sqlite3_errmsg(database))
                     print("📱 [\(source)] ⚠️ [\(operationName)] Failed to create buckets table: \(errorMsg)")
@@ -750,11 +824,13 @@ public class DatabaseAccess {
                 finalResult = .timeout
             }
             
-            // Log final result
+            // Log final result (always log errors, conditionally log success)
             let elapsed = Date().timeIntervalSince(startTime)
             switch finalResult {
             case .success:
-                print("📱 [\(source)] ✅ [\(operationName)] Completed in \(String(format: "%.3f", elapsed))s")
+                if isVerbose {
+                    print("📱 [\(source)] ✅ [\(operationName)] Completed in \(String(format: "%.3f", elapsed))s")
+                }
             case .failure(let error):
                 print("📱 [\(source)] ❌ [\(operationName)] Failed: \(error)")
                 LoggingSystem.shared.log(
@@ -922,6 +998,7 @@ public class DatabaseAccess {
             type: .read,
             name: "GetAllBuckets",
             source: source,
+            verboseLogging: false,
             operation: { db in
                 let sql = "SELECT id, name, fragment, updated_at FROM buckets ORDER BY name ASC"
                 var stmt: OpaquePointer?
@@ -1006,6 +1083,7 @@ public class DatabaseAccess {
             type: .read,
             name: "GetBucketById",
             source: source,
+            verboseLogging: false,
             operation: { db in
                 let sql = "SELECT name, fragment, updated_at FROM buckets WHERE id = ? LIMIT 1"
                 var stmt: OpaquePointer?
@@ -1126,6 +1204,7 @@ public class DatabaseAccess {
             type: .read,
             name: "GetRecentNotifications",
             source: source,
+            verboseLogging: false,
             operation: { db in
                 var sql: String
                 var stmt: OpaquePointer?
@@ -1214,6 +1293,77 @@ public class DatabaseAccess {
                 completion(notifications)
             default:
                 completion([])
+            }
+        }
+    }
+    
+    /// Fetch read_at timestamps for multiple notifications in a single query
+    /// - Parameters:
+    ///   - notificationIds: Array of notification IDs to fetch read_at for
+    ///   - source: Source identifier for logging (default: "DatabaseAccess")
+    ///   - completion: Completion handler with dictionary mapping notification ID to read_at timestamp string
+    public static func fetchReadAtTimestamps(
+        notificationIds: [String],
+        source: String = "DatabaseAccess",
+        completion: @escaping ([String: String]) -> Void
+    ) {
+        guard !notificationIds.isEmpty else {
+            completion([:])
+            return
+        }
+        
+        var readAtMap: [String: String] = [:]
+        
+        LoggingSystem.shared.log(level: "INFO", tag: "DatabaseAccess", message: "Fetching read_at timestamps in batch", metadata: ["count": "\(notificationIds.count)"], source: source)
+        
+        performDatabaseOperation(
+            type: .read,
+            name: "FetchReadAtTimestamps",
+            source: source,
+            verboseLogging: false,
+            operation: { db in
+                // Create placeholders for IN clause: ?, ?, ?, ...
+                let placeholders = Array(repeating: "?", count: notificationIds.count).joined(separator: ", ")
+                let sql = "SELECT id, read_at FROM notifications WHERE id IN (\(placeholders)) AND read_at IS NOT NULL"
+                
+                var stmt: OpaquePointer?
+                
+                guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                    return .failure("Failed to prepare statement")
+                }
+                
+                defer { sqlite3_finalize(stmt) }
+                
+                // Bind notification IDs
+                for (index, notificationId) in notificationIds.enumerated() {
+                    let cString = (notificationId as NSString).utf8String
+                    guard sqlite3_bind_text(stmt, Int32(index + 1), cString, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self)) == SQLITE_OK else {
+                        return .failure("Failed to bind notification ID at index \(index)")
+                    }
+                }
+                
+                // Fetch results
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    guard let idCString = sqlite3_column_text(stmt, 0),
+                          let readAtCString = sqlite3_column_text(stmt, 1) else {
+                        continue
+                    }
+                    
+                    let id = String(cString: idCString)
+                    let readAt = String(cString: readAtCString)
+                    readAtMap[id] = readAt
+                }
+                
+                return .success
+            }
+        ) { (dbResult: DatabaseOperationResult) in
+            switch dbResult {
+            case .success:
+                LoggingSystem.shared.log(level: "INFO", tag: "DatabaseAccess", message: "Fetched read_at timestamps in batch", metadata: ["count": "\(readAtMap.count)", "requested": "\(notificationIds.count)"], source: source)
+                completion(readAtMap)
+            default:
+                LoggingSystem.shared.log(level: "ERROR", tag: "DatabaseAccess", message: "Failed to fetch read_at timestamps in batch", source: source)
+                completion([:])
             }
         }
     }

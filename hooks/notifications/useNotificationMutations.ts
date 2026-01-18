@@ -322,9 +322,6 @@ export function useMarkAsRead(
                 );
             }
 
-            // Trigger evento WatchConnectivity: notification read
-            IosBridgeService.notifyWatchNotificationRead(notificationId, now);
-            
             // Reload iOS widgets to reflect changes
             IosBridgeService.reloadAllWidgets();
         },
@@ -429,9 +426,6 @@ export function useMarkAsUnread(
                 );
             }
 
-            // Trigger evento WatchConnectivity: notification unread
-            IosBridgeService.notifyWatchNotificationUnread(notificationId);
-            
             // Reload iOS widgets to reflect changes
             IosBridgeService.reloadAllWidgets();
         },
@@ -569,10 +563,7 @@ export function useBatchMarkAsRead(
                 }
             });
 
-            // 5. Trigger evento WatchConnectivity
-            IosBridgeService.notifyWatchNotificationsRead(notificationIds, timestamp);
-            
-            // 6. Reload iOS widgets to reflect changes
+            // 5. Reload iOS widgets to reflect changes
             IosBridgeService.reloadAllWidgets();
         },
         ...mutationOptions,
@@ -696,15 +687,6 @@ export function useMarkAllAsRead(
                 }
             });
 
-            // 4. Trigger evento WatchConnectivity: solo le notifiche che erano unread e sono state marcate come lette
-            if (unreadNotificationIds.length > 0) {
-                // Se ci sono troppi IDs, suddividiamo in batch per evitare payload troppo grandi
-                const BATCH_SIZE = 100; // Invia max 100 IDs per volta
-                for (let i = 0; i < unreadNotificationIds.length; i += BATCH_SIZE) {
-                    const batch = unreadNotificationIds.slice(i, i + BATCH_SIZE);
-                    IosBridgeService.notifyWatchNotificationsRead(batch, timestamp);
-                }
-            }
             
             // 5. Reload iOS widgets to reflect changes
             IosBridgeService.reloadAllWidgets();
@@ -813,9 +795,6 @@ export function useDeleteNotification(
                 queryKey: notificationKeys.detail(notificationId),
             });
 
-            // Trigger evento WatchConnectivity: notification deleted
-            IosBridgeService.notifyWatchNotificationDeleted(notificationId);
-            
             // Reload iOS widgets to reflect changes
             IosBridgeService.reloadAllWidgets();
         },
@@ -908,9 +887,6 @@ export function useBatchDeleteNotifications(
                 });
             });
 
-            // Trigger evento WatchConnectivity: batch notifications deleted
-            deletedIds.forEach(id => IosBridgeService.notifyWatchNotificationDeleted(id));
-            
             // Reload iOS widgets to reflect changes
             IosBridgeService.reloadAllWidgets();
         },

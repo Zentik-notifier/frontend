@@ -6,7 +6,10 @@ module.exports = config => ({
   colors: { $accent: "darkcyan", },
   deploymentTarget: "10.0",
   icon: 'https://raw.githubusercontent.com/Zentik-notifier/backend/refs/heads/main/assets/Zentik.png',
-  entitlements: { ...commonEntitlements },
+  entitlements: { 
+    "aps-environment": "production", // Required for CloudKit remote notifications
+    ...commonEntitlements 
+  },
   name: "WatchExtension",
   bundleIdentifier: ".WatchExtension",
   displayName: name,
