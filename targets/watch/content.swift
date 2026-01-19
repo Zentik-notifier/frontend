@@ -80,6 +80,7 @@ struct ContentView: View {
             connectivityManager: connectivityManager
         )
         .environmentObject(iconCache)
+        .environmentObject(connectivityManager)
         .onAppear {
             // Clear icon cache on app open to ensure fresh icons
             iconCache.clearCache()
@@ -246,6 +247,12 @@ struct BucketMenuView: View {
         !connectivityManager.notifications.isEmpty
     }
     
+    private var timeString: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: Date())
+    }
+    
     var body: some View {
         NavigationView {
             Group {
@@ -275,19 +282,15 @@ struct BucketMenuView: View {
                     .padding()
                 } else {
                     List {
-                        // Header with sync status and action buttons
+                        // Header with sync status
                         Section {
                             EmptyView()
                         } header: {
+                            // Sync status text (no loader, just icon and text)
                             HStack {
-                                if currentIsSyncing {
-                                    ProgressView()
-                                        .scaleEffect(0.7)
-                                } else {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.green)
-                                }
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 8))
+                                    .foregroundColor(.green)
                                 
                                 if let lastUpdate = currentLastUpdate {
                                     Text("Synced \(timeAgo(from: lastUpdate))")
@@ -300,26 +303,6 @@ struct BucketMenuView: View {
                                 }
                                 
                                 Spacer()
-                                
-                                HStack(spacing: 6) {
-                                    NavigationLink(destination: SettingsView()) {
-                                        Image(systemName: "gearshape.fill")
-                                            .font(.system(size: 11))
-                                    }
-                                    
-                                    if currentIsLoading {
-                                        ProgressView()
-                                            .scaleEffect(0.6)
-                                    } else {
-                                        Button(action: {
-                                            onRefresh()
-                                        }) {
-                                            Image(systemName: "arrow.clockwise")
-                                                .font(.system(size: 11))
-                                                .foregroundColor(isSyncStale ? .orange : .primary)
-                                        }
-                                    }
-                                }
                             }
                             .padding(.vertical, 2)
                         }
@@ -373,9 +356,31 @@ struct BucketMenuView: View {
                         
                         // Buckets section - only show buckets with notifications
                         let bucketsWithNotifications = currentBuckets.filter { $0.unreadCount > 0 || $0.totalCount > 0 }
-                        if !bucketsWithNotifications.isEmpty {
+                        // Sort buckets: unread first, then by lastNotificationDate descending (most recent first)
+                        let sortedBuckets = bucketsWithNotifications.sorted { bucket1, bucket2 in
+                            // Unread buckets come first
+                            let bucket1HasUnread = bucket1.unreadCount > 0
+                            let bucket2HasUnread = bucket2.unreadCount > 0
+                            if bucket1HasUnread != bucket2HasUnread {
+                                return bucket1HasUnread && !bucket2HasUnread
+                            }
+                            // Then sort by lastNotificationDate descending (most recent first)
+                            if let date1 = bucket1.lastNotificationDate, let date2 = bucket2.lastNotificationDate {
+                                return date1 > date2
+                            }
+                            // If one has a date and the other doesn't, prioritize the one with a date
+                            if bucket1.lastNotificationDate != nil && bucket2.lastNotificationDate == nil {
+                                return true
+                            }
+                            if bucket1.lastNotificationDate == nil && bucket2.lastNotificationDate != nil {
+                                return false
+                            }
+                            // If both have no date or same date, maintain original order
+                            return false
+                        }
+                        if !sortedBuckets.isEmpty {
                             Section(header: Text("Buckets")) {
-                                ForEach(bucketsWithNotifications) { bucket in
+                                ForEach(sortedBuckets) { bucket in
                                     NavigationLink(destination: FilteredNotificationListView(bucketId: bucket.id, bucketName: bucket.name, bucket: bucket, allBuckets: currentBuckets)) {
                                         BucketRowView(bucket: bucket, iconImage: iconCache.getIcon(bucketId: bucket.id))
                                     }
@@ -403,6 +408,32 @@ struct BucketMenuView: View {
             }
             .navigationTitle("Zentik")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    HStack(spacing: 6) {
+                        // Settings button
+                        NavigationLink(destination: SettingsView()) {
+                            Image(systemName: "gearshape.fill")
+                                .font(.system(size: 11))
+                        }
+                        
+                        // Refresh button with loader
+                        if currentIsSyncing || currentIsLoading {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                        } else {
+                            Button(action: {
+                                onRefresh()
+                            }) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(isSyncStale ? .orange : .primary)
+                            }
+                            .disabled(currentIsSyncing || currentIsLoading) // Disabled during sync
+                        }
+                    }
+                }
+            }
             .onAppear {
                 loadAllIcons()
             }

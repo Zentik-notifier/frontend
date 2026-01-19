@@ -22,20 +22,17 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     
     private let dataStore = WatchDataStore.shared
     
+    private var lastSyncTime: Date?
+    private let minSyncInterval: TimeInterval = 30.0 // Minimum 30 seconds between syncs
+    private var syncWorkItem: DispatchWorkItem?
+    
     private override init() {
         super.init()
         loadCachedData()
+        updateBucketCounts() // Update bucket counts immediately after loading cache
         
-        // Initialize CloudKit schema and subscriptions
-        CloudKitManager.shared.initializeSchemaIfNeeded { success, error in
-            if success {
-                CloudKitManager.shared.setupSubscriptions { success, error in
-                    if let error = error {
-                        LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to setup subscriptions", metadata: ["error": error.localizedDescription], source: "Watch")
-                    }
-                }
-            }
-        }
+        // Note: CloudKit schema and subscriptions are initialized in WatchExtensionDelegate
+        // to avoid duplicate initialization
         
         // Listen for CloudKit data updates (from remote notifications)
         NotificationCenter.default.addObserver(
@@ -62,21 +59,64 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         
         // Initial incremental sync on app open (to catch up on any missed updates)
         // After this, we rely on CloudKit remote notifications via subscriptions
-        syncFromCloudKitIncremental()
+        // Delay initial sync slightly to allow schema initialization to complete
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            self?.syncFromCloudKitIncremental()
+        }
     }
     
     @objc private func appDidBecomeActive() {
         // Perform incremental sync when app becomes active (to catch up on missed updates)
+        // But throttle syncs to avoid excessive calls and potential crashes
         // CloudKit subscriptions with shouldSendContentAvailable should work in foreground,
-        // but we do a one-time sync to ensure we're up to date
+        // but we do a throttled sync to ensure we're up to date
         syncFromCloudKitIncremental()
     }
     
     @objc private func appWillResignActive() {
-        // No polling to stop - we rely on CloudKit subscriptions
+        // Cancel any pending sync work items
+        syncWorkItem?.cancel()
+        syncWorkItem = nil
     }
     
     private func syncFromCloudKitIncremental() {
+        // Cancel any pending sync work item
+        syncWorkItem?.cancel()
+        
+        // Check if enough time has passed since last sync
+        if let lastSync = lastSyncTime {
+            let timeSinceLastSync = Date().timeIntervalSince(lastSync)
+            if timeSinceLastSync < minSyncInterval {
+                let remainingTime = minSyncInterval - timeSinceLastSync
+                LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Throttling sync request", metadata: ["remainingSeconds": "\(Int(remainingTime))"], source: "Watch")
+                
+                // Schedule sync after remaining time
+                syncWorkItem = DispatchWorkItem { [weak self] in
+                    self?.performSync()
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + remainingTime, execute: syncWorkItem!)
+                return
+            }
+        }
+        
+        // Perform sync immediately
+        performSync()
+    }
+    
+    private func performSync() {
+        // Update last sync time
+        lastSyncTime = Date()
+        
+        // Cancel any pending work item
+        syncWorkItem?.cancel()
+        syncWorkItem = nil
+        
+        // Check if already syncing
+        guard !isSyncing else {
+            LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Sync already in progress, skipping", source: "Watch")
+            return
+        }
+        
         DispatchQueue.main.async { [weak self] in
             self?.isSyncing = true
         }
@@ -301,16 +341,25 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     
     func requestFullRefresh() {
         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Full refresh requested", source: "Watch")
+        
+        // Set loading state immediately
+        DispatchQueue.main.async { [weak self] in
+            self?.isWaitingForResponse = true
+        }
+        
         // Perform full sync (ignoring change token)
         CloudKitManager.shared.syncFromCloudKitIncremental(fullSync: true) { count, error in
-            if let error = error {
-                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Full sync failed", metadata: ["error": error.localizedDescription], source: "Watch")
-            } else {
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Full sync completed", metadata: ["updatedCount": "\(count)"], source: "Watch")
-                // Reload cache and update UI on main thread
-                DispatchQueue.main.async { [weak self] in
-                    self?.loadCachedData()
-                    self?.updateBucketCounts()
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.isWaitingForResponse = false
+                
+                if let error = error {
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Full sync failed", metadata: ["error": error.localizedDescription], source: "Watch")
+                } else {
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Full sync completed", metadata: ["updatedCount": "\(count)"], source: "Watch")
+                    // Reload cache and update UI
+                    self.loadCachedData()
+                    self.updateBucketCounts()
                 }
             }
         }
