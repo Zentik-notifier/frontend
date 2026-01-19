@@ -234,6 +234,14 @@ struct BucketMenuView: View {
         connectivityManager.lastUpdate
     }
     
+    private var isSyncStale: Bool {
+        guard let lastUpdate = currentLastUpdate else {
+            return true // Never synced is considered stale
+        }
+        let minutesSinceUpdate = Date().timeIntervalSince(lastUpdate) / 60
+        return minutesSinceUpdate > 15
+    }
+    
     private var currentHasCache: Bool {
         !connectivityManager.notifications.isEmpty
     }
@@ -267,6 +275,55 @@ struct BucketMenuView: View {
                     .padding()
                 } else {
                     List {
+                        // Header with sync status and action buttons
+                        Section {
+                            EmptyView()
+                        } header: {
+                            HStack {
+                                if currentIsSyncing {
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                } else {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.green)
+                                }
+                                
+                                if let lastUpdate = currentLastUpdate {
+                                    Text("Synced \(timeAgo(from: lastUpdate))")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                } else {
+                                    Text("Never synced")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                HStack(spacing: 6) {
+                                    NavigationLink(destination: SettingsView()) {
+                                        Image(systemName: "gearshape.fill")
+                                            .font(.system(size: 11))
+                                    }
+                                    
+                                    if currentIsLoading {
+                                        ProgressView()
+                                            .scaleEffect(0.6)
+                                    } else {
+                                        Button(action: {
+                                            onRefresh()
+                                        }) {
+                                            Image(systemName: "arrow.clockwise")
+                                                .font(.system(size: 11))
+                                                .foregroundColor(isSyncStale ? .orange : .primary)
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                        
                         // All notifications item
                         NavigationLink(destination: FilteredNotificationListView(bucketId: nil, bucketName: nil, bucket: nil, allBuckets: currentBuckets)) {
                             HStack(spacing: 10) {
@@ -354,42 +411,6 @@ struct BucketMenuView: View {
             }
             .onChange(of: connectivityManager.notifications) { _ in
                 loadAllIcons()
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    HStack(spacing: 4) {
-                        if currentIsSyncing {
-                            ProgressView()
-                                .scaleEffect(0.6)
-                        }
-                        if let lastUpdate = currentLastUpdate {
-                            Text("Synced \(timeAgo(from: lastUpdate))")
-                                .font(.system(size: 8))
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                
-                ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 8) {
-                        NavigationLink(destination: SettingsView()) {
-                            Image(systemName: "gearshape.fill")
-                                .font(.system(size: 14))
-                        }
-                        
-                        if currentIsLoading {
-                            ProgressView()
-                                .scaleEffect(0.7)
-                        } else {
-                            Button(action: {
-                                onRefresh()
-                            }) {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 14))
-                            }
-                        }
-                    }
-                }
             }
         }
     }
