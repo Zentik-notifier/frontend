@@ -20,6 +20,33 @@ function copyDirSync(src: string, dest: string, mainBundleId?: string) {
       if (mainBundleId && (entry.name.endsWith('.swift') || entry.name.endsWith('.entitlements'))) {
         let content = fs.readFileSync(srcPath, 'utf8');
         content = content.replace(/\{\{MAIN_BUNDLE_ID\}\}/g, mainBundleId);
+        
+        // If in dev mode and this is an entitlements file, add production container ID
+        if (entry.name.endsWith('.entitlements') && mainBundleId.includes('.dev')) {
+          const productionBundleId = mainBundleId.replace('.dev', '');
+          // Replace single container with both dev and production containers
+          // Match: <key>...container-identifiers</key><array><string>iCloud.BUNDLE_ID</string></array>
+          const containerRegex = /(<key>com\.apple\.developer\.icloud-container-identifiers<\/key>\s*<array>\s*<string>iCloud\.)([^<]+)(<\/string>\s*<\/array>)/;
+          if (containerRegex.test(content)) {
+            // Extract indentation from the existing string tag
+            const lines = content.split('\n');
+            let indent = '\t\t';
+            for (const line of lines) {
+              if (line.includes('iCloud.') && line.includes('<string>')) {
+                const match = line.match(/^(\s*)/);
+                if (match) {
+                  indent = match[1];
+                  break;
+                }
+              }
+            }
+            content = content.replace(
+              containerRegex,
+              `$1${mainBundleId}$3\n${indent}<string>iCloud.${productionBundleId}</string>\n${indent}</array>`
+            );
+          }
+        }
+        
         fs.writeFileSync(destPath, content, 'utf8');
       } else {
         fs.copyFileSync(srcPath, destPath);

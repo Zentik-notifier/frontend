@@ -63,7 +63,7 @@ for (const { path: shareExtDir, name: entitlementsFileName, isDev: isDevDir } of
     </array>
     <key>com.apple.developer.icloud-container-identifiers</key>
     <array>
-      <string>iCloud.${currentBundleId}</string>
+      <string>iCloud.${currentBundleId}</string>${isDevDir ? `\n      <string>iCloud.${currentBundleId.replace('.dev', '')}</string>` : ''}
     </array>
     <key>com.apple.developer.ubiquity-kvstore-identifier</key>
     <string>$(TeamIdentifierPrefix)${currentBundleId}</string>

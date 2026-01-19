@@ -60,6 +60,15 @@ FirebaseApp.configure()
     
     UNUserNotificationCenter.current().delegate = self
     
+    // Set CloudKit container override for production when in dev mode
+    #if DEBUG
+    if let bundleId = Bundle.main.bundleIdentifier, bundleId.contains(".dev") {
+      // Use production CloudKit container when running dev build locally
+      CloudKitManager.setContainerOverride("iCloud.com.apocaliss92.zentik")
+      print("☁️ [AppDelegate] Using production CloudKit container: iCloud.com.apocaliss92.zentik")
+    }
+    #endif
+    
     // Initialize CloudKit schema if needed (creates record types automatically)
     CloudKitManager.shared.initializeSchemaIfNeeded { success, error in
       if success {
@@ -70,14 +79,17 @@ FirebaseApp.configure()
           if success {
             print("☁️ [AppDelegate] CloudKit subscriptions setup successfully")
             
-            // Fetch and delete Watch logs from CloudKit (if any)
-            CloudKitManager.shared.fetchAndDeleteWatchLogs { logs, fetchError in
-              if let fetchError = fetchError {
-                print("☁️ [AppDelegate] Failed to fetch Watch logs: \(fetchError.localizedDescription)")
-              } else if logs.count > 0 {
-                print("☁️ [AppDelegate] Fetched \(logs.count) Watch logs from CloudKit")
-              }
-            }
+            // Fetch and delete Watch logs from CloudKit (if enabled)
+            // WatchLog functionality is currently disabled via CloudKitManager.watchLogEnabled flag
+            // if CloudKitManager.watchLogEnabled {
+            //   CloudKitManager.shared.fetchAndDeleteWatchLogs { logs, fetchError in
+            //     if let fetchError = fetchError {
+            //       print("☁️ [AppDelegate] Failed to fetch Watch logs: \(fetchError.localizedDescription)")
+            //     } else if logs.count > 0 {
+            //       print("☁️ [AppDelegate] Fetched \(logs.count) Watch logs from CloudKit")
+            //     }
+            //   }
+            // }
           } else if let error = error {
             print("☁️ [AppDelegate] CloudKit subscriptions setup failed: \(error.localizedDescription)")
           }

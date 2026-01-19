@@ -6,6 +6,7 @@ import 'tsx/cjs';
 
 const isDev = process.env.APP_VARIANT === "development";
 const bundleIdentifier = isDev ? "com.apocaliss92.zentik.dev" : "com.apocaliss92.zentik";
+const productionBundleIdentifier = "com.apocaliss92.zentik";
 export const name = isDev ? "Zentik Dev" : "Zentik";
 const scheme = isDev ? "zentik.dev" : "zentik";
 
@@ -21,9 +22,14 @@ export const commonEntitlements = {
         "CloudKit",
         "CloudDocuments"
     ],
-    "com.apple.developer.icloud-container-identifiers": [
-        `iCloud.${bundleIdentifier}`
-    ],
+    "com.apple.developer.icloud-container-identifiers": isDev 
+        ? [
+            `iCloud.${bundleIdentifier}`, // Dev container
+            `iCloud.${productionBundleIdentifier}` // Production container (for testing)
+        ]
+        : [
+            `iCloud.${bundleIdentifier}` // Production container only
+        ],
     "com.apple.developer.ubiquity-kvstore-identifier": `$(TeamIdentifierPrefix)${bundleIdentifier}`,
 }
 

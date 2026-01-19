@@ -21,6 +21,9 @@ public class CloudKitManager: NSObject {
     private let container: CKContainer
     private let privateDatabase: CKDatabase
     
+    // Feature flags
+    private static let watchLogEnabled = false // Set to true to enable WatchLog sync functionality
+    
     // Subscription IDs
     private let notificationSubscriptionID = "NotificationChanges"
     private let bucketSubscriptionID = "BucketChanges"
@@ -41,11 +44,20 @@ public class CloudKitManager: NSObject {
         case watchLog = "WatchLog"
     }
     
-    // UserDefaults keys
-    private let schemaInitializedKey = "cloudkit_schema_initialized"
-    private let zoneInitializedKey = "cloudkit_zone_initialized"
-    private let lastSyncTimestampKey = "cloudkit_last_sync_timestamp"
-    private let lastChangeTokenKey = "cloudkit_last_change_token"
+    // UserDefaults keys (made container-specific)
+    private var schemaInitializedKey: String {
+        return "cloudkit_schema_initialized_\(containerIdentifier)"
+    }
+    private var zoneInitializedKey: String {
+        return "cloudkit_zone_initialized_\(containerIdentifier)"
+    }
+    private var lastSyncTimestampKey: String {
+        return "cloudkit_last_sync_timestamp_\(containerIdentifier)"
+    }
+    private var lastChangeTokenKey: String {
+        return "cloudkit_last_change_token_\(containerIdentifier)"
+    }
+    private let cloudKitContainerOverrideKey = "cloudkit_container_override"
     
     // Log source name (different for iOS and Watch to distinguish log files)
     private var logSource: String {
@@ -94,11 +106,62 @@ public class CloudKitManager: NSObject {
     public static let syncProgressNotification = Notification.Name("CloudKitSyncProgress")
     
     private override init() {
-        let bundleId = KeychainAccess.getMainBundleIdentifier()
-        let containerId = "iCloud.\(bundleId)"
+        // Allow override of CloudKit container ID for testing production CloudKit locally
+        // Set via: UserDefaults.standard.set("iCloud.com.apocaliss92.zentik", forKey: "cloudkit_container_override")
+        let containerId: String
+        if let overrideContainerId = UserDefaults.standard.string(forKey: cloudKitContainerOverrideKey), !overrideContainerId.isEmpty {
+            containerId = overrideContainerId
+        } else {
+            let bundleId = KeychainAccess.getMainBundleIdentifier()
+            containerId = "iCloud.\(bundleId)"
+        }
         self.container = CKContainer(identifier: containerId)
         self.privateDatabase = container.privateCloudDatabase
         super.init()
+        
+        // Log container override after super.init() so we can use self.logSource
+        if let overrideContainerId = UserDefaults.standard.string(forKey: cloudKitContainerOverrideKey), !overrideContainerId.isEmpty {
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "CloudKit",
+                message: "Using CloudKit container override",
+                metadata: ["containerId": overrideContainerId],
+                source: self.logSource
+            )
+        }
+    }
+    
+    /**
+     * Set a custom CloudKit container identifier (useful for testing production CloudKit locally)
+     * Pass nil to use the default container based on bundle ID
+     */
+    public static func setContainerOverride(_ containerId: String?) {
+        if let containerId = containerId, !containerId.isEmpty {
+            UserDefaults.standard.set(containerId, forKey: CloudKitManager.shared.cloudKitContainerOverrideKey)
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "CloudKit",
+                message: "CloudKit container override set",
+                metadata: ["containerId": containerId],
+                source: CloudKitManager.shared.logSource
+            )
+        } else {
+            UserDefaults.standard.removeObject(forKey: CloudKitManager.shared.cloudKitContainerOverrideKey)
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "CloudKit",
+                message: "CloudKit container override removed, using default",
+                metadata: [:],
+                source: CloudKitManager.shared.logSource
+            )
+        }
+    }
+    
+    /**
+     * Get the current CloudKit container identifier being used
+     */
+    public var containerIdentifier: String {
+        return container.containerIdentifier ?? "iCloud.\(KeychainAccess.getMainBundleIdentifier())"
     }
     
     // MARK: - Helper Methods
@@ -662,29 +725,33 @@ public class CloudKitManager: NSObject {
             dispatchGroup.leave()
         }
         
-        // Create seed record for WatchLog
-        dispatchGroup.enter()
-        let watchLogSeedId = UUID().uuidString
-        let watchLogRecordID = CKRecord.ID(recordName: "WatchLog-\(watchLogSeedId)", zoneID: customZoneID)
-        let watchLogRecord = CKRecord(recordType: RecordType.watchLog.rawValue, recordID: watchLogRecordID)
-        watchLogRecord["id"] = watchLogSeedId
-        watchLogRecord["level"] = "INFO"
-        watchLogRecord["tag"] = "CloudKit"
-        watchLogRecord["message"] = "Schema initialization"
-        watchLogRecord["timestamp"] = Date()
-        watchLogRecord["source"] = "CloudKitManager"
-        watchLogRecord["metadata"] = "{}"
-        
-        privateDatabase.save(watchLogRecord) { savedRecord, error in
-            if let error = error {
-                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to create WatchLog seed record", metadata: ["error": error.localizedDescription, "recordID": watchLogRecordID.recordName], source: self.logSource)
-                hasErrors = true
-            } else if let savedRecord = savedRecord {
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "WatchLog seed record created successfully", metadata: ["recordID": savedRecord.recordID.recordName], source: self.logSource)
-                savedRecords.append(savedRecord)
+        // Create seed record for WatchLog (only if enabled)
+        #if os(iOS)
+        if CloudKitManager.watchLogEnabled {
+            dispatchGroup.enter()
+            let watchLogSeedId = UUID().uuidString
+            let watchLogRecordID = CKRecord.ID(recordName: "WatchLog-\(watchLogSeedId)", zoneID: customZoneID)
+            let watchLogRecord = CKRecord(recordType: RecordType.watchLog.rawValue, recordID: watchLogRecordID)
+            watchLogRecord["id"] = watchLogSeedId
+            watchLogRecord["level"] = "INFO"
+            watchLogRecord["tag"] = "CloudKit"
+            watchLogRecord["message"] = "Schema initialization"
+            watchLogRecord["timestamp"] = Date()
+            watchLogRecord["source"] = "CloudKitManager"
+            watchLogRecord["metadata"] = "{}"
+            
+            privateDatabase.save(watchLogRecord) { savedRecord, error in
+                if let error = error {
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to create WatchLog seed record", metadata: ["error": error.localizedDescription, "recordID": watchLogRecordID.recordName], source: self.logSource)
+                    hasErrors = true
+                } else if let savedRecord = savedRecord {
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "WatchLog seed record created successfully", metadata: ["recordID": savedRecord.recordID.recordName], source: self.logSource)
+                    savedRecords.append(savedRecord)
+                }
+                dispatchGroup.leave()
             }
-            dispatchGroup.leave()
         }
+        #endif
         
         // Wait for all seed records to be created, then query them to make fields queryable
         dispatchGroup.notify(queue: .main) {
@@ -730,20 +797,28 @@ public class CloudKitManager: NSObject {
                 
                 // Query WatchLog with timestamp sortDescriptor
                 queryGroup.enter()
-                let watchLogPredicate = NSPredicate(format: "timestamp >= %@", Date.distantPast as NSDate)
-                let watchLogQuery = CKQuery(recordType: RecordType.watchLog.rawValue, predicate: watchLogPredicate)
-                watchLogQuery.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: true)]
-                self.privateDatabase.perform(watchLogQuery, inZoneWith: self.customZoneID) { _, queryError in
-                    if let queryError = queryError {
-                        let errorDescription = queryError.localizedDescription
-                        // Ignore "not queryable" errors - fields will become queryable on first real use
-                        if !errorDescription.contains("queryable") {
-                            LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to query WatchLog seed record", metadata: ["error": errorDescription], source: self.logSource)
-                            querySuccess = false
+                #if os(iOS)
+                if CloudKitManager.watchLogEnabled {
+                    let watchLogPredicate = NSPredicate(format: "timestamp >= %@", Date.distantPast as NSDate)
+                    let watchLogQuery = CKQuery(recordType: RecordType.watchLog.rawValue, predicate: watchLogPredicate)
+                    watchLogQuery.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: true)]
+                    self.privateDatabase.perform(watchLogQuery, inZoneWith: self.customZoneID) { _, queryError in
+                        if let queryError = queryError {
+                            let errorDescription = queryError.localizedDescription
+                            // Ignore "not queryable" errors - fields will become queryable on first real use
+                            if !errorDescription.contains("queryable") {
+                                LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to query WatchLog seed record", metadata: ["error": errorDescription], source: self.logSource)
+                                querySuccess = false
+                            }
                         }
+                        queryGroup.leave()
                     }
+                } else {
                     queryGroup.leave()
                 }
+                #else
+                queryGroup.leave()
+                #endif
                 
                 // After queries complete, delete all seed records
                 queryGroup.notify(queue: .main) {
@@ -997,6 +1072,12 @@ public class CloudKitManager: NSObject {
                         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Fetched read_at timestamps in batch", metadata: ["count": "\(timestamps.count)", "totalNotifications": "\(allNotificationIds.count)"], source: self.logSource)
                         readAtMap = timestamps
                         
+                        // Log readAtMap contents for debugging
+                        if !readAtMap.isEmpty {
+                            let sampleKeys = Array(readAtMap.keys.prefix(3))
+                            LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "readAtMap sample", metadata: ["sampleKeys": sampleKeys.joined(separator: ", "), "totalKeys": "\(readAtMap.keys.count)"], source: self.logSource)
+                        }
+                        
                         // Use wrapper instead of inout parameters to avoid capture issues
                         var localSyncedCount = wrapper.syncedCount
                         var localUpdatedCount = wrapper.updatedCount
@@ -1106,6 +1187,9 @@ public class CloudKitManager: NSObject {
             }
         }
         let wrapper = InoutWrapper(syncedCount: syncedCount, updatedCount: updatedCount, errors: errors)
+        
+        // Log readAtMap at the start of processing
+        LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Processing notifications with readAtMap", metadata: ["readAtMapCount": "\(readAtMap.count)", "notificationsCount": "\(notifications.count)", "readAtMapKeys": Array(readAtMap.keys.prefix(5)).joined(separator: ", ")], source: self.logSource)
         
         // Create all CloudKit records in memory for batch operation
         var recordsToSave: [CKRecord] = []
@@ -1222,6 +1306,11 @@ public class CloudKitManager: NSObject {
             var newRecordIDs: Set<CKRecord.ID> = []
             var updateRecordIDs: Set<CKRecord.ID> = []
             
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Determining new vs existing records", metadata: ["existingCount": "\(existingRecordIDs.count)", "totalRecords": "\(recordsToSave.count)"], source: self.logSource)
+            
+            var readAtSetCount = 0
+            var readAtNotFoundCount = 0
+            
             for record in recordsToSave {
                 if existingRecordIDs.contains(record.recordID) {
                     updateRecordIDs.insert(record.recordID)
@@ -1237,16 +1326,37 @@ public class CloudKitManager: NSObject {
                     }
                 } else {
                     newRecordIDs.insert(record.recordID)
-                    // For new records, set readAt from SQLite
-                    if let notificationId = record["id"] as? String,
-                       let readAtString = readAtMap[notificationId],
-                       let readAt = dateFormatter.date(from: readAtString) {
-                        record["readAt"] = readAt
-                    } else {
-                        record["readAt"] = nil
+                    // For new records, set readAt from SQLite if available
+                    if let notificationId = record["id"] as? String {
+                        if let readAtString = readAtMap[notificationId] {
+                            // Try parsing with fractional seconds first
+                            if let readAt = dateFormatter.date(from: readAtString) {
+                                record["readAt"] = readAt
+                                readAtSetCount += 1
+                                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                            } else {
+                                // Try without fractional seconds
+                                let dateFormatterNoFractional = ISO8601DateFormatter()
+                                dateFormatterNoFractional.formatOptions = [.withInternetDateTime]
+                                if let readAt = dateFormatterNoFractional.date(from: readAtString) {
+                                    record["readAt"] = readAt
+                                    readAtSetCount += 1
+                                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification (no fractional)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                } else {
+                                    LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to parse readAt date", metadata: ["notificationId": notificationId, "readAtString": readAtString], source: self.logSource)
+                                }
+                            }
+                        } else {
+                            readAtNotFoundCount += 1
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "readAt not found in map for notification", metadata: ["notificationId": notificationId, "readAtMapKeys": Array(readAtMap.keys.prefix(10)).joined(separator: ", ")], source: self.logSource)
+                        }
                     }
+                    // If readAt is not in readAtMap, don't set it (leave it unset, not nil)
+                    // This means the notification is unread
                 }
             }
+            
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "readAt processing summary", metadata: ["newRecords": "\(newRecordIDs.count)", "updatedRecords": "\(updateRecordIDs.count)", "readAtSet": "\(readAtSetCount)", "readAtNotFound": "\(readAtNotFoundCount)"], source: self.logSource)
             
             // Save all records in batch
             let modifyOperation = CKModifyRecordsOperation(recordsToSave: recordsToSave, recordIDsToDelete: nil)
@@ -1507,6 +1617,11 @@ public class CloudKitManager: NSObject {
                 var newRecordIDs: Set<CKRecord.ID> = []
                 var updateRecordIDs: Set<CKRecord.ID> = []
                 
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Determining new vs existing records", metadata: ["existingCount": "\(existingRecordIDs.count)", "totalRecords": "\(recordsToSave.count)"], source: self.logSource)
+                
+                var readAtSetCount = 0
+                var readAtNotFoundCount = 0
+                
                 for record in recordsToSave {
                     if existingRecordIDs.contains(record.recordID) {
                         updateRecordIDs.insert(record.recordID)
@@ -1522,16 +1637,50 @@ public class CloudKitManager: NSObject {
                         }
                     } else {
                         newRecordIDs.insert(record.recordID)
-                        // For new records, set readAt from SQLite
-                        if let notificationId = record["id"] as? String,
-                           let readAtString = readAtMap[notificationId],
-                           let readAt = dateFormatter.date(from: readAtString) {
-                            record["readAt"] = readAt
-                        } else {
-                            record["readAt"] = nil
+                        // For new records, set readAt from SQLite if available
+                        if let notificationId = record["id"] as? String {
+                            if let readAtString = readAtMap[notificationId] {
+                                var readAt: Date?
+                                
+                                // First, try parsing as Unix timestamp (milliseconds) - this is how SQLite stores it
+                                if let timestampMs = Double(readAtString) {
+                                    readAt = Date(timeIntervalSince1970: timestampMs / 1000.0)
+                                    readAtSetCount += 1
+                                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification (Unix timestamp)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                } else {
+                                    // Try parsing as ISO8601 string (with fractional seconds)
+                                    if let parsedDate = dateFormatter.date(from: readAtString) {
+                                        readAt = parsedDate
+                                        readAtSetCount += 1
+                                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification (ISO8601)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                    } else {
+                                        // Try without fractional seconds
+                                        let dateFormatterNoFractional = ISO8601DateFormatter()
+                                        dateFormatterNoFractional.formatOptions = [.withInternetDateTime]
+                                        if let parsedDate = dateFormatterNoFractional.date(from: readAtString) {
+                                            readAt = parsedDate
+                                            readAtSetCount += 1
+                                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification (ISO8601 no fractional)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                        } else {
+                                            LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to parse readAt date", metadata: ["notificationId": notificationId, "readAtString": readAtString], source: self.logSource)
+                                        }
+                                    }
+                                }
+                                
+                                if let readAt = readAt {
+                                    record["readAt"] = readAt
+                                }
+                            } else {
+                                readAtNotFoundCount += 1
+                                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "readAt not found in map for notification", metadata: ["notificationId": notificationId, "readAtMapKeys": Array(readAtMap.keys.prefix(10)).joined(separator: ", ")], source: self.logSource)
+                            }
                         }
+                        // If readAt is not in readAtMap, don't set it (leave it unset, not nil)
+                        // This means the notification is unread
                     }
                 }
+                
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "readAt processing summary", metadata: ["newRecords": "\(newRecordIDs.count)", "updatedRecords": "\(updateRecordIDs.count)", "readAtSet": "\(readAtSetCount)", "readAtNotFound": "\(readAtNotFoundCount)"], source: self.logSource)
                 
                 // Save all records in batch
                 let modifyOperation = CKModifyRecordsOperation(recordsToSave: recordsToSave, recordIDsToDelete: nil)
@@ -1673,6 +1822,11 @@ public class CloudKitManager: NSObject {
                 var newRecordIDs: Set<CKRecord.ID> = []
                 var updateRecordIDs: Set<CKRecord.ID> = []
                 
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Determining new vs existing records", metadata: ["existingCount": "\(existingRecordIDs.count)", "totalRecords": "\(recordsToSave.count)"], source: self.logSource)
+                
+                var readAtSetCount = 0
+                var readAtNotFoundCount = 0
+                
                 for record in recordsToSave {
                     if existingRecordIDs.contains(record.recordID) {
                         updateRecordIDs.insert(record.recordID)
@@ -1688,16 +1842,50 @@ public class CloudKitManager: NSObject {
                         }
                     } else {
                         newRecordIDs.insert(record.recordID)
-                        // For new records, set readAt from SQLite
-                        if let notificationId = record["id"] as? String,
-                           let readAtString = readAtMap[notificationId],
-                           let readAt = dateFormatter.date(from: readAtString) {
-                            record["readAt"] = readAt
-                        } else {
-                            record["readAt"] = nil
+                        // For new records, set readAt from SQLite if available
+                        if let notificationId = record["id"] as? String {
+                            if let readAtString = readAtMap[notificationId] {
+                                var readAt: Date?
+                                
+                                // First, try parsing as Unix timestamp (milliseconds) - this is how SQLite stores it
+                                if let timestampMs = Double(readAtString) {
+                                    readAt = Date(timeIntervalSince1970: timestampMs / 1000.0)
+                                    readAtSetCount += 1
+                                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification (Unix timestamp)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                } else {
+                                    // Try parsing as ISO8601 string (with fractional seconds)
+                                    if let parsedDate = dateFormatter.date(from: readAtString) {
+                                        readAt = parsedDate
+                                        readAtSetCount += 1
+                                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification (ISO8601)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                    } else {
+                                        // Try without fractional seconds
+                                        let dateFormatterNoFractional = ISO8601DateFormatter()
+                                        dateFormatterNoFractional.formatOptions = [.withInternetDateTime]
+                                        if let parsedDate = dateFormatterNoFractional.date(from: readAtString) {
+                                            readAt = parsedDate
+                                            readAtSetCount += 1
+                                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification (ISO8601 no fractional)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                        } else {
+                                            LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to parse readAt date", metadata: ["notificationId": notificationId, "readAtString": readAtString], source: self.logSource)
+                                        }
+                                    }
+                                }
+                                
+                                if let readAt = readAt {
+                                    record["readAt"] = readAt
+                                }
+                            } else {
+                                readAtNotFoundCount += 1
+                                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "readAt not found in map for notification", metadata: ["notificationId": notificationId, "readAtMapKeys": Array(readAtMap.keys.prefix(10)).joined(separator: ", ")], source: self.logSource)
+                            }
                         }
+                        // If readAt is not in readAtMap, don't set it (leave it unset, not nil)
+                        // This means the notification is unread
                     }
                 }
+                
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "readAt processing summary", metadata: ["newRecords": "\(newRecordIDs.count)", "updatedRecords": "\(updateRecordIDs.count)", "readAtSet": "\(readAtSetCount)", "readAtNotFound": "\(readAtNotFoundCount)"], source: self.logSource)
                 
                 // Save all records in batch
                 let modifyOperation = CKModifyRecordsOperation(recordsToSave: recordsToSave, recordIDsToDelete: nil)
@@ -2351,12 +2539,14 @@ public class CloudKitManager: NSObject {
             
             #if os(iOS)
             // Create subscription for WatchLog changes (iOS only - Watch writes logs, iOS reads them)
-            group.enter()
-            self.createWatchLogSubscription { success, error in
-                if let error = error {
-                    errors.append(error)
+            if CloudKitManager.watchLogEnabled {
+                group.enter()
+                self.createWatchLogSubscription { success, error in
+                    if let error = error {
+                        errors.append(error)
+                    }
+                    group.leave()
                 }
-                group.leave()
             }
             #endif
             
