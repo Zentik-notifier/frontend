@@ -35,7 +35,7 @@ public class CloudKitManager: NSObject {
     public enum RecordType: String {
         case notification = "Notification"
         case bucket = "Bucket"
-        case syncMetadata = "SyncMetadata"
+        case watchLog = "WatchLog"
     }
     
     // UserDefaults keys
@@ -60,6 +60,17 @@ public class CloudKitManager: NSObject {
         let notificationsUpdated: Int
         let bucketsUpdated: Int
     }
+    
+    // Sync progress structure
+    public struct SyncProgress {
+        let currentItem: Int
+        let totalItems: Int
+        let itemType: String // "notification" or "bucket"
+        let phase: String // "syncing" or "completed"
+    }
+    
+    // Notification names for sync progress
+    public static let syncProgressNotification = Notification.Name("CloudKitSyncProgress")
     
     private override init() {
         let bundleId = KeychainAccess.getMainBundleIdentifier()
@@ -129,14 +140,25 @@ public class CloudKitManager: NSObject {
                 return
             }
             
-            // Zone does not exist
-            if let ckError = error as? CKError, ckError.code == .zoneNotFound {
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Zone does not exist, will create it", metadata: ["flagWasSet": "\(flagIsSet)"], source: "CloudKitManager")
-                
-                // Reset flag if it was set (previous failed attempt)
-                if flagIsSet {
-                    UserDefaults.standard.removeObject(forKey: self.zoneInitializedKey)
-                    LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Flag was set but zone doesn't exist, resetting flag", source: "CloudKitManager")
+            // Zone does not exist or was purged
+            if let ckError = error as? CKError {
+                if ckError.code == .zoneNotFound || 
+                   (ckError.localizedDescription.contains("Zone was purged") || 
+                    ckError.errorUserInfo["ServerErrorDescription"] as? String == "Zone was purged by user") {
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Zone does not exist or was purged, will create it", metadata: ["flagWasSet": "\(flagIsSet)", "error": ckError.localizedDescription], source: "CloudKitManager")
+                    
+                    // Reset flag if it was set (zone was purged or doesn't exist)
+                    if flagIsSet {
+                        UserDefaults.standard.removeObject(forKey: self.zoneInitializedKey)
+                        UserDefaults.standard.removeObject(forKey: self.schemaInitializedKey)
+                        UserDefaults.standard.removeObject(forKey: self.lastSyncTimestampKey)
+                        UserDefaults.standard.removeObject(forKey: self.lastChangeTokenKey)
+                        LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Zone was purged or doesn't exist, resetting all flags", source: "CloudKitManager")
+                    }
+                } else {
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error checking zone existence", metadata: ["error": ckError.localizedDescription], source: "CloudKitManager")
+                    completion(false, false, ckError)
+                    return
                 }
             } else if let error = error {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error checking zone existence", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
@@ -206,12 +228,219 @@ public class CloudKitManager: NSObject {
         }
     }
     
+    #if os(iOS)
+    /**
+     * Delete the CloudKit zone and all its data
+     * WARNING: This will permanently delete all records in the zone
+     */
+    public func deleteCloudKitZone(completion: @escaping (Bool, Error?) -> Void) {
+        LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Deleting CloudKit zone and all its data", metadata: ["zoneName": customZoneName], source: "CloudKitManager")
+        
+        // First, delete all records in the zone
+        // Fetch all records and delete them
+        let dispatchGroup = DispatchGroup()
+        var deleteErrors: [Error] = []
+        
+        // Delete all Notification records
+        dispatchGroup.enter()
+        let notificationPredicate = NSPredicate(value: true)
+        let notificationQuery = CKQuery(recordType: RecordType.notification.rawValue, predicate: notificationPredicate)
+        let notificationOperation = CKQueryOperation(query: notificationQuery)
+        var notificationRecordIDs: [CKRecord.ID] = []
+        
+        notificationOperation.recordMatchedBlock = { recordID, result in
+            if case .success(let record) = result {
+                notificationRecordIDs.append(record.recordID)
+            }
+        }
+        
+        notificationOperation.queryResultBlock = { result in
+            if case .failure(let error) = result {
+                if let ckError = error as? CKError, ckError.code == .unknownItem {
+                    // Table doesn't exist - that's OK
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Notification table doesn't exist, skipping deletion", source: "CloudKitManager")
+                } else {
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching Notification records for deletion", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
+                    deleteErrors.append(error)
+                }
+            } else {
+                // Delete all fetched records
+                if !notificationRecordIDs.isEmpty {
+                    let deleteOperation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: notificationRecordIDs)
+                    deleteOperation.database = self.privateDatabase
+                    deleteOperation.modifyRecordsResultBlock = { deleteResult in
+                        if case .failure(let deleteError) = deleteResult {
+                            LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error deleting Notification records", metadata: ["error": deleteError.localizedDescription, "count": "\(notificationRecordIDs.count)"], source: "CloudKitManager")
+                            deleteErrors.append(deleteError)
+                        } else {
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Deleted Notification records", metadata: ["count": "\(notificationRecordIDs.count)"], source: "CloudKitManager")
+                        }
+                    }
+                    self.privateDatabase.add(deleteOperation)
+                }
+            }
+            dispatchGroup.leave()
+        }
+        privateDatabase.add(notificationOperation)
+        
+        // Delete all Bucket records
+        dispatchGroup.enter()
+        let bucketPredicate = NSPredicate(value: true)
+        let bucketQuery = CKQuery(recordType: RecordType.bucket.rawValue, predicate: bucketPredicate)
+        let bucketOperation = CKQueryOperation(query: bucketQuery)
+        var bucketRecordIDs: [CKRecord.ID] = []
+        
+        bucketOperation.recordMatchedBlock = { recordID, result in
+            if case .success(let record) = result {
+                bucketRecordIDs.append(record.recordID)
+            }
+        }
+        
+        bucketOperation.queryResultBlock = { result in
+            if case .failure(let error) = result {
+                if let ckError = error as? CKError, ckError.code == .unknownItem {
+                    // Table doesn't exist - that's OK
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Bucket table doesn't exist, skipping deletion", source: "CloudKitManager")
+                } else {
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching Bucket records for deletion", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
+                    deleteErrors.append(error)
+                }
+            } else {
+                // Delete all fetched records
+                if !bucketRecordIDs.isEmpty {
+                    let deleteOperation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: bucketRecordIDs)
+                    deleteOperation.database = self.privateDatabase
+                    deleteOperation.modifyRecordsResultBlock = { deleteResult in
+                        if case .failure(let deleteError) = deleteResult {
+                            LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error deleting Bucket records", metadata: ["error": deleteError.localizedDescription, "count": "\(bucketRecordIDs.count)"], source: "CloudKitManager")
+                            deleteErrors.append(deleteError)
+                        } else {
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Deleted Bucket records", metadata: ["count": "\(bucketRecordIDs.count)"], source: "CloudKitManager")
+                        }
+                    }
+                    self.privateDatabase.add(deleteOperation)
+                }
+            }
+            dispatchGroup.leave()
+        }
+        privateDatabase.add(bucketOperation)
+        
+        // Delete all WatchLog records
+        dispatchGroup.enter()
+        let watchLogPredicate = NSPredicate(value: true)
+        let watchLogQuery = CKQuery(recordType: RecordType.watchLog.rawValue, predicate: watchLogPredicate)
+        let watchLogOperation = CKQueryOperation(query: watchLogQuery)
+        var watchLogRecordIDs: [CKRecord.ID] = []
+        
+        watchLogOperation.recordMatchedBlock = { recordID, result in
+            if case .success(let record) = result {
+                watchLogRecordIDs.append(record.recordID)
+            }
+        }
+        
+        watchLogOperation.queryResultBlock = { result in
+            if case .failure(let error) = result {
+                if let ckError = error as? CKError, ckError.code == .unknownItem {
+                    // Table doesn't exist - that's OK
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "WatchLog table doesn't exist, skipping deletion", source: "CloudKitManager")
+                } else {
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching WatchLog records for deletion", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
+                    deleteErrors.append(error)
+                }
+            } else {
+                // Delete all fetched records
+                if !watchLogRecordIDs.isEmpty {
+                    let deleteOperation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: watchLogRecordIDs)
+                    deleteOperation.database = self.privateDatabase
+                    deleteOperation.modifyRecordsResultBlock = { deleteResult in
+                        if case .failure(let deleteError) = deleteResult {
+                            LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error deleting WatchLog records", metadata: ["error": deleteError.localizedDescription, "count": "\(watchLogRecordIDs.count)"], source: "CloudKitManager")
+                            deleteErrors.append(deleteError)
+                        } else {
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Deleted WatchLog records", metadata: ["count": "\(watchLogRecordIDs.count)"], source: "CloudKitManager")
+                        }
+                    }
+                    self.privateDatabase.add(deleteOperation)
+                }
+            }
+            dispatchGroup.leave()
+        }
+        privateDatabase.add(watchLogOperation)
+        
+        // After deleting all records, delete the zone itself
+        dispatchGroup.notify(queue: .main) {
+            // Wait a bit for record deletions to complete
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                self.privateDatabase.delete(withRecordZoneID: self.customZoneID) { zoneID, error in
+                    if let error = error {
+                        if let ckError = error as? CKError, ckError.code == .unknownItem {
+                            // Zone doesn't exist - that's OK
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Zone doesn't exist, nothing to delete", source: "CloudKitManager")
+                        } else {
+                            LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error deleting CloudKit zone", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
+                            deleteErrors.append(error)
+                        }
+                    } else {
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit zone deleted successfully", source: "CloudKitManager")
+                    }
+                    
+                    // Reset flags
+                    UserDefaults.standard.removeObject(forKey: self.zoneInitializedKey)
+                    UserDefaults.standard.removeObject(forKey: self.schemaInitializedKey)
+                    UserDefaults.standard.removeObject(forKey: self.lastSyncTimestampKey)
+                    UserDefaults.standard.removeObject(forKey: self.lastChangeTokenKey)
+                    
+                    if deleteErrors.isEmpty {
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit zone and all data deleted successfully", source: "CloudKitManager")
+                        completion(true, nil)
+                    } else {
+                        let combinedError = NSError(domain: "CloudKitManager", code: -1, userInfo: [
+                            NSLocalizedDescriptionKey: "Some errors occurred during deletion: \(deleteErrors.map { $0.localizedDescription }.joined(separator: "; "))"
+                        ])
+                        completion(false, combinedError)
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Reset CloudKit zone: delete everything and re-initialize
+     * This will delete all data and recreate the zone with fresh schema
+     */
+    public func resetCloudKitZone(completion: @escaping (Bool, Error?) -> Void) {
+        LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Resetting CloudKit zone - this will delete all data", source: "CloudKitManager")
+        
+        deleteCloudKitZone { success, error in
+            if let error = error {
+                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to delete zone during reset", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
+                completion(false, error)
+                return
+            }
+            
+            // Wait a bit for zone deletion to propagate
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                // Re-initialize zone and schema
+                self.initializeSchemaIfNeeded { schemaSuccess, schemaError in
+                    if let schemaError = schemaError {
+                        LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to re-initialize schema after reset", metadata: ["error": schemaError.localizedDescription], source: "CloudKitManager")
+                        completion(false, schemaError)
+                    } else {
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit zone reset completed successfully", source: "CloudKitManager")
+                        completion(true, nil)
+                    }
+                }
+            }
+        }
+    }
+    #endif
+    
     /**
      * Initializes CloudKit schema by creating "seed" records with all required fields
      * CloudKit will automatically create record types when the first records are created
      */
     public func initializeSchemaIfNeeded(completion: @escaping (Bool, Error?) -> Void) {
-        // Always ensure zone is initialized first (even if schema was already initialized)
+        // Always ensure zone is initialized first
         initializeZoneIfNeeded { zoneSuccess, wasNewlyCreated, zoneError in
             guard zoneSuccess else {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to initialize custom zone", metadata: ["error": zoneError?.localizedDescription ?? "Unknown"], source: "CloudKitManager")
@@ -219,180 +448,317 @@ public class CloudKitManager: NSObject {
                 return
             }
             
-            // If zone was newly created, trigger initial sync from SQLite to CloudKit
-            if wasNewlyCreated {
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Zone was newly created, triggering initial sync from SQLite to CloudKit", source: "CloudKitManager")
-                // Reset last sync timestamp to force full sync
-                UserDefaults.standard.removeObject(forKey: self.lastSyncTimestampKey)
-                // Trigger sync to CloudKit (will sync all records from SQLite)
-                self.triggerSyncToCloud { success, error, stats in
-                    if success {
-                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Initial sync to CloudKit completed", metadata: [
-                            "notificationsSynced": "\(stats?.notificationsSynced ?? 0)",
-                            "bucketsSynced": "\(stats?.bucketsSynced ?? 0)"
-                        ], source: "CloudKitManager")
+            // Initialize schema by creating seed records for all record types first
+            // This ensures tables are created before syncing data
+            #if os(iOS)
+            self.initializeSchemaWithSeedRecords { schemaInitialized in
+                if schemaInitialized {
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit schema initialized with seed records", source: "CloudKitManager")
+                } else {
+                    LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "CloudKit schema initialization had warnings - tables may not exist yet", source: "CloudKitManager")
+                }
+                
+                // Check if tables already have real data before syncing
+                self.checkIfTablesHaveRealData { hasRealData in
+                    if hasRealData {
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit tables already contain real data, skipping initial sync", source: "CloudKitManager")
+                        // Mark as initialized to avoid unnecessary checks
+                        UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit schema initialization completed", source: "CloudKitManager")
+                        completion(true, nil)
                     } else {
-                        LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Initial sync to CloudKit failed", metadata: ["error": error?.localizedDescription ?? "Unknown"], source: "CloudKitManager")
+                        // Tables are empty or only contain seed records, trigger initial sync
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit tables are empty, triggering initial sync from SQLite to CloudKit", source: "CloudKitManager")
+                        // Reset last sync timestamp to force full sync
+                        UserDefaults.standard.removeObject(forKey: self.lastSyncTimestampKey)
+                        // Trigger sync to CloudKit (will sync all records from SQLite)
+                        self.triggerSyncToCloud { success, error, stats in
+                            if success {
+                                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Initial sync to CloudKit completed", metadata: [
+                                    "notificationsSynced": "\(stats?.notificationsSynced ?? 0)",
+                                    "bucketsSynced": "\(stats?.bucketsSynced ?? 0)"
+                                ], source: "CloudKitManager")
+                            } else {
+                                LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Initial sync to CloudKit failed", metadata: ["error": error?.localizedDescription ?? "Unknown"], source: "CloudKitManager")
+                            }
+                            // Mark as initialized to avoid unnecessary checks
+                            UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit schema initialization completed", source: "CloudKitManager")
+                            completion(true, nil)
+                        }
                     }
                 }
             }
-            
-            // Check if schema has already been initialized
-            if UserDefaults.standard.bool(forKey: self.schemaInitializedKey) {
-                completion(true, nil)
-                return
-            }
-            
-            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Initializing CloudKit schema", source: "CloudKitManager")
-            
-            let group = DispatchGroup()
-            var errors: [Error] = []
-            
-            // 1. Create seed record for Notification
-            group.enter()
-            self.createNotificationSeedRecord { success, error in
-                if let error = error {
-                    errors.append(error)
+            #else
+            // Mark as initialized to avoid unnecessary checks
+            UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit schema will be created automatically on first record save", source: "CloudKitManager")
+            completion(true, nil)
+            #endif
+        }
+    }
+    
+    #if os(iOS)
+    /**
+     * Check if CloudKit tables have real data (not just seed records)
+     * Returns true if tables exist and have real data, false otherwise
+     */
+    private func checkIfTablesHaveRealData(completion: @escaping (Bool) -> Void) {
+        let dispatchGroup = DispatchGroup()
+        var hasRealData = false
+        var hasErrors = false
+        
+        // Check Notification table
+        dispatchGroup.enter()
+        let notificationPredicate = NSPredicate(format: "createdAt >= %@", Date.distantPast as NSDate)
+        let notificationQuery = CKQuery(recordType: RecordType.notification.rawValue, predicate: notificationPredicate)
+        let notificationOperation = CKQueryOperation(query: notificationQuery)
+        notificationOperation.resultsLimit = 1 // We only need to know if at least one record exists
+        notificationOperation.recordMatchedBlock = { recordID, result in
+            if case .success(let record) = result {
+                // Check if this is a real notification (not a seed record)
+                // Seed records have title "Schema initialization"
+                if let title = record["title"] as? String, title != "Schema initialization" {
+                    hasRealData = true
                 }
-                group.leave()
             }
-            
-            // 2. Create seed record for Bucket
-            group.enter()
-            self.createBucketSeedRecord { success, error in
-                if let error = error {
-                    errors.append(error)
-                }
-                group.leave()
-            }
-            
-            // 3. Create seed record for SyncMetadata
-            group.enter()
-            self.createSyncMetadataSeedRecord { success, error in
-                if let error = error {
-                    errors.append(error)
-                }
-                group.leave()
-            }
-            
-            group.notify(queue: .main) {
-                if errors.isEmpty {
-                    UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit schema initialized successfully", source: "CloudKitManager")
-                    completion(true, nil)
+        }
+        notificationOperation.queryResultBlock = { result in
+            if case .failure(let error) = result {
+                // If query fails, table might not exist yet - that's OK, we'll sync
+                if let ckError = error as? CKError, ckError.code == .unknownItem {
+                    // Table doesn't exist - that's fine, we'll sync
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Notification table doesn't exist yet", source: "CloudKitManager")
                 } else {
-                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Schema initialized with errors", metadata: ["errorCount": "\(errors.count)"], source: "CloudKitManager")
-                    // Even with errors, mark as initialized to avoid infinite retries
-                    UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
-                    completion(false, errors.first)
+                    LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Error checking Notification table", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
+                    hasErrors = true
                 }
             }
+            dispatchGroup.leave()
+        }
+        privateDatabase.add(notificationOperation)
+        
+        // Check Bucket table
+        dispatchGroup.enter()
+        let bucketPredicate = NSPredicate(format: "name != %@", "")
+        let bucketQuery = CKQuery(recordType: RecordType.bucket.rawValue, predicate: bucketPredicate)
+        let bucketOperation = CKQueryOperation(query: bucketQuery)
+        bucketOperation.resultsLimit = 1
+        bucketOperation.recordMatchedBlock = { recordID, result in
+            if case .success(let record) = result {
+                // Check if this is a real bucket (not a seed record)
+                if let name = record["name"] as? String, name != "Schema initialization" {
+                    hasRealData = true
+                }
+            }
+        }
+        bucketOperation.queryResultBlock = { result in
+            if case .failure(let error) = result {
+                // If query fails, table might not exist yet - that's OK, we'll sync
+                if let ckError = error as? CKError, ckError.code == .unknownItem {
+                    // Table doesn't exist - that's fine, we'll sync
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Bucket table doesn't exist yet", source: "CloudKitManager")
+                } else {
+                    LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Error checking Bucket table", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
+                    hasErrors = true
+                }
+            }
+            dispatchGroup.leave()
+        }
+        privateDatabase.add(bucketOperation)
+        
+        dispatchGroup.notify(queue: .main) {
+            if hasRealData {
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit tables contain real data", source: "CloudKitManager")
+            } else {
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit tables are empty or don't exist", source: "CloudKitManager")
+            }
+            completion(hasRealData)
         }
     }
     
     /**
-     * Creates a seed record for Notification with all required fields
+     * Initialize CloudKit schema by creating seed records for all record types
+     * This ensures all fields become queryable (CloudKit marks fields as queryable when used in queries)
+     * Seed records are temporary and will be deleted after schema initialization
      */
-    private func createNotificationSeedRecord(completion: @escaping (Bool, Error?) -> Void) {
-        let recordID = CKRecord.ID(recordName: "Notification-seed", zoneID: customZoneID)
-        let record = CKRecord(recordType: RecordType.notification.rawValue, recordID: recordID)
+    private func initializeSchemaWithSeedRecords(completion: @escaping (Bool) -> Void) {
+        // Check if schema has already been initialized
+        if UserDefaults.standard.bool(forKey: schemaInitializedKey) {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Schema already initialized, skipping seed records creation", source: "CloudKitManager")
+            completion(true)
+            return
+        }
         
-        // Set all fields we want in the schema
-        record["id"] = "seed"
-        record["bucketId"] = "seed"
-        record["title"] = "seed"
-        record["subtitle"] = nil // Optional String
-        record["body"] = "seed"
-        record["attachments"] = "[]" // JSON string array
-        record["actions"] = "[]" // JSON string array
-        record["tapAction"] = nil // Optional JSON string
-        record["createdAt"] = Date()
-        record["readAt"] = nil // Optional Date
-        record["isSeed"] = true
+        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Starting schema initialization with seed records", source: "CloudKitManager")
         
-        privateDatabase.save(record) { savedRecord, error in
+        let dispatchGroup = DispatchGroup()
+        var savedRecords: [CKRecord] = []
+        var hasErrors = false
+        
+        // Create seed record for Notification
+        dispatchGroup.enter()
+        let notificationSeedId = UUID().uuidString
+        let notificationRecordID = CKRecord.ID(recordName: "Notification-\(notificationSeedId)", zoneID: customZoneID)
+        let notificationRecord = CKRecord(recordType: RecordType.notification.rawValue, recordID: notificationRecordID)
+        notificationRecord["id"] = notificationSeedId
+        notificationRecord["title"] = "Schema initialization"
+        notificationRecord["body"] = "Temporary seed record"
+        notificationRecord["createdAt"] = Date()
+        notificationRecord["bucketId"] = ""
+        notificationRecord["readAt"] = nil
+        notificationRecord["actions"] = "[]"
+        
+        privateDatabase.save(notificationRecord) { savedRecord, error in
             if let error = error {
-                if let ckError = error as? CKError, ckError.code == .serverRecordChanged {
-                    completion(true, nil)
-                } else {
-                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error creating Notification seed", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
-                    completion(false, error)
+                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to create Notification seed record", metadata: ["error": error.localizedDescription, "recordID": notificationRecordID.recordName], source: "CloudKitManager")
+                hasErrors = true
+            } else if let savedRecord = savedRecord {
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Notification seed record created successfully", metadata: ["recordID": savedRecord.recordID.recordName], source: "CloudKitManager")
+                savedRecords.append(savedRecord)
+            }
+            dispatchGroup.leave()
+        }
+        
+        // Create seed record for Bucket
+        dispatchGroup.enter()
+        let bucketSeedId = UUID().uuidString
+        let bucketRecordID = CKRecord.ID(recordName: "Bucket-\(bucketSeedId)", zoneID: customZoneID)
+        let bucketRecord = CKRecord(recordType: RecordType.bucket.rawValue, recordID: bucketRecordID)
+        bucketRecord["id"] = bucketSeedId
+        bucketRecord["name"] = "Schema initialization"
+        bucketRecord["iconUrl"] = ""
+        bucketRecord["color"] = ""
+        
+        privateDatabase.save(bucketRecord) { savedRecord, error in
+            if let error = error {
+                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to create Bucket seed record", metadata: ["error": error.localizedDescription, "recordID": bucketRecordID.recordName], source: "CloudKitManager")
+                hasErrors = true
+            } else if let savedRecord = savedRecord {
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Bucket seed record created successfully", metadata: ["recordID": savedRecord.recordID.recordName], source: "CloudKitManager")
+                savedRecords.append(savedRecord)
+            }
+            dispatchGroup.leave()
+        }
+        
+        // Create seed record for WatchLog
+        dispatchGroup.enter()
+        let watchLogSeedId = UUID().uuidString
+        let watchLogRecordID = CKRecord.ID(recordName: "WatchLog-\(watchLogSeedId)", zoneID: customZoneID)
+        let watchLogRecord = CKRecord(recordType: RecordType.watchLog.rawValue, recordID: watchLogRecordID)
+        watchLogRecord["id"] = watchLogSeedId
+        watchLogRecord["level"] = "INFO"
+        watchLogRecord["tag"] = "CloudKit"
+        watchLogRecord["message"] = "Schema initialization"
+        watchLogRecord["timestamp"] = Date()
+        watchLogRecord["source"] = "CloudKitManager"
+        watchLogRecord["metadata"] = "{}"
+        
+        privateDatabase.save(watchLogRecord) { savedRecord, error in
+            if let error = error {
+                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to create WatchLog seed record", metadata: ["error": error.localizedDescription, "recordID": watchLogRecordID.recordName], source: "CloudKitManager")
+                hasErrors = true
+            } else if let savedRecord = savedRecord {
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "WatchLog seed record created successfully", metadata: ["recordID": savedRecord.recordID.recordName], source: "CloudKitManager")
+                savedRecords.append(savedRecord)
+            }
+            dispatchGroup.leave()
+        }
+        
+        // Wait for all seed records to be created, then query them to make fields queryable
+        dispatchGroup.notify(queue: .main) {
+            // Add a small delay to allow CloudKit to propagate the schema
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                // Query each record type with sortDescriptors to make fields queryable
+                let queryGroup = DispatchGroup()
+                var querySuccess = true
+                
+                // Query Notification with createdAt sortDescriptor
+                queryGroup.enter()
+                let notificationPredicate = NSPredicate(format: "createdAt >= %@", Date.distantPast as NSDate)
+                let notificationQuery = CKQuery(recordType: RecordType.notification.rawValue, predicate: notificationPredicate)
+                notificationQuery.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: true)]
+                self.privateDatabase.perform(notificationQuery, inZoneWith: self.customZoneID) { _, queryError in
+                    if let queryError = queryError {
+                        let errorDescription = queryError.localizedDescription
+                        // Ignore "not queryable" errors - fields will become queryable on first real use
+                        if !errorDescription.contains("queryable") {
+                            LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to query Notification seed record", metadata: ["error": errorDescription], source: "CloudKitManager")
+                            querySuccess = false
+                        }
+                    }
+                    queryGroup.leave()
                 }
-            } else {
-                // Delete the seed record after creating it
-                self.privateDatabase.delete(withRecordID: recordID) { _, error in
-                    if let error = error {
-                        LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Error deleting Notification seed record", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
+                
+                // Query Bucket with name sortDescriptor
+                queryGroup.enter()
+                let bucketPredicate = NSPredicate(format: "name != %@", "")
+                let bucketQuery = CKQuery(recordType: RecordType.bucket.rawValue, predicate: bucketPredicate)
+                bucketQuery.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
+                self.privateDatabase.perform(bucketQuery, inZoneWith: self.customZoneID) { _, queryError in
+                    if let queryError = queryError {
+                        let errorDescription = queryError.localizedDescription
+                        // Ignore "not queryable" errors - fields will become queryable on first real use
+                        if !errorDescription.contains("queryable") {
+                            LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to query Bucket seed record", metadata: ["error": errorDescription], source: "CloudKitManager")
+                            querySuccess = false
+                        }
+                    }
+                    queryGroup.leave()
+                }
+                
+                // Query WatchLog with timestamp sortDescriptor
+                queryGroup.enter()
+                let watchLogPredicate = NSPredicate(format: "timestamp >= %@", Date.distantPast as NSDate)
+                let watchLogQuery = CKQuery(recordType: RecordType.watchLog.rawValue, predicate: watchLogPredicate)
+                watchLogQuery.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: true)]
+                self.privateDatabase.perform(watchLogQuery, inZoneWith: self.customZoneID) { _, queryError in
+                    if let queryError = queryError {
+                        let errorDescription = queryError.localizedDescription
+                        // Ignore "not queryable" errors - fields will become queryable on first real use
+                        if !errorDescription.contains("queryable") {
+                            LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to query WatchLog seed record", metadata: ["error": errorDescription], source: "CloudKitManager")
+                            querySuccess = false
+                        }
+                    }
+                    queryGroup.leave()
+                }
+                
+                // After queries complete, delete all seed records
+                queryGroup.notify(queue: .main) {
+                if !savedRecords.isEmpty {
+                    let deleteGroup = DispatchGroup()
+                    for record in savedRecords {
+                        deleteGroup.enter()
+                        self.privateDatabase.delete(withRecordID: record.recordID) { _, _ in
+                            deleteGroup.leave()
+                        }
+                    }
+                    deleteGroup.notify(queue: .main) {
+                        if querySuccess && !hasErrors {
+                            UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Schema initialized successfully - all fields are now queryable", source: "CloudKitManager")
+                            completion(true)
+                        } else {
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Schema initialization completed with warnings - fields will become queryable on first real use", source: "CloudKitManager")
+                            completion(false)
+                        }
+                    }
+                } else {
+                    if querySuccess && !hasErrors {
+                        UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Schema initialized successfully - all fields are now queryable", source: "CloudKitManager")
+                        completion(true)
+                    } else {
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Schema initialization completed with warnings - fields will become queryable on first real use", source: "CloudKitManager")
+                        completion(false)
                     }
                 }
-                completion(true, nil)
+                }
             }
         }
     }
-    
-    /**
-     * Creates a seed record for Bucket with all required fields
-     */
-    private func createBucketSeedRecord(completion: @escaping (Bool, Error?) -> Void) {
-        let recordID = CKRecord.ID(recordName: "Bucket-seed", zoneID: customZoneID)
-        let record = CKRecord(recordType: RecordType.bucket.rawValue, recordID: recordID)
-        
-        // Set all fields we want in the schema
-        record["id"] = "seed"
-        record["name"] = "seed"
-        record["iconUrl"] = nil // Optional String
-        record["color"] = nil // Optional String
-        record["isSeed"] = true
-        
-        privateDatabase.save(record) { savedRecord, error in
-            if let error = error {
-                if let ckError = error as? CKError, ckError.code == .serverRecordChanged {
-                    completion(true, nil)
-                } else {
-                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error creating Bucket seed", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
-                    completion(false, error)
-                }
-            } else {
-                // Delete the seed record after creating it
-                self.privateDatabase.delete(withRecordID: recordID) { _, error in
-                    if let error = error {
-                        LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Error deleting Bucket seed record", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
-                    }
-                }
-                completion(true, nil)
-            }
-        }
-    }
-    
-    /**
-     * Creates a seed record for SyncMetadata with all required fields
-     */
-    private func createSyncMetadataSeedRecord(completion: @escaping (Bool, Error?) -> Void) {
-        let recordID = CKRecord.ID(recordName: "SyncMetadata-seed", zoneID: customZoneID)
-        let record = CKRecord(recordType: RecordType.syncMetadata.rawValue, recordID: recordID)
-        
-        record["lastSyncTimestamp"] = Date()
-        record["isSeed"] = true
-        
-        privateDatabase.save(record) { savedRecord, error in
-            if let error = error {
-                if let ckError = error as? CKError, ckError.code == .serverRecordChanged {
-                    completion(true, nil)
-                } else {
-                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error creating SyncMetadata seed", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
-                    completion(false, error)
-                }
-            } else {
-                // Delete the seed record after creating it
-                self.privateDatabase.delete(withRecordID: recordID) { _, error in
-                    if let error = error {
-                        LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Error deleting SyncMetadata seed record", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
-                    }
-                }
-                completion(true, nil)
-            }
-        }
-    }
+    #endif
     
     // MARK: - Account Status
     
@@ -596,17 +962,18 @@ public class CloudKitManager: NSObject {
                     return
                 }
                 
-                // Fetch read_at timestamps for read notifications in a single batch query
-                let readNotificationIds = filteredNotifications.filter { $0.isRead }.map { $0.id }
+                // Fetch read_at timestamps for ALL notifications in a single batch query
+                // This ensures we get readAt for all notifications that have it set in SQLite
+                let allNotificationIds = filteredNotifications.map { $0.id }
                 var readAtMap: [String: String] = [:]
                 
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Preparing to fetch read_at timestamps", metadata: ["readNotificationCount": "\(readNotificationIds.count)", "totalNotifications": "\(filteredNotifications.count)"], source: "CloudKitManager")
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Preparing to fetch read_at timestamps", metadata: ["totalNotifications": "\(allNotificationIds.count)"], source: "CloudKitManager")
                 
-                if !readNotificationIds.isEmpty {
-                    // Single batch query to get all read_at timestamps
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Fetching read_at timestamps in batch", metadata: ["count": "\(readNotificationIds.count)"], source: "CloudKitManager")
-                    DatabaseAccess.fetchReadAtTimestamps(notificationIds: readNotificationIds, source: "CloudKitSync") { timestamps in
-                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Fetched read_at timestamps in batch", metadata: ["count": "\(timestamps.count)"], source: "CloudKitManager")
+                if !allNotificationIds.isEmpty {
+                    // Single batch query to get all read_at timestamps (only returns timestamps for read notifications)
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Fetching read_at timestamps in batch", metadata: ["count": "\(allNotificationIds.count)"], source: "CloudKitManager")
+                    DatabaseAccess.fetchReadAtTimestamps(notificationIds: allNotificationIds, source: "CloudKitSync") { timestamps in
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Fetched read_at timestamps in batch", metadata: ["count": "\(timestamps.count)", "totalNotifications": "\(allNotificationIds.count)"], source: "CloudKitManager")
                         readAtMap = timestamps
                         
                         // Use wrapper instead of inout parameters to avoid capture issues
@@ -638,8 +1005,8 @@ public class CloudKitManager: NSObject {
                         )
                     }
                 } else {
-                    // No read notifications, proceed directly
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "No read notifications, skipping read_at fetch", source: "CloudKitManager")
+                    // No notifications, proceed directly
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "No notifications to sync", source: "CloudKitManager")
                     // Use wrapper instead of inout parameters to avoid capture issues
                     var localSyncedCount = wrapper.syncedCount
                     var localUpdatedCount = wrapper.updatedCount
@@ -787,30 +1154,24 @@ public class CloudKitManager: NSObject {
                 record["createdAt"] = createdAt
             }
             
-            // Set readAt if notification is read
-            if notification.isRead {
-                if let readAtString = readAtMap[notification.id],
-                   let readAt = dateFormatter.date(from: readAtString) {
-                    record["readAt"] = readAt
-                } else if let createdAt = dateFormatter.date(from: notification.createdAt) {
-                    // Fallback: use createdAt if read_at not available
-                    record["readAt"] = createdAt
-                }
+            // Set readAt based on readAtMap (from SQLite read_at field)
+            // If readAtMap contains the notification ID, it means the notification is read
+            if let readAtString = readAtMap[notification.id],
+               let readAt = dateFormatter.date(from: readAtString) {
+                record["readAt"] = readAt
             } else {
-                // Ensure readAt is nil for unread notifications
+                // Notification is unread - ensure readAt is nil
                 record["readAt"] = nil
             }
             
-            // Ensure isSeed is removed for normal notifications (not seed records)
-            record["isSeed"] = nil
             
             // Save record to CloudKit
             self.privateDatabase.save(record) { savedRecord, error in
                 if let error = error {
                     if let ckError = error as? CKError, ckError.code == .serverRecordChanged {
                         // Record already exists, this is an update
-                        // When serverRecordChanged occurs, CloudKit merges fields but may keep isSeed
-                        // We need to explicitly remove isSeed and ensure all required fields are present
+                        // When serverRecordChanged occurs, CloudKit merges fields
+                        // We need to ensure all required fields are present
                         let recordID = self.notificationRecordID(notification.id)
                         self.privateDatabase.fetch(withRecordID: recordID) { fetchedRecord, fetchError in
                             if let fetchedRecord = fetchedRecord {
@@ -818,8 +1179,6 @@ public class CloudKitManager: NSObject {
                                 let hasCreatedAtBefore = fetchedRecord["createdAt"] != nil
                                 Swift.print("☁️ [CloudKitManager] 🔄 Updating existing record - id: \(notification.id), hasCreatedAtBefore: \(hasCreatedAtBefore)")
                                 
-                                // Explicitly remove isSeed field
-                                fetchedRecord["isSeed"] = nil
                                 
                                 // Ensure all required fields are present (CloudKit merge might have removed some)
                                 fetchedRecord["id"] = notification.id
@@ -842,8 +1201,8 @@ public class CloudKitManager: NSObject {
                                     fetchedRecord["subtitle"] = subtitle
                                 }
                                 
-                                // Set readAt if notification is read
-                                if notification.isRead, let readAtString = readAtMap[notification.id],
+                                // Set readAt based on readAtMap (from SQLite read_at field)
+                                if let readAtString = readAtMap[notification.id],
                                    let readAt = dateFormatter.date(from: readAtString) {
                                     fetchedRecord["readAt"] = readAt
                                 } else {
@@ -854,18 +1213,18 @@ public class CloudKitManager: NSObject {
                                 let hasCreatedAtAfter = fetchedRecord["createdAt"] != nil
                                 Swift.print("☁️ [CloudKitManager] 💾 Saving fetchedRecord - id: \(notification.id), hasCreatedAtAfter: \(hasCreatedAtAfter), allKeys: \(fetchedRecord.allKeys())")
                                 
-                                // Save again to ensure isSeed is removed and all fields are present
+                                // Save again to ensure all fields are present
                                 self.privateDatabase.save(fetchedRecord) { finalRecord, finalError in
                                     if let finalError = finalError {
                                         Swift.print("☁️ [CloudKitManager] ❌ Error saving fetchedRecord - id: \(notification.id), error: \(finalError.localizedDescription)")
-                                        LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Error removing isSeed after serverRecordChanged", metadata: ["notificationId": notification.id, "error": finalError.localizedDescription], source: "CloudKitManager")
+                                        LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Error saving record after serverRecordChanged", metadata: ["notificationId": notification.id, "error": finalError.localizedDescription], source: "CloudKitManager")
                                     } else {
                                         let hasCreatedAtInFinal = finalRecord?["createdAt"] != nil
                                         Swift.print("☁️ [CloudKitManager] ✅ Saved fetchedRecord successfully - id: \(notification.id), hasCreatedAtInFinal: \(hasCreatedAtInFinal)")
                                         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Saved fetchedRecord successfully", metadata: ["notificationId": notification.id, "hasCreatedAtInFinal": "\(hasCreatedAtInFinal)"], source: "CloudKitManager")
                                     }
                                     counter.updatedCount += 1
-                                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Notification updated in CloudKit (isSeed removed, fields ensured)", metadata: ["notificationId": notification.id], source: "CloudKitManager")
+                                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Notification updated in CloudKit (fields ensured)", metadata: ["notificationId": notification.id], source: "CloudKitManager")
                                     group.leave()
                                 }
                             } else {
@@ -893,6 +1252,19 @@ public class CloudKitManager: NSObject {
             let finalSyncedCount = counter.syncedCount
             let finalUpdatedCount = counter.updatedCount
             let finalErrors = counter.errors
+            
+            // Post completion notification for notifications
+            let progress = SyncProgress(
+                currentItem: finalSyncedCount + finalUpdatedCount,
+                totalItems: notifications.count,
+                itemType: "notification",
+                phase: "completed"
+            )
+            NotificationCenter.default.post(
+                name: CloudKitManager.syncProgressNotification,
+                object: nil,
+                userInfo: ["progress": progress]
+            )
             
             let hasErrors = !finalErrors.isEmpty
             if hasErrors {
@@ -938,9 +1310,25 @@ public class CloudKitManager: NSObject {
             }
             
             let group = DispatchGroup()
+            let totalBuckets = buckets.count
             
-            for bucket in buckets {
+            for (index, bucket) in buckets.enumerated() {
                 group.enter()
+                
+                // Post progress notification
+                DispatchQueue.main.async {
+                    let progress = SyncProgress(
+                        currentItem: index + 1,
+                        totalItems: totalBuckets,
+                        itemType: "bucket",
+                        phase: "syncing"
+                    )
+                    NotificationCenter.default.post(
+                        name: CloudKitManager.syncProgressNotification,
+                        object: nil,
+                        userInfo: ["progress": progress]
+                    )
+                }
                 
                 // Create CloudKit record ID
                 let recordID = self.bucketRecordID(bucket.id)
@@ -952,8 +1340,6 @@ public class CloudKitManager: NSObject {
                 record["iconUrl"] = bucket.iconUrl
                 record["color"] = bucket.color
                 
-                // Ensure isSeed is removed for normal buckets (not seed records)
-                record["isSeed"] = nil
                 
                 // Save record to CloudKit
                 self.privateDatabase.save(record) { savedRecord, error in
@@ -972,6 +1358,19 @@ public class CloudKitManager: NSObject {
             }
             
             group.notify(queue: .main) {
+                // Post completion notification for buckets
+                let progress = SyncProgress(
+                    currentItem: syncedCount + updatedCount,
+                    totalItems: syncedCount + updatedCount,
+                    itemType: "bucket",
+                    phase: "completed"
+                )
+                NotificationCenter.default.post(
+                    name: CloudKitManager.syncProgressNotification,
+                    object: nil,
+                    userInfo: ["progress": progress]
+                )
+                
                 let hasErrors = !errors.isEmpty
                 if hasErrors {
                     LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Bucket sync completed with errors", metadata: ["synced": "\(syncedCount)", "updated": "\(updatedCount)", "errors": "\(errors.count)"], source: "CloudKitManager")
@@ -992,81 +1391,116 @@ public class CloudKitManager: NSObject {
         DatabaseAccess.getAllBuckets(source: "CloudKitSync") { sqliteBuckets in
             let sqliteBucketIds = Set(sqliteBuckets.map { $0.id })
             
-            // Fetch all buckets from CloudKit
+            // Fetch all buckets from CloudKit using CKQueryOperation (supports pagination and sortDescriptors)
             let predicate = NSPredicate(value: true)
             let query = CKQuery(recordType: RecordType.bucket.rawValue, predicate: predicate)
+            // Add sortDescriptor on 'name' field to make it queryable (required for CloudKit queries)
+            query.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
             
-            self.privateDatabase.perform(query, inZoneWith: self.customZoneID) { cloudKitRecords, error in
-                if let error = error {
-                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching buckets from CloudKit for cleanup", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
-                    completion(0, error)
-                    return
+            var allRecords: [CKRecord] = []
+            var fetchError: Error?
+            
+            func fetchPage(cursor: CKQueryOperation.Cursor?) {
+                let operation: CKQueryOperation
+                
+                if let cursor = cursor {
+                    operation = CKQueryOperation(cursor: cursor)
+                } else {
+                    operation = CKQueryOperation(query: query)
                 }
                 
-                guard let records = cloudKitRecords else {
-                    completion(0, nil)
-                    return
-                }
+                // Set zone for the operation
+                operation.zoneID = self.customZoneID
+                operation.resultsLimit = 500
+                operation.qualityOfService = .utility
                 
-                // Find buckets in CloudKit that are not in SQLite
-                var bucketsToDelete: [CKRecord.ID] = []
-                for record in records {
-                    guard let bucketId = record["id"] as? String else {
-                        continue
-                    }
-                    
-                    // Skip seed records
-                    if bucketId == "seed" || (record["isSeed"] as? Bool) == true {
-                        continue
-                    }
-                    
-                    // If bucket is not in SQLite, mark for deletion
-                    if !sqliteBucketIds.contains(bucketId) {
-                        bucketsToDelete.append(record.recordID)
+                operation.recordMatchedBlock = { recordID, result in
+                    switch result {
+                    case .success(let record):
+                        allRecords.append(record)
+                    case .failure(let error):
+                        LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error processing bucket record during cleanup", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
+                        fetchError = error
                     }
                 }
                 
-                guard !bucketsToDelete.isEmpty else {
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "No orphaned buckets to remove", source: "CloudKitManager")
-                    completion(0, nil)
-                    return
-                }
-                
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Found orphaned buckets to remove", metadata: ["count": "\(bucketsToDelete.count)", "sqliteCount": "\(sqliteBucketIds.count)", "cloudKitCount": "\(records.count)"], source: "CloudKitManager")
-                
-                // Delete orphaned buckets
-                let group = DispatchGroup()
-                var deletedCount = 0
-                var deleteErrors: [Error] = []
-                
-                for recordID in bucketsToDelete {
-                    group.enter()
-                    self.privateDatabase.delete(withRecordID: recordID) { deletedRecordID, error in
-                        if let error = error {
-                            if let ckError = error as? CKError, ckError.code == .unknownItem {
-                                // Already deleted, consider success
-                                deletedCount += 1
-                            } else {
-                                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error deleting orphaned bucket", metadata: ["bucketId": recordID.recordName, "error": error.localizedDescription], source: "CloudKitManager")
-                                deleteErrors.append(error)
-                            }
+                operation.queryResultBlock = { result in
+                    switch result {
+                    case .success(let cursor):
+                        // If there's a cursor, fetch next page
+                        if let nextCursor = cursor {
+                            fetchPage(cursor: nextCursor)
                         } else {
-                            deletedCount += 1
-                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Deleted orphaned bucket from CloudKit", metadata: ["bucketId": recordID.recordName], source: "CloudKitManager")
+                            // All pages fetched, process records
+                            self.processOrphanedBuckets(allRecords: allRecords, sqliteBucketIds: sqliteBucketIds, completion: completion)
                         }
-                        group.leave()
+                    case .failure(let error):
+                        LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching buckets from CloudKit for cleanup", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
+                        completion(0, error)
                     }
                 }
                 
-                group.notify(queue: .main) {
-                    if deleteErrors.isEmpty {
-                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Successfully removed orphaned buckets", metadata: ["deletedCount": "\(deletedCount)"], source: "CloudKitManager")
-                        completion(deletedCount, nil)
+                self.privateDatabase.add(operation)
+            }
+            
+            // Start fetching
+            fetchPage(cursor: nil)
+        }
+    }
+    
+    private func processOrphanedBuckets(allRecords: [CKRecord], sqliteBucketIds: Set<String>, completion: @escaping (Int, Error?) -> Void) {
+        // Find buckets in CloudKit that are not in SQLite
+        var bucketsToDelete: [CKRecord.ID] = []
+        for record in allRecords {
+            guard let bucketId = record["id"] as? String else {
+                continue
+            }
+            
+            // If bucket is not in SQLite, mark for deletion
+            if !sqliteBucketIds.contains(bucketId) {
+                bucketsToDelete.append(record.recordID)
+            }
+        }
+        
+        guard !bucketsToDelete.isEmpty else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "No orphaned buckets to remove", source: "CloudKitManager")
+            completion(0, nil)
+            return
+        }
+        
+        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Found orphaned buckets to remove", metadata: ["count": "\(bucketsToDelete.count)", "sqliteCount": "\(sqliteBucketIds.count)", "cloudKitCount": "\(allRecords.count)"], source: "CloudKitManager")
+        
+        // Delete orphaned buckets
+        let group = DispatchGroup()
+        var deletedCount = 0
+        var deleteErrors: [Error] = []
+        
+        for recordID in bucketsToDelete {
+            group.enter()
+            self.privateDatabase.delete(withRecordID: recordID) { deletedRecordID, error in
+                if let error = error {
+                    if let ckError = error as? CKError, ckError.code == .unknownItem {
+                        // Already deleted, consider success
+                        deletedCount += 1
                     } else {
-                        LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Removed orphaned buckets with some errors", metadata: ["deletedCount": "\(deletedCount)", "errorCount": "\(deleteErrors.count)"], source: "CloudKitManager")
-                        completion(deletedCount, deleteErrors.first)
+                        LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error deleting orphaned bucket", metadata: ["bucketId": recordID.recordName, "error": error.localizedDescription], source: "CloudKitManager")
+                        deleteErrors.append(error)
                     }
+                } else {
+                    deletedCount += 1
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Deleted orphaned bucket from CloudKit", metadata: ["bucketId": recordID.recordName], source: "CloudKitManager")
                 }
+                group.leave()
+            }
+        }
+        
+        group.notify(queue: .main) {
+            if deleteErrors.isEmpty {
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Successfully removed orphaned buckets", metadata: ["deletedCount": "\(deletedCount)"], source: "CloudKitManager")
+                completion(deletedCount, nil)
+            } else {
+                LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Removed orphaned buckets with some errors", metadata: ["deletedCount": "\(deletedCount)", "errorCount": "\(deleteErrors.count)"], source: "CloudKitManager")
+                completion(deletedCount, deleteErrors.first)
             }
         }
     }
@@ -1592,6 +2026,34 @@ public class CloudKitManager: NSObject {
         operation.recordZoneFetchCompletionBlock = { zoneID, changeToken, data, moreComing, error in
             if let error = error {
                 let errorDescription = error.localizedDescription
+                
+                // Check if zone was purged
+                if let ckError = error as? CKError,
+                   (ckError.localizedDescription.contains("Zone was purged") ||
+                    ckError.errorUserInfo["ServerErrorDescription"] as? String == "Zone was purged by user") {
+                    LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Zone was purged, resetting flags and re-initializing", source: "CloudKitManager")
+                    
+                    // Reset all flags
+                    UserDefaults.standard.removeObject(forKey: self.zoneInitializedKey)
+                    UserDefaults.standard.removeObject(forKey: self.schemaInitializedKey)
+                    UserDefaults.standard.removeObject(forKey: self.lastSyncTimestampKey)
+                    UserDefaults.standard.removeObject(forKey: self.lastChangeTokenKey)
+                    
+                    // Re-initialize zone and schema
+                    self.initializeSchemaIfNeeded { success, initError in
+                        self.syncLock.lock()
+                        self.isIncrementalSyncInProgress = false
+                        self.syncLock.unlock()
+                        if success {
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Zone re-initialized after purge", source: "CloudKitManager")
+                            completion(0, nil) // Return success with 0 updates since zone was just recreated
+                        } else {
+                            completion(0, initError)
+                        }
+                    }
+                    return
+                }
+                
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching zone changes", metadata: ["error": errorDescription], source: "CloudKitManager")
                 self.syncLock.lock()
                 self.isIncrementalSyncInProgress = false
@@ -1616,6 +2078,31 @@ public class CloudKitManager: NSObject {
             
             if let error = error {
                 let errorDescription = error.localizedDescription
+                
+                // Check if zone was purged
+                if let ckError = error as? CKError,
+                   (ckError.localizedDescription.contains("Zone was purged") ||
+                    ckError.errorUserInfo["ServerErrorDescription"] as? String == "Zone was purged by user") {
+                    LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Zone was purged during sync, resetting flags and re-initializing", source: "CloudKitManager")
+                    
+                    // Reset all flags
+                    UserDefaults.standard.removeObject(forKey: self.zoneInitializedKey)
+                    UserDefaults.standard.removeObject(forKey: self.schemaInitializedKey)
+                    UserDefaults.standard.removeObject(forKey: self.lastSyncTimestampKey)
+                    UserDefaults.standard.removeObject(forKey: self.lastChangeTokenKey)
+                    
+                    // Re-initialize zone and schema
+                    self.initializeSchemaIfNeeded { success, initError in
+                        if success {
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Zone re-initialized after purge", source: "CloudKitManager")
+                            completion(0, nil) // Return success with 0 updates since zone was just recreated
+                        } else {
+                            completion(0, initError)
+                        }
+                    }
+                    return
+                }
+                
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error completing incremental sync", metadata: ["error": errorDescription], source: "CloudKitManager")
                 completion(0, error)
                 return
@@ -1968,6 +2455,13 @@ public class CloudKitManager: NSObject {
     #endif
     
     private func handleRecordDeleted(recordID: CKRecord.ID, recordType: String, suppressNotification: Bool = false) {
+        // Ignore WatchLog deletions on Watch - these are managed by iOS
+        #if os(watchOS)
+        if recordType == RecordType.watchLog.rawValue {
+            return
+        }
+        #endif
+        
         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Handling record deletion", metadata: ["recordID": recordID.recordName, "recordType": recordType], source: "CloudKitManager")
         
         let recordName = recordID.recordName
@@ -2091,9 +2585,6 @@ public class CloudKitManager: NSObject {
             record["actions"] = "[]"
         }
         
-        // Ensure isSeed is removed for normal notifications (not seed records)
-        record["isSeed"] = nil
-        
         privateDatabase.save(record) { savedRecord, error in
             if let error = error {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error saving notification to CloudKit", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
@@ -2126,9 +2617,6 @@ public class CloudKitManager: NSObject {
         record["iconUrl"] = iconUrl
         record["color"] = color
         
-        // Ensure isSeed is removed for normal buckets (not seed records)
-        record["isSeed"] = nil
-        
         privateDatabase.save(record) { savedRecord, error in
             if let error = error {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error saving bucket to CloudKit", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
@@ -2143,14 +2631,14 @@ public class CloudKitManager: NSObject {
     /**
      * Update notification read status in CloudKit
      * Can be called from iOS or Watch
+     * readAt: nil means unread, non-nil means read
      */
     public func updateNotificationReadStatusInCloudKit(
         notificationId: String,
-        isRead: Bool,
         readAt: Date?,
         completion: @escaping (Bool, Error?) -> Void
     ) {
-        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Updating notification read status", metadata: ["notificationId": notificationId, "isRead": "\(isRead)"], source: "CloudKitManager")
+        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Updating notification read status", metadata: ["notificationId": notificationId, "readAt": readAt != nil ? "set" : "nil"], source: "CloudKitManager")
         
         let recordID = notificationRecordID(notificationId)
         
@@ -2167,15 +2655,8 @@ public class CloudKitManager: NSObject {
                 return
             }
             
-            if isRead {
-                let readAtValue = readAt ?? Date()
-                record["readAt"] = readAtValue
-            } else {
-                record["readAt"] = nil
-            }
-            
-            // Ensure isSeed is removed when updating notification
-            record["isSeed"] = nil
+            // Set readAt: nil means unread, non-nil means read
+            record["readAt"] = readAt
             
             self.privateDatabase.save(record) { savedRecord, error in
                 if let error = error {
@@ -2192,10 +2673,10 @@ public class CloudKitManager: NSObject {
     /**
      * Update multiple notifications read status in CloudKit (batch)
      * Can be called from iOS or Watch
+     * readAt: nil means unread, non-nil means read
      */
     public func updateNotificationsReadStatusInCloudKit(
         notificationIds: [String],
-        isRead: Bool,
         readAt: Date?,
         completion: @escaping (Bool, Int, Error?) -> Void
     ) {
@@ -2204,7 +2685,7 @@ public class CloudKitManager: NSObject {
             return
         }
         
-        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Updating multiple notifications read status", metadata: ["count": "\(notificationIds.count)", "isRead": "\(isRead)"], source: "CloudKitManager")
+        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Updating multiple notifications read status", metadata: ["count": "\(notificationIds.count)", "readAt": readAt != nil ? "set" : "nil"], source: "CloudKitManager")
         
         let group = DispatchGroup()
         var successCount = 0
@@ -2212,7 +2693,7 @@ public class CloudKitManager: NSObject {
         
         for notificationId in notificationIds {
             group.enter()
-            updateNotificationReadStatusInCloudKit(notificationId: notificationId, isRead: isRead, readAt: readAt) { success, error in
+            updateNotificationReadStatusInCloudKit(notificationId: notificationId, readAt: readAt) { success, error in
                 if success {
                     successCount += 1
                 } else if let error = error {
@@ -2458,23 +2939,6 @@ public class CloudKitManager: NSObject {
                     notificationDict["subtitle"] = subtitle
                 }
                 
-                // Skip seed records
-                let isSeedField = record["isSeed"] as? Bool
-                let idEqualsSeed = id == "seed"
-                let isSeedRecord = idEqualsSeed || isSeedField == true
-                
-                // Always log for debugging (both Swift.print and LoggingSystem)
-                Swift.print("☁️ [CloudKitManager] 🔍 Processing notification - id: \(id), isSeedField: \(String(describing: isSeedField)), idEqualsSeed: \(idEqualsSeed), isSeedRecord: \(isSeedRecord)")
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Processing notification for seed check", metadata: ["id": id, "isSeedField": "\(String(describing: isSeedField))", "idEqualsSeed": "\(idEqualsSeed)", "isSeedRecord": "\(isSeedRecord)", "recordKeys": "\(record.allKeys())"], source: "CloudKitManager")
-                
-                if isSeedRecord {
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Skipping seed notification", metadata: ["id": id, "isSeedField": "\(isSeedField ?? false)", "isSeedFieldRaw": "\(String(describing: record["isSeed"]))", "idEqualsSeed": "\(idEqualsSeed)"], source: "CloudKitManager")
-                    Swift.print("☁️ [CloudKitManager] ⚠️ SKIPPING notification (seed) - id: \(id)")
-                    continue
-                } else {
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Including notification", metadata: ["id": id, "isSeedField": "\(isSeedField ?? false)", "isSeedFieldRaw": "\(String(describing: record["isSeed"]))"], source: "CloudKitManager")
-                    Swift.print("☁️ [CloudKitManager] ✅ INCLUDING notification - id: \(id)")
-                }
                 
                 notifications.append(notificationDict)
             }
@@ -2581,6 +3045,162 @@ public class CloudKitManager: NSObject {
         // Start fetching from first page
         fetchPage(cursor: nil)
     }
+    
+    // MARK: - Watch Logging via CloudKit
+    
+    /**
+     * Write a log entry from Watch to CloudKit
+     * iOS will periodically read and delete these logs
+     */
+    #if os(watchOS)
+    public func writeWatchLog(
+        level: String,
+        tag: String?,
+        message: String,
+        metadata: [String: String]?,
+        completion: @escaping (Bool, Error?) -> Void
+    ) {
+        let logId = UUID().uuidString
+        let recordID = CKRecord.ID(recordName: "WatchLog-\(logId)", zoneID: customZoneID)
+        let record = CKRecord(recordType: RecordType.watchLog.rawValue, recordID: recordID)
+        
+        record["id"] = logId
+        record["level"] = level
+        record["tag"] = tag ?? ""
+        record["message"] = message
+        record["timestamp"] = Date()
+        record["source"] = "Watch"
+        
+        // Convert metadata to JSON string
+        if let metadata = metadata,
+           let metadataData = try? JSONSerialization.data(withJSONObject: metadata),
+           let metadataString = String(data: metadataData, encoding: .utf8) {
+            record["metadata"] = metadataString
+        } else {
+            record["metadata"] = "{}"
+        }
+        
+        privateDatabase.save(record) { savedRecord, error in
+            if let error = error {
+                // Only log errors, not every successful write to avoid log spam
+                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to write Watch log to CloudKit", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
+                completion(false, error)
+            } else {
+                // Don't log successful writes to avoid infinite log loop
+                completion(true, nil)
+            }
+        }
+    }
+    #endif
+    
+    /**
+     * Fetch and delete Watch logs from CloudKit (iOS only)
+     * Reads all WatchLog records, processes them, and deletes them
+     */
+    #if os(iOS)
+    public func fetchAndDeleteWatchLogs(completion: @escaping ([[String: Any]], Error?) -> Void) {
+        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Fetching Watch logs from CloudKit", source: "CloudKitManager")
+        
+        let predicate = NSPredicate(value: true) // Fetch all WatchLog records
+        let query = CKQuery(recordType: RecordType.watchLog.rawValue, predicate: predicate)
+        // Use sortDescriptors to make timestamp queryable (CloudKit will mark it as queryable when used)
+        // If timestamp is not yet queryable, CloudKit will return an error and we'll fall back to manual sorting
+        query.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: true)]
+        
+        privateDatabase.perform(query, inZoneWith: customZoneID) { records, error in
+            if let error = error {
+                // Check if error is due to timestamp not being queryable yet
+                if let ckError = error as? CKError,
+                   ckError.code == .invalidArguments,
+                   ckError.localizedDescription.contains("queryable") {
+                    // Retry without sortDescriptors - timestamp will become queryable after first use
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "timestamp not yet queryable, retrying without sortDescriptors", source: "CloudKitManager")
+                    let fallbackQuery = CKQuery(recordType: RecordType.watchLog.rawValue, predicate: predicate)
+                    self.privateDatabase.perform(fallbackQuery, inZoneWith: self.customZoneID) { fallbackRecords, fallbackError in
+                        if let fallbackError = fallbackError {
+                            LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching Watch logs (fallback)", metadata: ["error": fallbackError.localizedDescription], source: "CloudKitManager")
+                            completion([], fallbackError)
+                            return
+                        }
+                        self.processWatchLogs(records: fallbackRecords ?? [], completion: completion)
+                    }
+                    return
+                }
+                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching Watch logs", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
+                completion([], error)
+                return
+            }
+            
+            self.processWatchLogs(records: records ?? [], completion: completion)
+        }
+    }
+    
+    private func processWatchLogs(records: [CKRecord], completion: @escaping ([[String: Any]], Error?) -> Void) {
+        guard !records.isEmpty else {
+            completion([], nil)
+            return
+        }
+        
+        var logs: [[String: Any]] = []
+        var recordIDsToDelete: [CKRecord.ID] = []
+        
+        for record in records {
+            var logDict: [String: Any] = [:]
+            
+            if let id = record["id"] as? String {
+                logDict["id"] = id
+            }
+            if let level = record["level"] as? String {
+                logDict["level"] = level
+            }
+            if let tag = record["tag"] as? String {
+                logDict["tag"] = tag
+            }
+            if let message = record["message"] as? String {
+                logDict["message"] = message
+            }
+            if let timestamp = record["timestamp"] as? Date {
+                logDict["timestamp"] = Int64(timestamp.timeIntervalSince1970 * 1000)
+            }
+            if let source = record["source"] as? String {
+                logDict["source"] = source
+            }
+            if let metadataString = record["metadata"] as? String,
+               let metadataData = metadataString.data(using: .utf8),
+               let metadata = try? JSONSerialization.jsonObject(with: metadataData) as? [String: Any] {
+                logDict["metadata"] = metadata
+            }
+            
+            logs.append(logDict)
+            recordIDsToDelete.append(record.recordID)
+        }
+        
+        // Sort logs by timestamp ascending (manually, in case timestamp is not yet queryable)
+        logs.sort { (log1, log2) -> Bool in
+            let ts1 = log1["timestamp"] as? Int64 ?? 0
+            let ts2 = log2["timestamp"] as? Int64 ?? 0
+            return ts1 < ts2
+        }
+        
+        // Delete all fetched logs
+        if !recordIDsToDelete.isEmpty {
+            let deleteOperation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: recordIDsToDelete)
+            deleteOperation.database = self.privateDatabase
+            deleteOperation.modifyRecordsResultBlock = { result in
+                switch result {
+                case .success:
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Deleted Watch logs from CloudKit", metadata: ["count": "\(recordIDsToDelete.count)"], source: "CloudKitManager")
+                case .failure(let error):
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error deleting Watch logs", metadata: ["error": error.localizedDescription], source: "CloudKitManager")
+                }
+            }
+            self.privateDatabase.add(deleteOperation)
+        }
+        
+        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Fetched Watch logs from CloudKit", metadata: ["count": "\(logs.count)"], source: "CloudKitManager")
+        completion(logs, nil)
+    }
+    #endif
 }
 
 // MARK: - Note on CloudKit Remote Notifications

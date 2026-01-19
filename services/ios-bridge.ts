@@ -426,10 +426,10 @@ class IosBridgeService {
   /**
    * Update notification read status in CloudKit (single notification)
    * More efficient than triggering a full sync when only updating read status
+   * readAt: null means unread, non-null means read
    */
   async updateNotificationReadStatusInCloudKit(
     notificationId: string,
-    isRead: boolean,
     readAt: string | null
   ): Promise<boolean> {
     if (!isIOS || !CloudKitSyncBridge) {
@@ -442,7 +442,6 @@ class IosBridgeService {
       
       await CloudKitSyncBridge.updateNotificationReadStatus(
         notificationId,
-        isRead,
         readAtTimestamp
       );
       return true;
@@ -455,10 +454,10 @@ class IosBridgeService {
   /**
    * Update multiple notifications read status in CloudKit (batch)
    * More efficient than triggering a full sync when updating multiple notifications
+   * readAt: null means unread, non-null means read
    */
   async updateNotificationsReadStatusInCloudKit(
     notificationIds: string[],
-    isRead: boolean,
     readAt: string | null
   ): Promise<{ success: boolean; updatedCount: number }> {
     if (!isIOS || !CloudKitSyncBridge) {
@@ -471,7 +470,6 @@ class IosBridgeService {
       
       const result = await CloudKitSyncBridge.updateNotificationsReadStatus(
         notificationIds,
-        isRead,
         readAtTimestamp
       );
       return { success: result.success, updatedCount: result.updatedCount || 0 };
@@ -600,6 +598,111 @@ class IosBridgeService {
         bucketsSynced: 0,
         bucketsUpdated: 0,
       };
+    }
+  }
+
+  /**
+   * Fetch and delete Watch logs from CloudKit
+   * Returns array of log entries that were fetched and deleted
+   */
+  async fetchAndDeleteWatchLogs(): Promise<{
+    logs: Array<{
+      id: string;
+      level: string;
+      tag?: string;
+      message: string;
+      timestamp: number;
+      source: string;
+      metadata?: Record<string, any>;
+    }>;
+    count: number;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return { logs: [], count: 0 };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.fetchAndDeleteWatchLogs();
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to fetch Watch logs:', error);
+      return { logs: [], count: 0 };
+    }
+  }
+
+  /**
+   * Subscribe to CloudKit sync progress events
+   * The callback will be called with progress updates during sync operations
+   */
+  subscribeToSyncProgress(
+    callback: (progress: {
+      currentItem: number;
+      totalItems: number;
+      itemType: 'notification' | 'bucket';
+      phase: 'syncing' | 'completed';
+    }) => void
+  ): void {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return;
+    }
+
+    try {
+      CloudKitSyncBridge.subscribeToSyncProgress(callback);
+    } catch (error) {
+      console.error('[CloudKit] Failed to subscribe to sync progress:', error);
+    }
+  }
+
+  /**
+   * Unsubscribe from CloudKit sync progress events
+   */
+  unsubscribeFromSyncProgress(): void {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return;
+    }
+
+    try {
+      CloudKitSyncBridge.unsubscribeFromSyncProgress();
+    } catch (error) {
+      console.error('[CloudKit] Failed to unsubscribe from sync progress:', error);
+    }
+  }
+
+  /**
+   * Delete CloudKit zone and all its data
+   * WARNING: This will permanently delete all records in the zone
+   */
+  async deleteCloudKitZone(): Promise<{ success: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      throw new Error('deleteCloudKitZone is only available on iOS');
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.deleteCloudKitZone();
+      console.log('[CloudKit] Zone deleted successfully');
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to delete zone:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reset CloudKit zone: delete everything and re-initialize
+   * This will delete all data and recreate the zone with fresh schema
+   */
+  async resetCloudKitZone(): Promise<{ success: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      throw new Error('resetCloudKitZone is only available on iOS');
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.resetCloudKitZone();
+      console.log('[CloudKit] Zone reset completed successfully');
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to reset zone:', error);
+      throw error;
     }
   }
 }

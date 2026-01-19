@@ -18,7 +18,8 @@ class CloudKitSyncBridge: RCTEventEmitter {
       "cloudKitNotificationDeleted",
       "cloudKitBucketUpdated",
       "cloudKitBucketDeleted",
-      "cloudKitRecordChanged" // New event for all record changes
+      "cloudKitRecordChanged", // New event for all record changes
+      "cloudKitSyncProgress" // Progress updates during sync operations
     ]
   }
   
@@ -71,6 +72,19 @@ class CloudKitSyncBridge: RCTEventEmitter {
         body["recordData"] = recordData
       }
       sharedInstance?.sendEvent(withName: "cloudKitRecordChanged", body: body)
+    }
+  }
+  
+  @objc
+  static func notifySyncProgress(currentItem: Int, totalItems: Int, itemType: String, phase: String) {
+    DispatchQueue.main.async {
+      let body: [String: Any] = [
+        "currentItem": currentItem,
+        "totalItems": totalItems,
+        "itemType": itemType,
+        "phase": phase
+      ]
+      sharedInstance?.sendEvent(withName: "cloudKitSyncProgress", body: body)
     }
   }
   
@@ -128,11 +142,11 @@ class CloudKitSyncBridge: RCTEventEmitter {
   /**
    * Update notification read status in CloudKit (single notification)
    * This is more efficient than triggering a full sync when only updating read status
+   * readAtTimestamp: null/undefined means unread, non-null means read
    */
   @objc
   func updateNotificationReadStatus(
     _ notificationId: String,
-    isRead: Bool,
     readAtTimestamp: Any?,
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
@@ -147,7 +161,6 @@ class CloudKitSyncBridge: RCTEventEmitter {
     
     CloudKitManager.shared.updateNotificationReadStatusInCloudKit(
       notificationId: notificationId,
-      isRead: isRead,
       readAt: readAt
     ) { success, error in
       if success {
@@ -162,11 +175,11 @@ class CloudKitSyncBridge: RCTEventEmitter {
   /**
    * Update multiple notifications read status in CloudKit (batch)
    * More efficient than triggering a full sync when updating multiple notifications
+   * readAtTimestamp: null/undefined means unread, non-null means read
    */
   @objc
   func updateNotificationsReadStatus(
     _ notificationIds: [String],
-    isRead: Bool,
     readAtTimestamp: Any?,
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
@@ -186,7 +199,6 @@ class CloudKitSyncBridge: RCTEventEmitter {
     
     CloudKitManager.shared.updateNotificationsReadStatusInCloudKit(
       notificationIds: notificationIds,
-      isRead: isRead,
       readAt: readAt
     ) { success, count, error in
       if success {
@@ -344,6 +356,94 @@ class CloudKitSyncBridge: RCTEventEmitter {
         }
       }
     }
+  }
+  
+  /**
+   * Fetch and delete Watch logs from CloudKit
+   * Returns array of log entries that were fetched and deleted
+   */
+  @objc
+  func fetchAndDeleteWatchLogs(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    CloudKitManager.shared.fetchAndDeleteWatchLogs { logs, error in
+      if let error = error {
+        let errorMessage = error.localizedDescription
+        reject("FETCH_LOGS_FAILED", errorMessage, error)
+      } else {
+        resolve(["logs": logs, "count": logs.count])
+      }
+    }
+  }
+  
+  /**
+   * Subscribe to CloudKit sync progress events
+   * Note: Progress events are automatically emitted via notifySyncProgress
+   * This method is kept for API consistency but doesn't require explicit subscription
+   */
+  @objc
+  func subscribeToSyncProgress(_ callback: @escaping RCTResponseSenderBlock) {
+    // Progress events are automatically emitted via notifySyncProgress
+    // No explicit subscription needed, but we keep this method for API consistency
+    callback([NSNull()])
+  }
+  
+  /**
+   * Unsubscribe from CloudKit sync progress events
+   * Note: Progress events are automatically emitted via notifySyncProgress
+   * This method is kept for API consistency but doesn't require explicit unsubscription
+   */
+  @objc
+  func unsubscribeFromSyncProgress() {
+    // Progress events are automatically emitted via notifySyncProgress
+    // No explicit unsubscription needed, but we keep this method for API consistency
+  }
+  
+  /**
+   * Delete CloudKit zone and all its data
+   * WARNING: This will permanently delete all records in the zone
+   */
+  @objc
+  func deleteCloudKitZone(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    CloudKitManager.shared.deleteCloudKitZone { success, error in
+      if let error = error {
+        let errorMessage = error.localizedDescription
+        reject("DELETE_ZONE_FAILED", errorMessage, error)
+      } else {
+        resolve(["success": success])
+      }
+    }
+    #else
+    reject("NOT_SUPPORTED", "deleteCloudKitZone is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Reset CloudKit zone: delete everything and re-initialize
+   * This will delete all data and recreate the zone with fresh schema
+   */
+  @objc
+  func resetCloudKitZone(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    CloudKitManager.shared.resetCloudKitZone { success, error in
+      if let error = error {
+        let errorMessage = error.localizedDescription
+        reject("RESET_ZONE_FAILED", errorMessage, error)
+      } else {
+        resolve(["success": success])
+      }
+    }
+    #else
+    reject("NOT_SUPPORTED", "resetCloudKitZone is only available on iOS", nil)
+    #endif
   }
 
 }

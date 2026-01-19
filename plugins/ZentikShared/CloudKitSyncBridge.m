@@ -9,13 +9,11 @@ RCT_EXTERN_METHOD(triggerSyncToCloudWithDebounce:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(updateNotificationReadStatus:(NSString *)notificationId
-                  isRead:(BOOL)isRead
                   readAtTimestamp:(id)readAtTimestamp
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(updateNotificationsReadStatus:(NSArray<NSString *> *)notificationIds
-                  isRead:(BOOL)isRead
                   readAtTimestamp:(id)readAtTimestamp
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
@@ -33,6 +31,19 @@ RCT_EXTERN_METHOD(syncFromCloudKitIncremental:(BOOL)fullSync
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(triggerFullSyncWithVerification:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(fetchAndDeleteWatchLogs:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(subscribeToSyncProgress:(RCTResponseSenderBlock)callback)
+
+RCT_EXTERN_METHOD(unsubscribeFromSyncProgress)
+
+RCT_EXTERN_METHOD(deleteCloudKitZone:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(resetCloudKitZone:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 + (BOOL)requiresMainQueueSetup

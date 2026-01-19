@@ -550,7 +550,6 @@ export async function updateNotificationReadStatus(notificationId: string, readA
   if (Platform.OS === 'ios') {
     iosBridgeService.updateNotificationReadStatusInCloudKit(
       notificationId,
-      readAt !== null,
       readAt
     ).catch((error) => {
       console.error('[NotificationsRepository] Failed to update CloudKit read status:', error);
@@ -678,10 +677,9 @@ export async function updateNotificationsReadStatus(notificationIds: string[], r
 
   // Update CloudKit directly (more efficient than full sync)
   if (Platform.OS === 'ios') {
-    console.log(`[updateNotificationsReadStatus] Updating ${notificationIds.length} notifications in CloudKit - isRead: ${readAt !== null}`);
+    console.log(`[updateNotificationsReadStatus] Updating ${notificationIds.length} notifications in CloudKit - readAt: ${readAt !== null ? 'set' : 'null'}`);
     iosBridgeService.updateNotificationsReadStatusInCloudKit(
       notificationIds,
-      readAt !== null,
       readAt
     ).then((result) => {
       console.log(`[updateNotificationsReadStatus] ✅ CloudKit batch update completed - success: ${result.success}, updatedCount: ${result.updatedCount}`);

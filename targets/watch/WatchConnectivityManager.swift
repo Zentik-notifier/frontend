@@ -311,7 +311,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
         
         // Update CloudKit using shared method
-        CloudKitManager.shared.updateNotificationReadStatusInCloudKit(notificationId: id, isRead: true, readAt: Date()) { success, error in
+        CloudKitManager.shared.updateNotificationReadStatusInCloudKit(notificationId: id, readAt: Date()) { success, error in
             if let error = error {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to update notification read status in CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
             }
@@ -342,7 +342,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
         
         // Update CloudKit using shared batch method
-        CloudKitManager.shared.updateNotificationsReadStatusInCloudKit(notificationIds: ids, isRead: true, readAt: Date()) { success, count, error in
+        CloudKitManager.shared.updateNotificationsReadStatusInCloudKit(notificationIds: ids, readAt: Date()) { success, count, error in
             if let error = error {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to update notifications read status", metadata: ["count": "\(count)", "error": error.localizedDescription], source: "Watch")
             }
@@ -368,7 +368,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
         
         // Update CloudKit using shared method
-        CloudKitManager.shared.updateNotificationReadStatusInCloudKit(notificationId: id, isRead: false, readAt: nil) { success, error in
+        CloudKitManager.shared.updateNotificationReadStatusInCloudKit(notificationId: id, readAt: nil) { success, error in
             if let error = error {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to update notification unread status in CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
             }

@@ -524,7 +524,6 @@ public class NotificationActionHandler {
                     // Update CloudKit for Watch synchronization
                     CloudKitManager.shared.updateNotificationReadStatusInCloudKit(
                         notificationId: notificationId,
-                        isRead: true,
                         readAt: Date()
                     ) { success, error in
                         if success {
@@ -551,7 +550,6 @@ public class NotificationActionHandler {
                     // Update CloudKit for Watch synchronization
                     CloudKitManager.shared.updateNotificationReadStatusInCloudKit(
                         notificationId: notificationId,
-                        isRead: false,
                         readAt: nil
                     ) { success, error in
                         if success {

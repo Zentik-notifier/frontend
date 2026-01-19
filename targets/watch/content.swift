@@ -76,9 +76,9 @@ struct ContentView: View {
             isConnected: connectivityManager.isConnected,
             lastUpdate: connectivityManager.lastUpdate,
             hasCache: !connectivityManager.notifications.isEmpty,
-            onRefresh: requestFullRefresh
+            onRefresh: requestFullRefresh,
+            connectivityManager: connectivityManager
         )
-        .environmentObject(connectivityManager)
         .environmentObject(iconCache)
         .onAppear {
             // Clear icon cache on app open to ensure fresh icons
@@ -201,15 +201,44 @@ struct BucketMenuView: View {
     let lastUpdate: Date?
     let hasCache: Bool
     let onRefresh: () -> Void
+    @ObservedObject var connectivityManager: WatchConnectivityManager
     
     @EnvironmentObject var iconCache: BucketIconCache
-    @EnvironmentObject var connectivityManager: WatchConnectivityManager
+    
+    // Computed properties that react to connectivityManager changes
+    private var currentBuckets: [BucketItem] {
+        connectivityManager.buckets
+    }
+    
+    private var currentTotalUnreadCount: Int {
+        connectivityManager.unreadCount
+    }
+    
+    private var currentTotalNotificationsCount: Int {
+        connectivityManager.notifications.count
+    }
+    
+    private var currentIsLoading: Bool {
+        connectivityManager.isWaitingForResponse
+    }
+    
+    private var currentIsConnected: Bool {
+        connectivityManager.isConnected
+    }
+    
+    private var currentLastUpdate: Date? {
+        connectivityManager.lastUpdate
+    }
+    
+    private var currentHasCache: Bool {
+        !connectivityManager.notifications.isEmpty
+    }
     
     var body: some View {
         NavigationView {
             Group {
                 // Show full screen loader only on initial load with no cache
-                if isInitialLoad && !hasCache {
+                if isInitialLoad && !currentHasCache {
                     VStack(spacing: 16) {
                         ProgressView()
                             .scaleEffect(1.2)
@@ -218,7 +247,7 @@ struct BucketMenuView: View {
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if !isConnected && !hasCache {
+                } else if !currentIsConnected && !currentHasCache {
                     VStack(spacing: 12) {
                         Image(systemName: "iphone.slash")
                             .font(.system(size: 40))
@@ -235,7 +264,7 @@ struct BucketMenuView: View {
                 } else {
                     List {
                         // All notifications item
-                        NavigationLink(destination: FilteredNotificationListView(bucketId: nil, bucketName: nil, bucket: nil, allBuckets: buckets)) {
+                        NavigationLink(destination: FilteredNotificationListView(bucketId: nil, bucketName: nil, bucket: nil, allBuckets: currentBuckets)) {
                             HStack(spacing: 10) {
                                 Image(systemName: "bell.fill")
                                     .font(.system(size: 20))
@@ -245,15 +274,15 @@ struct BucketMenuView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("All Notifications")
                                         .font(.headline)
-                                    Text("\(totalNotificationsCount) notifications")
+                                    Text("\(currentTotalNotificationsCount) notifications")
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
                                 }
                                 
                                 Spacer()
                                 
-                                if totalUnreadCount > 0 {
-                                    Text("\(totalUnreadCount)")
+                                if currentTotalUnreadCount > 0 {
+                                    Text("\(currentTotalUnreadCount)")
                                         .font(.caption2)
                                         .fontWeight(.bold)
                                         .foregroundColor(.white)
@@ -266,7 +295,7 @@ struct BucketMenuView: View {
                         }
                         .swipeActions(edge: .leading) {
                             // Swipe left: Mark all unread as read
-                            if totalUnreadCount > 0 {
+                            if currentTotalUnreadCount > 0 {
                                 Button {
                                     WKInterfaceDevice.current().play(.success)
                                     // Mark all unread notifications as read (bulk operation)
@@ -282,11 +311,11 @@ struct BucketMenuView: View {
                         }
                         
                         // Buckets section - only show buckets with notifications
-                        let bucketsWithNotifications = buckets.filter { $0.unreadCount > 0 || $0.totalCount > 0 }
+                        let bucketsWithNotifications = currentBuckets.filter { $0.unreadCount > 0 || $0.totalCount > 0 }
                         if !bucketsWithNotifications.isEmpty {
                             Section(header: Text("Buckets")) {
                                 ForEach(bucketsWithNotifications) { bucket in
-                                    NavigationLink(destination: FilteredNotificationListView(bucketId: bucket.id, bucketName: bucket.name, bucket: bucket, allBuckets: buckets)) {
+                                    NavigationLink(destination: FilteredNotificationListView(bucketId: bucket.id, bucketName: bucket.name, bucket: bucket, allBuckets: currentBuckets)) {
                                         BucketRowView(bucket: bucket, iconImage: iconCache.getIcon(bucketId: bucket.id))
                                     }
                                     .swipeActions(edge: .leading) {
@@ -316,7 +345,7 @@ struct BucketMenuView: View {
             .onAppear {
                 loadAllIcons()
             }
-            .onChange(of: buckets) { _ in
+            .onChange(of: currentBuckets) { _ in
                 loadAllIcons()
             }
             .onChange(of: connectivityManager.notifications) { _ in
@@ -324,7 +353,7 @@ struct BucketMenuView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    if let lastUpdate = lastUpdate {
+                    if let lastUpdate = currentLastUpdate {
                         Text("Synced \(timeAgo(from: lastUpdate))")
                             .font(.system(size: 8))
                             .foregroundColor(.secondary)
@@ -332,7 +361,7 @@ struct BucketMenuView: View {
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
-                    if isLoading {
+                    if currentIsLoading {
                         ProgressView()
                             .scaleEffect(0.7)
                     } else {
@@ -370,12 +399,12 @@ struct BucketMenuView: View {
     private func loadAllIcons() {
         // Create a lookup map for buckets by ID
         var bucketMap: [String: BucketItem] = [:]
-        for bucket in buckets {
+        for bucket in currentBuckets {
             bucketMap[bucket.id] = bucket
         }
         
         // 1. Load bucket icons for buckets with notifications
-        let bucketsWithNotifications = buckets.filter { $0.unreadCount > 0 || $0.totalCount > 0 }
+        let bucketsWithNotifications = currentBuckets.filter { $0.unreadCount > 0 || $0.totalCount > 0 }
         for bucket in bucketsWithNotifications {
             iconCache.loadIcon(
                 bucketId: bucket.id,

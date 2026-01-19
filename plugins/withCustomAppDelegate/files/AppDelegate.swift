@@ -78,6 +78,23 @@ FirebaseApp.configure()
       }
     }
     
+    // Subscribe to sync progress notifications
+    NotificationCenter.default.addObserver(
+      forName: CloudKitManager.syncProgressNotification,
+      object: nil,
+      queue: .main
+    ) { notification in
+      if let progress = notification.userInfo?["progress"] as? CloudKitManager.SyncProgress {
+        // Forward to React Native bridge
+        CloudKitSyncBridge.notifySyncProgress(
+          currentItem: progress.currentItem,
+          totalItems: progress.totalItems,
+          itemType: progress.itemType,
+          phase: progress.phase
+        )
+      }
+    }
+    
     // Register for remote notifications (required for CloudKit subscriptions)
     application.registerForRemoteNotifications()
 

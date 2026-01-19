@@ -82,14 +82,28 @@ export function useCloudKitEvents() {
       }
     };
 
+    const handleSyncProgress = async (event: {
+      currentItem: number;
+      totalItems: number;
+      itemType: 'notification' | 'bucket';
+      phase: 'syncing' | 'completed';
+    }) => {
+      console.log(`[CloudKitEvents] Sync progress: ${event.currentItem}/${event.totalItems} ${event.itemType} (${event.phase})`);
+      
+      // You can update UI here, e.g., show progress bar
+      // Example: updateProgressBar(event.currentItem, event.totalItems, event.itemType);
+    };
+
     const subscription1 = eventEmitter.addListener('cloudKitNotificationUpdated', handleNotificationUpdated);
     const subscription2 = eventEmitter.addListener('cloudKitNotificationDeleted', handleNotificationDeleted);
     const subscription3 = eventEmitter.addListener('cloudKitRecordChanged', handleRecordChanged);
+    const subscription4 = eventEmitter.addListener('cloudKitSyncProgress', handleSyncProgress);
     
     return () => {
       subscription1.remove();
       subscription2.remove();
       subscription3.remove();
+      subscription4.remove();
     };
   }, [queryClient]);
 }
