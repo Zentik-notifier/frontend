@@ -18,6 +18,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     @Published var isConnected: Bool = false
     @Published var lastUpdate: Date?
     @Published var isWaitingForResponse: Bool = false
+    @Published var isSyncing: Bool = false
     
     private let dataStore = WatchDataStore.shared
     
@@ -76,16 +77,23 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     }
     
     private func syncFromCloudKitIncremental() {
+        DispatchQueue.main.async { [weak self] in
+            self?.isSyncing = true
+        }
+        
         CloudKitManager.shared.syncFromCloudKitIncremental(fullSync: false) { count, error in
-            if let error = error {
-                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Incremental sync failed", metadata: ["error": error.localizedDescription], source: "Watch")
-            } else {
-                if count > 0 {
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Incremental sync completed", metadata: ["updatedCount": "\(count)"], source: "Watch")
-                    // Reload cache and update UI on main thread
-                    DispatchQueue.main.async { [weak self] in
-                        self?.loadCachedData()
-                        self?.updateBucketCounts()
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.isSyncing = false
+                
+                if let error = error {
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Incremental sync failed", metadata: ["error": error.localizedDescription], source: "Watch")
+                } else {
+                    if count > 0 {
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Incremental sync completed", metadata: ["updatedCount": "\(count)"], source: "Watch")
+                        // Reload cache and update UI
+                        self.loadCachedData()
+                        self.updateBucketCounts()
                     }
                 }
             }
@@ -108,7 +116,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         let cache = dataStore.loadCache()
         
         // Convert cached notifications to NotificationData
-        notifications = cache.notifications.map { cached in
+        let mappedNotifications = cache.notifications.map { cached in
             let notification = WidgetNotification(
                 id: cached.id,
                 title: cached.title,
@@ -124,6 +132,22 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 actions: cached.actions.map { NotificationAction(type: $0.type, label: $0.label, value: $0.value, id: $0.id, url: $0.url, bucketId: $0.bucketId, minutes: $0.minutes) }
             )
             return NotificationData(notification: notification)
+        }
+        
+        // Sort notifications: unread first, then by createdAt descending (newest first)
+        notifications = mappedNotifications.sorted { notif1, notif2 in
+            // Unread notifications come first
+            if notif1.notification.isRead != notif2.notification.isRead {
+                return !notif1.notification.isRead && notif2.notification.isRead
+            }
+            // Then sort by createdAt descending (newest first)
+            let dateFormatter = ISO8601DateFormatter()
+            dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date1 = dateFormatter.date(from: notif1.notification.createdAt),
+               let date2 = dateFormatter.date(from: notif2.notification.createdAt) {
+                return date1 > date2
+            }
+            return false
         }
         
         // Convert cached buckets to BucketItem

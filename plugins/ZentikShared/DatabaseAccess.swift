@@ -538,7 +538,7 @@ public class DatabaseAccess {
             // Timeout protection: dispatch operation with timeout
             let timeoutWorkItem = DispatchWorkItem {
                 if isVerbose {
-                    print("📱 [\(source)] 🔓 [\(operationName)] Starting database operation...")
+                print("📱 [\(source)] 🔓 [\(operationName)] Starting database operation...")
                 }
                 
                 guard let dbPath = getDbPath() else {
@@ -549,7 +549,7 @@ public class DatabaseAccess {
                 }
                 
                 if isVerbose {
-                    print("📱 [\(source)] 📂 [\(operationName)] DB path: \(dbPath)")
+                print("📱 [\(source)] 📂 [\(operationName)] DB path: \(dbPath)")
                 }
                 
                 // Acquire file lock to prevent conflicts with expo-sqlite
@@ -562,7 +562,7 @@ public class DatabaseAccess {
                 
                 defer {
                     if isVerbose {
-                        releaseLock()
+                    releaseLock()
                     } else {
                         // Release lock silently
                         if lockFileDescriptor >= 0 {
@@ -579,7 +579,7 @@ public class DatabaseAccess {
                 // For read operations, if database doesn't exist, return empty result
                 if operationType == .read && !dbExists {
                     if isVerbose {
-                        print("📱 [\(source)] ℹ️ [\(operationName)] Database does not exist yet, returning empty result")
+                    print("📱 [\(source)] ℹ️ [\(operationName)] Database does not exist yet, returning empty result")
                     }
                     finalResult = .success
                     operationCompleted = true
@@ -596,13 +596,13 @@ public class DatabaseAccess {
                     SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
                 
                 if isVerbose {
-                    print("📱 [\(source)] 🔐 [\(operationName)] Attempting to open database with flags: \(openFlags)...")
+                print("📱 [\(source)] 🔐 [\(operationName)] Attempting to open database with flags: \(openFlags)...")
                 }
                 let openStartTime = Date()
                 var result = sqlite3_open_v2(dbPath, &db, openFlags, nil)
                 let openElapsed = Date().timeIntervalSince(openStartTime)
                 if isVerbose {
-                    print("📱 [\(source)] 🔓 [\(operationName)] Database open attempt completed in \(String(format: "%.3f", openElapsed))s with result: \(result)")
+                print("📱 [\(source)] 🔓 [\(operationName)] Database open attempt completed in \(String(format: "%.3f", openElapsed))s with result: \(result)")
                 }
                 
                 if result != SQLITE_OK {
@@ -642,7 +642,7 @@ public class DatabaseAccess {
                         if let modeCString = sqlite3_column_text(pragmaStmt, 0) {
                             let mode = String(cString: modeCString)
                             if isVerbose {
-                                print("📱 [\(source)] ℹ️ [\(operationName)] Current journal mode: \(mode)")
+                            print("📱 [\(source)] ℹ️ [\(operationName)] Current journal mode: \(mode)")
                             }
                             
                             // Only set WAL mode for write operations or if not already in WAL mode
@@ -692,7 +692,7 @@ public class DatabaseAccess {
                     sqlite3_step(createStmt)
                     sqlite3_finalize(createStmt)
                     if isVerbose {
-                        print("📱 [\(source)] ✅ [\(operationName)] Notifications table schema verified")
+                    print("📱 [\(source)] ✅ [\(operationName)] Notifications table schema verified")
                     }
                 } else {
                     let errorMsg = String(cString: sqlite3_errmsg(database))
@@ -712,7 +712,7 @@ public class DatabaseAccess {
                     sqlite3_step(createStmt)
                     sqlite3_finalize(createStmt)
                     if isVerbose {
-                        print("📱 [\(source)] ✅ [\(operationName)] Buckets table schema verified")
+                    print("📱 [\(source)] ✅ [\(operationName)] Buckets table schema verified")
                     }
                 } else {
                     let errorMsg = String(cString: sqlite3_errmsg(database))
@@ -829,7 +829,7 @@ public class DatabaseAccess {
             switch finalResult {
             case .success:
                 if isVerbose {
-                    print("📱 [\(source)] ✅ [\(operationName)] Completed in \(String(format: "%.3f", elapsed))s")
+                print("📱 [\(source)] ✅ [\(operationName)] Completed in \(String(format: "%.3f", elapsed))s")
                 }
             case .failure(let error):
                 print("📱 [\(source)] ❌ [\(operationName)] Failed: \(error)")

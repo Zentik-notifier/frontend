@@ -297,9 +297,9 @@ copy_shared_files() {
                 fi
             done
             if [ "$should_skip" = true ]; then
-                print_status "    ⏭️  $file saltato (non necessario per $target_name)"
-                ((skipped_count++))
-                continue
+            print_status "    ⏭️  $file saltato (non necessario per $target_name)"
+            ((skipped_count++))
+            continue
             fi
         fi
         
@@ -320,7 +320,7 @@ copy_shared_files() {
         if [ $removed_count -gt 0 ]; then
             print_success "  $target_name: $copied_count/${#files_array[@]} file copiati ($skipped_count saltati, $removed_count rimossi)"
         else
-            print_success "  $target_name: $copied_count/${#files_array[@]} file copiati ($skipped_count saltati)"
+        print_success "  $target_name: $copied_count/${#files_array[@]} file copiati ($skipped_count saltati)"
         fi
     else
         print_success "  $target_name: $copied_count/${#files_array[@]} file copiati"

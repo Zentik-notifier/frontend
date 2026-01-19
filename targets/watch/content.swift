@@ -222,6 +222,10 @@ struct BucketMenuView: View {
         connectivityManager.isWaitingForResponse
     }
     
+    private var currentIsSyncing: Bool {
+        connectivityManager.isSyncing
+    }
+    
     private var currentIsConnected: Bool {
         connectivityManager.isConnected
     }
@@ -353,23 +357,36 @@ struct BucketMenuView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    if let lastUpdate = currentLastUpdate {
-                        Text("Synced \(timeAgo(from: lastUpdate))")
-                            .font(.system(size: 8))
-                            .foregroundColor(.secondary)
+                    HStack(spacing: 4) {
+                        if currentIsSyncing {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                        }
+                        if let lastUpdate = currentLastUpdate {
+                            Text("Synced \(timeAgo(from: lastUpdate))")
+                                .font(.system(size: 8))
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
-                    if currentIsLoading {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                    } else {
-                        Button(action: {
-                            onRefresh()
-                        }) {
-                            Image(systemName: "arrow.clockwise")
+                    HStack(spacing: 8) {
+                        NavigationLink(destination: SettingsView()) {
+                            Image(systemName: "gearshape.fill")
                                 .font(.system(size: 14))
+                        }
+                        
+                        if currentIsLoading {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                        } else {
+                            Button(action: {
+                                onRefresh()
+                            }) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 14))
+                            }
                         }
                     }
                 }
@@ -426,13 +443,13 @@ struct BucketMenuView: View {
             
             // Only load icon if we have at least a bucketName or bucketInfo
             if let bucketName = bucketName {
-                iconCache.loadIcon(
-                    bucketId: notification.bucketId,
+            iconCache.loadIcon(
+                bucketId: notification.bucketId,
                     bucketName: bucketName,
                     bucketColor: bucketColor,
                     iconUrl: bucketIconUrl
-                )
-            }
+            )
+        }
         }
     }
 }
@@ -610,10 +627,7 @@ struct FilteredNotificationListView: View {
     }
     
     private func filterNotifications() {
-        // Notifications are already sorted globally in WatchConnectivityManager:
-        // 1. Unread first
-        // 2. Then by createdAt (newest first)
-        // We just need to filter them, keeping the original order
+        // Start with all notifications from connectivityManager (already sorted)
         var notifications = connectivityManager.notifications
         
         // Filter by bucket if specified
@@ -626,8 +640,21 @@ struct FilteredNotificationListView: View {
             notifications = notifications.filter { !$0.notification.isRead }
         }
         
-        // No sorting needed - notifications are already sorted globally
-        filteredNotifications = notifications
+        // Ensure sorting: unread first, then by createdAt descending (newest first)
+        filteredNotifications = notifications.sorted { notif1, notif2 in
+            // Unread notifications come first
+            if notif1.notification.isRead != notif2.notification.isRead {
+                return !notif1.notification.isRead && notif2.notification.isRead
+            }
+            // Then sort by createdAt descending (newest first)
+            let dateFormatter = ISO8601DateFormatter()
+            dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date1 = dateFormatter.date(from: notif1.notification.createdAt),
+               let date2 = dateFormatter.date(from: notif2.notification.createdAt) {
+                return date1 > date2
+            }
+            return false
+        }
     }
 }
 
@@ -1482,6 +1509,147 @@ struct AnimatedImageView: View {
     private func stopAnimation() {
         timer?.invalidate()
         timer = nil
+    }
+}
+
+// MARK: - Settings View
+
+struct SettingsView: View {
+    var body: some View {
+        List {
+            NavigationLink(destination: LogsView()) {
+                HStack(spacing: 10) {
+                    Image(systemName: "doc.text.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.blue)
+                        .frame(width: 32, height: 32)
+                    
+                    Text("View Logs")
+                        .font(.headline)
+                }
+            }
+        }
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Logs View
+
+struct LogsView: View {
+    @State private var logs: [LoggingSystem.LogEntry] = []
+    @State private var isLoading: Bool = true
+    
+    var body: some View {
+        Group {
+            if isLoading {
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.2)
+                    Text("Loading logs...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if logs.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 40))
+                        .foregroundColor(.secondary)
+                    Text("No logs available")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+            } else {
+                List {
+                    ForEach(logs, id: \.id) { log in
+                        LogRowView(log: log)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Logs")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            loadLogs()
+        }
+    }
+    
+    private func loadLogs() {
+        isLoading = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let allLogs = LoggingSystem.shared.readLogs()
+            DispatchQueue.main.async {
+                self.logs = allLogs
+                self.isLoading = false
+            }
+        }
+    }
+}
+
+// MARK: - Log Row View
+
+struct LogRowView: View {
+    let log: LoggingSystem.LogEntry
+    
+    private var levelColor: Color {
+        switch log.level {
+        case "ERROR":
+            return .red
+        case "WARN":
+            return .orange
+        case "INFO":
+            return .blue
+        case "DEBUG":
+            return .gray
+        default:
+            return .primary
+        }
+    }
+    
+    private var formattedDate: String {
+        let date = Date(timeIntervalSince1970: Double(log.timestamp) / 1000.0)
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .medium
+        return formatter.string(from: date)
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(log.level)
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .foregroundColor(levelColor)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(levelColor.opacity(0.2))
+                    .clipShape(Capsule())
+                
+                if let tag = log.tag {
+                    Text(tag)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Text(formattedDate)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            
+            Text(log.message)
+                .font(.caption)
+                .lineLimit(3)
+            
+            Text("Source: \(log.source)")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 4)
     }
 }
 

@@ -251,6 +251,22 @@ class WatchDataStore {
             )
         }
         
+        // Sort notifications: unread first, then by createdAt descending (newest first)
+        cache.notifications.sort { notif1, notif2 in
+            // Unread notifications come first
+            if notif1.isRead != notif2.isRead {
+                return !notif1.isRead && notif2.isRead
+            }
+            // Then sort by createdAt descending (newest first)
+            let dateFormatter = ISO8601DateFormatter()
+            dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date1 = dateFormatter.date(from: notif1.createdAt),
+               let date2 = dateFormatter.date(from: notif2.createdAt) {
+                return date1 > date2
+            }
+            return false
+        }
+        
         // Parse buckets
         cache.buckets = buckets.compactMap { bucketDict -> CachedBucket? in
             guard let id = bucketDict["id"] as? String,

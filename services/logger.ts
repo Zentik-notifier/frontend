@@ -759,7 +759,7 @@ export async function saveTaskToFile(
       message,
       metadata,
       timestamp: Date.now(),
-      source: 'tasks',
+      source: 'BackgroundTasks',
     };
 
     existingLogs.push(newLog);

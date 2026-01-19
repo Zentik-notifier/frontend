@@ -69,6 +69,15 @@ FirebaseApp.configure()
         CloudKitManager.shared.setupSubscriptions { success, error in
           if success {
             print("☁️ [AppDelegate] CloudKit subscriptions setup successfully")
+            
+            // Fetch and delete Watch logs from CloudKit (if any)
+            CloudKitManager.shared.fetchAndDeleteWatchLogs { logs, fetchError in
+              if let fetchError = fetchError {
+                print("☁️ [AppDelegate] Failed to fetch Watch logs: \(fetchError.localizedDescription)")
+              } else if logs.count > 0 {
+                print("☁️ [AppDelegate] Fetched \(logs.count) Watch logs from CloudKit")
+              }
+            }
           } else if let error = error {
             print("☁️ [AppDelegate] CloudKit subscriptions setup failed: \(error.localizedDescription)")
           }

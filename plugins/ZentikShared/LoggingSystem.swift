@@ -107,23 +107,10 @@ public class LoggingSystem {
             }
             self.logBuffers[source]?.append(entry)
             
-            // Check if total buffer count reaches sync threshold (for Watch -> iPhone sync via CloudKit)
-            #if os(watchOS)
-            // Skip CloudKit sync for logs related to logging itself to avoid infinite loops
-            let isLoggingRelatedLog = (source == "CloudKitManager" && (tag == "CloudKit")) || 
-                                       (source == "LoggingSystem")
-            
-            if !isLoggingRelatedLog {
-                let totalLogCount = self.logBuffers.values.reduce(0) { $0 + $1.count }
-                if totalLogCount >= self.syncThreshold {
-                    DispatchQueue.main.async {
-                        NotificationCenter.default.post(name: LoggingSystem.shouldSyncLogsNotification, object: nil)
-                        // Also write logs to CloudKit for iOS to fetch
-                        self.syncLogsToCloudKit()
-                    }
-                }
-            }
-            #endif
+            // CloudKit sync disabled - logs are saved locally on watchOS
+            // #if os(watchOS)
+            // ... CloudKit sync code disabled ...
+            // #endif
             
             // Flush if buffer is full for this source
             if let count = self.logBuffers[source]?.count, count >= self.bufferLimit {
@@ -299,7 +286,7 @@ public class LoggingSystem {
                 self.flushTimers[source] = nil
             }
             
-            // Write to file
+            // Write logs to file (both iOS and watchOS save locally)
             self.writeLogsToFile(logs: logsToWrite, forSource: source)
         }
     }
@@ -320,40 +307,21 @@ public class LoggingSystem {
             // Clear all buffers after collecting logs
             self.logBuffers.removeAll()
             
-            // Write each log to CloudKit
-            let dispatchGroup = DispatchGroup()
-            var successCount = 0
-            var errorCount = 0
-            
-            for log in allLogs {
-                dispatchGroup.enter()
-                CloudKitManager.shared.writeWatchLog(
-                    level: log.level,
-                    tag: log.tag,
-                    message: log.message,
-                    metadata: log.metadata,
-                    completion: { success, error in
-                        if success {
-                            successCount += 1
-                        } else {
-                            errorCount += 1
-                            if let error = error {
-                                print("[LoggingSystem] ⚠️ Failed to write log to CloudKit: \(error.localizedDescription)")
-                            }
-                        }
-                        dispatchGroup.leave()
-                    }
-                )
+            // Convert logs to batch format, preserving source
+            let batchLogs = allLogs.map { log in
+                (level: log.level, tag: log.tag, message: log.message, metadata: log.metadata, source: log.source)
             }
             
-            dispatchGroup.notify(queue: .main) {
-                // Only log if there are errors or if syncing a significant number of logs
-                if errorCount > 0 {
-                    print("[LoggingSystem] ⚠️ Synced \(successCount) logs to CloudKit (errors: \(errorCount))")
-                } else if successCount > 0 {
-                    // Reduce verbosity: only log every 50 logs synced
-                    if successCount % 50 == 0 {
-                        print("[LoggingSystem] ✅ Synced \(successCount) logs to CloudKit")
+            // Write all logs to CloudKit in batch
+            CloudKitManager.shared.writeWatchLogs(logs: batchLogs) { success, count, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        print("[LoggingSystem] ⚠️ Failed to sync logs to CloudKit: \(error.localizedDescription) (synced: \(count)/\(allLogs.count))")
+                    } else if count > 0 {
+                        // Reduce verbosity: only log every 50 logs synced
+                        if count % 50 == 0 {
+                            print("[LoggingSystem] ✅ Synced \(count) logs to CloudKit")
+                        }
                     }
                 }
             }
