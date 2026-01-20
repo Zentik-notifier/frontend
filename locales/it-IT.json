@@ -136,7 +136,18 @@
       "resyncMessage": "Questo eliminerà tutti i dati da CloudKit e ricaricherà tutto da zero. Questo potrebbe richiedere del tempo. Continuare?",
       "resyncConfirm": "ReSincronizza",
       "resyncSuccess": "ReSincronizzazione completata con successo. Sincronizzate {{notifications}} notifiche e {{buckets}} bucket.",
-      "resyncError": "Impossibile re-sincronizzare CloudKit. Riprova."
+      "resyncError": "Impossibile re-sincronizzare CloudKit. Riprova.",
+      "notificationLimitTitle": "Limite Notifiche",
+      "notificationLimitDescription": "Imposta il numero massimo di notifiche da conservare in CloudKit. Le notifiche più vecchie verranno rimosse automaticamente. Lascia vuoto per illimitato.",
+      "notificationLimitInputLabel": "Limite (10-10000)",
+      "notificationLimitHint": "Inserisci un numero tra 10 e 10000, oppure lascia vuoto per illimitato",
+      "notificationLimitSet": "Conservando le {{limit}} notifiche più recenti",
+      "notificationLimitUnlimited": "Notifiche illimitate",
+      "notificationLimitSetButton": "Imposta",
+      "notificationLimitSetSuccess": "Limite notifiche impostato a {{limit}}",
+      "notificationLimitRemovedSuccess": "Limite notifiche rimosso (illimitato)",
+      "notificationLimitError": "Impossibile impostare il limite notifiche. Riprova.",
+      "notificationLimitInvalid": "Inserisci un numero valido tra 10 e 10000"
     },
     "privacy": {
       "title": "Privacy",
