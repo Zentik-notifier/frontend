@@ -60,35 +60,12 @@ FirebaseApp.configure()
     
     UNUserNotificationCenter.current().delegate = self
     
-    // Initialize CloudKit schema if needed (creates record types automatically)
-    CloudKitManager.shared.initializeSchemaIfNeeded { success, error in
-      if success {
-        print("☁️ [AppDelegate] CloudKit schema initialized successfully")
-        
-        // Setup CloudKit subscriptions after schema is initialized
-        CloudKitManager.shared.setupSubscriptions { success, error in
-          if success {
-            print("☁️ [AppDelegate] CloudKit subscriptions setup successfully")
-            
-            // Fetch and delete Watch logs from CloudKit (if enabled)
-            // WatchLog functionality is currently disabled via CloudKitManager.watchLogEnabled flag
-            // if CloudKitManager.watchLogEnabled {
-            //   CloudKitManager.shared.fetchAndDeleteWatchLogs { logs, fetchError in
-            //     if let fetchError = fetchError {
-            //       print("☁️ [AppDelegate] Failed to fetch Watch logs: \(fetchError.localizedDescription)")
-            //     } else if logs.count > 0 {
-            //       print("☁️ [AppDelegate] Fetched \(logs.count) Watch logs from CloudKit")
-            //     }
-            //   }
-            // }
-          } else if let error = error {
-            print("☁️ [AppDelegate] CloudKit subscriptions setup failed: \(error.localizedDescription)")
-          }
-        }
-      } else if let error = error {
-        print("☁️ [AppDelegate] CloudKit schema initialization failed: \(error.localizedDescription)")
-      }
-    }
+    // CloudKit initialization and subscriptions are now handled by React via useCleanup
+    // React will:
+    // 1. Initialize schema (creates zone if needed)
+    // 2. Setup subscriptions (after zone is initialized)
+    // 3. Trigger sync operations
+    // This ensures proper ordering and error handling from React side
     
     // Subscribe to sync progress notifications
     NotificationCenter.default.addObserver(
@@ -102,7 +79,8 @@ FirebaseApp.configure()
           currentItem: progress.currentItem,
           totalItems: progress.totalItems,
           itemType: progress.itemType,
-          phase: progress.phase
+          phase: progress.phase,
+          step: progress.step
         )
       }
     }
@@ -332,6 +310,13 @@ FirebaseApp.configure()
     if let notification = CKNotification(fromRemoteNotificationDictionary: userInfo as! [String: NSObject]) {
       let subscriptionID = notification.subscriptionID ?? "unknown"
       // Reduced verbosity - only log errors
+      // Check if CloudKit is enabled before handling notification
+      guard CloudKitManager.shared.isCloudKitEnabled else {
+        print("☁️ [AppDelegate] ⚠️ CloudKit is disabled, ignoring remote notification")
+        completionHandler(.noData)
+        return
+      }
+      
       CloudKitManager.shared.handleRemoteNotification(userInfo: userInfo, completion: completionHandler)
     } else {
       LoggingSystem.shared.log(

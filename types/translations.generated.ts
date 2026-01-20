@@ -89,10 +89,32 @@ export interface Translation {
     cloudKit: {
       title: string;
       description: string;
+      disableTitle: string;
+      disableDescription: string;
       syncButton: string;
       syncing: string;
       syncSuccess: string;
       syncError: string;
+      disabledSuccess: string;
+      enabledSuccess: string;
+      toggleError: string;
+      initialSyncCompleted: string;
+      initialSyncPending: string;
+      resetSyncFlagButton: string;
+      resetSyncFlagSuccess: string;
+      resetSyncFlagError: string;
+      deleteZoneTitle: string;
+      deleteZoneMessage: string;
+      deleteZoneConfirm: string;
+      deleteZoneSuccess: string;
+      deleteZoneError: string;
+      deleteZoneButton: string;
+      resetZoneTitle: string;
+      resetZoneMessage: string;
+      resetZoneConfirm: string;
+      resetZoneSuccess: string;
+      resetZoneError: string;
+      resetZoneButton: string;
     };
     privacy: {
       title: string;

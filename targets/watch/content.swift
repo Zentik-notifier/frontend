@@ -1,6 +1,7 @@
 import SwiftUI
 import ImageIO
 import WatchKit
+import CloudKit
 
 // MARK: - Global Bucket Icon Cache
 
@@ -1567,17 +1568,38 @@ struct AnimatedImageView: View {
 // MARK: - Settings View
 
 struct SettingsView: View {
+    @State private var cloudKitDisabled: Bool = !CloudKitManager.shared.isCloudKitEnabled
+    
     var body: some View {
         List {
-            NavigationLink(destination: LogsView()) {
-                HStack(spacing: 10) {
-                    Image(systemName: "doc.text.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.blue)
-                        .frame(width: 32, height: 32)
-                    
-                    Text("View Logs")
-                        .font(.headline)
+            Section(header: Text("CloudKit")) {
+                Toggle(isOn: $cloudKitDisabled) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "icloud.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.blue)
+                            .frame(width: 32, height: 32)
+                        
+                        Text("Disable CloudKit Sync")
+                            .font(.headline)
+                    }
+                }
+                .onChange(of: cloudKitDisabled) { oldValue, newValue in
+                    CloudKitManager.setCloudKitDisabled(newValue)
+                }
+            }
+            
+            Section(header: Text("Logs")) {
+                NavigationLink(destination: LogsView()) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "doc.text.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.blue)
+                            .frame(width: 32, height: 32)
+                        
+                        Text("View Logs")
+                            .font(.headline)
+                    }
                 }
             }
         }

@@ -42,7 +42,7 @@ function copyDirSync(src: string, dest: string, mainBundleId?: string) {
             }
             content = content.replace(
               containerRegex,
-              `$1${mainBundleId}$3\n${indent}<string>iCloud.${productionBundleId}</string>\n${indent}</array>`
+              `$1${mainBundleId}</string>\n${indent}<string>iCloud.${productionBundleId}</string>\n${indent}</array>`
             );
           }
         }

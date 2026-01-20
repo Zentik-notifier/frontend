@@ -291,43 +291,6 @@ public class LoggingSystem {
         }
     }
     
-    #if os(watchOS)
-    /// Sync logs to CloudKit (Watch only)
-    /// Writes all buffered logs to CloudKit for iOS to fetch and delete
-    private func syncLogsToCloudKit() {
-        queue.async(flags: .barrier) {
-            // Collect all logs from all buffers
-            var allLogs: [LogEntry] = []
-            for (source, logs) in self.logBuffers {
-                allLogs.append(contentsOf: logs)
-            }
-            
-            guard !allLogs.isEmpty else { return }
-            
-            // Clear all buffers after collecting logs
-            self.logBuffers.removeAll()
-            
-            // Convert logs to batch format, preserving source
-            let batchLogs = allLogs.map { log in
-                (level: log.level, tag: log.tag, message: log.message, metadata: log.metadata, source: log.source)
-            }
-            
-            // Write all logs to CloudKit in batch
-            CloudKitManager.shared.writeWatchLogs(logs: batchLogs) { success, count, error in
-                DispatchQueue.main.async {
-                    if let error = error {
-                        print("[LoggingSystem] ⚠️ Failed to sync logs to CloudKit: \(error.localizedDescription) (synced: \(count)/\(allLogs.count))")
-                    } else if count > 0 {
-                        // Reduce verbosity: only log every 50 logs synced
-                        if count % 50 == 0 {
-                            print("[LoggingSystem] ✅ Synced \(count) logs to CloudKit")
-                        }
-                    }
-                }
-            }
-        }
-    }
-    #endif
 
     /// Flush all buffered logs
     public func flushLogs() {

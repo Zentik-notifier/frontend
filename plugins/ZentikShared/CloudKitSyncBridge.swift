@@ -76,16 +76,30 @@ class CloudKitSyncBridge: RCTEventEmitter {
   }
   
   @objc
-  static func notifySyncProgress(currentItem: Int, totalItems: Int, itemType: String, phase: String) {
+  static func notifySyncProgress(currentItem: Int, totalItems: Int, itemType: String, phase: String, step: String = "") {
     DispatchQueue.main.async {
-      let body: [String: Any] = [
+      var body: [String: Any] = [
         "currentItem": currentItem,
         "totalItems": totalItems,
         "itemType": itemType,
         "phase": phase
       ]
+      if !step.isEmpty {
+        body["step"] = step
+      }
       sharedInstance?.sendEvent(withName: "cloudKitSyncProgress", body: body)
     }
+  }
+  
+  // Helper method for dynamic calls from extensions where CloudKitSyncBridge may not be in scope
+  @objc
+  static func notifySyncProgressWithDictionary(_ dict: [String: Any]) {
+    let currentItem = dict["currentItem"] as? Int ?? 0
+    let totalItems = dict["totalItems"] as? Int ?? 0
+    let itemType = dict["itemType"] as? String ?? ""
+    let phase = dict["phase"] as? String ?? ""
+    let step = dict["step"] as? String ?? ""
+    notifySyncProgress(currentItem: currentItem, totalItems: totalItems, itemType: itemType, phase: phase, step: step)
   }
   
   override init() {
@@ -359,25 +373,6 @@ class CloudKitSyncBridge: RCTEventEmitter {
   }
   
   /**
-   * Fetch and delete Watch logs from CloudKit
-   * Returns array of log entries that were fetched and deleted
-   */
-  @objc
-  func fetchAndDeleteWatchLogs(
-    _ resolve: @escaping RCTPromiseResolveBlock,
-    rejecter reject: @escaping RCTPromiseRejectBlock
-  ) {
-    CloudKitManager.shared.fetchAndDeleteWatchLogs { logs, error in
-      if let error = error {
-        let errorMessage = error.localizedDescription
-        reject("FETCH_LOGS_FAILED", errorMessage, error)
-      } else {
-        resolve(["logs": logs, "count": logs.count])
-      }
-    }
-  }
-  
-  /**
    * Subscribe to CloudKit sync progress events
    * Note: Progress events are automatically emitted via notifySyncProgress
    * This method is kept for API consistency but doesn't require explicit subscription
@@ -443,6 +438,133 @@ class CloudKitSyncBridge: RCTEventEmitter {
     }
     #else
     reject("NOT_SUPPORTED", "resetCloudKitZone is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Initialize CloudKit schema if needed
+   */
+  @objc
+  func initializeSchemaIfNeeded(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    CloudKitManager.shared.initializeSchemaIfNeeded { success, error in
+      if let error = error {
+        let errorMessage = error.localizedDescription
+        reject("INIT_SCHEMA_FAILED", errorMessage, error)
+      } else {
+        resolve(["success": success])
+      }
+    }
+    #else
+    reject("NOT_SUPPORTED", "initializeSchemaIfNeeded is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Setup CloudKit subscriptions
+   * Should be called after zone is initialized
+   */
+  @objc
+  func setupSubscriptions(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    CloudKitManager.shared.setupSubscriptions { success, error in
+      if let error = error {
+        let errorMessage = error.localizedDescription
+        reject("SETUP_SUBSCRIPTIONS_FAILED", errorMessage, error)
+      } else {
+        resolve(["success": success])
+      }
+    }
+    #else
+    reject("NOT_SUPPORTED", "setupSubscriptions is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Check if CloudKit is enabled
+   */
+  @objc
+  func isCloudKitEnabled(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    let enabled = CloudKitManager.shared.isCloudKitEnabled
+    resolve(["enabled": enabled])
+    #else
+    reject("NOT_SUPPORTED", "isCloudKitEnabled is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Set CloudKit enabled state (convenience method - internally uses disabled flag)
+   */
+  @objc
+  func setCloudKitEnabled(
+    _ enabled: Bool,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    CloudKitManager.setCloudKitEnabled(enabled)
+    resolve(["success": true, "enabled": enabled, "disabled": !enabled])
+    #else
+    reject("NOT_SUPPORTED", "setCloudKitEnabled is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Set CloudKit disabled state
+   */
+  @objc
+  func setCloudKitDisabled(
+    _ disabled: Bool,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    CloudKitManager.setCloudKitDisabled(disabled)
+    resolve(["success": true, "disabled": disabled, "enabled": !disabled])
+    #else
+    reject("NOT_SUPPORTED", "setCloudKitDisabled is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Check if initial sync has been completed
+   */
+  @objc
+  func isInitialSyncCompleted(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    let completed = UserDefaults.standard.bool(forKey: CloudKitManager.cloudKitInitialSyncCompletedKey)
+    resolve(["completed": completed])
+    #else
+    reject("NOT_SUPPORTED", "isInitialSyncCompleted is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Reset initial sync flag (to trigger initial sync again)
+   */
+  @objc
+  func resetInitialSyncFlag(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    UserDefaults.standard.removeObject(forKey: CloudKitManager.cloudKitInitialSyncCompletedKey)
+    resolve(["success": true])
+    #else
+    reject("NOT_SUPPORTED", "resetInitialSyncFlag is only available on iOS", nil)
     #endif
   }
 

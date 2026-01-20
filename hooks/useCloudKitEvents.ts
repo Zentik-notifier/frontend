@@ -83,15 +83,17 @@ export function useCloudKitEvents() {
     };
 
     const handleSyncProgress = async (event: {
+      step?: 'zone_creation' | 'schema_initialization' | 'sync_notifications' | 'sync_buckets';
       currentItem: number;
       totalItems: number;
-      itemType: 'notification' | 'bucket';
-      phase: 'syncing' | 'completed';
+      itemType: 'notification' | 'bucket' | '';
+      phase: 'starting' | 'syncing' | 'completed';
     }) => {
-      console.log(`[CloudKitEvents] Sync progress: ${event.currentItem}/${event.totalItems} ${event.itemType} (${event.phase})`);
+      const step = event.step || 'unknown';
+      console.log(`[CloudKitEvents] Sync progress [${step}]: ${event.currentItem}/${event.totalItems} ${event.itemType} (${event.phase})`);
       
       // You can update UI here, e.g., show progress bar
-      // Example: updateProgressBar(event.currentItem, event.totalItems, event.itemType);
+      // Example: updateProgressBar(event.currentItem, event.totalItems, event.itemType, event.step);
     };
 
     const subscription1 = eventEmitter.addListener('cloudKitNotificationUpdated', handleNotificationUpdated);

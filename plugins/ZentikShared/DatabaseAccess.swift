@@ -60,7 +60,7 @@ public class DatabaseAccess {
     // MARK: - File Locking for Cross-Process Synchronization
     
     /// Acquire file lock to prevent concurrent access from different SQLite instances
-    private static func acquireLock(for path: String, type: DatabaseOperationType) -> Bool {
+    private static func acquireLock(for path: String, type: DatabaseOperationType, verbose: Bool = false) -> Bool {
         return lockQueue.sync {
             let lockPath = path + ".lock"
             
@@ -82,11 +82,15 @@ public class DatabaseAccess {
             
             if lockResult == 0 {
                 lockFileDescriptor = fd
-                print("📱 [Lock] ✅ Acquired \(type == .write ? "exclusive" : "shared") lock")
+                if verbose {
+                    print("📱 [Lock] ✅ Acquired \(type == .write ? "exclusive" : "shared") lock")
+                }
                 return true
             } else {
                 // Lock failed, try blocking mode with timeout
-                print("📱 [Lock] ⏳ Lock busy, waiting...")
+                if verbose {
+                    print("📱 [Lock] ⏳ Lock busy, waiting...")
+                }
                 close(fd)
                 return false
             }
@@ -94,13 +98,15 @@ public class DatabaseAccess {
     }
     
     /// Release file lock
-    private static func releaseLock() {
+    private static func releaseLock(verbose: Bool = false) {
         lockQueue.sync {
             if lockFileDescriptor != -1 {
                 flock(lockFileDescriptor, LOCK_UN)
                 close(lockFileDescriptor)
                 lockFileDescriptor = -1
-                print("📱 [Lock] 🔓 Released lock")
+                if verbose {
+                    print("📱 [Lock] 🔓 Released lock")
+                }
             }
         }
     }
@@ -123,7 +129,7 @@ public class DatabaseAccess {
             type: .write,
             name: "MarkAsRead",
             source: source,
-            operation: { db in
+            operation: { db, isVerbose in
                 let sql = "UPDATE notifications SET read_at = ? WHERE id = ?"
                 var stmt: OpaquePointer?
                 
@@ -140,7 +146,9 @@ public class DatabaseAccess {
                 
                 let result = sqlite3_step(stmt)
                 let changes = sqlite3_changes(db)
-                print("📱 [DatabaseAccess] 🔍 [MarkAsRead] sqlite3_step result: \(result) (SQLITE_DONE=\(SQLITE_DONE)), changes: \(changes)")
+                if isVerbose {
+                    print("📱 [DatabaseAccess] 🔍 [MarkAsRead] sqlite3_step result: \(result) (SQLITE_DONE=\(SQLITE_DONE)), changes: \(changes)")
+                }
                 
                 if result == SQLITE_DONE {
                     return .success
@@ -182,7 +190,7 @@ public class DatabaseAccess {
             type: .write,
             name: "BulkMarkAsRead",
             source: source,
-            operation: { db in
+            operation: { db, _ in
                 // Build SQL with IN clause: UPDATE notifications SET read_at = ? WHERE id IN (?, ?, ...)
                 let placeholders = Array(repeating: "?", count: notificationIds.count).joined(separator: ", ")
                 let sql = "UPDATE notifications SET read_at = ? WHERE id IN (\(placeholders))"
@@ -239,7 +247,7 @@ public class DatabaseAccess {
             type: .write,
             name: "MarkAsUnread",
             source: source,
-            operation: { db in
+            operation: { db, isVerbose in
                 let sql = "UPDATE notifications SET read_at = NULL WHERE id = ?"
                 var stmt: OpaquePointer?
                 
@@ -255,7 +263,9 @@ public class DatabaseAccess {
                 
                 let result = sqlite3_step(stmt)
                 let changes = sqlite3_changes(db)
-                print("📱 [DatabaseAccess] 🔍 [MarkAsUnread] sqlite3_step result: \(result) (SQLITE_DONE=\(SQLITE_DONE)), changes: \(changes)")
+                if isVerbose {
+                    print("📱 [DatabaseAccess] 🔍 [MarkAsUnread] sqlite3_step result: \(result) (SQLITE_DONE=\(SQLITE_DONE)), changes: \(changes)")
+                }
                 
                 if result == SQLITE_DONE {
                     return .success
@@ -292,7 +302,7 @@ public class DatabaseAccess {
             name: "FetchNotification",
             source: source,
             verboseLogging: false,
-            operation: { db in
+            operation: { db, isVerbose in
                 let sql = "SELECT id, created_at, read_at, bucket_id, has_attachments, fragment FROM notifications WHERE id = ? LIMIT 1"
                 var stmt: OpaquePointer?
                 
@@ -313,12 +323,33 @@ public class DatabaseAccess {
                         if let jsonData = jsonString.data(using: .utf8),
                            let parsedData = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
                             notificationData = parsedData
-                            print("📱 [DatabaseAccess] ✅ [FetchNotification] Found notification: \(notificationId)")
+                            
+                            // Include read_at from column (index 2) if present
+                            // This is critical for CloudKit sync to detect if notification is already read
+                            let readAtColumnType = sqlite3_column_type(stmt, 2)
+                            if readAtColumnType == SQLITE_INTEGER {
+                                let readAtValue = sqlite3_column_int64(stmt, 2)
+                                notificationData?["read_at"] = readAtValue
+                            } else if readAtColumnType == SQLITE_TEXT {
+                                // Handle TEXT format if used
+                                if let readAtText = sqlite3_column_text(stmt, 2) {
+                                    let readAtString = String(cString: readAtText)
+                                    if let readAtInt64 = Int64(readAtString) {
+                                        notificationData?["read_at"] = readAtInt64
+                                    }
+                                }
+                            }
+                            
+                            if isVerbose {
+                                print("📱 [DatabaseAccess] ✅ [FetchNotification] Found notification: \(notificationId)")
+                            }
                         }
                     }
                     return .success
                 } else {
-                    print("📱 [DatabaseAccess] ⚠️ [FetchNotification] Notification not found: \(notificationId)")
+                    if isVerbose {
+                        print("📱 [DatabaseAccess] ⚠️ [FetchNotification] Notification not found: \(notificationId)")
+                    }
                     return .success // Not an error, just not found
                 }
             }
@@ -344,7 +375,7 @@ public class DatabaseAccess {
             type: .write,
             name: "DeleteNotification",
             source: source,
-            operation: { db in
+            operation: { db, isVerbose in
                 let sql = "DELETE FROM notifications WHERE id = ?"
                 var stmt: OpaquePointer?
                 
@@ -360,7 +391,9 @@ public class DatabaseAccess {
                 
                 let result = sqlite3_step(stmt)
                 let changes = sqlite3_changes(db)
-                print("📱 [DatabaseAccess] 🔍 [DeleteNotification] sqlite3_step result: \(result) (SQLITE_DONE=\(SQLITE_DONE)), changes: \(changes)")
+                if isVerbose {
+                    print("📱 [DatabaseAccess] 🔍 [DeleteNotification] sqlite3_step result: \(result) (SQLITE_DONE=\(SQLITE_DONE)), changes: \(changes)")
+                }
                 
                 if result == SQLITE_DONE {
                     return .success
@@ -394,7 +427,7 @@ public class DatabaseAccess {
             name: "GetNotificationCount",
             source: source,
             verboseLogging: false,
-            operation: { db in
+            operation: { db, _ in
                 let sql = "SELECT COUNT(*) FROM notifications WHERE read_at IS NULL"
                 var stmt: OpaquePointer?
                 
@@ -436,7 +469,7 @@ public class DatabaseAccess {
             name: "GetTotalNotificationCount",
             source: source,
             verboseLogging: false,
-            operation: { db in
+            operation: { db, _ in
                 let sql = "SELECT COUNT(*) FROM notifications"
                 var stmt: OpaquePointer?
                 
@@ -478,7 +511,7 @@ public class DatabaseAccess {
             name: "NotificationExists",
             source: source,
             verboseLogging: false,
-            operation: { db in
+            operation: { db, _ in
                 let sql = "SELECT id FROM notifications WHERE id = ? LIMIT 1"
                 var stmt: OpaquePointer?
                 
@@ -523,7 +556,7 @@ public class DatabaseAccess {
         timeout: TimeInterval = DB_OPERATION_TIMEOUT,
         source: String = "Unknown",
         verboseLogging: Bool? = nil,
-        operation: @escaping (OpaquePointer) -> DatabaseOperationResult,
+        operation: @escaping (OpaquePointer, Bool) -> DatabaseOperationResult,
         completion: @escaping (DatabaseOperationResult) -> Void
     ) {
         // Execute on dedicated serial queue
@@ -532,8 +565,8 @@ public class DatabaseAccess {
             var operationCompleted = false
             var finalResult: DatabaseOperationResult = .timeout
             
-            // Determine if verbose logging should be enabled (default: true for write, false for read)
-            let isVerbose = verboseLogging ?? (operationType == .write)
+            // Determine if verbose logging should be enabled (default: false to reduce log noise)
+            let isVerbose = verboseLogging ?? false
             
             // Timeout protection: dispatch operation with timeout
             let timeoutWorkItem = DispatchWorkItem {
@@ -553,7 +586,7 @@ public class DatabaseAccess {
                 }
                 
                 // Acquire file lock to prevent conflicts with expo-sqlite
-                guard acquireLock(for: dbPath, type: operationType) else {
+                guard acquireLock(for: dbPath, type: operationType, verbose: isVerbose) else {
                     print("📱 [\(source)] ⏸️ [\(operationName)] Could not acquire lock, database busy")
                     finalResult = .locked
                     operationCompleted = true
@@ -561,15 +594,7 @@ public class DatabaseAccess {
                 }
                 
                 defer {
-                    if isVerbose {
-                    releaseLock()
-                    } else {
-                        // Release lock silently
-                        if lockFileDescriptor >= 0 {
-                            close(lockFileDescriptor)
-                            lockFileDescriptor = -1
-                        }
-                    }
+                    releaseLock(verbose: isVerbose)
                 }
                 
                 // Check if database file exists
@@ -746,7 +771,7 @@ public class DatabaseAccess {
                         break
                     }
                     
-                    operationResult = operation(database)
+                    operationResult = operation(database, isVerbose)
                     
                     switch operationResult {
                     case .success:
@@ -999,7 +1024,7 @@ public class DatabaseAccess {
             name: "GetAllBuckets",
             source: source,
             verboseLogging: false,
-            operation: { db in
+            operation: { db, _ in
                 let sql = "SELECT id, name, fragment, updated_at FROM buckets ORDER BY name ASC"
                 var stmt: OpaquePointer?
                 
@@ -1084,7 +1109,7 @@ public class DatabaseAccess {
             name: "GetBucketById",
             source: source,
             verboseLogging: false,
-            operation: { db in
+            operation: { db, _ in
                 let sql = "SELECT name, fragment, updated_at FROM buckets WHERE id = ? LIMIT 1"
                 var stmt: OpaquePointer?
                 
@@ -1205,7 +1230,7 @@ public class DatabaseAccess {
             name: "GetRecentNotifications",
             source: source,
             verboseLogging: false,
-            operation: { db in
+            operation: { db, _ in
                 var sql: String
                 var stmt: OpaquePointer?
                 
@@ -1321,7 +1346,7 @@ public class DatabaseAccess {
             name: "FetchReadAtTimestamps",
             source: source,
             verboseLogging: false,
-            operation: { db in
+            operation: { db, _ in
                 // Create placeholders for IN clause: ?, ?, ?, ...
                 let placeholders = Array(repeating: "?", count: notificationIds.count).joined(separator: ", ")
                 let sql = "SELECT id, read_at FROM notifications WHERE id IN (\(placeholders)) AND read_at IS NOT NULL"

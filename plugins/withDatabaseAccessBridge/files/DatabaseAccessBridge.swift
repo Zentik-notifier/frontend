@@ -357,7 +357,7 @@ class DatabaseAccessBridge: NSObject {
       name: "executeQuery",
       source: "RNBridge",
       verboseLogging: false,
-      operation: { db in
+      operation: { db, _ in
         var statement: OpaquePointer?
         
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
@@ -441,7 +441,7 @@ class DatabaseAccessBridge: NSObject {
       type: .write,
       name: "executeUpdate",
       source: "RNBridge",
-      operation: { db in
+      operation: { db, _ in
         var statement: OpaquePointer?
         
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {

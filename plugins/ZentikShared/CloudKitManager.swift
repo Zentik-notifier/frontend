@@ -21,27 +21,75 @@ public class CloudKitManager: NSObject {
     private let container: CKContainer
     private let privateDatabase: CKDatabase
     
-    // Feature flags
-    private static let watchLogEnabled = false // Set to true to enable WatchLog sync functionality
+    // CloudKit batch size limit (max 400, we use 200 for safety)
+    private static let maxBatchSize = 200
     
     // Subscription IDs
     private let notificationSubscriptionID = "NotificationChanges"
     private let bucketSubscriptionID = "BucketChanges"
-    #if os(iOS)
-    private let watchLogSubscriptionID = "WatchLogChanges"
-    #endif
     
     // Custom CloudKit Zone (supports incremental sync)
-    private let customZoneName = "ZentikDataZone"
+    private let customZoneName = "ZentikNotificationsData"
     private var customZoneID: CKRecordZone.ID {
         return CKRecordZone.ID(zoneName: customZoneName, ownerName: CKCurrentUserDefaultName)
     }
     
     // Record Types
     public enum RecordType: String {
-        case notification = "Notification"
-        case bucket = "Bucket"
-        case watchLog = "WatchLog"
+        case notification = "Notifications"
+        case bucket = "Buckets"
+    }
+    
+    // CloudKit disablement flag (shared via App Group UserDefaults)
+    // Default is enabled (false = not disabled = enabled)
+    private static let cloudKitDisabledKey = "cloudkit_disabled"
+    private var sharedUserDefaults: UserDefaults? {
+        let bundleId = KeychainAccess.getMainBundleIdentifier()
+        let appGroupId = "group.\(bundleId)"
+        return UserDefaults(suiteName: appGroupId)
+    }
+    
+    /// Check if CloudKit is enabled (from shared App Group UserDefaults)
+    /// Returns true by default (CloudKit is enabled unless explicitly disabled)
+    public var isCloudKitEnabled: Bool {
+        // If key doesn't exist, default to enabled (not disabled)
+        guard let sharedDefaults = sharedUserDefaults else {
+            // Fallback to standard UserDefaults if App Group not available (shouldn't happen)
+            return !UserDefaults.standard.bool(forKey: CloudKitManager.cloudKitDisabledKey)
+        }
+        // If key doesn't exist, return true (enabled by default)
+        if sharedDefaults.object(forKey: CloudKitManager.cloudKitDisabledKey) == nil {
+            return true
+        }
+        // Return inverse of disabled flag
+        return !sharedDefaults.bool(forKey: CloudKitManager.cloudKitDisabledKey)
+    }
+    
+    /// Set CloudKit disabled state (shared via App Group UserDefaults)
+    /// Pass true to disable CloudKit, false to enable it
+    public static func setCloudKitDisabled(_ disabled: Bool) {
+        let bundleId = KeychainAccess.getMainBundleIdentifier()
+        let appGroupId = "group.\(bundleId)"
+        if let sharedDefaults = UserDefaults(suiteName: appGroupId) {
+            sharedDefaults.set(disabled, forKey: cloudKitDisabledKey)
+            sharedDefaults.synchronize()
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "CloudKit",
+                message: "CloudKit disabled state changed",
+                metadata: ["disabled": "\(disabled)", "enabled": "\(!disabled)"],
+                source: CloudKitManager.shared.logSource
+            )
+        } else {
+            // Fallback to standard UserDefaults if App Group not available
+            UserDefaults.standard.set(disabled, forKey: cloudKitDisabledKey)
+            UserDefaults.standard.synchronize()
+        }
+    }
+    
+    /// Set CloudKit enabled state (convenience method - internally uses disabled flag)
+    public static func setCloudKitEnabled(_ enabled: Bool) {
+        setCloudKitDisabled(!enabled)
     }
     
     // UserDefaults keys (made container-specific)
@@ -58,6 +106,18 @@ public class CloudKitManager: NSObject {
         return "cloudkit_last_change_token_\(containerIdentifier)"
     }
     private let cloudKitContainerOverrideKey = "cloudkit_container_override"
+    static let cloudKitInitialSyncCompletedKey = "cloudkit_initial_sync_completed"
+    private static let cloudKitLegacyCleanupCompletedKey = "cloudkit_legacy_cleanup_completed"
+    
+    // Legacy zone and record type names (for cleanup)
+    private let legacyZoneName = "ZentikDataZone"
+    private var legacyZoneID: CKRecordZone.ID {
+        return CKRecordZone.ID(zoneName: legacyZoneName, ownerName: CKCurrentUserDefaultName)
+    }
+    private enum LegacyRecordType: String {
+        case notification = "Notification"
+        case bucket = "Bucket"
+    }
     
     // Log source name (different for iOS and Watch to distinguish log files)
     private var logSource: String {
@@ -96,14 +156,46 @@ public class CloudKitManager: NSObject {
     
     // Sync progress structure
     public struct SyncProgress {
+        let step: String // "zone_creation", "schema_initialization", "sync_notifications", "sync_buckets"
         let currentItem: Int
         let totalItems: Int
-        let itemType: String // "notification" or "bucket"
-        let phase: String // "syncing" or "completed"
+        let itemType: String // "notification" or "bucket" (optional, for sync steps)
+        let phase: String // "syncing", "completed", "starting"
     }
     
     // Notification names for sync progress
     public static let syncProgressNotification = Notification.Name("CloudKitSyncProgress")
+    
+    // Helper method to post sync progress notification
+    private func postSyncProgress(step: String, currentItem: Int = 0, totalItems: Int = 0, itemType: String = "", phase: String) {
+        let progress = SyncProgress(
+            step: step,
+            currentItem: currentItem,
+            totalItems: totalItems,
+            itemType: itemType,
+            phase: phase
+        )
+        NotificationCenter.default.post(
+            name: CloudKitManager.syncProgressNotification,
+            object: nil,
+            userInfo: ["progress": progress]
+        )
+        // Use dynamic method call to support extensions where CloudKitSyncBridge may not be in scope
+        // This works in both main app (where CloudKitSyncBridge is available) and extensions (where it's not)
+        if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
+            let selector = NSSelectorFromString("notifySyncProgressWithDictionary:")
+            if bridgeClass.responds(to: selector) {
+                let dict: [String: Any] = [
+                    "currentItem": currentItem,
+                    "totalItems": totalItems,
+                    "itemType": itemType,
+                    "phase": phase,
+                    "step": step
+                ]
+                _ = bridgeClass.perform(selector, with: dict)
+            }
+        }
+    }
     
     private override init() {
         // Allow override of CloudKit container ID for testing production CloudKit locally
@@ -167,6 +259,15 @@ public class CloudKitManager: NSObject {
     // MARK: - Helper Methods
     
     /**
+     * Splits an array into chunks of specified size
+     */
+    private func chunked<T>(_ array: [T], chunkSize: Int) -> [[T]] {
+        return stride(from: 0, to: array.count, by: chunkSize).map {
+            Array(array[$0..<min($0 + chunkSize, array.count)])
+        }
+    }
+    
+    /**
      * Creates a CKRecord.ID for a notification in the custom zone
      */
     private func notificationRecordID(_ notificationId: String) -> CKRecord.ID {
@@ -208,10 +309,15 @@ public class CloudKitManager: NSObject {
      * @param completion Callback with (success, wasNewlyCreated, error)
      */
     private func initializeZoneIfNeeded(completion: @escaping (Bool, Bool, Error?) -> Void) {
+        guard isCloudKitEnabled else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping zone initialization", source: self.logSource)
+            completion(false, false, NSError(domain: "CloudKitManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "CloudKit is disabled"]))
+            return
+        }
         let flagIsSet = UserDefaults.standard.bool(forKey: zoneInitializedKey)
         
         // Always verify zone exists, even if flag is set (in case of previous failed creation)
-        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Checking if custom zone exists", metadata: ["zoneName": customZoneName, "zoneID": "\(customZoneID)", "flagIsSet": "\(flagIsSet)"], source: self.logSource)
+        LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Checking if custom zone exists", metadata: ["zoneName": customZoneName, "zoneID": "\(customZoneID)", "flagIsSet": "\(flagIsSet)"], source: self.logSource)
         
         privateDatabase.fetch(withRecordZoneID: customZoneID) { zone, error in
             if zone != nil {
@@ -237,6 +343,7 @@ public class CloudKitManager: NSObject {
                         UserDefaults.standard.removeObject(forKey: self.schemaInitializedKey)
                         UserDefaults.standard.removeObject(forKey: self.lastSyncTimestampKey)
                         UserDefaults.standard.removeObject(forKey: self.lastChangeTokenKey)
+                        UserDefaults.standard.removeObject(forKey: CloudKitManager.cloudKitInitialSyncCompletedKey)
                         LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Zone was purged or doesn't exist, resetting all flags", source: self.logSource)
                     }
                 } else {
@@ -252,6 +359,9 @@ public class CloudKitManager: NSObject {
             
             // Create the zone
             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Creating custom CloudKit zone", metadata: ["zoneName": self.customZoneName, "zoneID": "\(self.customZoneID)"], source: self.logSource)
+            
+            // Post progress notification for zone creation start
+            self.postSyncProgress(step: "zone_creation", phase: "starting")
             
             // Check account status before creating zone
             self.checkAccountStatus { status, accountError in
@@ -278,6 +388,7 @@ public class CloudKitManager: NSObject {
                                 // Zone already exists on server (race condition)
                                 LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Custom zone already exists on server", source: self.logSource)
                                 UserDefaults.standard.set(true, forKey: self.zoneInitializedKey)
+                                self.postSyncProgress(step: "zone_creation", phase: "completed")
                                 completion(true, false, nil)
                                 return
                             }
@@ -294,6 +405,9 @@ public class CloudKitManager: NSObject {
                         }
                         
                         UserDefaults.standard.set(true, forKey: self.zoneInitializedKey)
+                        
+                        // Post progress notification for zone creation completed
+                        self.postSyncProgress(step: "zone_creation", phase: "completed")
                         
                         // Wait and verify zone exists with retry logic
                         self.verifyZoneExistsWithRetry(maxRetries: 5, retryDelay: 2.0) { zoneExists in
@@ -409,48 +523,6 @@ public class CloudKitManager: NSObject {
         }
         privateDatabase.add(bucketOperation)
         
-        // Delete all WatchLog records
-        dispatchGroup.enter()
-        let watchLogPredicate = NSPredicate(value: true)
-        let watchLogQuery = CKQuery(recordType: RecordType.watchLog.rawValue, predicate: watchLogPredicate)
-        let watchLogOperation = CKQueryOperation(query: watchLogQuery)
-        var watchLogRecordIDs: [CKRecord.ID] = []
-        
-        watchLogOperation.recordMatchedBlock = { recordID, result in
-            if case .success(let record) = result {
-                watchLogRecordIDs.append(record.recordID)
-            }
-        }
-        
-        watchLogOperation.queryResultBlock = { result in
-            if case .failure(let error) = result {
-                if let ckError = error as? CKError, ckError.code == .unknownItem {
-                    // Table doesn't exist - that's OK
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "WatchLog table doesn't exist, skipping deletion", source: self.logSource)
-                } else {
-                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching WatchLog records for deletion", metadata: ["error": error.localizedDescription], source: self.logSource)
-                    deleteErrors.append(error)
-                }
-            } else {
-                // Delete all fetched records
-                if !watchLogRecordIDs.isEmpty {
-                    let deleteOperation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: watchLogRecordIDs)
-                    deleteOperation.database = self.privateDatabase
-                    deleteOperation.modifyRecordsResultBlock = { deleteResult in
-                        if case .failure(let deleteError) = deleteResult {
-                            LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error deleting WatchLog records", metadata: ["error": deleteError.localizedDescription, "count": "\(watchLogRecordIDs.count)"], source: self.logSource)
-                            deleteErrors.append(deleteError)
-                        } else {
-                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Deleted WatchLog records", metadata: ["count": "\(watchLogRecordIDs.count)"], source: self.logSource)
-                        }
-                    }
-                    self.privateDatabase.add(deleteOperation)
-                }
-            }
-            dispatchGroup.leave()
-        }
-        privateDatabase.add(watchLogOperation)
-        
         // After deleting all records, delete the zone itself
         dispatchGroup.notify(queue: .main) {
             // Wait a bit for record deletions to complete
@@ -520,12 +592,149 @@ public class CloudKitManager: NSObject {
     #endif
     
     /**
+     * Cleanup legacy zone and record types (old names: ZentikDataZone, Notification, Bucket)
+     * This is a one-time migration to the new names (ZentikNotificationsData, Notifications, Buckets)
+     */
+    private func cleanupLegacyZoneAndRecords(completion: @escaping (Bool) -> Void) {
+        // Check if cleanup has already been completed
+        if UserDefaults.standard.bool(forKey: CloudKitManager.cloudKitLegacyCleanupCompletedKey) {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Legacy cleanup already completed, skipping", source: self.logSource)
+            completion(true)
+            return
+        }
+        
+        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Starting legacy zone and records cleanup", metadata: ["legacyZone": legacyZoneName, "legacyNotificationType": LegacyRecordType.notification.rawValue, "legacyBucketType": LegacyRecordType.bucket.rawValue], source: self.logSource)
+        
+        // First, check if legacy zone exists
+        privateDatabase.fetch(withRecordZoneID: legacyZoneID) { zone, error in
+            if let error = error {
+                if let ckError = error as? CKError, ckError.code == .unknownItem {
+                    // Legacy zone doesn't exist - nothing to clean up
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Legacy zone doesn't exist, nothing to clean up", source: self.logSource)
+                    UserDefaults.standard.set(true, forKey: CloudKitManager.cloudKitLegacyCleanupCompletedKey)
+                    completion(true)
+                    return
+                } else {
+                    LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Error checking legacy zone existence", metadata: ["error": error.localizedDescription], source: self.logSource)
+                    // Continue anyway - might be a transient error
+                }
+            }
+            
+            // Delete all legacy Notification records
+            self.deleteLegacyRecords(recordType: LegacyRecordType.notification.rawValue, zoneID: self.legacyZoneID) { notificationDeleted in
+                // Delete all legacy Bucket records
+                self.deleteLegacyRecords(recordType: LegacyRecordType.bucket.rawValue, zoneID: self.legacyZoneID) { bucketDeleted in
+                    // Delete legacy zone itself
+                    self.privateDatabase.delete(withRecordZoneID: self.legacyZoneID) { zoneID, error in
+                        if let error = error {
+                            if let ckError = error as? CKError, ckError.code == .unknownItem {
+                                // Zone doesn't exist - that's OK
+                                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Legacy zone doesn't exist, nothing to delete", source: self.logSource)
+                            } else {
+                                LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Error deleting legacy zone", metadata: ["error": error.localizedDescription], source: self.logSource)
+                            }
+                        } else {
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Legacy zone deleted successfully", source: self.logSource)
+                        }
+                        
+                        // Mark cleanup as completed
+                        UserDefaults.standard.set(true, forKey: CloudKitManager.cloudKitLegacyCleanupCompletedKey)
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Legacy cleanup completed", source: self.logSource)
+                        completion(true)
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Delete all records of a specific type from a zone
+     */
+    private func deleteLegacyRecords(recordType: String, zoneID: CKRecordZone.ID, completion: @escaping (Bool) -> Void) {
+        let predicate = NSPredicate(value: true)
+        let query = CKQuery(recordType: recordType, predicate: predicate)
+        let operation = CKQueryOperation(query: query)
+        operation.zoneID = zoneID
+        
+        var recordIDs: [CKRecord.ID] = []
+        
+        operation.recordMatchedBlock = { recordID, result in
+            if case .success(let record) = result {
+                recordIDs.append(record.recordID)
+            }
+        }
+        
+        operation.queryResultBlock = { result in
+            switch result {
+            case .success:
+                if recordIDs.isEmpty {
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "No legacy records to delete", metadata: ["recordType": recordType], source: self.logSource)
+                    completion(true)
+                    return
+                }
+                
+                // Delete records in batches
+                let recordChunks = self.chunked(recordIDs, chunkSize: CloudKitManager.maxBatchSize)
+                let dispatchGroup = DispatchGroup()
+                var deleteErrors: [Error] = []
+                
+                for chunk in recordChunks {
+                    dispatchGroup.enter()
+                    let deleteOperation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: chunk)
+                    deleteOperation.database = self.privateDatabase
+                    
+                    deleteOperation.modifyRecordsResultBlock = { deleteResult in
+                        switch deleteResult {
+                        case .success:
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Deleted legacy records batch", metadata: ["recordType": recordType, "count": "\(chunk.count)"], source: self.logSource)
+                        case .failure(let error):
+                            LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Error deleting legacy records batch", metadata: ["recordType": recordType, "error": error.localizedDescription], source: self.logSource)
+                            deleteErrors.append(error)
+                        }
+                        dispatchGroup.leave()
+                    }
+                    
+                    self.privateDatabase.add(deleteOperation)
+                }
+                
+                dispatchGroup.notify(queue: .main) {
+                    if deleteErrors.isEmpty {
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "All legacy records deleted successfully", metadata: ["recordType": recordType, "totalDeleted": "\(recordIDs.count)"], source: self.logSource)
+                    } else {
+                        LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Some errors occurred during legacy record deletion", metadata: ["recordType": recordType, "errors": "\(deleteErrors.count)"], source: self.logSource)
+                    }
+                    completion(true)
+                }
+                
+            case .failure(let error):
+                if let ckError = error as? CKError, ckError.code == .unknownItem {
+                    // Record type doesn't exist - that's OK
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Legacy record type doesn't exist", metadata: ["recordType": recordType], source: self.logSource)
+                } else {
+                    LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Error querying legacy records", metadata: ["recordType": recordType, "error": error.localizedDescription], source: self.logSource)
+                }
+                completion(true) // Continue anyway
+            }
+        }
+        
+        privateDatabase.add(operation)
+    }
+    
+    /**
      * Initializes CloudKit schema by creating "seed" records with all required fields
      * CloudKit will automatically create record types when the first records are created
      */
     public func initializeSchemaIfNeeded(completion: @escaping (Bool, Error?) -> Void) {
-        // Always ensure zone is initialized first
-        initializeZoneIfNeeded { zoneSuccess, wasNewlyCreated, zoneError in
+        guard isCloudKitEnabled else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping schema initialization", source: self.logSource)
+            completion(false, NSError(domain: "CloudKitManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "CloudKit is disabled"]))
+            return
+        }
+        
+        // Cleanup legacy zone and records first (one-time migration)
+        cleanupLegacyZoneAndRecords { cleanupSuccess in
+            // Always ensure zone is initialized first
+            self.initializeZoneIfNeeded { zoneSuccess, wasNewlyCreated, zoneError in
             guard zoneSuccess else {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to initialize custom zone", metadata: ["error": zoneError?.localizedDescription ?? "Unknown"], source: self.logSource)
                 completion(false, zoneError)
@@ -535,41 +744,43 @@ public class CloudKitManager: NSObject {
             // Initialize schema by creating seed records for all record types first
             // This ensures tables are created before syncing data
             #if os(iOS)
-            self.initializeSchemaWithSeedRecords { schemaInitialized in
-                if schemaInitialized {
+            self.initializeSchemaWithSeedRecords { schemaInitialized, wasAlreadyInitialized in
+                // Only log if schema was actually initialized now (not if it was already initialized)
+                if schemaInitialized && !wasAlreadyInitialized {
                     LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit schema initialized with seed records", source: self.logSource)
-                } else {
+                } else if !schemaInitialized {
                     LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "CloudKit schema initialization had warnings - tables may not exist yet", source: self.logSource)
                 }
                 
-                // Check if tables already have real data before syncing
-                self.checkIfTablesHaveRealData { hasRealData in
-                    if hasRealData {
-                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit tables already contain real data, skipping initial sync", source: self.logSource)
+                // Check if initial sync has already been completed (using setting instead of table check)
+                let initialSyncCompleted = UserDefaults.standard.bool(forKey: CloudKitManager.cloudKitInitialSyncCompletedKey)
+                if initialSyncCompleted {
+                    LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Initial sync already completed, skipping", source: self.logSource)
+                    // Mark as initialized to avoid unnecessary checks
+                    UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit ready", source: self.logSource)
+                    completion(true, nil)
+                } else {
+                    // Initial sync not completed, trigger initial sync
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Initial sync not completed, triggering initial sync from SQLite to CloudKit", source: self.logSource)
+                    // Reset last sync timestamp to force full sync
+                    UserDefaults.standard.removeObject(forKey: self.lastSyncTimestampKey)
+                    // Trigger sync to CloudKit (will sync all records from SQLite)
+                    self.triggerSyncToCloud { success, error, stats in
+                        if success {
+                            // Mark initial sync as completed
+                            UserDefaults.standard.set(true, forKey: CloudKitManager.cloudKitInitialSyncCompletedKey)
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Initial sync to CloudKit completed", metadata: [
+                                "notificationsSynced": "\(stats?.notificationsSynced ?? 0)",
+                                "bucketsSynced": "\(stats?.bucketsSynced ?? 0)"
+                            ], source: self.logSource)
+                        } else {
+                            LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Initial sync to CloudKit failed", metadata: ["error": error?.localizedDescription ?? "Unknown"], source: self.logSource)
+                        }
                         // Mark as initialized to avoid unnecessary checks
                         UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
-                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit schema initialization completed", source: self.logSource)
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit ready", source: self.logSource)
                         completion(true, nil)
-                    } else {
-                        // Tables are empty or only contain seed records, trigger initial sync
-                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit tables are empty, triggering initial sync from SQLite to CloudKit", source: self.logSource)
-                        // Reset last sync timestamp to force full sync
-                        UserDefaults.standard.removeObject(forKey: self.lastSyncTimestampKey)
-                        // Trigger sync to CloudKit (will sync all records from SQLite)
-                        self.triggerSyncToCloud { success, error, stats in
-                            if success {
-                                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Initial sync to CloudKit completed", metadata: [
-                                    "notificationsSynced": "\(stats?.notificationsSynced ?? 0)",
-                                    "bucketsSynced": "\(stats?.bucketsSynced ?? 0)"
-                                ], source: self.logSource)
-                            } else {
-                                LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Initial sync to CloudKit failed", metadata: ["error": error?.localizedDescription ?? "Unknown"], source: self.logSource)
-                            }
-                            // Mark as initialized to avoid unnecessary checks
-                            UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
-                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit schema initialization completed", source: self.logSource)
-                            completion(true, nil)
-                        }
                     }
                 }
             }
@@ -580,101 +791,28 @@ public class CloudKitManager: NSObject {
             completion(true, nil)
             #endif
         }
+        }
     }
     
     #if os(iOS)
-    /**
-     * Check if CloudKit tables have real data (not just seed records)
-     * Returns true if tables exist and have real data, false otherwise
-     */
-    private func checkIfTablesHaveRealData(completion: @escaping (Bool) -> Void) {
-        let dispatchGroup = DispatchGroup()
-        var hasRealData = false
-        var hasErrors = false
-        
-        // Check Notification table
-        dispatchGroup.enter()
-        let notificationPredicate = NSPredicate(format: "createdAt >= %@", Date.distantPast as NSDate)
-        let notificationQuery = CKQuery(recordType: RecordType.notification.rawValue, predicate: notificationPredicate)
-        let notificationOperation = CKQueryOperation(query: notificationQuery)
-        notificationOperation.resultsLimit = 1 // We only need to know if at least one record exists
-        notificationOperation.recordMatchedBlock = { recordID, result in
-            if case .success(let record) = result {
-                // Check if this is a real notification (not a seed record)
-                // Seed records have title "Schema initialization"
-                if let title = record["title"] as? String, title != "Schema initialization" {
-                    hasRealData = true
-                }
-            }
-        }
-        notificationOperation.queryResultBlock = { result in
-            if case .failure(let error) = result {
-                // If query fails, table might not exist yet - that's OK, we'll sync
-                if let ckError = error as? CKError, ckError.code == .unknownItem {
-                    // Table doesn't exist - that's fine, we'll sync
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Notification table doesn't exist yet", source: self.logSource)
-                } else {
-                    LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Error checking Notification table", metadata: ["error": error.localizedDescription], source: self.logSource)
-                    hasErrors = true
-                }
-            }
-            dispatchGroup.leave()
-        }
-        privateDatabase.add(notificationOperation)
-        
-        // Check Bucket table
-        dispatchGroup.enter()
-        let bucketPredicate = NSPredicate(format: "name != %@", "")
-        let bucketQuery = CKQuery(recordType: RecordType.bucket.rawValue, predicate: bucketPredicate)
-        let bucketOperation = CKQueryOperation(query: bucketQuery)
-        bucketOperation.resultsLimit = 1
-        bucketOperation.recordMatchedBlock = { recordID, result in
-            if case .success(let record) = result {
-                // Check if this is a real bucket (not a seed record)
-                if let name = record["name"] as? String, name != "Schema initialization" {
-                    hasRealData = true
-                }
-            }
-        }
-        bucketOperation.queryResultBlock = { result in
-            if case .failure(let error) = result {
-                // If query fails, table might not exist yet - that's OK, we'll sync
-                if let ckError = error as? CKError, ckError.code == .unknownItem {
-                    // Table doesn't exist - that's fine, we'll sync
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Bucket table doesn't exist yet", source: self.logSource)
-                } else {
-                    LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Error checking Bucket table", metadata: ["error": error.localizedDescription], source: self.logSource)
-                    hasErrors = true
-                }
-            }
-            dispatchGroup.leave()
-        }
-        privateDatabase.add(bucketOperation)
-        
-        dispatchGroup.notify(queue: .main) {
-            if hasRealData {
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit tables contain real data", source: self.logSource)
-            } else {
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit tables are empty or don't exist", source: self.logSource)
-            }
-            completion(hasRealData)
-        }
-    }
-    
     /**
      * Initialize CloudKit schema by creating seed records for all record types
      * This ensures all fields become queryable (CloudKit marks fields as queryable when used in queries)
      * Seed records are temporary and will be deleted after schema initialization
      */
-    private func initializeSchemaWithSeedRecords(completion: @escaping (Bool) -> Void) {
+    private func initializeSchemaWithSeedRecords(completion: @escaping (Bool, Bool) -> Void) {
         // Check if schema has already been initialized
-        if UserDefaults.standard.bool(forKey: schemaInitializedKey) {
-            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Schema already initialized, skipping seed records creation", source: self.logSource)
-            completion(true)
+        let wasAlreadyInitialized = UserDefaults.standard.bool(forKey: schemaInitializedKey)
+        if wasAlreadyInitialized {
+            LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Schema already initialized, skipping seed records creation", source: self.logSource)
+            completion(true, true) // (success, wasAlreadyInitialized)
             return
         }
         
         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Starting schema initialization with seed records", source: self.logSource)
+        
+        // Post progress notification for schema initialization start
+        self.postSyncProgress(step: "schema_initialization", phase: "starting")
         
         let dispatchGroup = DispatchGroup()
         var savedRecords: [CKRecord] = []
@@ -725,34 +863,6 @@ public class CloudKitManager: NSObject {
             dispatchGroup.leave()
         }
         
-        // Create seed record for WatchLog (only if enabled)
-        #if os(iOS)
-        if CloudKitManager.watchLogEnabled {
-            dispatchGroup.enter()
-            let watchLogSeedId = UUID().uuidString
-            let watchLogRecordID = CKRecord.ID(recordName: "WatchLog-\(watchLogSeedId)", zoneID: customZoneID)
-            let watchLogRecord = CKRecord(recordType: RecordType.watchLog.rawValue, recordID: watchLogRecordID)
-            watchLogRecord["id"] = watchLogSeedId
-            watchLogRecord["level"] = "INFO"
-            watchLogRecord["tag"] = "CloudKit"
-            watchLogRecord["message"] = "Schema initialization"
-            watchLogRecord["timestamp"] = Date()
-            watchLogRecord["source"] = "CloudKitManager"
-            watchLogRecord["metadata"] = "{}"
-            
-            privateDatabase.save(watchLogRecord) { savedRecord, error in
-                if let error = error {
-                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to create WatchLog seed record", metadata: ["error": error.localizedDescription, "recordID": watchLogRecordID.recordName], source: self.logSource)
-                    hasErrors = true
-                } else if let savedRecord = savedRecord {
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "WatchLog seed record created successfully", metadata: ["recordID": savedRecord.recordID.recordName], source: self.logSource)
-                    savedRecords.append(savedRecord)
-                }
-                dispatchGroup.leave()
-            }
-        }
-        #endif
-        
         // Wait for all seed records to be created, then query them to make fields queryable
         dispatchGroup.notify(queue: .main) {
             // Add a small delay to allow CloudKit to propagate the schema
@@ -795,31 +905,6 @@ public class CloudKitManager: NSObject {
                     queryGroup.leave()
                 }
                 
-                // Query WatchLog with timestamp sortDescriptor
-                queryGroup.enter()
-                #if os(iOS)
-                if CloudKitManager.watchLogEnabled {
-                    let watchLogPredicate = NSPredicate(format: "timestamp >= %@", Date.distantPast as NSDate)
-                    let watchLogQuery = CKQuery(recordType: RecordType.watchLog.rawValue, predicate: watchLogPredicate)
-                    watchLogQuery.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: true)]
-                    self.privateDatabase.perform(watchLogQuery, inZoneWith: self.customZoneID) { _, queryError in
-                        if let queryError = queryError {
-                            let errorDescription = queryError.localizedDescription
-                            // Ignore "not queryable" errors - fields will become queryable on first real use
-                            if !errorDescription.contains("queryable") {
-                                LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to query WatchLog seed record", metadata: ["error": errorDescription], source: self.logSource)
-                                querySuccess = false
-                            }
-                        }
-                        queryGroup.leave()
-                    }
-                } else {
-                    queryGroup.leave()
-                }
-                #else
-                queryGroup.leave()
-                #endif
-                
                 // After queries complete, delete all seed records
                 queryGroup.notify(queue: .main) {
                 if !savedRecords.isEmpty {
@@ -834,20 +919,28 @@ public class CloudKitManager: NSObject {
                         if querySuccess && !hasErrors {
                             UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
                             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Schema initialized successfully - all fields are now queryable", source: self.logSource)
-                            completion(true)
+                            // Post progress notification for schema initialization completed
+                            self.postSyncProgress(step: "schema_initialization", phase: "completed")
+                            completion(true, false) // (success, wasAlreadyInitialized)
                         } else {
                             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Schema initialization completed with warnings - fields will become queryable on first real use", source: self.logSource)
-                            completion(false)
+                            // Post progress notification for schema initialization completed (with warnings)
+                            self.postSyncProgress(step: "schema_initialization", phase: "completed")
+                            completion(false, false) // (success, wasAlreadyInitialized)
                         }
                     }
                 } else {
                     if querySuccess && !hasErrors {
                         UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
                         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Schema initialized successfully - all fields are now queryable", source: self.logSource)
-                        completion(true)
+                        // Post progress notification for schema initialization completed
+                        self.postSyncProgress(step: "schema_initialization", phase: "completed")
+                        completion(true, false) // (success, wasAlreadyInitialized)
                     } else {
                         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Schema initialization completed with warnings - fields will become queryable on first real use", source: self.logSource)
-                        completion(false)
+                        // Post progress notification for schema initialization completed (with warnings)
+                        self.postSyncProgress(step: "schema_initialization", phase: "completed")
+                        completion(false, false) // (success, wasAlreadyInitialized)
                     }
                 }
                 }
@@ -914,6 +1007,11 @@ public class CloudKitManager: NSObject {
      * 4. Update lastSyncTimestamp
      */
     public func triggerSyncToCloud(completion: @escaping (Bool, Error?, SyncStats?) -> Void) {
+        guard isCloudKitEnabled else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping sync", source: self.logSource)
+            completion(false, NSError(domain: "CloudKitManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "CloudKit is disabled"]), nil)
+            return
+        }
         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Starting sync to CloudKit", source: self.logSource)
         
         // Check account status first
@@ -954,6 +1052,7 @@ public class CloudKitManager: NSObject {
         
         // Sync notifications
         group.enter()
+        self.postSyncProgress(step: "sync_notifications", phase: "starting")
         syncNotificationsToCloudKit(since: timestamp) { success, synced, updated, error in
             if success {
                 notificationsSynced = synced
@@ -967,6 +1066,7 @@ public class CloudKitManager: NSObject {
         
         // Sync buckets
         group.enter()
+        self.postSyncProgress(step: "sync_buckets", phase: "starting")
         syncBucketsToCloudKit(since: timestamp) { success, synced, updated, error in
             if success {
                 bucketsSynced = synced
@@ -1056,6 +1156,17 @@ public class CloudKitManager: NSObject {
                         completion(true, 0, 0, nil)
                     }
                     return
+                }
+                
+                // Post progress notification for sync start
+                DispatchQueue.main.async {
+                    self.postSyncProgress(
+                        step: "sync_notifications",
+                        currentItem: 0,
+                        totalItems: filteredNotifications.count,
+                        itemType: "notification",
+                        phase: "syncing"
+                    )
                 }
                 
                 // Fetch read_at timestamps for ALL notifications in a single batch query
@@ -1333,7 +1444,7 @@ public class CloudKitManager: NSObject {
                             if let readAt = dateFormatter.date(from: readAtString) {
                                 record["readAt"] = readAt
                                 readAtSetCount += 1
-                                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Set readAt for new notification", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
                             } else {
                                 // Try without fractional seconds
                                 let dateFormatterNoFractional = ISO8601DateFormatter()
@@ -1341,7 +1452,7 @@ public class CloudKitManager: NSObject {
                                 if let readAt = dateFormatterNoFractional.date(from: readAtString) {
                                     record["readAt"] = readAt
                                     readAtSetCount += 1
-                                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification (no fractional)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                    LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Set readAt for new notification (no fractional)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
                                 } else {
                                     LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to parse readAt date", metadata: ["notificationId": notificationId, "readAtString": readAtString], source: self.logSource)
                                 }
@@ -1358,107 +1469,70 @@ public class CloudKitManager: NSObject {
             
             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "readAt processing summary", metadata: ["newRecords": "\(newRecordIDs.count)", "updatedRecords": "\(updateRecordIDs.count)", "readAtSet": "\(readAtSetCount)", "readAtNotFound": "\(readAtNotFoundCount)"], source: self.logSource)
             
-            // Save all records in batch
-            let modifyOperation = CKModifyRecordsOperation(recordsToSave: recordsToSave, recordIDsToDelete: nil)
-            modifyOperation.database = self.privateDatabase
-            modifyOperation.savePolicy = .changedKeys
+            // Save records in chunks of 200 (CloudKit limit is 400, we use 200 for safety)
+            let recordChunks = self.chunked(recordsToSave, chunkSize: CloudKitManager.maxBatchSize)
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Saving records in chunks", metadata: ["totalRecords": "\(recordsToSave.count)", "chunkSize": "\(CloudKitManager.maxBatchSize)", "chunks": "\(recordChunks.count)"], source: self.logSource)
             
-            modifyOperation.modifyRecordsResultBlock = { modifyResult in
-                switch modifyResult {
-                case .success:
-                    counter.syncedCount = newRecordIDs.count
-                    counter.updatedCount = updateRecordIDs.count
-                    group.leave()
-                    
-                case .failure(let error):
-                    // Handle partial success
-                    if let ckError = error as? CKError,
-                       let partialErrors = ckError.partialErrorsByItemID {
-                        // Count successful saves
-                        let errorRecordIDs = Set(partialErrors.keys.compactMap { $0 as? CKRecord.ID })
-                        let successfulRecordIDs = Set(recordsToSave.map { $0.recordID }).subtracting(errorRecordIDs)
-                        counter.syncedCount = newRecordIDs.intersection(successfulRecordIDs).count
-                        counter.updatedCount = updateRecordIDs.intersection(successfulRecordIDs).count
+            var completedChunks = 0
+            var totalSynced = 0
+            var totalUpdated = 0
+            
+            for chunk in recordChunks {
+                group.enter()
+                
+                // Determine which records in this chunk are new vs updated
+                let chunkNewRecordIDs = newRecordIDs.intersection(Set(chunk.map { $0.recordID }))
+                let chunkUpdateRecordIDs = updateRecordIDs.intersection(Set(chunk.map { $0.recordID }))
+                
+                let modifyOperation = CKModifyRecordsOperation(recordsToSave: chunk, recordIDsToDelete: nil)
+                modifyOperation.database = self.privateDatabase
+                modifyOperation.savePolicy = .changedKeys
+                
+                modifyOperation.modifyRecordsResultBlock = { modifyResult in
+                    switch modifyResult {
+                    case .success:
+                        totalSynced += chunkNewRecordIDs.count
+                        totalUpdated += chunkUpdateRecordIDs.count
+                        completedChunks += 1
                         
-                        // Handle serverRecordChanged errors by fetching and re-saving in batch
-                        var recordsToRetry: [CKRecord] = []
-                        var retryRecordIDs: [CKRecord.ID] = []
-                        
-                        for (recordIDKey, partialError) in partialErrors {
-                            guard let recordID = recordIDKey as? CKRecord.ID else { continue }
-                            if let ckPartialError = partialError as? CKError,
-                               ckPartialError.code == .serverRecordChanged {
-                                retryRecordIDs.append(recordID)
-                            } else {
-                                counter.errors.append(partialError)
-                            }
+                        // If all chunks are completed, update counter and leave group
+                        if completedChunks == recordChunks.count {
+                            counter.syncedCount = totalSynced
+                            counter.updatedCount = totalUpdated
                         }
+                        group.leave()
                         
-                        // Fetch records that had serverRecordChanged errors
-                        if !retryRecordIDs.isEmpty {
-                            let retryFetchOperation = CKFetchRecordsOperation(recordIDs: retryRecordIDs)
-                            retryFetchOperation.database = self.privateDatabase
+                    case .failure(let error):
+                        // Handle partial success
+                        if let ckError = error as? CKError,
+                           let partialErrors = ckError.partialErrorsByItemID {
+                            // Count successful saves
+                            let errorRecordIDs = Set(partialErrors.keys.compactMap { $0 as? CKRecord.ID })
+                            let successfulRecordIDs = Set(chunk.map { $0.recordID }).subtracting(errorRecordIDs)
+                            totalSynced += chunkNewRecordIDs.intersection(successfulRecordIDs).count
+                            totalUpdated += chunkUpdateRecordIDs.intersection(successfulRecordIDs).count
                             
-                            #if os(watchOS)
-                            // On watchOS, use perRecordCompletionBlock
-                            retryFetchOperation.perRecordCompletionBlock = { (record: CKRecord?, recordID: CKRecord.ID?, error: Error?) in
-                                if let fetchedRecord = record,
-                                   let notificationId = fetchedRecord["id"] as? String,
-                                   let notification = notifications.first(where: { $0.id == notificationId }) {
-                                    // Ensure all required fields are present
-                                    fetchedRecord["id"] = notification.id
-                                    fetchedRecord["bucketId"] = notification.bucketId
-                                    fetchedRecord["title"] = notification.title
-                                    fetchedRecord["body"] = notification.body
-                                    
-                                    if let createdAt = CloudKitManager.parseISO8601Date(notification.createdAt) {
-                                        fetchedRecord["createdAt"] = createdAt
-                                    }
-                                    
-                                    if let subtitle = notification.subtitle {
-                                        fetchedRecord["subtitle"] = subtitle
-                                    }
-                                    
-                                    // Don't modify readAt for retry records - preserve CloudKit's value
-                                    // These are existing records that had conflicts
-                                    
-                                    recordsToRetry.append(fetchedRecord)
-                                }
-                            }
+                            // Handle serverRecordChanged errors by fetching and re-saving in batch
+                            var recordsToRetry: [CKRecord] = []
+                            var retryRecordIDs: [CKRecord.ID] = []
                             
-                            retryFetchOperation.fetchRecordsResultBlock = { retryFetchResult in
-                                if case .failure(let retryFetchError) = retryFetchResult {
-                                    counter.errors.append(retryFetchError)
-                                    group.leave()
-                                    return
-                                }
-                                
-                                // Re-save retry records in batch
-                                if !recordsToRetry.isEmpty {
-                                    let retryModifyOperation = CKModifyRecordsOperation(recordsToSave: recordsToRetry, recordIDsToDelete: nil)
-                                    retryModifyOperation.database = self.privateDatabase
-                                    retryModifyOperation.savePolicy = .allKeys
-                                    
-                                    retryModifyOperation.modifyRecordsResultBlock = { retryModifyResult in
-                                        switch retryModifyResult {
-                                        case .success:
-                                            counter.updatedCount += recordsToRetry.count
-                                            group.leave()
-                                        case .failure(let retryError):
-                                            counter.errors.append(retryError)
-                                            group.leave()
-                                        }
-                                    }
-                                    
-                                    self.privateDatabase.add(retryModifyOperation)
+                            for (recordIDKey, partialError) in partialErrors {
+                                guard let recordID = recordIDKey as? CKRecord.ID else { continue }
+                                if let ckPartialError = partialError as? CKError,
+                                   ckPartialError.code == .serverRecordChanged {
+                                    retryRecordIDs.append(recordID)
                                 } else {
-                                    group.leave()
+                                    counter.errors.append(partialError)
                                 }
                             }
-                            #else
-                            // On iOS, check if extension or main app
-                            if isExtension {
-                                // On iOS extensions, use perRecordCompletionBlock
+                            
+                            // Fetch records that had serverRecordChanged errors
+                            if !retryRecordIDs.isEmpty {
+                                let retryFetchOperation = CKFetchRecordsOperation(recordIDs: retryRecordIDs)
+                                retryFetchOperation.database = self.privateDatabase
+                                
+                                #if os(watchOS)
+                                // On watchOS, use perRecordCompletionBlock
                                 retryFetchOperation.perRecordCompletionBlock = { (record: CKRecord?, recordID: CKRecord.ID?, error: Error?) in
                                     if let fetchedRecord = record,
                                        let notificationId = fetchedRecord["id"] as? String,
@@ -1487,6 +1561,11 @@ public class CloudKitManager: NSObject {
                                 retryFetchOperation.fetchRecordsResultBlock = { retryFetchResult in
                                     if case .failure(let retryFetchError) = retryFetchResult {
                                         counter.errors.append(retryFetchError)
+                                        completedChunks += 1
+                                        if completedChunks == recordChunks.count {
+                                            counter.syncedCount = totalSynced
+                                            counter.updatedCount = totalUpdated
+                                        }
                                         group.leave()
                                         return
                                     }
@@ -1500,27 +1579,41 @@ public class CloudKitManager: NSObject {
                                         retryModifyOperation.modifyRecordsResultBlock = { retryModifyResult in
                                             switch retryModifyResult {
                                             case .success:
-                                                counter.updatedCount += recordsToRetry.count
+                                                totalUpdated += recordsToRetry.count
+                                                completedChunks += 1
+                                                if completedChunks == recordChunks.count {
+                                                    counter.syncedCount = totalSynced
+                                                    counter.updatedCount = totalUpdated
+                                                }
                                                 group.leave()
                                             case .failure(let retryError):
                                                 counter.errors.append(retryError)
+                                                completedChunks += 1
+                                                if completedChunks == recordChunks.count {
+                                                    counter.syncedCount = totalSynced
+                                                    counter.updatedCount = totalUpdated
+                                                }
                                                 group.leave()
                                             }
                                         }
                                         
                                         self.privateDatabase.add(retryModifyOperation)
                                     } else {
+                                        completedChunks += 1
+                                        if completedChunks == recordChunks.count {
+                                            counter.syncedCount = totalSynced
+                                            counter.updatedCount = totalUpdated
+                                        }
                                         group.leave()
                                     }
                                 }
-                            } else {
-                                // On iOS main app, fetchRecordsResultBlock returns Result<[CKRecord.ID: CKRecord], Error>
-                                retryFetchOperation.fetchRecordsResultBlock = { retryFetchResult in
-                                    switch retryFetchResult {
-                                    case .success(let fetchedRecordsByID):
-                                        // Update fetched records with our data
-                                        for (recordID, fetchedRecord) in fetchedRecordsByID {
-                                            if let notificationId = fetchedRecord["id"] as? String,
+                                #else
+                                // On iOS, check if extension or main app
+                                if isExtension {
+                                    // On iOS extensions, use perRecordCompletionBlock
+                                    retryFetchOperation.perRecordCompletionBlock = { (record: CKRecord?, recordID: CKRecord.ID?, error: Error?) in
+                                        if let fetchedRecord = record,
+                                           let notificationId = fetchedRecord["id"] as? String,
                                            let notification = notifications.first(where: { $0.id == notificationId }) {
                                             // Ensure all required fields are present
                                             fetchedRecord["id"] = notification.id
@@ -1543,48 +1636,160 @@ public class CloudKitManager: NSObject {
                                         }
                                     }
                                     
-                                    // Re-save retry records in batch
-                                    if !recordsToRetry.isEmpty {
-                                        let retryModifyOperation = CKModifyRecordsOperation(recordsToSave: recordsToRetry, recordIDsToDelete: nil)
-                                        retryModifyOperation.database = self.privateDatabase
-                                        retryModifyOperation.savePolicy = .allKeys
-                                        
-                                        retryModifyOperation.modifyRecordsResultBlock = { retryModifyResult in
-                                            switch retryModifyResult {
-                                            case .success:
-                                                counter.updatedCount += recordsToRetry.count
-                                                group.leave()
-                                            case .failure(let retryError):
-                                                counter.errors.append(retryError)
-                                                group.leave()
+                                    retryFetchOperation.fetchRecordsResultBlock = { retryFetchResult in
+                                        if case .failure(let retryFetchError) = retryFetchResult {
+                                            counter.errors.append(retryFetchError)
+                                            completedChunks += 1
+                                            if completedChunks == recordChunks.count {
+                                                counter.syncedCount = totalSynced
+                                                counter.updatedCount = totalUpdated
                                             }
+                                            group.leave()
+                                            return
                                         }
                                         
-                                        self.privateDatabase.add(retryModifyOperation)
-                                    } else {
-                                        group.leave()
+                                        // Re-save retry records in batch
+                                        if !recordsToRetry.isEmpty {
+                                            let retryModifyOperation = CKModifyRecordsOperation(recordsToSave: recordsToRetry, recordIDsToDelete: nil)
+                                            retryModifyOperation.database = self.privateDatabase
+                                            retryModifyOperation.savePolicy = .allKeys
+                                            
+                                            retryModifyOperation.modifyRecordsResultBlock = { retryModifyResult in
+                                                switch retryModifyResult {
+                                                case .success:
+                                                    totalUpdated += recordsToRetry.count
+                                                    completedChunks += 1
+                                                    if completedChunks == recordChunks.count {
+                                                        counter.syncedCount = totalSynced
+                                                        counter.updatedCount = totalUpdated
+                                                    }
+                                                    group.leave()
+                                                case .failure(let retryError):
+                                                    counter.errors.append(retryError)
+                                                    completedChunks += 1
+                                                    if completedChunks == recordChunks.count {
+                                                        counter.syncedCount = totalSynced
+                                                        counter.updatedCount = totalUpdated
+                                                    }
+                                                    group.leave()
+                                                }
+                                            }
+                                            
+                                            self.privateDatabase.add(retryModifyOperation)
+                                        } else {
+                                            completedChunks += 1
+                                            if completedChunks == recordChunks.count {
+                                                counter.syncedCount = totalSynced
+                                                counter.updatedCount = totalUpdated
+                                            }
+                                            group.leave()
+                                        }
                                     }
-                                    
-                                case .failure(let retryFetchError):
-                                    counter.errors.append(retryFetchError)
-                                    group.leave()
+                                } else {
+                                    // On iOS main app, fetchRecordsResultBlock returns Result<[CKRecord.ID: CKRecord], Error>
+                                    retryFetchOperation.fetchRecordsResultBlock = { retryFetchResult in
+                                        switch retryFetchResult {
+                                        case .success(let fetchedRecordsByID):
+                                            // Update fetched records with our data
+                                            for (recordID, fetchedRecord) in fetchedRecordsByID {
+                                                if let notificationId = fetchedRecord["id"] as? String,
+                                                   let notification = notifications.first(where: { $0.id == notificationId }) {
+                                                    // Ensure all required fields are present
+                                                    fetchedRecord["id"] = notification.id
+                                                    fetchedRecord["bucketId"] = notification.bucketId
+                                                    fetchedRecord["title"] = notification.title
+                                                    fetchedRecord["body"] = notification.body
+                                                    
+                                                    if let createdAt = CloudKitManager.parseISO8601Date(notification.createdAt) {
+                                                        fetchedRecord["createdAt"] = createdAt
+                                                    }
+                                                    
+                                                    if let subtitle = notification.subtitle {
+                                                        fetchedRecord["subtitle"] = subtitle
+                                                    }
+                                                    
+                                                    // Don't modify readAt for retry records - preserve CloudKit's value
+                                                    // These are existing records that had conflicts
+                                                    
+                                                    recordsToRetry.append(fetchedRecord)
+                                                }
+                                            }
+                                            
+                                            // Re-save retry records in batch
+                                            if !recordsToRetry.isEmpty {
+                                                let retryModifyOperation = CKModifyRecordsOperation(recordsToSave: recordsToRetry, recordIDsToDelete: nil)
+                                                retryModifyOperation.database = self.privateDatabase
+                                                retryModifyOperation.savePolicy = .allKeys
+                                                
+                                                retryModifyOperation.modifyRecordsResultBlock = { retryModifyResult in
+                                                    switch retryModifyResult {
+                                                    case .success:
+                                                        totalUpdated += recordsToRetry.count
+                                                        completedChunks += 1
+                                                        if completedChunks == recordChunks.count {
+                                                            counter.syncedCount = totalSynced
+                                                            counter.updatedCount = totalUpdated
+                                                        }
+                                                        group.leave()
+                                                    case .failure(let retryError):
+                                                        counter.errors.append(retryError)
+                                                        completedChunks += 1
+                                                        if completedChunks == recordChunks.count {
+                                                            counter.syncedCount = totalSynced
+                                                            counter.updatedCount = totalUpdated
+                                                        }
+                                                        group.leave()
+                                                    }
+                                                }
+                                                
+                                                self.privateDatabase.add(retryModifyOperation)
+                                            } else {
+                                                completedChunks += 1
+                                                if completedChunks == recordChunks.count {
+                                                    counter.syncedCount = totalSynced
+                                                    counter.updatedCount = totalUpdated
+                                                }
+                                                group.leave()
+                                            }
+                                            
+                                        case .failure(let retryFetchError):
+                                            counter.errors.append(retryFetchError)
+                                            completedChunks += 1
+                                            if completedChunks == recordChunks.count {
+                                                counter.syncedCount = totalSynced
+                                                counter.updatedCount = totalUpdated
+                                            }
+                                            group.leave()
+                                        }
+                                    }
                                 }
+                                #endif
+                                
+                                self.privateDatabase.add(retryFetchOperation)
+                            } else {
+                                completedChunks += 1
+                                if completedChunks == recordChunks.count {
+                                    counter.syncedCount = totalSynced
+                                    counter.updatedCount = totalUpdated
+                                }
+                                group.leave()
                             }
-                            }
-                            #endif
-                            
-                            self.privateDatabase.add(retryFetchOperation)
                         } else {
+                            counter.errors.append(error)
+                            completedChunks += 1
+                            if completedChunks == recordChunks.count {
+                                counter.syncedCount = totalSynced
+                                counter.updatedCount = totalUpdated
+                            }
                             group.leave()
                         }
-                    } else {
-                        counter.errors.append(error)
-                        group.leave()
                     }
                 }
+                
+                self.privateDatabase.add(modifyOperation)
             }
             
-            self.privateDatabase.add(modifyOperation)
+            group.leave()
         }
         #else
         // On iOS extensions, fetchRecordsResultBlock also returns Result<Void, Error>
@@ -1646,13 +1851,13 @@ public class CloudKitManager: NSObject {
                                 if let timestampMs = Double(readAtString) {
                                     readAt = Date(timeIntervalSince1970: timestampMs / 1000.0)
                                     readAtSetCount += 1
-                                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification (Unix timestamp)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                    LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Set readAt for new notification (Unix timestamp)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
                                 } else {
                                     // Try parsing as ISO8601 string (with fractional seconds)
                                     if let parsedDate = dateFormatter.date(from: readAtString) {
                                         readAt = parsedDate
                                         readAtSetCount += 1
-                                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification (ISO8601)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                        LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Set readAt for new notification (ISO8601)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
                                     } else {
                                         // Try without fractional seconds
                                         let dateFormatterNoFractional = ISO8601DateFormatter()
@@ -1660,7 +1865,7 @@ public class CloudKitManager: NSObject {
                                         if let parsedDate = dateFormatterNoFractional.date(from: readAtString) {
                                             readAt = parsedDate
                                             readAtSetCount += 1
-                                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification (ISO8601 no fractional)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                            LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Set readAt for new notification (ISO8601 no fractional)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
                                         } else {
                                             LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to parse readAt date", metadata: ["notificationId": notificationId, "readAtString": readAtString], source: self.logSource)
                                         }
@@ -1687,12 +1892,17 @@ public class CloudKitManager: NSObject {
                 modifyOperation.database = self.privateDatabase
                 modifyOperation.savePolicy = .changedKeys
                 
+                // Capture variables explicitly to avoid capture issues in async closure
+                let capturedNewRecordIDs = newRecordIDs
+                let capturedUpdateRecordIDs = updateRecordIDs
+                let capturedGroup = group
+                
                 modifyOperation.modifyRecordsResultBlock = { modifyResult in
                     switch modifyResult {
                     case .success:
-                        counter.syncedCount = newRecordIDs.count
-                        counter.updatedCount = updateRecordIDs.count
-                        group.leave()
+                        counter.syncedCount = capturedNewRecordIDs.count
+                        counter.updatedCount = capturedUpdateRecordIDs.count
+                        capturedGroup.leave()
                         
                     case .failure(let error):
                         // Handle partial success
@@ -1701,8 +1911,8 @@ public class CloudKitManager: NSObject {
                             // Count successful saves
                             let errorRecordIDs = Set(partialErrors.keys.compactMap { $0 as? CKRecord.ID })
                             let successfulRecordIDs = Set(recordsToSave.map { $0.recordID }).subtracting(errorRecordIDs)
-                            counter.syncedCount = newRecordIDs.intersection(successfulRecordIDs).count
-                            counter.updatedCount = updateRecordIDs.intersection(successfulRecordIDs).count
+                            counter.syncedCount = capturedNewRecordIDs.intersection(successfulRecordIDs).count
+                            counter.updatedCount = capturedUpdateRecordIDs.intersection(successfulRecordIDs).count
                             
                             // Handle serverRecordChanged errors by fetching and re-saving in batch
                             var recordsToRetry: [CKRecord] = []
@@ -1762,11 +1972,15 @@ public class CloudKitManager: NSObject {
                                         retryModifyOperation.database = self.privateDatabase
                                         retryModifyOperation.savePolicy = .allKeys
                                         
+                                        // Capture variables explicitly to avoid capture issues in async closure
+                                        let retryCapturedNewRecordIDs = capturedNewRecordIDs
+                                        let retryCapturedUpdateRecordIDs = capturedUpdateRecordIDs
+                                        
                                         retryModifyOperation.modifyRecordsResultBlock = { retryModifyResult in
                                             switch retryModifyResult {
                                             case .success:
-                                                counter.syncedCount = newRecordIDs.count
-                                                counter.updatedCount = updateRecordIDs.count
+                                                counter.syncedCount = retryCapturedNewRecordIDs.count
+                                                counter.updatedCount = retryCapturedUpdateRecordIDs.count
                                                 group.leave()
                                             case .failure(let retryError):
                                                 counter.errors.append(retryError)
@@ -1789,10 +2003,10 @@ public class CloudKitManager: NSObject {
                         group.leave()
                     }
                 }
+                
+                self.privateDatabase.add(modifyOperation)
             }
-            
-            self.privateDatabase.add(modifyOperation)
-        }
+            }
         } else {
             // On iOS main app, use perRecordCompletionBlock to avoid cast issues
             var existingRecordIDs: Set<CKRecord.ID> = []
@@ -1851,13 +2065,13 @@ public class CloudKitManager: NSObject {
                                 if let timestampMs = Double(readAtString) {
                                     readAt = Date(timeIntervalSince1970: timestampMs / 1000.0)
                                     readAtSetCount += 1
-                                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification (Unix timestamp)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                    LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Set readAt for new notification (Unix timestamp)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
                                 } else {
                                     // Try parsing as ISO8601 string (with fractional seconds)
                                     if let parsedDate = dateFormatter.date(from: readAtString) {
                                         readAt = parsedDate
                                         readAtSetCount += 1
-                                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification (ISO8601)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                        LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Set readAt for new notification (ISO8601)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
                                     } else {
                                         // Try without fractional seconds
                                         let dateFormatterNoFractional = ISO8601DateFormatter()
@@ -1865,7 +2079,7 @@ public class CloudKitManager: NSObject {
                                         if let parsedDate = dateFormatterNoFractional.date(from: readAtString) {
                                             readAt = parsedDate
                                             readAtSetCount += 1
-                                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Set readAt for new notification (ISO8601 no fractional)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
+                                            LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Set readAt for new notification (ISO8601 no fractional)", metadata: ["notificationId": notificationId, "readAt": readAtString], source: self.logSource)
                                         } else {
                                             LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to parse readAt date", metadata: ["notificationId": notificationId, "readAtString": readAtString], source: self.logSource)
                                         }
@@ -1892,12 +2106,17 @@ public class CloudKitManager: NSObject {
                 modifyOperation.database = self.privateDatabase
                 modifyOperation.savePolicy = .changedKeys
                 
+                // Capture variables explicitly to avoid capture issues in async closure
+                let capturedNewRecordIDs = newRecordIDs
+                let capturedUpdateRecordIDs = updateRecordIDs
+                let capturedGroup = group
+                
                 modifyOperation.modifyRecordsResultBlock = { modifyResult in
                     switch modifyResult {
                     case .success:
-                        counter.syncedCount = newRecordIDs.count
-                        counter.updatedCount = updateRecordIDs.count
-                        group.leave()
+                        counter.syncedCount = capturedNewRecordIDs.count
+                        counter.updatedCount = capturedUpdateRecordIDs.count
+                        capturedGroup.leave()
                         
                     case .failure(let error):
                         // Handle partial success
@@ -1906,8 +2125,8 @@ public class CloudKitManager: NSObject {
                             // Count successful saves
                             let errorRecordIDs = Set(partialErrors.keys.compactMap { $0 as? CKRecord.ID })
                             let successfulRecordIDs = Set(recordsToSave.map { $0.recordID }).subtracting(errorRecordIDs)
-                            counter.syncedCount = newRecordIDs.intersection(successfulRecordIDs).count
-                            counter.updatedCount = updateRecordIDs.intersection(successfulRecordIDs).count
+                            counter.syncedCount = capturedNewRecordIDs.intersection(successfulRecordIDs).count
+                            counter.updatedCount = capturedUpdateRecordIDs.intersection(successfulRecordIDs).count
                             
                             // Handle serverRecordChanged errors by fetching and re-saving in batch
                             var recordsToRetry: [CKRecord] = []
@@ -1961,7 +2180,7 @@ public class CloudKitManager: NSObject {
                                 retryFetchOperation.fetchRecordsResultBlock = { retryFetchResult in
                                     if case .failure(let retryFetchError) = retryFetchResult {
                                         counter.errors.append(retryFetchError)
-                                        group.leave()
+                                        capturedGroup.leave()
                                         return
                                     }
                                     
@@ -1971,36 +2190,42 @@ public class CloudKitManager: NSObject {
                                         retryModifyOperation.database = self.privateDatabase
                                         retryModifyOperation.savePolicy = .allKeys
                                         
+                                        // Capture variables explicitly to avoid capture issues in async closure
+                                        let retryCapturedNewRecordIDs = capturedNewRecordIDs
+                                        let retryCapturedUpdateRecordIDs = capturedUpdateRecordIDs
+                                        
                                         retryModifyOperation.modifyRecordsResultBlock = { retryModifyResult in
                                             switch retryModifyResult {
                                             case .success:
-                                                counter.syncedCount = newRecordIDs.count
-                                                counter.updatedCount = updateRecordIDs.count
-                                                group.leave()
+                                                counter.syncedCount = retryCapturedNewRecordIDs.count
+                                                counter.updatedCount = retryCapturedUpdateRecordIDs.count
+                                                capturedGroup.leave()
                                             case .failure(let retryError):
                                                 counter.errors.append(retryError)
-                                                group.leave()
+                                                capturedGroup.leave()
                                             }
                                         }
                                         
                                         self.privateDatabase.add(retryModifyOperation)
                                     } else {
-                                        group.leave()
+                                        capturedGroup.leave()
                                     }
                                 }
                                 
                                 self.privateDatabase.add(retryFetchOperation)
                             } else {
-                                group.leave()
+                                capturedGroup.leave()
                             }
                         } else {
                             counter.errors.append(error)
-                            group.leave()
+                            capturedGroup.leave()
                         }
                     }
                 }
                 
                 self.privateDatabase.add(modifyOperation)
+                // Note: group.leave() is called in modifyRecordsResultBlock (success/failure cases)
+                // and in retry operations, so we don't call it here
             }
         }
         #endif
@@ -2014,16 +2239,12 @@ public class CloudKitManager: NSObject {
             let finalErrors = counter.errors
             
             // Post completion notification for notifications
-            let progress = SyncProgress(
+            self.postSyncProgress(
+                step: "sync_notifications",
                 currentItem: finalSyncedCount + finalUpdatedCount,
                 totalItems: notifications.count,
                 itemType: "notification",
                 phase: "completed"
-            )
-            NotificationCenter.default.post(
-                name: CloudKitManager.syncProgressNotification,
-                object: nil,
-                userInfo: ["progress": progress]
             )
             
             let hasErrors = !finalErrors.isEmpty
@@ -2073,16 +2294,12 @@ public class CloudKitManager: NSObject {
             
             // Post progress notification for start
             DispatchQueue.main.async {
-                let progress = SyncProgress(
+                self.postSyncProgress(
+                    step: "sync_buckets",
                     currentItem: 0,
                     totalItems: totalBuckets,
                     itemType: "bucket",
                     phase: "syncing"
-                )
-                NotificationCenter.default.post(
-                    name: CloudKitManager.syncProgressNotification,
-                    object: nil,
-                    userInfo: ["progress": progress]
                 )
             }
             
@@ -2156,16 +2373,12 @@ public class CloudKitManager: NSObject {
                         
                         // Post completion notification for buckets
                         DispatchQueue.main.async {
-                            let progress = SyncProgress(
+                            self.postSyncProgress(
+                                step: "sync_buckets",
                                 currentItem: syncedCount + updatedCount,
                                 totalItems: totalBuckets,
                                 itemType: "bucket",
                                 phase: "completed"
-                            )
-                            NotificationCenter.default.post(
-                                name: CloudKitManager.syncProgressNotification,
-                                object: nil,
-                                userInfo: ["progress": progress]
                             )
                         }
                         
@@ -2195,16 +2408,12 @@ public class CloudKitManager: NSObject {
                         
                         // Post completion notification even with errors
                         DispatchQueue.main.async {
-                            let progress = SyncProgress(
+                            self.postSyncProgress(
+                                step: "sync_buckets",
                                 currentItem: syncedCount + updatedCount,
                                 totalItems: totalBuckets,
                                 itemType: "bucket",
                                 phase: "completed"
-                            )
-                            NotificationCenter.default.post(
-                                name: CloudKitManager.syncProgressNotification,
-                                object: nil,
-                                userInfo: ["progress": progress]
                             )
                         }
                         
@@ -2260,16 +2469,12 @@ public class CloudKitManager: NSObject {
                             
                             // Post completion notification for buckets
                             DispatchQueue.main.async {
-                                let progress = SyncProgress(
+                                self.postSyncProgress(
+                                    step: "sync_buckets",
                                     currentItem: syncedCount + updatedCount,
                                     totalItems: totalBuckets,
                                     itemType: "bucket",
                                     phase: "completed"
-                                )
-                                NotificationCenter.default.post(
-                                    name: CloudKitManager.syncProgressNotification,
-                                    object: nil,
-                                    userInfo: ["progress": progress]
                                 )
                             }
                             
@@ -2328,16 +2533,12 @@ public class CloudKitManager: NSObject {
                             
                             // Post completion notification for buckets
                             DispatchQueue.main.async {
-                                let progress = SyncProgress(
+                                self.postSyncProgress(
+                                    step: "sync_buckets",
                                     currentItem: syncedCount + updatedCount,
                                     totalItems: totalBuckets,
                                     itemType: "bucket",
                                     phase: "completed"
-                                )
-                                NotificationCenter.default.post(
-                                    name: CloudKitManager.syncProgressNotification,
-                                    object: nil,
-                                    userInfo: ["progress": progress]
                                 )
                             }
                             
@@ -2506,6 +2707,11 @@ public class CloudKitManager: NSObject {
      * This enables real-time sync between iPhone and Watch
      */
     public func setupSubscriptions(completion: @escaping (Bool, Error?) -> Void) {
+        guard isCloudKitEnabled else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping subscription setup", source: self.logSource)
+            completion(false, NSError(domain: "CloudKitManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "CloudKit is disabled"]))
+            return
+        }
         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Setting up CloudKit subscriptions", source: self.logSource)
         
         // First, verify that the zone exists (with retry logic - more retries and longer delay for zone propagation)
@@ -2536,19 +2742,6 @@ public class CloudKitManager: NSObject {
                 }
                 group.leave()
             }
-            
-            #if os(iOS)
-            // Create subscription for WatchLog changes (iOS only - Watch writes logs, iOS reads them)
-            if CloudKitManager.watchLogEnabled {
-                group.enter()
-                self.createWatchLogSubscription { success, error in
-                    if let error = error {
-                        errors.append(error)
-                    }
-                    group.leave()
-                }
-            }
-            #endif
             
             group.notify(queue: .main) {
                 if errors.isEmpty {
@@ -2685,54 +2878,6 @@ public class CloudKitManager: NSObject {
         }
     }
     
-    #if os(iOS)
-    /**
-     * Creates subscription for WatchLog record changes (iOS only)
-     * When Watch writes logs to CloudKit, iOS receives a notification and fetches them
-     */
-    private func createWatchLogSubscription(completion: @escaping (Bool, Error?) -> Void) {
-        // Check if subscription already exists
-        privateDatabase.fetch(withSubscriptionID: watchLogSubscriptionID) { subscription, error in
-            if subscription != nil {
-                completion(true, nil)
-                return
-            }
-            
-            // Create new subscription
-            let predicate = NSPredicate(value: true) // Subscribe to all WatchLog records
-            let subscription = CKQuerySubscription(
-                recordType: RecordType.watchLog.rawValue,
-                predicate: predicate,
-                subscriptionID: self.watchLogSubscriptionID,
-                options: [.firesOnRecordCreation] // Only fire on creation (we fetch and delete immediately)
-            )
-            
-            // Set zone for the subscription
-            subscription.zoneID = self.customZoneID
-            
-            let notificationInfo = CKSubscription.NotificationInfo()
-            notificationInfo.shouldSendContentAvailable = true
-            notificationInfo.shouldBadge = false
-            subscription.notificationInfo = notificationInfo
-            
-            self.privateDatabase.save(subscription) { savedSubscription, error in
-                if let error = error {
-                    // Check for duplicate subscription error (code 15)
-                    if let ckError = error as? CKError, ckError.code.rawValue == 15 {
-                        completion(true, nil)
-                    } else {
-                        LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error creating WatchLog subscription", metadata: ["error": error.localizedDescription], source: self.logSource)
-                        completion(false, error)
-                    }
-                } else {
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "WatchLog subscription created", source: self.logSource)
-                    completion(true, nil)
-                }
-            }
-        }
-    }
-    #endif
-    
     // MARK: - Remote Notification Handlers (Platform-specific wrappers)
     
     #if os(iOS)
@@ -2799,11 +2944,6 @@ public class CloudKitManager: NSObject {
         } else if subscriptionID == self.bucketSubscriptionID {
             subscriptionName = "Bucket"
         }
-        #if os(iOS)
-        if subscriptionID == self.watchLogSubscriptionID {
-            subscriptionName = "WatchLog"
-        }
-        #endif
         
         // Reduced verbosity - only log errors
         
@@ -2859,7 +2999,7 @@ public class CloudKitManager: NSObject {
         }
         
         // Extract record type from subscription ID or record name
-        // Record name format: "Notification-{id}", "Bucket-{id}", or "WatchLog-{id}"
+        // Record name format: "Notification-{id}" or "Bucket-{id}"
         let recordName = recordID.recordName
         let recordType: String
         
@@ -2867,8 +3007,6 @@ public class CloudKitManager: NSObject {
             recordType = RecordType.notification.rawValue
         } else if recordName.hasPrefix("Bucket-") {
             recordType = RecordType.bucket.rawValue
-        } else if recordName.hasPrefix("WatchLog-") {
-            recordType = RecordType.watchLog.rawValue
         } else {
             // Fallback: try to get from subscription ID
             var foundRecordType: String? = nil
@@ -2879,11 +3017,6 @@ public class CloudKitManager: NSObject {
                 } else if subscriptionID == self.bucketSubscriptionID {
                     foundRecordType = RecordType.bucket.rawValue
                 }
-                #if os(iOS)
-                if subscriptionID == self.watchLogSubscriptionID {
-                    foundRecordType = RecordType.watchLog.rawValue
-                }
-                #endif
             }
             
             guard let type = foundRecordType else {
@@ -2903,18 +3036,6 @@ public class CloudKitManager: NSObject {
             
             recordType = type
         }
-        
-        // Handle WatchLog notifications specially (iOS only)
-        // Watch log fetching disabled - logs are saved locally on watchOS
-        #if os(iOS)
-        if recordType == RecordType.watchLog.rawValue {
-            // Watch log fetching disabled - logs are saved locally on watchOS
-            // fetchAndDeleteWatchLogs { logs, error in
-            //     ...
-            // }
-            return
-        }
-        #endif
         
         let reason = notification.queryNotificationReason
         let reasonString: String
@@ -3095,6 +3216,8 @@ public class CloudKitManager: NSObject {
         var updatedCount = 0
         var deletedCount = 0
         var newChangeToken: CKServerChangeToken?
+        var completionCalled = false
+        let completionLock = NSLock()
         
         operation.recordChangedBlock = { record in
             updatedCount += 1
@@ -3126,12 +3249,20 @@ public class CloudKitManager: NSObject {
                     UserDefaults.standard.removeObject(forKey: self.schemaInitializedKey)
                     UserDefaults.standard.removeObject(forKey: self.lastSyncTimestampKey)
                     UserDefaults.standard.removeObject(forKey: self.lastChangeTokenKey)
+                    UserDefaults.standard.removeObject(forKey: CloudKitManager.cloudKitInitialSyncCompletedKey)
                     
                     // Re-initialize zone and schema
                     self.initializeSchemaIfNeeded { success, initError in
+                        completionLock.lock()
+                        defer { completionLock.unlock() }
+                        
+                        guard !completionCalled else { return }
+                        
                         self.syncLock.lock()
                         self.isIncrementalSyncInProgress = false
                         self.syncLock.unlock()
+                        
+                        completionCalled = true
                         if success {
                             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Zone re-initialized after purge", source: self.logSource)
                             completion(0, nil) // Return success with 0 updates since zone was just recreated
@@ -3142,11 +3273,21 @@ public class CloudKitManager: NSObject {
                     return
                 }
                 
-                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching zone changes", metadata: ["error": errorDescription], source: self.logSource)
-                self.syncLock.lock()
-                self.isIncrementalSyncInProgress = false
-                self.syncLock.unlock()
-                completion(0, error)
+                // Other errors - only call completion if fetchRecordZoneChangesCompletionBlock hasn't been called yet
+                // (fetchRecordZoneChangesCompletionBlock will handle the final error)
+                if !moreComing {
+                    completionLock.lock()
+                    defer { completionLock.unlock() }
+                    
+                    guard !completionCalled else { return }
+                    
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching zone changes", metadata: ["error": errorDescription], source: self.logSource)
+                    self.syncLock.lock()
+                    self.isIncrementalSyncInProgress = false
+                    self.syncLock.unlock()
+                    completionCalled = true
+                    completion(0, error)
+                }
                 return
             }
             
@@ -3157,12 +3298,17 @@ public class CloudKitManager: NSObject {
         }
         
         operation.fetchRecordZoneChangesCompletionBlock = { error in
-            defer {
+            completionLock.lock()
+            defer { 
+                completionLock.unlock()
                 // Always reset sync flag
                 self.syncLock.lock()
                 self.isIncrementalSyncInProgress = false
                 self.syncLock.unlock()
             }
+            
+            // Prevent multiple completion calls
+            guard !completionCalled else { return }
             
             if let error = error {
                 let errorDescription = error.localizedDescription
@@ -3178,9 +3324,20 @@ public class CloudKitManager: NSObject {
                     UserDefaults.standard.removeObject(forKey: self.schemaInitializedKey)
                     UserDefaults.standard.removeObject(forKey: self.lastSyncTimestampKey)
                     UserDefaults.standard.removeObject(forKey: self.lastChangeTokenKey)
+                    UserDefaults.standard.removeObject(forKey: CloudKitManager.cloudKitInitialSyncCompletedKey)
                     
                     // Re-initialize zone and schema
                     self.initializeSchemaIfNeeded { success, initError in
+                        completionLock.lock()
+                        defer { completionLock.unlock() }
+                        
+                        guard !completionCalled else { return }
+                        
+                        self.syncLock.lock()
+                        self.isIncrementalSyncInProgress = false
+                        self.syncLock.unlock()
+                        
+                        completionCalled = true
                         if success {
                             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Zone re-initialized after purge", source: self.logSource)
                             completion(0, nil) // Return success with 0 updates since zone was just recreated
@@ -3192,6 +3349,7 @@ public class CloudKitManager: NSObject {
                 }
                 
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error completing incremental sync", metadata: ["error": errorDescription], source: self.logSource)
+                completionCalled = true
                 completion(0, error)
                 return
             }
@@ -3213,6 +3371,7 @@ public class CloudKitManager: NSObject {
                 }
                 #endif
             }
+            completionCalled = true
             completion(updatedCount, nil)
         }
         
@@ -3553,12 +3712,6 @@ public class CloudKitManager: NSObject {
     #endif
     
     private func handleRecordDeleted(recordID: CKRecord.ID, recordType: String, suppressNotification: Bool = false) {
-        // Ignore WatchLog deletions - these are managed by iOS and don't need to be logged
-        // WatchLog deletions are handled automatically when iOS fetches and deletes logs from CloudKit
-        if recordType == RecordType.watchLog.rawValue {
-            return
-        }
-        
         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Handling record deletion", metadata: ["recordID": recordID.recordName, "recordType": recordType], source: self.logSource)
         
         let recordName = recordID.recordName
@@ -4365,366 +4518,6 @@ public class CloudKitManager: NSObject {
         fetchPage(cursor: nil)
     }
     
-    // MARK: - Watch Logging via CloudKit
-    
-    /**
-     * Write a log entry from Watch to CloudKit
-     * iOS will periodically read and delete these logs
-     */
-    #if os(watchOS)
-    public func writeWatchLog(
-        level: String,
-        tag: String?,
-        message: String,
-        metadata: [String: String]?,
-        completion: @escaping (Bool, Error?) -> Void
-    ) {
-        let logId = UUID().uuidString
-        let recordID = CKRecord.ID(recordName: "WatchLog-\(logId)", zoneID: customZoneID)
-        let record = CKRecord(recordType: RecordType.watchLog.rawValue, recordID: recordID)
-        
-        record["id"] = logId
-        record["level"] = level
-        record["tag"] = tag ?? ""
-        record["message"] = message
-        record["timestamp"] = Date()
-        record["source"] = "Watch"
-        
-        // Convert metadata to JSON string
-        if let metadata = metadata,
-           let metadataData = try? JSONSerialization.data(withJSONObject: metadata),
-           let metadataString = String(data: metadataData, encoding: .utf8) {
-            record["metadata"] = metadataString
-        } else {
-            record["metadata"] = "{}"
-        }
-        
-        privateDatabase.save(record) { savedRecord, error in
-            if let error = error {
-                // Only log errors, not every successful write to avoid log spam
-                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to write Watch log to CloudKit", metadata: ["error": error.localizedDescription], source: self.logSource)
-                completion(false, error)
-            } else {
-                // Don't log successful writes to avoid infinite log loop
-                completion(true, nil)
-            }
-        }
-    }
-    
-    /**
-     * Write multiple Watch logs to CloudKit in batch
-     * Uses batch operations for efficiency
-     */
-    public func writeWatchLogs(
-        logs: [(level: String, tag: String?, message: String, metadata: [String: String]?, source: String)],
-        completion: @escaping (Bool, Int, Error?) -> Void
-    ) {
-        guard !logs.isEmpty else {
-            completion(true, 0, nil)
-            return
-        }
-        
-        // Create records for all logs
-        var recordsToSave: [CKRecord] = []
-        
-        for log in logs {
-            let logId = UUID().uuidString
-            let recordID = CKRecord.ID(recordName: "WatchLog-\(logId)", zoneID: customZoneID)
-            let record = CKRecord(recordType: RecordType.watchLog.rawValue, recordID: recordID)
-            
-            record["id"] = logId
-            record["level"] = log.level
-            record["tag"] = log.tag ?? ""
-            record["message"] = log.message
-            record["timestamp"] = Date()
-            record["source"] = log.source
-            
-            // Convert metadata to JSON string
-            if let metadata = log.metadata,
-               let metadataData = try? JSONSerialization.data(withJSONObject: metadata),
-               let metadataString = String(data: metadataData, encoding: .utf8) {
-                record["metadata"] = metadataString
-            } else {
-                record["metadata"] = "{}"
-            }
-            
-            recordsToSave.append(record)
-        }
-        
-        // Save all records in batch
-        let modifyOperation = CKModifyRecordsOperation(recordsToSave: recordsToSave, recordIDsToDelete: nil)
-        modifyOperation.database = self.privateDatabase
-        modifyOperation.savePolicy = .allKeys
-        
-        modifyOperation.modifyRecordsResultBlock = { result in
-            switch result {
-            case .success:
-                // Don't log successful batch writes to avoid infinite log loop
-                completion(true, recordsToSave.count, nil)
-            case .failure(let error):
-                // Only log errors
-                var successCount = recordsToSave.count
-                if let ckError = error as? CKError,
-                   let partialErrors = ckError.partialErrorsByItemID {
-                    successCount = recordsToSave.count - partialErrors.count
-                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to write Watch logs to CloudKit (partial)", metadata: ["successCount": "\(successCount)", "errorCount": "\(partialErrors.count)", "error": error.localizedDescription], source: self.logSource)
-                } else {
-                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to write Watch logs to CloudKit", metadata: ["error": error.localizedDescription], source: self.logSource)
-                }
-                completion(false, successCount, error)
-            }
-        }
-        
-        self.privateDatabase.add(modifyOperation)
-    }
-    #endif
-    
-    /**
-     * Fetch and delete Watch logs from CloudKit (iOS only)
-     * Reads all WatchLog records, processes them, and deletes them
-     */
-    #if os(iOS)
-    public func fetchAndDeleteWatchLogs(completion: @escaping ([[String: Any]], Error?) -> Void) {
-        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Fetching Watch logs from CloudKit", source: self.logSource)
-        
-        let predicate = NSPredicate(value: true) // Fetch all WatchLog records
-        let query = CKQuery(recordType: RecordType.watchLog.rawValue, predicate: predicate)
-        // Use sortDescriptors to make timestamp queryable (CloudKit will mark it as queryable when used)
-        // If timestamp is not yet queryable, CloudKit will return an error and we'll fall back to manual sorting
-        query.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: true)]
-        
-        privateDatabase.perform(query, inZoneWith: customZoneID) { records, error in
-            if let error = error {
-                // Check if error is due to timestamp not being queryable yet
-                if let ckError = error as? CKError,
-                   ckError.code == .invalidArguments,
-                   ckError.localizedDescription.contains("queryable") {
-                    // Retry without sortDescriptors - timestamp will become queryable after first use
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "timestamp not yet queryable, retrying without sortDescriptors", source: self.logSource)
-                    let fallbackQuery = CKQuery(recordType: RecordType.watchLog.rawValue, predicate: predicate)
-                    self.privateDatabase.perform(fallbackQuery, inZoneWith: self.customZoneID) { fallbackRecords, fallbackError in
-                        if let fallbackError = fallbackError {
-                            LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching Watch logs (fallback)", metadata: ["error": fallbackError.localizedDescription], source: self.logSource)
-                            completion([], fallbackError)
-                            return
-                        }
-                        self.processWatchLogs(records: fallbackRecords ?? [], completion: completion)
-                    }
-                    return
-                }
-                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching Watch logs", metadata: ["error": error.localizedDescription], source: self.logSource)
-                completion([], error)
-                return
-            }
-            
-            self.processWatchLogs(records: records ?? [], completion: completion)
-        }
-    }
-    
-    private func processWatchLogs(records: [CKRecord], completion: @escaping ([[String: Any]], Error?) -> Void) {
-        guard !records.isEmpty else {
-            completion([], nil)
-            return
-        }
-        
-        var logs: [[String: Any]] = []
-        var recordIDsToDelete: [CKRecord.ID] = []
-        
-        for record in records {
-            var logDict: [String: Any] = [:]
-            
-            if let id = record["id"] as? String {
-                logDict["id"] = id
-            }
-            if let level = record["level"] as? String {
-                logDict["level"] = level
-            }
-            if let tag = record["tag"] as? String {
-                logDict["tag"] = tag
-            }
-            if let message = record["message"] as? String {
-                logDict["message"] = message
-            }
-            if let timestamp = record["timestamp"] as? Date {
-                logDict["timestamp"] = Int64(timestamp.timeIntervalSince1970 * 1000)
-            }
-            if let source = record["source"] as? String {
-                logDict["source"] = source
-            }
-            if let metadataString = record["metadata"] as? String,
-               let metadataData = metadataString.data(using: .utf8),
-               let metadata = try? JSONSerialization.jsonObject(with: metadataData) as? [String: Any] {
-                logDict["metadata"] = metadata
-            }
-            
-            logs.append(logDict)
-            recordIDsToDelete.append(record.recordID)
-        }
-        
-        // Sort logs by timestamp ascending (manually, in case timestamp is not yet queryable)
-        logs.sort { (log1, log2) -> Bool in
-            let ts1 = log1["timestamp"] as? Int64 ?? 0
-            let ts2 = log2["timestamp"] as? Int64 ?? 0
-            return ts1 < ts2
-        }
-        
-        // Write logs to files first
-        var watchLogsCount = 0
-        var cloudKitWatchLogsCount = 0
-        if !logs.isEmpty {
-            let (watchCount, cloudKitWatchCount) = writeWatchLogsToFile(logs: logs)
-            watchLogsCount = watchCount
-            cloudKitWatchLogsCount = cloudKitWatchCount
-        }
-        
-        // Delete all fetched logs
-        if !recordIDsToDelete.isEmpty {
-            let deleteOperation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: recordIDsToDelete)
-            deleteOperation.database = self.privateDatabase
-            deleteOperation.modifyRecordsResultBlock = { [weak self] result in
-                guard let self = self else { return }
-                switch result {
-                case .success:
-                    // Single summary log for all operations
-                    var metadata: [String: String] = [
-                        "fetched": "\(logs.count)",
-                        "deleted": "\(recordIDsToDelete.count)"
-                    ]
-                    if watchLogsCount > 0 {
-                        metadata["writtenToWatch"] = "\(watchLogsCount)"
-                    }
-                    if cloudKitWatchLogsCount > 0 {
-                        metadata["writtenToCloudKitWatch"] = "\(cloudKitWatchLogsCount)"
-                    }
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Watch logs processed", metadata: metadata, source: self.logSource)
-                case .failure(let error):
-                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error deleting Watch logs", metadata: ["error": error.localizedDescription], source: self.logSource)
-                }
-            }
-            self.privateDatabase.add(deleteOperation)
-        } else {
-            // Even if no deletion, log the fetch and write summary
-            var metadata: [String: String] = ["fetched": "\(logs.count)"]
-            if watchLogsCount > 0 {
-                metadata["writtenToWatch"] = "\(watchLogsCount)"
-            }
-            if cloudKitWatchLogsCount > 0 {
-                metadata["writtenToCloudKitWatch"] = "\(cloudKitWatchLogsCount)"
-            }
-            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Watch logs processed", metadata: metadata, source: self.logSource)
-        }
-        
-        completion(logs, nil)
-    }
-    
-    /**
-     * Write Watch logs to separate files based on source
-     * - Watch.json: logs with source "Watch" or any other source except "CloudKitWatch"
-     * - CloudKitWatch.json: logs with source "CloudKitWatch"
-     * Uses the same format as LoggingSystem for consistency
-     * Returns: (watchLogsCount, cloudKitWatchLogsCount)
-     */
-    private func writeWatchLogsToFile(logs: [[String: Any]]) -> (Int, Int) {
-        // Get logs directory (same as LoggingSystem)
-        let fileManager = FileManager.default
-        let cacheDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        let logsDirectory = cacheDirectory.appendingPathComponent("logs").path
-        
-        // Ensure logs directory exists
-        if !fileManager.fileExists(atPath: logsDirectory) {
-            try? fileManager.createDirectory(atPath: logsDirectory, withIntermediateDirectories: true, attributes: nil)
-        }
-        
-        // Separate logs by source: CloudKitWatch logs go to CloudKitWatch.json, Watch logs go to Watch.json
-        var watchLogs: [LoggingSystem.LogEntry] = []
-        var cloudKitWatchLogs: [LoggingSystem.LogEntry] = []
-        
-        // Convert CloudKit logs to LogEntry format and separate by source
-        for logDict in logs {
-            guard let id = logDict["id"] as? String,
-                  let level = logDict["level"] as? String,
-                  let message = logDict["message"] as? String,
-                  let timestamp = logDict["timestamp"] as? Int64,
-                  let source = logDict["source"] as? String else {
-                continue
-            }
-            
-            let tag = logDict["tag"] as? String
-            var metadata: [String: String]? = nil
-            if let metadataDict = logDict["metadata"] as? [String: Any] {
-                metadata = metadataDict.compactMapValues { value in
-                    if let str = value as? String {
-                        return str
-                    } else {
-                        return String(describing: value)
-                    }
-                }
-            }
-            
-            let logEntry = LoggingSystem.LogEntry(
-                id: id,
-                level: level,
-                tag: tag,
-                message: message,
-                metadata: metadata,
-                timestamp: timestamp,
-                source: source
-            )
-            
-            // Separate by source: CloudKitWatch source goes to CloudKitWatch.json, Watch source goes to Watch.json
-            if source == "CloudKitWatch" {
-                cloudKitWatchLogs.append(logEntry)
-            } else {
-                // All other sources (including "Watch") go to Watch.json
-                watchLogs.append(logEntry)
-            }
-        }
-        
-        // Write Watch logs to Watch.json
-        if !watchLogs.isEmpty {
-            writeLogsToFile(logs: watchLogs, filePath: "\(logsDirectory)/Watch.json")
-        }
-        
-        // Write CloudKitWatch logs to CloudKitWatch.json
-        if !cloudKitWatchLogs.isEmpty {
-            writeLogsToFile(logs: cloudKitWatchLogs, filePath: "\(logsDirectory)/CloudKitWatch.json")
-        }
-        
-        return (watchLogs.count, cloudKitWatchLogs.count)
-    }
-    
-    /**
-     * Helper method to write logs to a specific file
-     */
-    private func writeLogsToFile(logs: [LoggingSystem.LogEntry], filePath: String) {
-        let fileManager = FileManager.default
-        
-        do {
-            // Read existing logs
-            var existingLogs: [LoggingSystem.LogEntry] = []
-            if fileManager.fileExists(atPath: filePath) {
-                let data = try Data(contentsOf: URL(fileURLWithPath: filePath))
-                existingLogs = try JSONDecoder().decode([LoggingSystem.LogEntry].self, from: data)
-            }
-            
-            // Append new logs
-            existingLogs.append(contentsOf: logs)
-            
-            // Auto-cleanup: Keep only the most recent 1000 entries (same as LoggingSystem maxLogsPerFile)
-            let maxLogsPerFile = 1000
-            if existingLogs.count > maxLogsPerFile {
-                existingLogs = Array(existingLogs.sorted { $0.timestamp > $1.timestamp }.prefix(maxLogsPerFile))
-            }
-            
-            // Write back to file atomically
-            let data = try JSONEncoder().encode(existingLogs)
-            try data.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
-        } catch {
-            let fileName = (filePath as NSString).lastPathComponent
-            LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to write Watch logs to file", metadata: ["error": error.localizedDescription, "file": fileName], source: self.logSource)
-        }
-    }
-    #endif
 }
 
 // MARK: - Note on CloudKit Remote Notifications

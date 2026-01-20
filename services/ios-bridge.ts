@@ -602,33 +602,148 @@ class IosBridgeService {
   }
 
   /**
-   * Fetch and delete Watch logs from CloudKit
-   * Returns array of log entries that were fetched and deleted
+   * Initialize CloudKit schema if needed
    */
-  async fetchAndDeleteWatchLogs(): Promise<{
-    logs: Array<{
-      id: string;
-      level: string;
-      tag?: string;
-      message: string;
-      timestamp: number;
-      source: string;
-      metadata?: Record<string, any>;
-    }>;
-    count: number;
-  }> {
+  async initializeCloudKitSchema(): Promise<{ success: boolean }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      return { logs: [], count: 0 };
+      throw new Error('CloudKit schema initialization is only available on iOS');
     }
 
     try {
-      const result = await CloudKitSyncBridge.fetchAndDeleteWatchLogs();
+      const result = await CloudKitSyncBridge.initializeSchemaIfNeeded();
+      console.log('[CloudKit] Schema initialization completed:', result);
       return result;
     } catch (error) {
-      console.error('[CloudKit] Failed to fetch Watch logs:', error);
-      return { logs: [], count: 0 };
+      console.error('[CloudKit] Failed to initialize schema:', error);
+      throw error;
     }
   }
+
+  /**
+   * Setup CloudKit subscriptions
+   * Should be called after zone is initialized
+   */
+  async setupCloudKitSubscriptions(): Promise<{ success: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      throw new Error('CloudKit subscriptions setup is only available on iOS');
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.setupSubscriptions();
+      console.log('[CloudKit] Subscriptions setup completed:', result);
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to setup subscriptions:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if CloudKit is enabled
+   */
+  async isCloudKitEnabled(): Promise<{ enabled: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return { enabled: false };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.isCloudKitEnabled();
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to check enabled state:', error);
+      return { enabled: false };
+    }
+  }
+
+  /**
+   * Set CloudKit enabled state
+   */
+  async setCloudKitEnabled(enabled: boolean): Promise<{ success: boolean; enabled: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      throw new Error('CloudKit enable/disable is only available on iOS');
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.setCloudKitEnabled(enabled);
+      console.log('[CloudKit] Enabled state changed:', result);
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to set enabled state:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if initial sync has been completed
+   */
+  async isInitialSyncCompleted(): Promise<{ completed: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return { completed: false };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.isInitialSyncCompleted();
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to check initial sync status:', error);
+      return { completed: false };
+    }
+  }
+
+  /**
+   * Reset initial sync flag (to trigger initial sync again)
+   */
+  async resetInitialSyncFlag(): Promise<{ success: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      throw new Error('Reset initial sync flag is only available on iOS');
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.resetInitialSyncFlag();
+      console.log('[CloudKit] Initial sync flag reset:', result);
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to reset initial sync flag:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete CloudKit zone and all its data
+   */
+  async deleteCloudKitZone(): Promise<{ success: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      throw new Error('Delete CloudKit zone is only available on iOS');
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.deleteCloudKitZone();
+      console.log('[CloudKit] Zone deleted:', result);
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to delete zone:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reset CloudKit zone: delete everything and re-initialize
+   */
+  async resetCloudKitZone(): Promise<{ success: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      throw new Error('Reset CloudKit zone is only available on iOS');
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.resetCloudKitZone();
+      console.log('[CloudKit] Zone reset:', result);
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to reset zone:', error);
+      throw error;
+    }
+  }
+
 
   /**
    * Subscribe to CloudKit sync progress events

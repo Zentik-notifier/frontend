@@ -121,6 +121,15 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             self?.isSyncing = true
         }
         
+        // Check if CloudKit is enabled before syncing
+        guard CloudKitManager.shared.isCloudKitEnabled else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping sync", source: "Watch")
+            DispatchQueue.main.async { [weak self] in
+                self?.isSyncing = false
+            }
+            return
+        }
+        
         CloudKitManager.shared.syncFromCloudKitIncremental(fullSync: false) { count, error in
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
@@ -220,6 +229,13 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         
         // Fetch notifications
         group.enter()
+        // Check if CloudKit is enabled before fetching
+        guard CloudKitManager.shared.isCloudKitEnabled else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping fetch", source: "Watch")
+            group.leave()
+            return
+        }
+        
         CloudKitManager.shared.fetchAllNotificationsFromCloudKit { notifications, error in
             if let error = error {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching notifications from CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
@@ -233,6 +249,13 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         
         // Fetch buckets
         group.enter()
+        // Check if CloudKit is enabled before fetching
+        guard CloudKitManager.shared.isCloudKitEnabled else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping fetch", source: "Watch")
+            group.leave()
+            return
+        }
+        
         CloudKitManager.shared.fetchAllBucketsFromCloudKit { buckets, error in
         if let error = error {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching buckets from CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
@@ -348,6 +371,15 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
         
         // Perform full sync (ignoring change token)
+        // Check if CloudKit is enabled before syncing
+        guard CloudKitManager.shared.isCloudKitEnabled else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping full sync", source: "Watch")
+            DispatchQueue.main.async { [weak self] in
+                self?.isWaitingForResponse = false
+            }
+            return
+        }
+        
         CloudKitManager.shared.syncFromCloudKitIncremental(fullSync: true) { count, error in
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
@@ -384,6 +416,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
         
         // Update CloudKit using shared method
+        // Check if CloudKit is enabled before updating
+        guard CloudKitManager.shared.isCloudKitEnabled else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping read status update", source: "Watch")
+            return
+        }
+        
         CloudKitManager.shared.updateNotificationReadStatusInCloudKit(notificationId: id, readAt: Date()) { success, error in
             if let error = error {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to update notification read status in CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
@@ -415,6 +453,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
         
         // Update CloudKit using shared batch method
+        // Check if CloudKit is enabled before updating
+        guard CloudKitManager.shared.isCloudKitEnabled else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping read status update", source: "Watch")
+            return
+        }
+        
         CloudKitManager.shared.updateNotificationsReadStatusInCloudKit(notificationIds: ids, readAt: Date()) { success, count, error in
             if let error = error {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to update notifications read status", metadata: ["count": "\(count)", "error": error.localizedDescription], source: "Watch")
@@ -441,6 +485,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
         
         // Update CloudKit using shared method
+        // Check if CloudKit is enabled before updating
+        guard CloudKitManager.shared.isCloudKitEnabled else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping unread status update", source: "Watch")
+            return
+        }
+        
         CloudKitManager.shared.updateNotificationReadStatusInCloudKit(notificationId: id, readAt: nil) { success, error in
             if let error = error {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to update notification unread status in CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
@@ -467,6 +517,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
         
         // Delete from CloudKit using shared method
+        // Check if CloudKit is enabled before deleting
+        guard CloudKitManager.shared.isCloudKitEnabled else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping delete", source: "Watch")
+            return
+        }
+        
         CloudKitManager.shared.deleteNotificationFromCloudKit(notificationId: id) { success, error in
             if let error = error {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to delete notification from CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")

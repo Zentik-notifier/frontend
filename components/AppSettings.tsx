@@ -2,7 +2,7 @@ import { settingsService } from "@/services/settings-service";
 import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useEffect, useState } from "react";
-import { StyleSheet, View, Platform } from "react-native";
+import { StyleSheet, View, Platform, Alert } from "react-native";
 import {
   Button,
   Card,
@@ -52,10 +52,30 @@ export function AppSettings() {
   
   // CloudKit sync state
   const [cloudKitSyncing, setCloudKitSyncing] = useState(false);
+  const [cloudKitDisabled, setCloudKitDisabled] = useState(false);
+  const [initialSyncCompleted, setInitialSyncCompleted] = useState(false);
+  const [cloudKitLoading, setCloudKitLoading] = useState(false);
 
   useEffect(() => {
     loadApiUrl();
+    loadCloudKitStatus();
   }, []);
+
+  const loadCloudKitStatus = async () => {
+    if (Platform.OS !== 'ios') {
+      return;
+    }
+    try {
+      const [enabled, syncStatus] = await Promise.all([
+        iosBridgeService.isCloudKitEnabled(),
+        iosBridgeService.isInitialSyncCompleted(),
+      ]);
+      setCloudKitDisabled(!enabled.enabled);
+      setInitialSyncCompleted(syncStatus.completed);
+    } catch (error) {
+      console.error('Failed to load CloudKit status:', error);
+    }
+  };
 
   const loadApiUrl = async () => {
     try {
@@ -142,6 +162,7 @@ export function AppSettings() {
           })
         );
         setShowSuccessDialog(true);
+        await loadCloudKitStatus();
       } else {
         setDialogMessage(t("appSettings.cloudKit.syncError"));
         setShowErrorDialog(true);
@@ -270,18 +291,184 @@ export function AppSettings() {
               >
                 {t("appSettings.cloudKit.description")}
               </Text>
-              <Button
-                mode="contained"
-                icon="cloud-sync"
-                onPress={handleCloudKitSync}
-                disabled={cloudKitSyncing}
-                loading={cloudKitSyncing}
-                style={{ marginTop: 8 }}
-              >
-                {cloudKitSyncing
-                  ? t("appSettings.cloudKit.syncing")
-                  : t("appSettings.cloudKit.syncButton")}
-              </Button>
+
+              {/* Disable CloudKit */}
+              <View style={styles.hintsSettingRow}>
+                <View style={styles.hintsSettingInfo}>
+                  <Text variant="titleMedium" style={styles.hintsSettingTitle}>
+                    {t("appSettings.cloudKit.disableTitle")}
+                  </Text>
+                  <Text
+                    variant="bodySmall"
+                    style={[
+                      styles.sectionDescription,
+                      { color: theme.colors.onSurfaceVariant, marginTop: 4 },
+                    ]}
+                  >
+                    {t("appSettings.cloudKit.disableDescription")}
+                  </Text>
+                </View>
+                <Switch
+                  value={cloudKitDisabled}
+                  onValueChange={async (value) => {
+                    setCloudKitLoading(true);
+                    try {
+                      await iosBridgeService.setCloudKitEnabled(!value);
+                      setCloudKitDisabled(value);
+                      setDialogMessage(
+                        value
+                          ? t("appSettings.cloudKit.disabledSuccess")
+                          : t("appSettings.cloudKit.enabledSuccess")
+                      );
+                      setShowSuccessDialog(true);
+                    } catch (error) {
+                      console.error('Failed to toggle CloudKit:', error);
+                      setDialogMessage(t("appSettings.cloudKit.toggleError"));
+                      setShowErrorDialog(true);
+                    } finally {
+                      setCloudKitLoading(false);
+                    }
+                  }}
+                  disabled={cloudKitLoading}
+                />
+              </View>
+
+              {/* Initial Sync Status */}
+              {!cloudKitDisabled && (
+                <View style={{ marginTop: 16, marginBottom: 8 }}>
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                    {initialSyncCompleted
+                      ? t("appSettings.cloudKit.initialSyncCompleted")
+                      : t("appSettings.cloudKit.initialSyncPending")}
+                  </Text>
+                </View>
+              )}
+
+              {/* Action Buttons */}
+              {!cloudKitDisabled && (
+                <View style={{ marginTop: 16, gap: 8 }}>
+                  <Button
+                    mode="contained"
+                    icon="cloud-sync"
+                    onPress={handleCloudKitSync}
+                    disabled={cloudKitSyncing || cloudKitLoading}
+                    loading={cloudKitSyncing}
+                  >
+                    {cloudKitSyncing
+                      ? t("appSettings.cloudKit.syncing")
+                      : t("appSettings.cloudKit.syncButton")}
+                  </Button>
+
+                  <Button
+                    mode="outlined"
+                    icon="refresh"
+                    onPress={async () => {
+                      setCloudKitLoading(true);
+                      try {
+                        await iosBridgeService.resetInitialSyncFlag();
+                        setInitialSyncCompleted(false);
+                        setDialogMessage(t("appSettings.cloudKit.resetSyncFlagSuccess"));
+                        setShowSuccessDialog(true);
+                        // Trigger sync after resetting flag
+                        await handleCloudKitSync();
+                      } catch (error) {
+                        console.error('Failed to reset sync flag:', error);
+                        setDialogMessage(t("appSettings.cloudKit.resetSyncFlagError"));
+                        setShowErrorDialog(true);
+                      } finally {
+                        setCloudKitLoading(false);
+                      }
+                    }}
+                    disabled={cloudKitSyncing || cloudKitLoading}
+                  >
+                    {t("appSettings.cloudKit.resetSyncFlagButton")}
+                  </Button>
+
+                  <Button
+                    mode="outlined"
+                    icon="delete"
+                    buttonColor={theme.colors.error}
+                    textColor={theme.colors.onError}
+                    onPress={() => {
+                      Alert.alert(
+                        t("appSettings.cloudKit.deleteZoneTitle"),
+                        t("appSettings.cloudKit.deleteZoneMessage"),
+                        [
+                          {
+                            text: t("common.cancel"),
+                            style: "cancel",
+                          },
+                          {
+                            text: t("appSettings.cloudKit.deleteZoneConfirm"),
+                            style: "destructive",
+                            onPress: async () => {
+                              setCloudKitLoading(true);
+                              try {
+                                await iosBridgeService.deleteCloudKitZone();
+                                setInitialSyncCompleted(false);
+                                setDialogMessage(t("appSettings.cloudKit.deleteZoneSuccess"));
+                                setShowSuccessDialog(true);
+                                await loadCloudKitStatus();
+                              } catch (error) {
+                                console.error('Failed to delete CloudKit zone:', error);
+                                setDialogMessage(t("appSettings.cloudKit.deleteZoneError"));
+                                setShowErrorDialog(true);
+                              } finally {
+                                setCloudKitLoading(false);
+                              }
+                            },
+                          },
+                        ]
+                      );
+                    }}
+                    disabled={cloudKitSyncing || cloudKitLoading}
+                  >
+                    {t("appSettings.cloudKit.deleteZoneButton")}
+                  </Button>
+
+                  <Button
+                    mode="outlined"
+                    icon="restore"
+                    buttonColor={theme.colors.error}
+                    textColor={theme.colors.onError}
+                    onPress={() => {
+                      Alert.alert(
+                        t("appSettings.cloudKit.resetZoneTitle"),
+                        t("appSettings.cloudKit.resetZoneMessage"),
+                        [
+                          {
+                            text: t("common.cancel"),
+                            style: "cancel",
+                          },
+                          {
+                            text: t("appSettings.cloudKit.resetZoneConfirm"),
+                            style: "destructive",
+                            onPress: async () => {
+                              setCloudKitLoading(true);
+                              try {
+                                await iosBridgeService.resetCloudKitZone();
+                                setInitialSyncCompleted(false);
+                                setDialogMessage(t("appSettings.cloudKit.resetZoneSuccess"));
+                                setShowSuccessDialog(true);
+                                await loadCloudKitStatus();
+                              } catch (error) {
+                                console.error('Failed to reset CloudKit zone:', error);
+                                setDialogMessage(t("appSettings.cloudKit.resetZoneError"));
+                                setShowErrorDialog(true);
+                              } finally {
+                                setCloudKitLoading(false);
+                              }
+                            },
+                          },
+                        ]
+                      );
+                    }}
+                    disabled={cloudKitSyncing || cloudKitLoading}
+                  >
+                    {t("appSettings.cloudKit.resetZoneButton")}
+                  </Button>
+                </View>
+              )}
             </Card.Content>
           </Card>
         )}
