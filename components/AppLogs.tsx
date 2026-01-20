@@ -19,6 +19,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  NativeEventEmitter,
+  NativeModules,
 } from "react-native";
 import { Icon, Surface, Text, useTheme } from "react-native-paper";
 import CopyButton from "./ui/CopyButton";
@@ -42,6 +44,12 @@ export default function AppLogs() {
   const [sourceOptions, setSourceOptions] = useState<
     { id: string; name: string }[]
   >([]);
+  const [watchLogsTransferProgress, setWatchLogsTransferProgress] = useState<{
+    currentBatch: number;
+    totalBatches: number;
+    logsInBatch: number;
+    phase: string;
+  } | null>(null);
 
   const loadLogs = useCallback(async () => {
     setIsLoading(true);
@@ -65,23 +73,22 @@ export default function AppLogs() {
       const files = await dir.list();
       const sources: string[] = [];
 
+      console.log('[AppLogs] Files in logs directory:', files.map(f => f.name));
+
       for (const file of files) {
         const fileName = file.name;
-        // Su web, accetta tutti i file JSON
-        // Su native, cerca solo nella cartella logs
-        if (Platform.OS === 'web') {
-          if (fileName.endsWith(".json")) {
-            const source = fileName.split(".")[0];
-            sources.push(source);
-          }
-        } else {
-          // Su native, i file sono già in logs/ quindi filtra solo .json
-          if (fileName.endsWith(".json")) {
-            const source = fileName.split(".")[0];
-            sources.push(source);
-          }
+        // Skip directories and non-JSON files
+        if (!fileName.endsWith(".json") || fileName.includes('_corrupted_')) {
+          continue;
+        }
+        
+        const source = fileName.replace('.json', '');
+        if (source && !sources.includes(source)) {
+          sources.push(source);
         }
       }
+
+      console.log('[AppLogs] Found sources:', sources);
 
       const options = sources.map((source) => ({
         id: source,
@@ -117,6 +124,40 @@ export default function AppLogs() {
     loadLogs();
     loadSourceOptions();
   }, []);
+
+  // Listen to watch logs transfer progress events
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || !NativeModules.CloudKitSyncBridge) {
+      return;
+    }
+
+    const eventEmitter = new NativeEventEmitter(NativeModules.CloudKitSyncBridge);
+
+    const handleWatchLogsTransferProgress = (event: {
+      currentBatch: number;
+      totalBatches: number;
+      logsInBatch: number;
+      phase: string;
+    }) => {
+      setWatchLogsTransferProgress(event);
+      
+      // Clear progress when transfer is completed or error
+      if (event.phase === 'completed' || event.phase === 'error') {
+        setTimeout(() => {
+          setWatchLogsTransferProgress(null);
+          // Reload logs and source options to show the new Watch.json file
+          loadLogs();
+          loadSourceOptions();
+        }, 2000);
+      }
+    };
+
+    const subscription = eventEmitter.addListener('watchLogsTransferProgress', handleWatchLogsTransferProgress);
+
+    return () => {
+      subscription.remove();
+    };
+  }, []); // Empty deps - loadLogs and loadSourceOptions are stable callbacks
 
   const levelToColor = useMemo(
     () =>
@@ -155,9 +196,16 @@ export default function AppLogs() {
     }
 
     if (sourceFilters.length > 0) {
-      validLogs = validLogs.filter((l) => 
-        sourceFilters.includes(l.source ?? "")
-      );
+      validLogs = validLogs.filter((l) => {
+        const logSource = l.source ?? "";
+        // Special handling for "Watch" source: include logs with source "Watch", "CloudKitWatch", or starting with "Watch"
+        return sourceFilters.some(filterSource => {
+          if (filterSource === "Watch") {
+            return logSource === "Watch" || logSource === "CloudKitWatch" || logSource.startsWith("Watch");
+          }
+          return logSource === filterSource;
+        });
+      });
     }
 
     // Apply search query
@@ -421,6 +469,77 @@ export default function AppLogs() {
           />
         </View>
       </View>
+
+      {/* Watch Logs Transfer Progress */}
+      {watchLogsTransferProgress && (
+        <Surface
+          style={[
+            styles.infoBadge,
+            { 
+              backgroundColor: theme.colors.primaryContainer,
+              marginBottom: 8,
+            },
+          ]}
+        >
+          <Icon
+            source="cloud-upload"
+            size={16}
+            color={theme.colors.primary}
+          />
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text
+              style={[
+                styles.infoBadgeText,
+                { 
+                  color: theme.colors.onPrimaryContainer,
+                  fontWeight: '600',
+                },
+              ]}
+            >
+              {watchLogsTransferProgress.phase === 'starting' && t("appLogs.watchLogsTransfer.starting")}
+              {watchLogsTransferProgress.phase === 'transferring' && t("appLogs.watchLogsTransfer.transferring", {
+                current: watchLogsTransferProgress.currentBatch,
+                total: watchLogsTransferProgress.totalBatches
+              })}
+              {watchLogsTransferProgress.phase === 'receiving' && t("appLogs.watchLogsTransfer.receiving", {
+                current: watchLogsTransferProgress.currentBatch,
+                total: watchLogsTransferProgress.totalBatches
+              })}
+              {watchLogsTransferProgress.phase === 'receiving_last' && t("appLogs.watchLogsTransfer.receivingLast")}
+              {watchLogsTransferProgress.phase === 'completed' && t("appLogs.watchLogsTransfer.completed")}
+              {watchLogsTransferProgress.phase === 'error' && t("appLogs.watchLogsTransfer.error")}
+            </Text>
+            {watchLogsTransferProgress.totalBatches > 0 && watchLogsTransferProgress.phase !== 'completed' && watchLogsTransferProgress.phase !== 'error' && (
+              <View style={{ marginTop: 4 }}>
+                <View style={{ 
+                  height: 4, 
+                  backgroundColor: theme.colors.surfaceVariant, 
+                  borderRadius: 2,
+                  overflow: 'hidden'
+                }}>
+                  <View style={{ 
+                    height: '100%', 
+                    width: `${(watchLogsTransferProgress.currentBatch / watchLogsTransferProgress.totalBatches) * 100}%`,
+                    backgroundColor: theme.colors.primary,
+                    borderRadius: 2
+                  }} />
+                </View>
+                <Text style={{ 
+                  fontSize: 11,
+                  color: theme.colors.onPrimaryContainer,
+                  marginTop: 2,
+                  opacity: 0.8
+                }}>
+                  {t("appLogs.watchLogsTransfer.batches", {
+                    current: watchLogsTransferProgress.currentBatch,
+                    total: watchLogsTransferProgress.totalBatches
+                  })}
+                </Text>
+              </View>
+            )}
+          </View>
+        </Surface>
+      )}
 
       {/* Info badge showing logs stats */}
       {sourceOptions.length > 0 && (

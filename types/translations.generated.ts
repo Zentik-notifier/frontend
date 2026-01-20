@@ -2177,6 +2177,15 @@ export interface Translation {
       level: string;
       timestamp: string;
     };
+    watchLogsTransfer: {
+      starting: string;
+      transferring: string;
+      receiving: string;
+      receivingLast: string;
+      completed: string;
+      error: string;
+      batches: string;
+    };
   };
   cachedData: {
     title: string;

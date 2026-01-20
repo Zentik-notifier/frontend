@@ -2173,6 +2173,15 @@
       "meta": "meta",
       "level": "livello",
       "timestamp": "timestamp"
+    },
+    "watchLogsTransfer": {
+      "starting": "Starting transfer...",
+      "transferring": "Transferring batch {{current}}/{{total}}...",
+      "receiving": "Receiving batch {{current}}/{{total}}...",
+      "receivingLast": "Receiving final batch...",
+      "completed": "Transfer completed!",
+      "error": "Transfer failed",
+      "batches": "{{current}} / {{total}} batches"
     }
   },
   "cachedData": {

@@ -2404,7 +2404,16 @@
       "meta": "meta"
     },
     "level": "level",
-    "timestamp": "timestamp"
+    "timestamp": "timestamp",
+    "watchLogsTransfer": {
+      "starting": "Avvio trasferimento...",
+      "transferring": "Trasferimento batch {{current}}/{{total}}...",
+      "receiving": "Ricezione batch {{current}}/{{total}}...",
+      "receivingLast": "Ricezione batch finale...",
+      "completed": "Trasferimento completato!",
+      "error": "Trasferimento fallito",
+      "batches": "{{current}} / {{total}} batch"
+    }
   },
   "cachedData": {
     "title": "Dati in Cache",

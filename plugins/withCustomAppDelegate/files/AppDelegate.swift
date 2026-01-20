@@ -148,6 +148,14 @@ FirebaseApp.configure()
     let totalBatches = message["totalBatches"] as? Int ?? 1
     let isLastBatch = message["isLastBatch"] as? Bool ?? true
     
+    // Notify React Native of batch reception progress
+    CloudKitSyncBridge.notifyWatchLogsTransferProgress(
+      currentBatch: batchIndex + 1,
+      totalBatches: totalBatches,
+      logsInBatch: logsData.count,
+      phase: isLastBatch ? "receiving_last" : "receiving"
+    )
+    
     // Convert received logs to LogEntry format
     let receivedLogs: [LoggingSystem.LogEntry] = logsData.compactMap { dict in
       guard let id = dict["id"] as? String,
@@ -230,6 +238,14 @@ FirebaseApp.configure()
           message: "Received and saved all log batches from Watch",
           metadata: ["totalBatches": "\(totalBatches)", "lastBatchCount": "\(receivedLogs.count)"],
           source: "AppDelegate"
+        )
+        
+        // Notify React Native that all batches have been received
+        CloudKitSyncBridge.notifyWatchLogsTransferProgress(
+          currentBatch: totalBatches,
+          totalBatches: totalBatches,
+          logsInBatch: receivedLogs.count,
+          phase: "completed"
         )
       } else {
         print("📱 [AppDelegate] ✅ Saved log batch \(batchIndex + 1)/\(totalBatches) from Watch (\(receivedLogs.count) logs)")

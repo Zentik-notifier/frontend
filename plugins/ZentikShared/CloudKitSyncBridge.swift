@@ -19,7 +19,8 @@ class CloudKitSyncBridge: RCTEventEmitter {
       "cloudKitBucketUpdated",
       "cloudKitBucketDeleted",
       "cloudKitRecordChanged", // New event for all record changes
-      "cloudKitSyncProgress" // Progress updates during sync operations
+      "cloudKitSyncProgress", // Progress updates during sync operations
+      "watchLogsTransferProgress" // Progress updates during watch logs transfer
     ]
   }
   
@@ -100,6 +101,34 @@ class CloudKitSyncBridge: RCTEventEmitter {
     let phase = dict["phase"] as? String ?? ""
     let step = dict["step"] as? String ?? ""
     notifySyncProgress(currentItem: currentItem, totalItems: totalItems, itemType: itemType, phase: phase, step: step)
+  }
+  
+  /**
+   * Notify React Native of watch logs transfer progress
+   */
+  @objc
+  static func notifyWatchLogsTransferProgress(currentBatch: Int, totalBatches: Int, logsInBatch: Int, phase: String) {
+    DispatchQueue.main.async {
+      let body: [String: Any] = [
+        "currentBatch": currentBatch,
+        "totalBatches": totalBatches,
+        "logsInBatch": logsInBatch,
+        "phase": phase
+      ]
+      sharedInstance?.sendEvent(withName: "watchLogsTransferProgress", body: body)
+    }
+  }
+  
+  /**
+   * Helper method for dynamic calls from extensions where CloudKitSyncBridge may not be in scope
+   */
+  @objc
+  static func notifyWatchLogsTransferProgressWithDictionary(_ dict: [String: Any]) {
+    let currentBatch = dict["currentBatch"] as? Int ?? 0
+    let totalBatches = dict["totalBatches"] as? Int ?? 0
+    let logsInBatch = dict["logsInBatch"] as? Int ?? 0
+    let phase = dict["phase"] as? String ?? ""
+    notifyWatchLogsTransferProgress(currentBatch: currentBatch, totalBatches: totalBatches, logsInBatch: logsInBatch, phase: phase)
   }
   
   override init() {

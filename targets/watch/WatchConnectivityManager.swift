@@ -617,12 +617,41 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
             var currentBatch = 0
             var allBatchesSent = false
             
+            // Notify React Native that transfer is starting
+            if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
+                let selector = NSSelectorFromString("notifyWatchLogsTransferProgressWithDictionary:")
+                if bridgeClass.responds(to: selector) {
+                    let dict: [String: Any] = [
+                        "currentBatch": 0,
+                        "totalBatches": totalBatches,
+                        "logsInBatch": 0,
+                        "phase": "starting"
+                    ]
+                    _ = bridgeClass.perform(selector, with: dict)
+                }
+            }
+            
             func sendNextBatch() {
                 guard currentBatch < totalBatches else {
                     // All batches sent successfully
                     allBatchesSent = true
                     LoggingSystem.shared.clearAllLogs()
                     LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "All log batches sent successfully and cleared", metadata: ["totalCount": "\(logsData.count)"], source: "Watch")
+                    
+                    // Notify React Native that transfer is completed
+                    if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
+                        let selector = NSSelectorFromString("notifyWatchLogsTransferProgressWithDictionary:")
+                        if bridgeClass.responds(to: selector) {
+                            let dict: [String: Any] = [
+                                "currentBatch": totalBatches,
+                                "totalBatches": totalBatches,
+                                "logsInBatch": 0,
+                                "phase": "completed"
+                            ]
+                            _ = bridgeClass.perform(selector, with: dict)
+                        }
+                    }
+                    
                     completion(true, nil)
                     return
                 }
@@ -642,6 +671,20 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
                 
                 LoggingSystem.shared.log(level: "DEBUG", tag: "WatchConnectivity", message: "Sending log batch", metadata: ["batch": "\(currentBatch + 1)/\(totalBatches)", "count": "\(batch.count)"], source: "Watch")
                 
+                // Notify React Native of batch progress
+                if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
+                    let selector = NSSelectorFromString("notifyWatchLogsTransferProgressWithDictionary:")
+                    if bridgeClass.responds(to: selector) {
+                        let dict: [String: Any] = [
+                            "currentBatch": currentBatch + 1,
+                            "totalBatches": totalBatches,
+                            "logsInBatch": batch.count,
+                            "phase": "transferring"
+                        ]
+                        _ = bridgeClass.perform(selector, with: dict)
+                    }
+                }
+                
                 session.sendMessage(message, replyHandler: { reply in
                     if let success = reply["success"] as? Bool, success {
                         currentBatch += 1
@@ -652,10 +695,40 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
                     } else {
                         let errorMsg = reply["error"] as? String ?? "Unknown error"
                         LoggingSystem.shared.log(level: "ERROR", tag: "WatchConnectivity", message: "Failed to send log batch", metadata: ["batch": "\(currentBatch + 1)/\(totalBatches)", "error": errorMsg], source: "Watch")
+                        
+                        // Notify React Native of error
+                        if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
+                            let selector = NSSelectorFromString("notifyWatchLogsTransferProgressWithDictionary:")
+                            if bridgeClass.responds(to: selector) {
+                                let dict: [String: Any] = [
+                                    "currentBatch": currentBatch,
+                                    "totalBatches": totalBatches,
+                                    "logsInBatch": 0,
+                                    "phase": "error"
+                                ]
+                                _ = bridgeClass.perform(selector, with: dict)
+                            }
+                        }
+                        
                         completion(false, errorMsg)
                     }
                 }, errorHandler: { error in
                     LoggingSystem.shared.log(level: "ERROR", tag: "WatchConnectivity", message: "Error sending log batch", metadata: ["batch": "\(currentBatch + 1)/\(totalBatches)", "error": error.localizedDescription], source: "Watch")
+                    
+                    // Notify React Native of error
+                    if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
+                        let selector = NSSelectorFromString("notifyWatchLogsTransferProgressWithDictionary:")
+                        if bridgeClass.responds(to: selector) {
+                            let dict: [String: Any] = [
+                                "currentBatch": currentBatch,
+                                "totalBatches": totalBatches,
+                                "logsInBatch": 0,
+                                "phase": "error"
+                            ]
+                            _ = bridgeClass.perform(selector, with: dict)
+                        }
+                    }
+                    
                     completion(false, error.localizedDescription)
                 })
             }
