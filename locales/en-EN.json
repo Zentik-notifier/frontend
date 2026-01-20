@@ -86,8 +86,9 @@
     "cloudKit": {
       "title": "CloudKit Sync",
       "description": "Synchronize your notifications and buckets with CloudKit to keep them in sync across your Apple devices",
-      "disableTitle": "Disable CloudKit",
-      "disableDescription": "When disabled, CloudKit synchronization will be turned off and your data will not sync across devices",
+      "enableTitle": "CloudKit Sync",
+      "enabledStatus": "Enabled",
+      "disabledStatus": "Disabled",
       "syncButton": "Sync to CloudKit",
       "syncing": "Syncing...",
       "syncSuccess": "CloudKit sync completed successfully. Synced {{notifications}} notifications and {{buckets}} buckets. Updated {{updatedNotifications}} notifications and {{updatedBuckets}} buckets.",

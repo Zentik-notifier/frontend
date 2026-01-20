@@ -89,8 +89,9 @@ export interface Translation {
     cloudKit: {
       title: string;
       description: string;
-      disableTitle: string;
-      disableDescription: string;
+      enableTitle: string;
+      enabledStatus: string;
+      disabledStatus: string;
       syncButton: string;
       syncing: string;
       syncSuccess: string;

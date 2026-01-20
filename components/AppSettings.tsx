@@ -52,7 +52,7 @@ export function AppSettings() {
   
   // CloudKit sync state
   const [cloudKitSyncing, setCloudKitSyncing] = useState(false);
-  const [cloudKitDisabled, setCloudKitDisabled] = useState(false);
+  const [cloudKitEnabled, setCloudKitEnabled] = useState(true);
   const [initialSyncCompleted, setInitialSyncCompleted] = useState(false);
   const [cloudKitLoading, setCloudKitLoading] = useState(false);
 
@@ -70,7 +70,7 @@ export function AppSettings() {
         iosBridgeService.isCloudKitEnabled(),
         iosBridgeService.isInitialSyncCompleted(),
       ]);
-      setCloudKitDisabled(!enabled.enabled);
+      setCloudKitEnabled(enabled.enabled);
       setInitialSyncCompleted(syncStatus.completed);
     } catch (error) {
       console.error('Failed to load CloudKit status:', error);
@@ -292,33 +292,40 @@ export function AppSettings() {
                 {t("appSettings.cloudKit.description")}
               </Text>
 
-              {/* Disable CloudKit */}
+              {/* CloudKit Sync */}
               <View style={styles.hintsSettingRow}>
                 <View style={styles.hintsSettingInfo}>
                   <Text variant="titleMedium" style={styles.hintsSettingTitle}>
-                    {t("appSettings.cloudKit.disableTitle")}
+                    {t("appSettings.cloudKit.enableTitle")}
                   </Text>
-                  <Text
-                    variant="bodySmall"
-                    style={[
-                      styles.sectionDescription,
-                      { color: theme.colors.onSurfaceVariant, marginTop: 4 },
-                    ]}
-                  >
-                    {t("appSettings.cloudKit.disableDescription")}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                    <Text
+                      variant="bodySmall"
+                      style={[
+                        styles.sectionDescription,
+                        { 
+                          color: cloudKitEnabled ? theme.colors.primary : theme.colors.error,
+                          marginRight: 8,
+                        },
+                      ]}
+                    >
+                      {cloudKitEnabled 
+                        ? t("appSettings.cloudKit.enabledStatus")
+                        : t("appSettings.cloudKit.disabledStatus")}
+                    </Text>
+                  </View>
                 </View>
                 <Switch
-                  value={cloudKitDisabled}
+                  value={cloudKitEnabled}
                   onValueChange={async (value) => {
                     setCloudKitLoading(true);
                     try {
-                      await iosBridgeService.setCloudKitEnabled(!value);
-                      setCloudKitDisabled(value);
+                      await iosBridgeService.setCloudKitEnabled(value);
+                      setCloudKitEnabled(value);
                       setDialogMessage(
                         value
-                          ? t("appSettings.cloudKit.disabledSuccess")
-                          : t("appSettings.cloudKit.enabledSuccess")
+                          ? t("appSettings.cloudKit.enabledSuccess")
+                          : t("appSettings.cloudKit.disabledSuccess")
                       );
                       setShowSuccessDialog(true);
                     } catch (error) {
@@ -334,7 +341,7 @@ export function AppSettings() {
               </View>
 
               {/* Initial Sync Status */}
-              {!cloudKitDisabled && (
+              {cloudKitEnabled && (
                 <View style={{ marginTop: 16, marginBottom: 8 }}>
                   <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
                     {initialSyncCompleted
@@ -345,7 +352,7 @@ export function AppSettings() {
               )}
 
               {/* Action Buttons */}
-              {!cloudKitDisabled && (
+              {cloudKitEnabled && (
                 <View style={{ marginTop: 16, gap: 8 }}>
                   <Button
                     mode="contained"

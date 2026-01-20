@@ -1568,24 +1568,32 @@ struct AnimatedImageView: View {
 // MARK: - Settings View
 
 struct SettingsView: View {
-    @State private var cloudKitDisabled: Bool = !CloudKitManager.shared.isCloudKitEnabled
+    @State private var cloudKitEnabled: Bool = CloudKitManager.shared.isCloudKitEnabled
     
     var body: some View {
         List {
             Section(header: Text("CloudKit")) {
-                Toggle(isOn: $cloudKitDisabled) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "icloud.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.blue)
-                            .frame(width: 32, height: 32)
-                        
-                        Text("Disable CloudKit Sync")
+                HStack(spacing: 10) {
+                    Image(systemName: "icloud.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.blue)
+                        .frame(width: 32, height: 32)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("CloudKit Sync")
                             .font(.headline)
+                        Text(cloudKitEnabled ? "Enabled" : "Disabled")
+                            .font(.caption)
+                            .foregroundColor(cloudKitEnabled ? .green : .red)
                     }
+                    
+                    Spacer()
+                    
+                    Toggle("", isOn: $cloudKitEnabled)
+                        .labelsHidden()
                 }
-                .onChange(of: cloudKitDisabled) { oldValue, newValue in
-                    CloudKitManager.setCloudKitDisabled(newValue)
+                .onChange(of: cloudKitEnabled) { oldValue, newValue in
+                    CloudKitManager.setCloudKitEnabled(newValue)
                 }
             }
             
@@ -1605,6 +1613,9 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            cloudKitEnabled = CloudKitManager.shared.isCloudKitEnabled
+        }
     }
 }
 
