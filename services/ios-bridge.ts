@@ -726,24 +726,6 @@ class IosBridgeService {
     }
   }
 
-  /**
-   * Reset CloudKit zone: delete everything and re-initialize
-   */
-  async resetCloudKitZone(): Promise<{ success: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
-      throw new Error('Reset CloudKit zone is only available on iOS');
-    }
-
-    try {
-      const result = await CloudKitSyncBridge.resetCloudKitZone();
-      console.log('[CloudKit] Zone reset:', result);
-      return result;
-    } catch (error) {
-      console.error('[CloudKit] Failed to reset zone:', error);
-      throw error;
-    }
-  }
-
 
   /**
    * Subscribe to CloudKit sync progress events
@@ -780,25 +762,6 @@ class IosBridgeService {
       CloudKitSyncBridge.unsubscribeFromSyncProgress();
     } catch (error) {
       console.error('[CloudKit] Failed to unsubscribe from sync progress:', error);
-    }
-  }
-
-  /**
-   * Delete CloudKit zone and all its data
-   * WARNING: This will permanently delete all records in the zone
-   */
-  async deleteCloudKitZone(): Promise<{ success: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
-      throw new Error('deleteCloudKitZone is only available on iOS');
-    }
-
-    try {
-      const result = await CloudKitSyncBridge.deleteCloudKitZone();
-      console.log('[CloudKit] Zone deleted successfully');
-      return result;
-    } catch (error) {
-      console.error('[CloudKit] Failed to delete zone:', error);
-      throw error;
     }
   }
 
