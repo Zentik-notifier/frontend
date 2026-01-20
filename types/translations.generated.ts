@@ -140,6 +140,17 @@ export interface Translation {
       resyncConfirm: string;
       resyncSuccess: string;
       resyncError: string;
+      notificationLimitTitle: string;
+      notificationLimitDescription: string;
+      notificationLimitInputLabel: string;
+      notificationLimitHint: string;
+      notificationLimitSet: string;
+      notificationLimitUnlimited: string;
+      notificationLimitSetButton: string;
+      notificationLimitSetSuccess: string;
+      notificationLimitRemovedSuccess: string;
+      notificationLimitError: string;
+      notificationLimitInvalid: string;
     };
     privacy: {
       title: string;
