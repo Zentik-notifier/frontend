@@ -1,5 +1,6 @@
 import Foundation
 import CloudKit
+import WatchConnectivity
 
 /**
  * WatchConnectivityManager - Placeholder replaced by CloudKitManager
@@ -9,7 +10,7 @@ import CloudKit
  * 
  * TODO: Implement CloudKit fetch methods to replace WatchConnectivity
  */
-class WatchConnectivityManager: NSObject, ObservableObject {
+class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     static let shared = WatchConnectivityManager()
     
     @Published var notifications: [NotificationData] = []
@@ -21,6 +22,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     @Published var isSyncing: Bool = false
     
     private let dataStore = WatchDataStore.shared
+    private var wcSession: WCSession?
     
     private var lastSyncTime: Date?
     private let minSyncInterval: TimeInterval = 30.0 // Minimum 30 seconds between syncs
@@ -57,11 +59,33 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             object: nil
         )
         
+        setupWatchConnectivity()
+        
         // Initial incremental sync on app open (to catch up on any missed updates)
         // After this, we rely on CloudKit remote notifications via subscriptions
         // Delay initial sync slightly to allow schema initialization to complete
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
             self?.syncFromCloudKitIncremental()
+        }
+    }
+    
+    private func setupWatchConnectivity() {
+        if WCSession.isSupported() {
+            wcSession = WCSession.default
+            wcSession?.delegate = self
+            wcSession?.activate()
+        }
+    }
+    
+    // MARK: - WCSessionDelegate
+    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        if let error = error {
+            LoggingSystem.shared.log(level: "ERROR", tag: "WatchConnectivity", message: "WCSession activation failed", metadata: ["error": error.localizedDescription], source: "Watch")
+        } else {
+            LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "WCSession activated", metadata: ["state": "\(activationState.rawValue)"], source: "Watch")
+            DispatchQueue.main.async {
+                self.isConnected = activationState == .activated
+            }
         }
     }
     
@@ -545,8 +569,99 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
     }
     
-    func sendLogsToiPhone() {
-        // Logs will be handled via CloudKit in the future
-        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Logs sync requested", source: "Watch")
+    func sendLogsToiPhone(completion: @escaping (Bool, String?) -> Void) {
+        guard let session = wcSession, session.isReachable else {
+            LoggingSystem.shared.log(level: "WARN", tag: "WatchConnectivity", message: "iPhone not reachable, cannot send logs", source: "Watch")
+            completion(false, "iPhone not reachable")
+            return
+        }
+        
+        // Flush logs first to ensure all are written to file
+        LoggingSystem.shared.flushLogs()
+        
+        // Small delay to ensure flush completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            // Read all logs
+            let allLogs = LoggingSystem.shared.readLogs()
+            
+            guard !allLogs.isEmpty else {
+                LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "No logs to send", source: "Watch")
+                completion(false, "No logs to send")
+                return
+            }
+            
+            // Convert logs to dictionary array for transmission
+            let logsData: [[String: Any]] = allLogs.map { log in
+                var dict: [String: Any] = [
+                    "id": log.id,
+                    "level": log.level,
+                    "message": log.message,
+                    "timestamp": log.timestamp,
+                    "source": log.source
+                ]
+                if let tag = log.tag {
+                    dict["tag"] = tag
+                }
+                if let metadata = log.metadata {
+                    dict["metadata"] = metadata
+                }
+                return dict
+            }
+            
+            LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "Sending logs to iPhone in batches", metadata: ["totalCount": "\(logsData.count)"], source: "Watch")
+            
+            // Send logs in batches to avoid payload size limit
+            // WCSession has a limit of ~65KB per message, so we send ~100 logs per batch
+            let batchSize = 100
+            let totalBatches = (logsData.count + batchSize - 1) / batchSize
+            var currentBatch = 0
+            var allBatchesSent = false
+            
+            func sendNextBatch() {
+                guard currentBatch < totalBatches else {
+                    // All batches sent successfully
+                    allBatchesSent = true
+                    LoggingSystem.shared.clearAllLogs()
+                    LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "All log batches sent successfully and cleared", metadata: ["totalCount": "\(logsData.count)"], source: "Watch")
+                    completion(true, nil)
+                    return
+                }
+                
+                let startIndex = currentBatch * batchSize
+                let endIndex = min(startIndex + batchSize, logsData.count)
+                let batch = Array(logsData[startIndex..<endIndex])
+                
+                let message: [String: Any] = [
+                    "type": "watchLogs",
+                    "logs": batch,
+                    "batchIndex": currentBatch,
+                    "totalBatches": totalBatches,
+                    "count": batch.count,
+                    "isLastBatch": currentBatch == totalBatches - 1
+                ]
+                
+                LoggingSystem.shared.log(level: "DEBUG", tag: "WatchConnectivity", message: "Sending log batch", metadata: ["batch": "\(currentBatch + 1)/\(totalBatches)", "count": "\(batch.count)"], source: "Watch")
+                
+                session.sendMessage(message, replyHandler: { reply in
+                    if let success = reply["success"] as? Bool, success {
+                        currentBatch += 1
+                        // Small delay between batches to avoid overwhelming the connection
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            sendNextBatch()
+                        }
+                    } else {
+                        let errorMsg = reply["error"] as? String ?? "Unknown error"
+                        LoggingSystem.shared.log(level: "ERROR", tag: "WatchConnectivity", message: "Failed to send log batch", metadata: ["batch": "\(currentBatch + 1)/\(totalBatches)", "error": errorMsg], source: "Watch")
+                        completion(false, errorMsg)
+                    }
+                }, errorHandler: { error in
+                    LoggingSystem.shared.log(level: "ERROR", tag: "WatchConnectivity", message: "Error sending log batch", metadata: ["batch": "\(currentBatch + 1)/\(totalBatches)", "error": error.localizedDescription], source: "Watch")
+                    completion(false, error.localizedDescription)
+                })
+            }
+            
+            // Start sending batches
+            sendNextBatch()
+        }
     }
 }

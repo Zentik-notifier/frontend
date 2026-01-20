@@ -104,7 +104,13 @@ struct ContentView: View {
             } else if newPhase == .background {
                 // App going to background - send logs to iPhone
                 print("⌚ [ContentView] 📴 App going to background - sending logs to iPhone")
-                connectivityManager.sendLogsToiPhone()
+                connectivityManager.sendLogsToiPhone { success, error in
+                    if success {
+                        print("⌚ [ContentView] ✅ Logs sent successfully")
+                    } else {
+                        print("⌚ [ContentView] ⚠️ Failed to send logs: \(error ?? "Unknown error")")
+                    }
+                }
             }
         }
     }
@@ -1624,6 +1630,9 @@ struct SettingsView: View {
 struct LogsView: View {
     @State private var logs: [LoggingSystem.LogEntry] = []
     @State private var isLoading: Bool = true
+    @State private var isSending: Bool = false
+    @State private var sendError: String?
+    @StateObject private var connectivityManager = WatchConnectivityManager.shared
     
     var body: some View {
         Group {
@@ -1656,6 +1665,30 @@ struct LogsView: View {
         }
         .navigationTitle("Logs")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: {
+                    sendLogsToiPhone()
+                }) {
+                    if isSending {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+                .disabled(isSending || logs.isEmpty)
+            }
+        }
+        .alert("Error", isPresented: .constant(sendError != nil)) {
+            Button("OK") {
+                sendError = nil
+            }
+        } message: {
+            if let error = sendError {
+                Text(error)
+            }
+        }
         .onAppear {
             loadLogs()
         }
@@ -1668,6 +1701,23 @@ struct LogsView: View {
             DispatchQueue.main.async {
                 self.logs = allLogs
                 self.isLoading = false
+            }
+        }
+    }
+    
+    private func sendLogsToiPhone() {
+        isSending = true
+        sendError = nil
+        
+        connectivityManager.sendLogsToiPhone { success, error in
+            DispatchQueue.main.async {
+                isSending = false
+                if success {
+                    // Reload logs (should be empty now)
+                    loadLogs()
+                } else {
+                    sendError = error ?? "Failed to send logs"
+                }
             }
         }
     }

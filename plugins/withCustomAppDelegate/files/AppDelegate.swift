@@ -4,6 +4,7 @@ import React
 import ReactAppDependencyProvider
 import UserNotifications
 import CloudKit
+import WatchConnectivity
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
@@ -23,7 +24,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 }
 
 @UIApplicationMain
-public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
+public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate, WCSessionDelegate {
   var window: UIWindow?
 
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
@@ -31,6 +32,7 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
   
   // Keep reference to Expo's original notification delegate
   private var expoNotificationDelegate: UNUserNotificationCenterDelegate?
+  private var wcSession: WCSession?
 
   public override func application(
     _ application: UIApplication,
@@ -87,8 +89,157 @@ FirebaseApp.configure()
     
     // Register for remote notifications (required for CloudKit subscriptions)
     application.registerForRemoteNotifications()
+    
+    // Setup WatchConnectivity for receiving logs from Watch
+    setupWatchConnectivity()
 
     return result
+  }
+  
+  // MARK: - WatchConnectivity Setup
+  
+  private func setupWatchConnectivity() {
+    if WCSession.isSupported() {
+      wcSession = WCSession.default
+      wcSession?.delegate = self
+      wcSession?.activate()
+    }
+  }
+  
+  // MARK: - WCSessionDelegate
+  
+  public func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+    if let error = error {
+      print("📱 [AppDelegate] ⚠️ WCSession activation failed: \(error.localizedDescription)")
+    } else {
+      print("📱 [AppDelegate] ✅ WCSession activated with state: \(activationState.rawValue)")
+    }
+  }
+  
+  public func sessionDidBecomeInactive(_ session: WCSession) {
+    print("📱 [AppDelegate] WCSession became inactive")
+  }
+  
+  public func sessionDidDeactivate(_ session: WCSession) {
+    print("📱 [AppDelegate] WCSession deactivated, reactivating...")
+    session.activate()
+  }
+  
+  public func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+    guard let type = message["type"] as? String else {
+      replyHandler(["success": false, "error": "Missing message type"])
+      return
+    }
+    
+    if type == "watchLogs" {
+      handleWatchLogs(message: message, replyHandler: replyHandler)
+    } else {
+      replyHandler(["success": false, "error": "Unknown message type"])
+    }
+  }
+  
+  private func handleWatchLogs(message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+    guard let logsData = message["logs"] as? [[String: Any]] else {
+      replyHandler(["success": false, "error": "Missing logs data"])
+      return
+    }
+    
+    let batchIndex = message["batchIndex"] as? Int ?? 0
+    let totalBatches = message["totalBatches"] as? Int ?? 1
+    let isLastBatch = message["isLastBatch"] as? Bool ?? true
+    
+    // Convert received logs to LogEntry format
+    let receivedLogs: [LoggingSystem.LogEntry] = logsData.compactMap { dict in
+      guard let id = dict["id"] as? String,
+            let level = dict["level"] as? String,
+            let message = dict["message"] as? String,
+            let timestamp = dict["timestamp"] as? Int64,
+            let source = dict["source"] as? String else {
+        return nil
+      }
+      
+      let tag = dict["tag"] as? String
+      let metadata = dict["metadata"] as? [String: String]
+      
+      return LoggingSystem.LogEntry(
+        id: id,
+        level: level,
+        tag: tag,
+        message: message,
+        metadata: metadata,
+        timestamp: timestamp,
+        source: source
+      )
+    }
+    
+    // Save logs to Watch.json using LoggingSystem
+    // We need to write them directly since LoggingSystem buffers logs
+    // and we want to save them immediately
+    // Use the same directory as LoggingSystem (shared media cache directory)
+    let fileManager = FileManager.default
+    
+    // Get shared media cache directory (same as LoggingSystem uses)
+    let bundleIdentifier = KeychainAccess.getMainBundleIdentifier()
+    let appGroupIdentifier = "group.\(bundleIdentifier)"
+    let cacheDirectory: URL
+    
+    if let sharedContainerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) {
+      cacheDirectory = sharedContainerURL.appendingPathComponent("shared_media_cache")
+    } else {
+      // Fallback to Documents directory if App Groups not available
+      let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+      cacheDirectory = documentsPath.appendingPathComponent("shared_media_cache")
+    }
+    
+    let logsDirectory = cacheDirectory.appendingPathComponent("logs")
+    
+    // Create logs directory if it doesn't exist
+    try? fileManager.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+    
+    let watchLogFile = logsDirectory.appendingPathComponent("Watch.json")
+    
+    // Read existing logs
+    var existingLogs: [LoggingSystem.LogEntry] = []
+    if let data = try? Data(contentsOf: watchLogFile),
+       let decoded = try? JSONDecoder().decode([LoggingSystem.LogEntry].self, from: data) {
+      existingLogs = decoded
+    }
+    
+    // Append new logs
+    existingLogs.append(contentsOf: receivedLogs)
+    
+    // Keep only most recent 10000 logs
+    if existingLogs.count > 10000 {
+      existingLogs = Array(existingLogs.sorted { $0.timestamp > $1.timestamp }.prefix(10000))
+    }
+    
+    // Write back to file
+    do {
+      let encoder = JSONEncoder()
+      encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+      let data = try encoder.encode(existingLogs)
+      try data.write(to: watchLogFile, options: [.atomic])
+      
+      if isLastBatch {
+        print("📱 [AppDelegate] ✅ Saved all log batches from Watch to Watch.json (batch \(batchIndex + 1)/\(totalBatches), \(receivedLogs.count) logs in this batch)")
+        
+        // Also log via LoggingSystem for consistency
+        LoggingSystem.shared.log(
+          level: "INFO",
+          tag: "WatchConnectivity",
+          message: "Received and saved all log batches from Watch",
+          metadata: ["totalBatches": "\(totalBatches)", "lastBatchCount": "\(receivedLogs.count)"],
+          source: "AppDelegate"
+        )
+      } else {
+        print("📱 [AppDelegate] ✅ Saved log batch \(batchIndex + 1)/\(totalBatches) from Watch (\(receivedLogs.count) logs)")
+      }
+      
+      replyHandler(["success": true])
+    } catch {
+      print("📱 [AppDelegate] ❌ Failed to save Watch logs: \(error.localizedDescription)")
+      replyHandler(["success": false, "error": error.localizedDescription])
+    }
   }
   
   // MARK: - UNUserNotificationCenterDelegate
