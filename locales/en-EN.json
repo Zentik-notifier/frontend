@@ -2594,7 +2594,7 @@
   },
   "onboardingV2": {
     "step1": {
-      "title": "Welcome to Zentik Notifier",
+      "title": "Welcome to Zentik",
       "description": "A powerful notification management system that helps you organize and control your notifications.\n\nYou can connect to your personal self-hosted server by enabling the checkbox below and entering your server URL.",
       "serverConfiguration": "Server Configuration",
       "useCustomServer": "Use custom server",
@@ -2712,7 +2712,7 @@
       "titleLabel": "Title",
       "bodyLabel": "Message",
       "defaultTitle": "Test Notification",
-      "defaultBody": "This is a test notification from Zentik Notifier!",
+      "defaultBody": "This is a test notification from Zentik!",
       "sendButton": "Send Test Notification",
       "sending": "Sending...",
       "sendSuccess": "✅ Notification sent successfully! You should receive it shortly.",
@@ -2736,7 +2736,7 @@
       "copied": "{{item}} copied to clipboard!",
       "copyError": "Error copying to clipboard",
       "congratulations": "Congratulations! 🎉",
-      "completionMessage": "You have successfully completed the setup of Zentik Notifier. You can now start receiving notifications from your applications!",
+      "completionMessage": "You have successfully completed the setup of Zentik. You can now start receiving notifications from your applications!",
       "documentationTitle": "Complete Documentation",
       "documentationDescription": "Discover all advanced features, integration examples and best practices.",
       "openDocumentation": "Open Documentation",

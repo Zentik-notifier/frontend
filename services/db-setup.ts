@@ -663,7 +663,7 @@ export async function exportSQLiteDatabaseToFile(): Promise<string> {
     const db = await openSharedCacheDb();
 
     // Generate SQL dump
-    let sqlDump = '-- Zentik Notifier SQLite Database Export\n';
+    let sqlDump = '-- Zentik SQLite Database Export\n';
     sqlDump += `-- Exported at: ${new Date().toISOString()}\n\n`;
     sqlDump += '-- Disable foreign keys during import\n';
     sqlDump += 'PRAGMA foreign_keys=OFF;\n\n';
