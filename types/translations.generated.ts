@@ -101,6 +101,23 @@ export interface Translation {
       toggleError: string;
       initialSyncCompleted: string;
       initialSyncPending: string;
+      progress: {
+        starting: string;
+        syncing: string;
+        completed: string;
+        zoneCreationStarting: string;
+        zoneCreationSyncing: string;
+        zoneCreationCompleted: string;
+        schemaInitializationStarting: string;
+        schemaInitializationSyncing: string;
+        schemaInitializationCompleted: string;
+        notificationsSyncStarting: string;
+        notificationsSyncSyncing: string;
+        notificationsSyncCompleted: string;
+        bucketsSyncStarting: string;
+        bucketsSyncSyncing: string;
+        bucketsSyncCompleted: string;
+      };
       resetSyncFlagButton: string;
       resetSyncFlagSuccess: string;
       resetSyncFlagError: string;
@@ -116,6 +133,13 @@ export interface Translation {
       resetZoneSuccess: string;
       resetZoneError: string;
       resetZoneButton: string;
+      resyncButton: string;
+      resyncing: string;
+      resyncTitle: string;
+      resyncMessage: string;
+      resyncConfirm: string;
+      resyncSuccess: string;
+      resyncError: string;
     };
     privacy: {
       title: string;

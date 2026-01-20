@@ -275,7 +275,7 @@ struct BucketMenuView: View {
                         Text("No data available")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text("Pull down to refresh from iPhone")
+                        Text("Press refresh button to sync from iCloud")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)

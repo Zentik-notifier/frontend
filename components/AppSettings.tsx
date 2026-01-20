@@ -2,7 +2,7 @@ import { settingsService } from "@/services/settings-service";
 import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useEffect, useState } from "react";
-import { StyleSheet, View, Platform, Alert } from "react-native";
+import { StyleSheet, View, Platform, Alert, NativeEventEmitter, NativeModules } from "react-native";
 import {
   Button,
   Card,
@@ -55,10 +55,52 @@ export function AppSettings() {
   const [cloudKitEnabled, setCloudKitEnabled] = useState(true);
   const [initialSyncCompleted, setInitialSyncCompleted] = useState(false);
   const [cloudKitLoading, setCloudKitLoading] = useState(false);
+  
+  // CloudKit sync progress state
+  const [syncProgress, setSyncProgress] = useState<{
+    step?: string;
+    currentItem: number;
+    totalItems: number;
+    itemType: string;
+    phase: string;
+  } | null>(null);
 
   useEffect(() => {
     loadApiUrl();
     loadCloudKitStatus();
+  }, []);
+
+  // Listen to CloudKit sync progress events
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || !NativeModules.CloudKitSyncBridge) {
+      return;
+    }
+
+    const eventEmitter = new NativeEventEmitter(NativeModules.CloudKitSyncBridge);
+
+    const handleSyncProgress = (event: {
+      step?: string;
+      currentItem: number;
+      totalItems: number;
+      itemType: string;
+      phase: string;
+    }) => {
+      setSyncProgress(event);
+      
+      // Clear progress when sync is completed
+      if (event.phase === 'completed') {
+        setTimeout(() => {
+          setSyncProgress(null);
+          loadCloudKitStatus();
+        }, 2000);
+      }
+    };
+
+    const subscription = eventEmitter.addListener('cloudKitSyncProgress', handleSyncProgress);
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   const loadCloudKitStatus = async () => {
@@ -74,6 +116,59 @@ export function AppSettings() {
       setInitialSyncCompleted(syncStatus.completed);
     } catch (error) {
       console.error('Failed to load CloudKit status:', error);
+    }
+  };
+
+  const getSyncProgressText = (progress: {
+    step?: string;
+    currentItem: number;
+    totalItems: number;
+    itemType: string;
+    phase: string;
+  }): string => {
+    const stepKey = progress.step || 'unknown';
+    const phase = progress.phase;
+    
+    if (phase === 'completed') {
+      switch (stepKey) {
+        case 'zone_creation':
+          return t("appSettings.cloudKit.progress.zoneCreationCompleted");
+        case 'schema_initialization':
+          return t("appSettings.cloudKit.progress.schemaInitializationCompleted");
+        case 'sync_notifications':
+          return t("appSettings.cloudKit.progress.notificationsSyncCompleted");
+        case 'sync_buckets':
+          return t("appSettings.cloudKit.progress.bucketsSyncCompleted");
+        default:
+          return t("appSettings.cloudKit.progress.completed");
+      }
+    } else if (phase === 'starting') {
+      switch (stepKey) {
+        case 'zone_creation':
+          return t("appSettings.cloudKit.progress.zoneCreationStarting");
+        case 'schema_initialization':
+          return t("appSettings.cloudKit.progress.schemaInitializationStarting");
+        case 'sync_notifications':
+          return t("appSettings.cloudKit.progress.notificationsSyncStarting");
+        case 'sync_buckets':
+          return t("appSettings.cloudKit.progress.bucketsSyncStarting");
+        default:
+          return t("appSettings.cloudKit.progress.starting");
+      }
+    } else {
+      // syncing phase
+      switch (stepKey) {
+        case 'zone_creation':
+          return t("appSettings.cloudKit.progress.zoneCreationSyncing");
+        case 'schema_initialization':
+          return t("appSettings.cloudKit.progress.schemaInitializationSyncing");
+        case 'sync_notifications':
+          return t("appSettings.cloudKit.progress.notificationsSyncSyncing");
+        case 'sync_buckets':
+          return t("appSettings.cloudKit.progress.bucketsSyncSyncing");
+        default:
+          return t("appSettings.cloudKit.progress.syncing");
+      }
     }
   };
 
@@ -340,21 +435,54 @@ export function AppSettings() {
                 />
               </View>
 
-              {/* Initial Sync Status */}
+              {/* Sync Progress / Status */}
               {cloudKitEnabled && (
                 <View style={{ marginTop: 16, marginBottom: 8 }}>
-                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                    {initialSyncCompleted
-                      ? t("appSettings.cloudKit.initialSyncCompleted")
-                      : t("appSettings.cloudKit.initialSyncPending")}
-                  </Text>
+                  {syncProgress ? (
+                    <View>
+                      <Text variant="bodySmall" style={{ color: theme.colors.primary, fontWeight: '600' }}>
+                        {getSyncProgressText(syncProgress)}
+                      </Text>
+                      {syncProgress.totalItems > 0 && (
+                        <View style={{ marginTop: 8 }}>
+                          <View style={{ 
+                            height: 4, 
+                            backgroundColor: theme.colors.surfaceVariant, 
+                            borderRadius: 2,
+                            overflow: 'hidden'
+                          }}>
+                            <View style={{ 
+                              height: '100%', 
+                              width: `${(syncProgress.currentItem / syncProgress.totalItems) * 100}%`,
+                              backgroundColor: theme.colors.primary,
+                              borderRadius: 2
+                            }} />
+                          </View>
+                          <Text variant="bodySmall" style={{ 
+                            color: theme.colors.onSurfaceVariant, 
+                            marginTop: 4,
+                            fontSize: 11
+                          }}>
+                            {syncProgress.currentItem} / {syncProgress.totalItems} {syncProgress.itemType}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                      {initialSyncCompleted
+                        ? t("appSettings.cloudKit.initialSyncCompleted")
+                        : t("appSettings.cloudKit.initialSyncPending")}
+                    </Text>
+                  )}
                 </View>
               )}
 
               {/* Action Buttons */}
               {cloudKitEnabled && (
                 <View style={{ marginTop: 16, gap: 8 }}>
-                  <Button
+                  {/* Sync Button - Commented out for now */}
+                  {/* <Button
                     mode="contained"
                     icon="cloud-sync"
                     onPress={handleCloudKitSync}
@@ -364,9 +492,10 @@ export function AppSettings() {
                     {cloudKitSyncing
                       ? t("appSettings.cloudKit.syncing")
                       : t("appSettings.cloudKit.syncButton")}
-                  </Button>
+                  </Button> */}
 
-                  <Button
+                  {/* Reset Sync Flag Button - Commented out for now */}
+                  {/* <Button
                     mode="outlined"
                     icon="refresh"
                     onPress={async () => {
@@ -389,8 +518,72 @@ export function AppSettings() {
                     disabled={cloudKitSyncing || cloudKitLoading}
                   >
                     {t("appSettings.cloudKit.resetSyncFlagButton")}
+                  </Button> */}
+
+                  {/* ReSync to CloudKit Button */}
+                  <Button
+                    mode="contained"
+                    icon="cloud-upload"
+                    onPress={async () => {
+                      Alert.alert(
+                        t("appSettings.cloudKit.resyncTitle"),
+                        t("appSettings.cloudKit.resyncMessage"),
+                        [
+                          {
+                            text: t("common.cancel"),
+                            style: "cancel",
+                          },
+                          {
+                            text: t("appSettings.cloudKit.resyncConfirm"),
+                            style: "destructive",
+                            onPress: async () => {
+                              setCloudKitLoading(true);
+                              setCloudKitSyncing(true);
+                              try {
+                                // Step 1: Reset zone (delete all data and re-initialize)
+                                await iosBridgeService.resetCloudKitZone();
+                                setInitialSyncCompleted(false);
+                                
+                                // Step 2: Wait a bit for zone reset to propagate
+                                await new Promise(resolve => setTimeout(resolve, 2000));
+                                
+                                // Step 3: Sync all data from scratch
+                                const result = await iosBridgeService.triggerCloudKitSync();
+                                if (result.success) {
+                                  setDialogMessage(
+                                    t("appSettings.cloudKit.resyncSuccess", {
+                                      notifications: result.notificationsSynced,
+                                      buckets: result.bucketsSynced,
+                                    })
+                                  );
+                                  setShowSuccessDialog(true);
+                                  await loadCloudKitStatus();
+                                } else {
+                                  setDialogMessage(t("appSettings.cloudKit.resyncError"));
+                                  setShowErrorDialog(true);
+                                }
+                              } catch (error) {
+                                console.error('Failed to resync CloudKit:', error);
+                                setDialogMessage(t("appSettings.cloudKit.resyncError"));
+                                setShowErrorDialog(true);
+                              } finally {
+                                setCloudKitLoading(false);
+                                setCloudKitSyncing(false);
+                              }
+                            },
+                          },
+                        ]
+                      );
+                    }}
+                    disabled={cloudKitSyncing || cloudKitLoading}
+                    loading={cloudKitSyncing || cloudKitLoading}
+                  >
+                    {cloudKitSyncing || cloudKitLoading
+                      ? t("appSettings.cloudKit.resyncing")
+                      : t("appSettings.cloudKit.resyncButton")}
                   </Button>
 
+                  {/* Delete Zone Button */}
                   <Button
                     mode="outlined"
                     icon="delete"
@@ -433,7 +626,8 @@ export function AppSettings() {
                     {t("appSettings.cloudKit.deleteZoneButton")}
                   </Button>
 
-                  <Button
+                  {/* Reset Zone Button - Commented out for now */}
+                  {/* <Button
                     mode="outlined"
                     icon="restore"
                     buttonColor={theme.colors.error}
@@ -473,7 +667,7 @@ export function AppSettings() {
                     disabled={cloudKitSyncing || cloudKitLoading}
                   >
                     {t("appSettings.cloudKit.resetZoneButton")}
-                  </Button>
+                  </Button> */}
                 </View>
               )}
             </Card.Content>
