@@ -66,6 +66,13 @@ RCT_EXTERN_METHOD(isInitialSyncCompleted:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(resetInitialSyncFlag:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(getCloudKitNotificationLimit:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(setCloudKitNotificationLimit:(NSNumber *)limit
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 + (BOOL)requiresMainQueueSetup
 {
   return NO;

@@ -2360,6 +2360,14 @@ class NotificationService: UNNotificationServiceExtension {
     attachments: [[String: Any]],
     actions: [[String: Any]]
   ) {
+    // Check if CloudKit is enabled before saving
+    guard CloudKitManager.shared.isCloudKitEnabled else {
+      print("📱 [NotificationService] ⚠️ CloudKit is disabled, skipping CloudKit save for notification: \(notificationId)")
+      return
+    }
+    
+    print("📱 [NotificationService] ☁️ CloudKit enabled, saving notification to CloudKit: \(notificationId)")
+    
     // Convert actions to CloudKit format
     let cloudKitActions = actions.map { action -> [String: Any] in
       var dict: [String: Any] = [

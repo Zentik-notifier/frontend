@@ -55,6 +55,9 @@ export function AppSettings() {
   const [cloudKitEnabled, setCloudKitEnabled] = useState(true);
   const [initialSyncCompleted, setInitialSyncCompleted] = useState(false);
   const [cloudKitLoading, setCloudKitLoading] = useState(false);
+  const [cloudKitNotificationLimit, setCloudKitNotificationLimit] = useState<number | null>(null);
+  const [showLimitDialog, setShowLimitDialog] = useState(false);
+  const [limitInput, setLimitInput] = useState('');
   
   // CloudKit sync progress state
   const [syncProgress, setSyncProgress] = useState<{
@@ -108,12 +111,14 @@ export function AppSettings() {
       return;
     }
     try {
-      const [enabled, syncStatus] = await Promise.all([
+      const [enabled, syncStatus, limitResult] = await Promise.all([
         iosBridgeService.isCloudKitEnabled(),
         iosBridgeService.isInitialSyncCompleted(),
+        iosBridgeService.getCloudKitNotificationLimit(),
       ]);
       setCloudKitEnabled(enabled.enabled);
       setInitialSyncCompleted(syncStatus.completed);
+      setCloudKitNotificationLimit(limitResult.limit);
     } catch (error) {
       console.error('Failed to load CloudKit status:', error);
     }
@@ -434,6 +439,38 @@ export function AppSettings() {
                   disabled={cloudKitLoading}
                 />
               </View>
+
+              {/* CloudKit Notification Limit */}
+              {cloudKitEnabled && (
+                <View style={styles.hintsSettingRow}>
+                  <View style={styles.hintsSettingInfo}>
+                    <Text variant="titleMedium" style={styles.hintsSettingTitle}>
+                      {t("appSettings.cloudKit.notificationLimitTitle")}
+                    </Text>
+                    <Text
+                      variant="bodySmall"
+                      style={[
+                        styles.sectionDescription,
+                        { marginTop: 4 },
+                      ]}
+                    >
+                      {cloudKitNotificationLimit !== null
+                        ? t("appSettings.cloudKit.notificationLimitSet", { limit: cloudKitNotificationLimit })
+                        : t("appSettings.cloudKit.notificationLimitUnlimited")}
+                    </Text>
+                  </View>
+                  <Button
+                    mode="outlined"
+                    onPress={() => {
+                      setLimitInput(cloudKitNotificationLimit?.toString() || '');
+                      setShowLimitDialog(true);
+                    }}
+                    compact
+                  >
+                    {cloudKitNotificationLimit !== null ? String(cloudKitNotificationLimit) : t("appSettings.cloudKit.notificationLimitSetButton")}
+                  </Button>
+                </View>
+              )}
 
               {/* Sync Progress / Status */}
               {cloudKitEnabled && (
@@ -779,6 +816,67 @@ export function AppSettings() {
           <Dialog.Actions>
             <Button onPress={() => setShowErrorDialog(false)}>
               {t("common.ok")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* Notification Limit Dialog */}
+      <Portal>
+        <Dialog
+          visible={showLimitDialog}
+          onDismiss={() => setShowLimitDialog(false)}
+        >
+          <Dialog.Title>{t("appSettings.cloudKit.notificationLimitTitle")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ marginBottom: 16 }}>
+              {t("appSettings.cloudKit.notificationLimitDescription")}
+            </Text>
+            <TextInput
+              label={t("appSettings.cloudKit.notificationLimitInputLabel")}
+              value={limitInput}
+              onChangeText={setLimitInput}
+              keyboardType="numeric"
+              mode="outlined"
+            />
+            <Text variant="bodySmall" style={{ marginTop: 8, color: theme.colors.onSurfaceVariant }}>
+              {t("appSettings.cloudKit.notificationLimitHint")}
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowLimitDialog(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onPress={async () => {
+                try {
+                  const limit = limitInput.trim() === '' ? null : parseInt(limitInput.trim(), 10);
+                  if (limit !== null && (isNaN(limit) || limit < 10 || limit > 10000)) {
+                    setDialogMessage(t("appSettings.cloudKit.notificationLimitInvalid"));
+                    setShowErrorDialog(true);
+                    return;
+                  }
+                  
+                  setCloudKitLoading(true);
+                  await iosBridgeService.setCloudKitNotificationLimit(limit);
+                  setCloudKitNotificationLimit(limit);
+                  setShowLimitDialog(false);
+                  setDialogMessage(
+                    limit !== null
+                      ? t("appSettings.cloudKit.notificationLimitSetSuccess", { limit })
+                      : t("appSettings.cloudKit.notificationLimitRemovedSuccess")
+                  );
+                  setShowSuccessDialog(true);
+                } catch (error) {
+                  console.error('Failed to set CloudKit notification limit:', error);
+                  setDialogMessage(t("appSettings.cloudKit.notificationLimitError"));
+                  setShowErrorDialog(true);
+                } finally {
+                  setCloudKitLoading(false);
+                }
+              }}
+            >
+              {t("common.save")}
             </Button>
           </Dialog.Actions>
         </Dialog>

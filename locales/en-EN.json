@@ -136,7 +136,18 @@
       "resyncMessage": "This will delete all data from CloudKit and re-upload everything from scratch. This may take a while. Continue?",
       "resyncConfirm": "ReSync",
       "resyncSuccess": "ReSync completed successfully. Synced {{notifications}} notifications and {{buckets}} buckets.",
-      "resyncError": "Failed to resync CloudKit. Please try again."
+      "resyncError": "Failed to resync CloudKit. Please try again.",
+      "notificationLimitTitle": "Notification Limit",
+      "notificationLimitDescription": "Set the maximum number of notifications to keep in CloudKit. Older notifications will be automatically removed. Leave empty for unlimited.",
+      "notificationLimitInputLabel": "Limit (10-10000)",
+      "notificationLimitHint": "Enter a number between 10 and 10000, or leave empty for unlimited",
+      "notificationLimitSet": "Keeping {{limit}} most recent notifications",
+      "notificationLimitUnlimited": "Unlimited notifications",
+      "notificationLimitSetButton": "Set",
+      "notificationLimitSetSuccess": "Notification limit set to {{limit}}",
+      "notificationLimitRemovedSuccess": "Notification limit removed (unlimited)",
+      "notificationLimitError": "Failed to set notification limit. Please try again.",
+      "notificationLimitInvalid": "Please enter a valid number between 10 and 10000"
     },
     "privacy": {
       "title": "Privacy",

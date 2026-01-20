@@ -20,13 +20,21 @@ class CloudKitSyncBridge: RCTEventEmitter {
       "cloudKitBucketDeleted",
       "cloudKitRecordChanged", // New event for all record changes
       "cloudKitSyncProgress", // Progress updates during sync operations
-      "watchLogsTransferProgress" // Progress updates during watch logs transfer
+      "watchLogsTransferProgress", // Progress updates during watch logs transfer
+      "cloudKitNotificationsBatchUpdated" // Batch update event for multiple notifications
     ]
   }
   
   // MARK: - Static Event Emitter
   
   private static var sharedInstance: CloudKitSyncBridge?
+  
+  // Debounce mechanism for batch updates
+  private static var pendingNotificationIds: Set<String> = []
+  private static var notificationDebounceTimer: Timer?
+  private static let notificationDebounceInterval: TimeInterval = 0.5 // 500ms debounce
+  private static let batchThreshold = 10 // Emit batch event immediately if more than 10 updates
+  private static let notificationDebounceLock = NSLock()
   
   @objc
   static func setSharedInstance(_ instance: CloudKitSyncBridge) {
@@ -35,8 +43,52 @@ class CloudKitSyncBridge: RCTEventEmitter {
   
   @objc
   static func notifyNotificationUpdated(_ notificationId: String) {
+    notificationDebounceLock.lock()
+    pendingNotificationIds.insert(notificationId)
+    let currentCount = pendingNotificationIds.count
+    notificationDebounceLock.unlock()
+    
+    // All timer operations must be on main thread
     DispatchQueue.main.async {
-      sharedInstance?.sendEvent(withName: "cloudKitNotificationUpdated", body: ["notificationId": notificationId])
+      // Cancel existing timer
+      notificationDebounceTimer?.invalidate()
+      notificationDebounceTimer = nil
+      
+      // If we have many updates, emit batch event immediately
+      if currentCount >= batchThreshold {
+        emitBatchNotificationUpdate()
+        return
+      }
+      
+      // Schedule debounced batch update (Timer must be on main thread)
+      notificationDebounceTimer = Timer.scheduledTimer(withTimeInterval: notificationDebounceInterval, repeats: false) { _ in
+        emitBatchNotificationUpdate()
+      }
+    }
+  }
+  
+  private static func emitBatchNotificationUpdate() {
+    notificationDebounceLock.lock()
+    let notificationIds = Array(pendingNotificationIds)
+    pendingNotificationIds.removeAll()
+    notificationDebounceLock.unlock()
+    
+    notificationDebounceTimer?.invalidate()
+    notificationDebounceTimer = nil
+    
+    guard !notificationIds.isEmpty else { return }
+    
+    DispatchQueue.main.async {
+      if notificationIds.count == 1 {
+        // Single notification - emit individual event for backward compatibility
+        sharedInstance?.sendEvent(withName: "cloudKitNotificationUpdated", body: ["notificationId": notificationIds[0]])
+      } else {
+        // Multiple notifications - emit batch event
+        sharedInstance?.sendEvent(withName: "cloudKitNotificationsBatchUpdated", body: [
+          "notificationIds": notificationIds,
+          "count": notificationIds.count
+        ])
+      }
     }
   }
   
@@ -562,6 +614,45 @@ class CloudKitSyncBridge: RCTEventEmitter {
     resolve(["success": true, "disabled": disabled, "enabled": !disabled])
     #else
     reject("NOT_SUPPORTED", "setCloudKitDisabled is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Get CloudKit notification limit
+   * Returns nil if limit is not set (unlimited)
+   */
+  @objc
+  func getCloudKitNotificationLimit(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    let limit = CloudKitManager.cloudKitNotificationLimit
+    resolve(["limit": limit as Any])
+    #else
+    reject("NOT_SUPPORTED", "getCloudKitNotificationLimit is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Set CloudKit notification limit
+   * Pass nil/undefined to remove limit (unlimited)
+   */
+  @objc
+  func setCloudKitNotificationLimit(
+    _ limit: NSNumber?,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    if let limitValue = limit {
+      CloudKitManager.cloudKitNotificationLimit = limitValue.intValue
+    } else {
+      CloudKitManager.cloudKitNotificationLimit = nil
+    }
+    resolve(["success": true, "limit": limit as Any])
+    #else
+    reject("NOT_SUPPORTED", "setCloudKitNotificationLimit is only available on iOS", nil)
     #endif
   }
   

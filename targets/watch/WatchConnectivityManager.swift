@@ -208,7 +208,7 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         }
         
         // Sort notifications: unread first, then by createdAt descending (newest first)
-        notifications = mappedNotifications.sorted { notif1, notif2 in
+        let sorted = mappedNotifications.sorted { notif1, notif2 in
             // Unread notifications come first
             if notif1.notification.isRead != notif2.notification.isRead {
                 return !notif1.notification.isRead && notif2.notification.isRead
@@ -222,6 +222,10 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
             }
             return false
         }
+        
+        // Apply maximum notifications limit (load only the 100 most recent by createdAt)
+        let maxLimit = WatchSettingsManager.shared.maxNotificationsLimit
+        notifications = Array(sorted.prefix(maxLimit))
         
         // Convert cached buckets to BucketItem
         buckets = cache.buckets.map { cached in

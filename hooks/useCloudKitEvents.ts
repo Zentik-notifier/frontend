@@ -96,16 +96,37 @@ export function useCloudKitEvents() {
       // Example: updateProgressBar(event.currentItem, event.totalItems, event.itemType, event.step);
     };
 
+    const handleNotificationsBatchUpdated = async (event: { notificationIds: string[]; count: number }) => {
+      console.log(`[CloudKitEvents] Batch notifications updated: ${event.count} notifications`);
+
+      try {
+        // Invalidate React Query to refresh UI immediately
+        // Invalidate all notification queries since we don't know which specific ones changed
+        queryClient.invalidateQueries({ queryKey: notificationKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: notificationKeys.stats() });
+        queryClient.invalidateQueries({ queryKey: ['app-state'] });
+        
+        // Also invalidate individual notification details if needed
+        event.notificationIds.forEach((notificationId) => {
+          queryClient.invalidateQueries({ queryKey: notificationKeys.detail(notificationId) });
+        });
+      } catch (error) {
+        console.error('[CloudKitEvents] ❌ Error handling batch notification update:', error);
+      }
+    };
+
     const subscription1 = eventEmitter.addListener('cloudKitNotificationUpdated', handleNotificationUpdated);
     const subscription2 = eventEmitter.addListener('cloudKitNotificationDeleted', handleNotificationDeleted);
     const subscription3 = eventEmitter.addListener('cloudKitRecordChanged', handleRecordChanged);
     const subscription4 = eventEmitter.addListener('cloudKitSyncProgress', handleSyncProgress);
+    const subscription5 = eventEmitter.addListener('cloudKitNotificationsBatchUpdated', handleNotificationsBatchUpdated);
     
     return () => {
       subscription1.remove();
       subscription2.remove();
       subscription3.remove();
       subscription4.remove();
+      subscription5.remove();
     };
   }, [queryClient]);
 }

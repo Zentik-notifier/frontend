@@ -674,6 +674,43 @@ class IosBridgeService {
   }
 
   /**
+   * Get CloudKit notification limit
+   * Returns null if limit is not set (unlimited)
+   */
+  async getCloudKitNotificationLimit(): Promise<{ limit: number | null }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return { limit: null };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.getCloudKitNotificationLimit();
+      return { limit: result.limit ?? null };
+    } catch (error) {
+      console.error('[CloudKit] Failed to get CloudKit notification limit:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set CloudKit notification limit
+   * Pass null/undefined to remove limit (unlimited)
+   */
+  async setCloudKitNotificationLimit(limit: number | null): Promise<{ success: boolean; limit: number | null }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      throw new Error('CloudKit notification limit is only available on iOS');
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.setCloudKitNotificationLimit(limit ?? undefined);
+      console.log('[CloudKit] Notification limit changed:', limit);
+      return { success: result.success, limit: result.limit ?? null };
+    } catch (error) {
+      console.error('[CloudKit] Failed to set notification limit:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Check if initial sync has been completed
    */
   async isInitialSyncCompleted(): Promise<{ completed: boolean }> {

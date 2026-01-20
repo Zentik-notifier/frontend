@@ -3,6 +3,29 @@ import ImageIO
 import WatchKit
 import CloudKit
 
+// MARK: - Watch Settings Manager
+
+/// Manages Watch-specific settings stored in UserDefaults
+class WatchSettingsManager {
+    static let shared = WatchSettingsManager()
+    
+    private let maxNotificationsLimitKey = "watch_max_notifications_limit"
+    
+    private init() {}
+    
+    /// Get maximum number of notifications to display (default: 100)
+    var maxNotificationsLimit: Int {
+        let value = UserDefaults.standard.integer(forKey: maxNotificationsLimitKey)
+        return value > 0 ? value : 100 // Default to 100 if not set
+    }
+    
+    /// Set maximum number of notifications to display
+    func setMaxNotificationsLimit(_ limit: Int) {
+        UserDefaults.standard.set(limit, forKey: maxNotificationsLimitKey)
+        UserDefaults.standard.synchronize()
+    }
+}
+
 // MARK: - Global Bucket Icon Cache
 
 /// Global cache for loaded bucket icons shared across all views
@@ -700,7 +723,7 @@ struct FilteredNotificationListView: View {
         }
         
         // Ensure sorting: unread first, then by createdAt descending (newest first)
-        filteredNotifications = notifications.sorted { notif1, notif2 in
+        let sorted = notifications.sorted { notif1, notif2 in
             // Unread notifications come first
             if notif1.notification.isRead != notif2.notification.isRead {
                 return !notif1.notification.isRead && notif2.notification.isRead
@@ -714,6 +737,10 @@ struct FilteredNotificationListView: View {
             }
             return false
         }
+        
+        // Apply maximum notifications limit
+        let maxLimit = WatchSettingsManager.shared.maxNotificationsLimit
+        filteredNotifications = Array(sorted.prefix(maxLimit))
     }
 }
 
@@ -1575,6 +1602,7 @@ struct AnimatedImageView: View {
 
 struct SettingsView: View {
     @State private var cloudKitEnabled: Bool = CloudKitManager.shared.isCloudKitEnabled
+    @State private var maxNotificationsLimit: Int = WatchSettingsManager.shared.maxNotificationsLimit
     
     var body: some View {
         List {
@@ -1603,6 +1631,19 @@ struct SettingsView: View {
                 }
             }
             
+            Section(header: Text("Notifications")) {
+                NavigationLink(destination: MaxNotificationsSettingsView()) {
+                    HStack {
+                        Text("Max Notifications")
+                            .font(.headline)
+                        Spacer()
+                        Text("\(maxNotificationsLimit)")
+                            .font(.headline)
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
+            
             Section(header: Text("Logs")) {
                 NavigationLink(destination: LogsView()) {
                     HStack(spacing: 10) {
@@ -1621,6 +1662,47 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             cloudKitEnabled = CloudKitManager.shared.isCloudKitEnabled
+            maxNotificationsLimit = WatchSettingsManager.shared.maxNotificationsLimit
+        }
+    }
+}
+
+// MARK: - Max Notifications Settings View
+
+struct MaxNotificationsSettingsView: View {
+    @State private var maxNotificationsLimit: Int = WatchSettingsManager.shared.maxNotificationsLimit
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("Max Notifications")
+                .font(.headline)
+                .padding(.top, 8)
+            
+            Text("\(maxNotificationsLimit)")
+                .font(.system(size: 48, weight: .bold))
+                .foregroundColor(.blue)
+            
+            Text("Show up to \(maxNotificationsLimit) notifications")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            
+            Stepper("", value: $maxNotificationsLimit, in: 10...1000, step: 10)
+                .labelsHidden()
+                .padding(.horizontal, 40)
+                .padding(.top, 8)
+            
+            Spacer()
+        }
+        .navigationTitle("Notifications")
+        .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: maxNotificationsLimit) { oldValue, newValue in
+            WatchSettingsManager.shared.setMaxNotificationsLimit(newValue)
+        }
+        .onAppear {
+            maxNotificationsLimit = WatchSettingsManager.shared.maxNotificationsLimit
         }
     }
 }

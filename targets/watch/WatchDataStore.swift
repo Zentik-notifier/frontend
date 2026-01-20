@@ -267,6 +267,10 @@ class WatchDataStore {
             return false
         }
         
+        // Apply maximum notifications limit (keep only the 100 most recent by createdAt)
+        let maxLimit = WatchSettingsManager.shared.maxNotificationsLimit
+        cache.notifications = Array(cache.notifications.prefix(maxLimit))
+        
         // Parse buckets
         cache.buckets = buckets.compactMap { bucketDict -> CachedBucket? in
             guard let id = bucketDict["id"] as? String,

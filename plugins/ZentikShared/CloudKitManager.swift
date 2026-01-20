@@ -109,6 +109,23 @@ public class CloudKitManager: NSObject {
     static let cloudKitInitialSyncCompletedKey = "cloudkit_initial_sync_completed"
     private static let cloudKitLegacyCleanupCompletedKey = "cloudkit_legacy_cleanup_completed"
     
+    // CloudKit notification limit (nil = unlimited, default: nil for backward compatibility)
+    private static let cloudKitNotificationLimitKey = "cloudkit_notification_limit"
+    public static var cloudKitNotificationLimit: Int? {
+        get {
+            let value = UserDefaults.standard.integer(forKey: cloudKitNotificationLimitKey)
+            return value > 0 ? value : nil // nil means unlimited
+        }
+        set {
+            if let limit = newValue {
+                UserDefaults.standard.set(limit, forKey: cloudKitNotificationLimitKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: cloudKitNotificationLimitKey)
+            }
+            UserDefaults.standard.synchronize()
+        }
+    }
+    
     // Legacy zone and record type names (for cleanup)
     private let legacyZoneName = "ZentikDataZone"
     private var legacyZoneID: CKRecordZone.ID {
@@ -755,32 +772,102 @@ public class CloudKitManager: NSObject {
                 // Check if initial sync has already been completed (using setting instead of table check)
                 let initialSyncCompleted = UserDefaults.standard.bool(forKey: CloudKitManager.cloudKitInitialSyncCompletedKey)
                 if initialSyncCompleted {
-                    LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Initial sync already completed, skipping", source: self.logSource)
-                    // Mark as initialized to avoid unnecessary checks
-                    UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit ready", source: self.logSource)
-                    completion(true, nil)
-                } else {
-                    // Initial sync not completed, trigger initial sync
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Initial sync not completed, triggering initial sync from SQLite to CloudKit", source: self.logSource)
-                    // Reset last sync timestamp to force full sync
-                    UserDefaults.standard.removeObject(forKey: self.lastSyncTimestampKey)
-                    // Trigger sync to CloudKit (will sync all records from SQLite)
-                    self.triggerSyncToCloud { success, error, stats in
-                        if success {
-                            // Mark initial sync as completed
-                            UserDefaults.standard.set(true, forKey: CloudKitManager.cloudKitInitialSyncCompletedKey)
-                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Initial sync to CloudKit completed", metadata: [
-                                "notificationsSynced": "\(stats?.notificationsSynced ?? 0)",
-                                "bucketsSynced": "\(stats?.bucketsSynced ?? 0)"
-                            ], source: self.logSource)
-                        } else {
-                            LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Initial sync to CloudKit failed", metadata: ["error": error?.localizedDescription ?? "Unknown"], source: self.logSource)
+                    // Even if initial sync is completed, check if we need to sync local notifications
+                    // This handles the case where user has many local notifications that weren't synced
+                    LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Initial sync already completed, checking if local notifications need sync", source: self.logSource)
+                    
+                    // Check how many local notifications we have
+                    DatabaseAccess.getTotalNotificationCount(source: self.databaseSource) { localCount in
+                        LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Local notification count", metadata: ["count": "\(localCount)"], source: self.logSource)
+                        
+                        // If we have many local notifications, do a full sync to ensure they're all uploaded
+                        // This is a safety check in case initial sync didn't complete properly
+                        if localCount > 0 {
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Found local notifications, ensuring full sync to CloudKit", metadata: ["localCount": "\(localCount)"], source: self.logSource)
+                            
+                            // Reset sync timestamp to force full sync
+                            UserDefaults.standard.removeObject(forKey: self.lastSyncTimestampKey)
+                            
+                            // Do a full sync to CloudKit (upload all local notifications)
+                            self.triggerSyncToCloud { success, error, stats in
+                                if success {
+                                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Full sync to CloudKit completed", metadata: [
+                                        "notificationsSynced": "\(stats?.notificationsSynced ?? 0)",
+                                        "notificationsUpdated": "\(stats?.notificationsUpdated ?? 0)",
+                                        "bucketsSynced": "\(stats?.bucketsSynced ?? 0)"
+                                    ], source: self.logSource)
+                                } else {
+                                    LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Full sync to CloudKit failed", metadata: ["error": error?.localizedDescription ?? "Unknown"], source: self.logSource)
+                                }
+                                
+                                // Mark as initialized to avoid unnecessary checks
+                                UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
+                                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit ready", source: self.logSource)
+                                completion(true, nil)
+                            }
+                            return
                         }
-                        // Mark as initialized to avoid unnecessary checks
+                        
+                        // No local notifications, just mark as ready
                         UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
                         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit ready", source: self.logSource)
                         completion(true, nil)
+                    }
+                } else {
+                    // Initial sync not completed, trigger initial sync
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Initial sync not completed, triggering initial sync", source: self.logSource)
+                    // Reset last sync timestamp and change token to force full sync
+                    UserDefaults.standard.removeObject(forKey: self.lastSyncTimestampKey)
+                    UserDefaults.standard.removeObject(forKey: self.lastChangeTokenKey)
+                    
+                    // Step 1: Upload local notifications to CloudKit (initial upload)
+                    // Verify timestamp is reset (should be epoch for full sync)
+                    let verifyTimestamp = UserDefaults.standard.object(forKey: self.lastSyncTimestampKey) as? Date ?? Date(timeIntervalSince1970: 0)
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Step 1: Uploading local notifications to CloudKit (initial upload)", metadata: ["timestamp": ISO8601DateFormatter().string(from: verifyTimestamp), "isEpoch": "\(verifyTimestamp.timeIntervalSince1970 == 0)"], source: self.logSource)
+                    self.triggerSyncToCloud { success, error, stats in
+                        if !success {
+                            LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Initial sync upload to CloudKit failed", metadata: ["error": error?.localizedDescription ?? "Unknown"], source: self.logSource)
+                            // Continue anyway to try downloading from CloudKit
+                        } else {
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Initial sync upload to CloudKit completed", metadata: [
+                                "notificationsSynced": "\(stats?.notificationsSynced ?? 0)",
+                                "bucketsSynced": "\(stats?.bucketsSynced ?? 0)"
+                            ], source: self.logSource)
+                        }
+                        
+                        // Step 2: Apply changes from CloudKit to local database
+                        // Download notifications from CloudKit: if notifications were deleted or modified, update locally
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Step 2: Applying changes from CloudKit to local database", source: self.logSource)
+                        self.syncFromCloudKitIncremental(fullSync: true) { downloadCount, downloadError in
+                            if let downloadError = downloadError {
+                                LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to apply changes from CloudKit", metadata: ["error": downloadError.localizedDescription, "updatedCount": "\(downloadCount)"], source: self.logSource)
+                            } else {
+                                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Applied changes from CloudKit to local database", metadata: ["updatedCount": "\(downloadCount)"], source: self.logSource)
+                            }
+                            
+                            // Step 3: Compare local notifications with CloudKit and update CloudKit
+                            // Upload local changes: new notifications not sent, or modified (delete, mark as read, etc.)
+                            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Step 3: Comparing local notifications with CloudKit and updating CloudKit", source: self.logSource)
+                            self.triggerSyncToCloud { uploadSuccess, uploadError, uploadStats in
+                                if uploadSuccess {
+                                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit updated with local changes", metadata: [
+                                        "notificationsSynced": "\(uploadStats?.notificationsSynced ?? 0)",
+                                        "notificationsUpdated": "\(uploadStats?.notificationsUpdated ?? 0)",
+                                        "bucketsSynced": "\(uploadStats?.bucketsSynced ?? 0)"
+                                    ], source: self.logSource)
+                                } else {
+                                    LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to update CloudKit with local changes", metadata: ["error": uploadError?.localizedDescription ?? "Unknown"], source: self.logSource)
+                                }
+                                
+                                // Mark initial sync as completed (even if upload had errors, we tried)
+                                UserDefaults.standard.set(true, forKey: CloudKitManager.cloudKitInitialSyncCompletedKey)
+                                
+                                // Mark as initialized to avoid unnecessary checks
+                                UserDefaults.standard.set(true, forKey: self.schemaInitializedKey)
+                                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit ready", source: self.logSource)
+                                completion(true, nil)
+                            }
+                        }
                     }
                 }
             }
@@ -1095,10 +1182,27 @@ public class CloudKitManager: NSObject {
                 bucketsUpdated: bucketsUpdated
             )
             
-            if syncErrors.isEmpty {
-                completion(true, nil, stats)
+            // After sync, cleanup old notifications from CloudKit if limit is set
+            if let limit = CloudKitManager.cloudKitNotificationLimit {
+                self.cleanupOldNotificationsFromCloudKit(keepLimit: limit) { cleanupCount, cleanupError in
+                    if let cleanupError = cleanupError {
+                        LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Error cleaning up old notifications", metadata: ["error": cleanupError.localizedDescription], source: self.logSource)
+                    } else if cleanupCount > 0 {
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Cleaned up old notifications from CloudKit", metadata: ["removedCount": "\(cleanupCount)", "limit": "\(limit)"], source: self.logSource)
+                    }
+                    
+                    if syncErrors.isEmpty {
+                        completion(true, nil, stats)
+                    } else {
+                        completion(false, syncErrors.first, stats)
+                    }
+                }
             } else {
-                completion(false, syncErrors.first, stats)
+                if syncErrors.isEmpty {
+                    completion(true, nil, stats)
+                } else {
+                    completion(false, syncErrors.first, stats)
+                }
             }
         }
     }
@@ -1141,11 +1245,26 @@ public class CloudKitManager: NSObject {
                 }
                 
                 // Filter notifications modified after timestamp
-                let filteredNotifications = notifications.filter { notification in
+                var filteredNotifications = notifications.filter { notification in
                     guard let createdAt = CloudKitManager.parseISO8601Date(notification.createdAt) else {
                         return true // Include if we can't parse date
                     }
                     return createdAt >= timestamp
+                }
+                
+                // Apply CloudKit notification limit: keep only the N most recent notifications (if limit is set)
+                if let limit = CloudKitManager.cloudKitNotificationLimit, filteredNotifications.count > limit {
+                    // Sort by createdAt descending (newest first) and take only the limit
+                    filteredNotifications.sort { notif1, notif2 in
+                        guard let date1 = CloudKitManager.parseISO8601Date(notif1.createdAt),
+                              let date2 = CloudKitManager.parseISO8601Date(notif2.createdAt) else {
+                            return false
+                        }
+                        return date1 > date2
+                    }
+                    let originalCount = filteredNotifications.count
+                    filteredNotifications = Array(filteredNotifications.prefix(limit))
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Applied CloudKit notification limit", metadata: ["originalCount": "\(originalCount)", "limitedCount": "\(filteredNotifications.count)", "limit": "\(limit)"], source: self.logSource)
                 }
                 
                 LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Filtered notifications for sync", metadata: ["total": "\(notifications.count)", "filtered": "\(filteredNotifications.count)", "since": ISO8601DateFormatter().string(from: timestamp)], source: self.logSource)
@@ -2628,6 +2747,120 @@ public class CloudKitManager: NSObject {
         }
     }
     
+    /**
+     * Removes old notifications from CloudKit, keeping only the N most recent ones
+     * This is called after sync to maintain the notification limit
+     */
+    private func cleanupOldNotificationsFromCloudKit(keepLimit: Int, completion: @escaping (Int, Error?) -> Void) {
+        guard keepLimit > 0 else {
+            completion(0, nil)
+            return
+        }
+        
+        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Cleaning up old notifications from CloudKit", metadata: ["keepLimit": "\(keepLimit)"], source: self.logSource)
+        
+        // Fetch all notifications from CloudKit ordered by createdAt descending
+        let predicate = NSPredicate(value: true)
+        let query = CKQuery(recordType: RecordType.notification.rawValue, predicate: predicate)
+        query.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
+        
+        var allRecords: [CKRecord] = []
+        var fetchError: Error?
+        
+        func fetchPage(cursor: CKQueryOperation.Cursor?) {
+            let operation: CKQueryOperation
+            
+            if let cursor = cursor {
+                operation = CKQueryOperation(cursor: cursor)
+            } else {
+                operation = CKQueryOperation(query: query)
+            }
+            
+            operation.zoneID = self.customZoneID
+            operation.resultsLimit = 500
+            operation.qualityOfService = .utility
+            
+            operation.recordMatchedBlock = { recordID, result in
+                switch result {
+                case .success(let record):
+                    allRecords.append(record)
+                case .failure(let error):
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error processing notification record during cleanup", metadata: ["error": error.localizedDescription], source: self.logSource)
+                    fetchError = error
+                }
+            }
+            
+            operation.queryResultBlock = { result in
+                switch result {
+                case .success(let cursor):
+                    if let nextCursor = cursor {
+                        fetchPage(cursor: nextCursor)
+                    } else {
+                        // All pages fetched, process records
+                        self.processOldNotificationsCleanup(allRecords: allRecords, keepLimit: keepLimit, completion: completion)
+                    }
+                case .failure(let error):
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching notifications from CloudKit for cleanup", metadata: ["error": error.localizedDescription], source: self.logSource)
+                    completion(0, error)
+                }
+            }
+            
+            self.privateDatabase.add(operation)
+        }
+        
+        // Start fetching
+        fetchPage(cursor: nil)
+    }
+    
+    private func processOldNotificationsCleanup(allRecords: [CKRecord], keepLimit: Int, completion: @escaping (Int, Error?) -> Void) {
+        // Records are already sorted by createdAt descending (newest first)
+        // Keep only the first keepLimit records, delete the rest
+        guard allRecords.count > keepLimit else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "No old notifications to clean up", metadata: ["totalCount": "\(allRecords.count)", "keepLimit": "\(keepLimit)"], source: self.logSource)
+            completion(0, nil)
+            return
+        }
+        
+        let recordsToDelete = Array(allRecords.suffix(from: keepLimit))
+        let deleteRecordIDs = recordsToDelete.map { $0.recordID }
+        
+        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Found old notifications to delete", metadata: ["totalCount": "\(allRecords.count)", "keepLimit": "\(keepLimit)", "toDelete": "\(deleteRecordIDs.count)"], source: self.logSource)
+        
+        // Delete in batches (CloudKit limit is 400, we use 200 for safety)
+        let chunks = self.chunked(deleteRecordIDs, chunkSize: CloudKitManager.maxBatchSize)
+        let dispatchGroup = DispatchGroup()
+        var deletedCount = 0
+        var deleteErrors: [Error] = []
+        
+        for chunk in chunks {
+            dispatchGroup.enter()
+            let deleteOperation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: chunk)
+            deleteOperation.database = self.privateDatabase
+            
+            deleteOperation.modifyRecordsResultBlock = { result in
+                switch result {
+                case .success:
+                    deletedCount += chunk.count
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Deleted batch of old notifications", metadata: ["batchSize": "\(chunk.count)", "totalDeleted": "\(deletedCount)"], source: self.logSource)
+                case .failure(let error):
+                    deleteErrors.append(error)
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error deleting batch of old notifications", metadata: ["error": error.localizedDescription, "batchSize": "\(chunk.count)"], source: self.logSource)
+                }
+                dispatchGroup.leave()
+            }
+            
+            self.privateDatabase.add(deleteOperation)
+        }
+        
+        dispatchGroup.notify(queue: .main) {
+            if deleteErrors.isEmpty {
+                completion(deletedCount, nil)
+            } else {
+                completion(deletedCount, deleteErrors.first)
+            }
+        }
+    }
+    
     private func processOrphanedBuckets(allRecords: [CKRecord], sqliteBucketIds: Set<String>, completion: @escaping (Int, Error?) -> Void) {
         // Find buckets in CloudKit that are not in SQLite
         var bucketsToDelete: [CKRecord.ID] = []
@@ -3371,8 +3604,23 @@ public class CloudKitManager: NSObject {
                 }
                 #endif
             }
-            completionCalled = true
-            completion(updatedCount, nil)
+            
+            // After applying changes from CloudKit, compare local notifications with CloudKit and update CloudKit
+            // This ensures bidirectional sync: apply CloudKit changes locally, then update CloudKit with local changes
+            LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Comparing local notifications with CloudKit and updating CloudKit", source: self.logSource)
+            self.triggerSyncToCloud { uploadSuccess, uploadError, uploadStats in
+                if uploadSuccess {
+                    LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "CloudKit updated with local changes after incremental sync", metadata: [
+                        "notificationsSynced": "\(uploadStats?.notificationsSynced ?? 0)",
+                        "notificationsUpdated": "\(uploadStats?.notificationsUpdated ?? 0)"
+                    ], source: self.logSource)
+                } else {
+                    LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Failed to update CloudKit with local changes after incremental sync", metadata: ["error": uploadError?.localizedDescription ?? "Unknown"], source: self.logSource)
+                }
+                
+                completionCalled = true
+                completion(updatedCount, nil)
+            }
         }
         
         privateDatabase.add(operation)
@@ -3807,6 +4055,44 @@ public class CloudKitManager: NSObject {
     ) {
         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Saving notification to CloudKit", metadata: ["notificationId": notificationId], source: self.logSource)
         
+        // Check if zone is initialized (quick check via UserDefaults flag)
+        let zoneInitialized = UserDefaults.standard.bool(forKey: zoneInitializedKey)
+        if !zoneInitialized {
+            LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Zone initialization flag not set, initializing zone before save", metadata: ["notificationId": notificationId], source: self.logSource)
+            
+            // Initialize zone first, then save
+            initializeZoneIfNeeded { zoneSuccess, _, zoneError in
+                if zoneSuccess {
+                    // Zone initialized, proceed with save
+                    self.performSaveNotification(notificationId: notificationId, bucketId: bucketId, title: title, body: body, subtitle: subtitle, createdAt: createdAt, readAt: readAt, attachments: attachments, actions: actions, completion: completion)
+                } else {
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to initialize zone before save", metadata: ["error": zoneError?.localizedDescription ?? "Unknown", "notificationId": notificationId], source: self.logSource)
+                    completion(false, zoneError ?? NSError(domain: "CloudKitManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to initialize CloudKit zone"]))
+                }
+            }
+            return
+        }
+        
+        // Zone flag is set, proceed with save (will handle zone not found error if flag is stale)
+        performSaveNotification(notificationId: notificationId, bucketId: bucketId, title: title, body: body, subtitle: subtitle, createdAt: createdAt, readAt: readAt, attachments: attachments, actions: actions, completion: completion)
+    }
+    
+    /**
+     * Internal method to perform the actual CloudKit save operation
+     * Handles zone initialization retry if zone doesn't exist
+     */
+    private func performSaveNotification(
+        notificationId: String,
+        bucketId: String,
+        title: String,
+        body: String,
+        subtitle: String?,
+        createdAt: Date,
+        readAt: Date?,
+        attachments: [[String: Any]],
+        actions: [[String: Any]],
+        completion: @escaping (Bool, Error?) -> Void
+    ) {
         let recordID = notificationRecordID(notificationId)
         let record = CKRecord(recordType: RecordType.notification.rawValue, recordID: recordID)
         
@@ -3837,6 +4123,37 @@ public class CloudKitManager: NSObject {
         
         privateDatabase.save(record) { savedRecord, error in
             if let error = error {
+                // Check if error is "Zone does not exist"
+                if let ckError = error as? CKError {
+                    // Check for zone not found error
+                    if ckError.code == .zoneNotFound || 
+                       ckError.localizedDescription.contains("Zone does not exist") {
+                        LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Zone does not exist, initializing zone before retry", metadata: ["notificationId": notificationId], source: self.logSource)
+                        
+                        // Initialize zone and retry save
+                        self.initializeZoneIfNeeded { zoneSuccess, _, zoneError in
+                            if zoneSuccess {
+                                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Zone initialized, retrying save notification", metadata: ["notificationId": notificationId], source: self.logSource)
+                                
+                                // Retry saving the record
+                                self.privateDatabase.save(record) { retrySavedRecord, retryError in
+                                    if let retryError = retryError {
+                                        LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error saving notification to CloudKit after zone initialization", metadata: ["error": retryError.localizedDescription, "notificationId": notificationId], source: self.logSource)
+                                        completion(false, retryError)
+                                    } else {
+                                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Notification saved to CloudKit successfully after zone initialization", metadata: ["notificationId": notificationId], source: self.logSource)
+                                        completion(true, nil)
+                                    }
+                                }
+                            } else {
+                                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to initialize zone, cannot save notification", metadata: ["error": zoneError?.localizedDescription ?? "Unknown", "notificationId": notificationId], source: self.logSource)
+                                completion(false, zoneError ?? error)
+                            }
+                        }
+                        return
+                    }
+                }
+                
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error saving notification to CloudKit", metadata: ["error": error.localizedDescription], source: self.logSource)
                 completion(false, error)
             } else {
