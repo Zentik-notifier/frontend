@@ -104,6 +104,9 @@ class NotificationService: UNNotificationServiceExtension {
             print(
               "📱 [NotificationService] Media processing completed, applying Communication Style...")
 
+            // Always call _handleChatMessage() even if media download failed
+            // The communication protocol should work regardless of media download status
+            // because bucket icon is always available locally
             self._handleChatMessage()
             return
           }
@@ -171,6 +174,9 @@ class NotificationService: UNNotificationServiceExtension {
           self.downloadMediaAttachments(content: content) {
             print("📱 [NotificationService] (selfDownload) Media processing completed, applying Communication Style...")
 
+            // Always call _handleChatMessage() even if media download failed
+            // The communication protocol should work regardless of media download status
+            // because bucket icon is always available locally
             self._handleChatMessage()
             return
           }
@@ -189,17 +195,23 @@ class NotificationService: UNNotificationServiceExtension {
   func _handleChatMessage() {
     print("📱 [NotificationService] 🎭 Starting Communication Style processing...")
     guard let content = bestAttemptContent else {
+      print("📱 [NotificationService] 🎭 ❌ bestAttemptContent is nil, cannot apply Communication Style")
       return
     }
 
     guard let contentHandler = contentHandler else {
+      print("📱 [NotificationService] 🎭 ❌ contentHandler is nil, cannot apply Communication Style")
       return
     }
 
     guard var userInfo = content.userInfo as? [String: Any] else {
-      print("📱 [NotificationService] 🎭 No userInfo found, skipping Communication Style")
+      print("📱 [NotificationService] 🎭 ❌ No userInfo found, skipping Communication Style")
+      // Still deliver notification even without Communication Style
+      contentHandler(content)
       return
     }
+    
+    print("📱 [NotificationService] 🎭 ✅ All prerequisites met, proceeding with Communication Style")
 
     // Normalize UUIDs (handle stripped format)
     // Helper to get and normalize
@@ -1306,7 +1318,12 @@ class NotificationService: UNNotificationServiceExtension {
     // Download only the selected media
     let notificationId = self.currentRequestIdentifier ?? UUID().uuidString
     downloadMediaAttachment(mediaItem: selectedItem, notificationId: notificationId) { [weak self] attachment in
-      guard let self = self else { return }
+      guard let self = self else {
+        // If self is nil, still call completion to ensure _handleChatMessage() is called
+        print("📱 [NotificationService] ⚠️ Self is nil in downloadMediaAttachment completion, calling completion anyway")
+        completion()
+        return
+      }
       if let attachment = attachment {
         content.attachments = [attachment]
         print(
@@ -1326,23 +1343,29 @@ class NotificationService: UNNotificationServiceExtension {
         
         // self.downloadIconsToSharedCache(from: userInfo)
       } else {
-        print("📱 [NotificationService] ❌ Failed to download selected media, will show error")
+        print("📱 [NotificationService] ❌ Failed to download selected media, continuing with Communication Style anyway")
+        print("📱 [NotificationService] ℹ️ Communication Style will still be applied - bucket icon is available locally")
         
         // Log media download failure
         self.logToDatabase(
           level: "error",
           tag: "Media",
-          message: "Failed to download media",
+          message: "Failed to download media, but continuing with Communication Style",
           metadata: [
             "notificationId": notificationId,
             "mediaType": selectedItem.mediaType,
-            "url": selectedItem.url
+            "url": selectedItem.url,
+            "note": "Communication Style will still be applied because bucket icon is available locally"
           ]
         )
         
         // Set error flag in shared metadata for Content Extension to handle
         self.setDownloadErrorFlag(for: selectedItem)
       }
+      // Always call completion to ensure _handleChatMessage() is called
+      // Even if media download failed, communication protocol should still work
+      // because bucket icon is always available locally
+      print("📱 [NotificationService] 📞 Calling completion to proceed with Communication Style")
       completion()
     }
   }
@@ -2338,10 +2361,6 @@ class NotificationService: UNNotificationServiceExtension {
         },
         actions: (messageObj["actions"] as? [[String: Any]]) ?? []
       )
-      
-      // Notify main app via Darwin notification (works across processes)
-      // Main app will forward notification ID to Watch, which will fetch full data
-      self.notifyMainAppOfNewNotification(notificationId: notificationId)
     } else {
       print("📱 [NotificationService] ❌ Failed to save notification to database")
     }
@@ -2425,52 +2444,6 @@ class NotificationService: UNNotificationServiceExtension {
     }
   }
 
-  // MARK: - Darwin Notification to Main App
-  
-  /**
-   * Notify main app that a new notification was saved
-   * Sends only the notification ID - main app will forward to Watch
-   * Watch will then fetch full data from iPhone when needed
-   * Uses Darwin notifications which work across processes (NSE -> Main App)
-   */
-  private func notifyMainAppOfNewNotification(notificationId: String) {
-    // Store notification ID in UserDefaults App Group for AppDelegate to read
-    let mainBundleId = KeychainAccess.getMainBundleIdentifier()
-    let suiteName = "group.\(mainBundleId)"
-    
-    if let sharedDefaults = UserDefaults(suiteName: suiteName) {
-      sharedDefaults.set(notificationId, forKey: "pending_watch_notification_id")
-      sharedDefaults.synchronize()
-      print("📱 [NotificationService] 💾 Stored notification ID in UserDefaults: \(notificationId)")
-    } else {
-      print("📱 [NotificationService] ⚠️ Failed to access UserDefaults with suite: \(suiteName)")
-    }
-    
-    let notificationName = KeychainAccess.getDarwinNotificationName() as CFString
-    
-    // Post Darwin notification (works across processes)
-    CFNotificationCenterPostNotification(
-      CFNotificationCenterGetDarwinNotifyCenter(),
-      CFNotificationName(notificationName),
-      nil,
-      nil,
-      true  // deliver immediately
-    )
-    
-    print("📱 [NotificationService] 📬 Posted Darwin notification to main app for: \(notificationId)")
-    
-    LoggingSystem.shared.log(
-      level: "INFO",
-      tag: "Darwin",
-      message: "Posted Darwin notification with ID only",
-      metadata: [
-        "notificationId": notificationId,
-        "suiteName": suiteName,
-        "darwinName": notificationName as String
-      ],
-      source: "NSE"
-    )
-  }
 
   
   // MARK: - Pending Notifications Storage

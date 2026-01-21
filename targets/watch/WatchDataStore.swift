@@ -272,7 +272,7 @@ class WatchDataStore {
         cache.notifications = Array(cache.notifications.prefix(maxLimit))
         
         // Parse buckets
-        cache.buckets = buckets.compactMap { bucketDict -> CachedBucket? in
+        var parsedBuckets = buckets.compactMap { bucketDict -> CachedBucket? in
             guard let id = bucketDict["id"] as? String,
                   let name = bucketDict["name"] as? String,
                   let unreadCount = bucketDict["unreadCount"] as? Int else {
@@ -287,6 +287,28 @@ class WatchDataStore {
                 iconUrl: bucketDict["iconUrl"] as? String
             )
         }
+        
+        // Ensure all buckets referenced by notifications are present
+        // This prevents buckets from being deleted when they're still in use
+        let bucketIdsFromNotifications = Set(cache.notifications.map { $0.bucketId })
+        let existingBucketIds = Set(parsedBuckets.map { $0.id })
+        let missingBucketIds = bucketIdsFromNotifications.subtracting(existingBucketIds)
+        
+        // Create placeholder buckets for missing ones
+        for bucketId in missingBucketIds {
+            let notificationsForBucket = cache.notifications.filter { $0.bucketId == bucketId }
+            let firstNotification = notificationsForBucket.first
+            
+            parsedBuckets.append(CachedBucket(
+                id: bucketId,
+                name: firstNotification?.bucketName ?? bucketId,
+                unreadCount: notificationsForBucket.filter { !$0.isRead }.count,
+                color: firstNotification?.bucketColor,
+                iconUrl: firstNotification?.bucketIconUrl
+            ))
+        }
+        
+        cache.buckets = parsedBuckets
         
         // Save the new cache (COMPLETE OVERWRITE of file)
         saveCache(cache)

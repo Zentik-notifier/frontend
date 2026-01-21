@@ -65,7 +65,7 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         // After this, we rely on CloudKit remote notifications via subscriptions
         // Delay initial sync slightly to allow schema initialization to complete
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-            self?.syncFromCloudKitIncremental()
+            self?.performIncrementalSync()
         }
     }
     
@@ -94,7 +94,7 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         // But throttle syncs to avoid excessive calls and potential crashes
         // CloudKit subscriptions with shouldSendContentAvailable should work in foreground,
         // but we do a throttled sync to ensure we're up to date
-        syncFromCloudKitIncremental()
+        performIncrementalSync()
     }
     
     @objc private func appWillResignActive() {
@@ -103,7 +103,12 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         syncWorkItem = nil
     }
     
-    private func syncFromCloudKitIncremental() {
+    /// Public method to trigger incremental sync (used by UI)
+    func syncFromCloudKitIncremental() {
+        performIncrementalSync()
+    }
+    
+    private func performIncrementalSync() {
         // Cancel any pending sync work item
         syncWorkItem?.cancel()
         
@@ -390,36 +395,48 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
     
+    /// Request incremental refresh (used by UI refresh button)
     func requestFullRefresh() {
-        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Full refresh requested", source: "Watch")
+        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Incremental refresh requested", source: "Watch")
         
-        // Set loading state immediately
-        DispatchQueue.main.async { [weak self] in
-            self?.isWaitingForResponse = true
-        }
-        
-        // Perform full sync (ignoring change token)
+        // Perform incremental sync in background without blocking UI
         // Check if CloudKit is enabled before syncing
         guard CloudKitManager.shared.isCloudKitEnabled else {
-            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping full sync", source: "Watch")
-            DispatchQueue.main.async { [weak self] in
-                self?.isWaitingForResponse = false
-            }
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping sync", source: "Watch")
             return
         }
         
-        CloudKitManager.shared.syncFromCloudKitIncremental(fullSync: true) { count, error in
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                self.isWaitingForResponse = false
-                
-                if let error = error {
-                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Full sync failed", metadata: ["error": error.localizedDescription], source: "Watch")
-                } else {
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Full sync completed", metadata: ["updatedCount": "\(count)"], source: "Watch")
-                    // Reload cache and update UI
-                    self.loadCachedData()
-                    self.updateBucketCounts()
+        // Use incremental sync (not full sync)
+        performIncrementalSync()
+    }
+    
+    /// Request full sync (used by settings button)
+    func requestFullSync() {
+        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Full sync requested from settings", source: "Watch")
+        
+        // Perform full sync in background without blocking UI
+        // Check if CloudKit is enabled before syncing
+        guard CloudKitManager.shared.isCloudKitEnabled else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping full sync", source: "Watch")
+            return
+        }
+        
+        // Perform sync on background queue to avoid blocking UI
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+            
+            CloudKitManager.shared.syncFromCloudKitIncremental(fullSync: true) { count, error in
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    
+                    if let error = error {
+                        LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Full sync failed", metadata: ["error": error.localizedDescription], source: "Watch")
+                    } else {
+                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Full sync completed", metadata: ["updatedCount": "\(count)"], source: "Watch")
+                        // Reload cache and update UI only when sync completes
+                        self.loadCachedData()
+                        self.updateBucketCounts()
+                    }
                 }
             }
         }

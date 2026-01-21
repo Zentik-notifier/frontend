@@ -150,21 +150,19 @@ struct ContentView: View {
     
     /**
      * Check if last refresh was more than 30 minutes ago and auto-refresh if needed
+     * Uses incremental sync only - full sync is only done during initialization or manual refresh
      */
     private func checkAndRefreshIfNeeded() {
         guard let lastUpdate = connectivityManager.lastUpdate else {
-            // No previous update - refresh immediately
-            print("⌚ [ContentView] 🔄 No previous update found - requesting full refresh")
-            
-            LoggingSystem.shared.log(
-                level: "INFO",
-                tag: "autoRefresh",
-                message: "Auto-refresh triggered: No previous update found",
-                metadata: [:],
-                source: "Watch"
-            )
-            
-            requestFullRefresh()
+            // No previous update - check if initial sync has been completed
+            // If not, let initialization handle it. Otherwise, do incremental sync
+            let initialSyncCompleted = UserDefaults.standard.bool(forKey: CloudKitManager.cloudKitInitialSyncCompletedKey)
+            if initialSyncCompleted {
+                print("⌚ [ContentView] 🔄 No previous update found but initial sync completed - triggering incremental sync")
+                connectivityManager.syncFromCloudKitIncremental()
+            } else {
+                print("⌚ [ContentView] ⏳ No previous update found and initial sync not completed - waiting for initialization")
+            }
             return
         }
         
@@ -172,12 +170,12 @@ struct ContentView: View {
         
         if lastUpdate < thirtyMinutesAgo {
             let minutesAgo = Int(-lastUpdate.timeIntervalSinceNow / 60)
-            print("⌚ [ContentView] 🔄 Last update was \(minutesAgo) minutes ago - requesting full refresh")
+            print("⌚ [ContentView] 🔄 Last update was \(minutesAgo) minutes ago - triggering incremental sync")
             
             LoggingSystem.shared.log(
                 level: "INFO",
                 tag: "autoRefresh",
-                message: "Auto-refresh triggered: Last update exceeded 30 minutes threshold",
+                message: "Auto-refresh triggered: Last update exceeded 30 minutes threshold - using incremental sync",
                 metadata: [
                     "minutesAgo": "\(minutesAgo)",
                     "lastUpdate": ISO8601DateFormatter().string(from: lastUpdate)
@@ -185,7 +183,8 @@ struct ContentView: View {
                 source: "Watch"
             )
             
-            requestFullRefresh()
+            // Use incremental sync instead of full sync
+            connectivityManager.syncFromCloudKitIncremental()
         } else {
             let minutesAgo = Int(-lastUpdate.timeIntervalSinceNow / 60)
             print("⌚ [ContentView] ✅ Last update was \(minutesAgo) minutes ago - using cached data")
@@ -687,12 +686,8 @@ struct FilteredNotificationListView: View {
                         .scaleEffect(0.7)
                 } else {
                     Button(action: {
-                        isLoading = true
-                        // Request FULL refresh from iPhone via WatchConnectivity
+                        // Request FULL refresh - sync happens in background, UI remains responsive
                         connectivityManager.requestFullRefresh()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                            isLoading = false
-                        }
                     }) {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 14))
@@ -1629,6 +1624,24 @@ struct SettingsView: View {
                 .onChange(of: cloudKitEnabled) { oldValue, newValue in
                     CloudKitManager.setCloudKitEnabled(newValue)
                 }
+                
+                Button(action: {
+                    WatchConnectivityManager.shared.requestFullSync()
+                }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "arrow.clockwise.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.blue)
+                            .frame(width: 32, height: 32)
+                        
+                        Text("Full Sync")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        Spacer()
+                    }
+                }
+                .disabled(!cloudKitEnabled)
             }
             
             Section(header: Text("Notifications")) {
