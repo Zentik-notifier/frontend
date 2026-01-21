@@ -159,65 +159,7 @@ if (fs.existsSync(sharedFilesDir)) {
   }
   
   console.log(`\n✅ Successfully copied ${totalCopied} files across all targets!`);
-  
-  // Remove CloudKit files from extension targets in Xcode project
-  console.log('\n🔧 Removing CloudKit files from extension targets in Xcode project...');
-  const pbxprojPath = path.join(iosDir, 'ZentikDev.xcodeproj', 'project.pbxproj');
-  
-  if (fs.existsSync(pbxprojPath)) {
-    let pbxprojContent = fs.readFileSync(pbxprojPath, 'utf-8');
-    let modified = false;
-    
-    // Files to remove from extensions
-    // CloudKitManager.swift is needed in both NSE and NCE for NotificationActionHandler
-    const excludedFiles = ['CloudKitSyncBridge.swift'];
-    const extensionTargets = ['ZentikNotificationService', 'ZentikNotificationContentExtension'];
-    
-    for (const target of extensionTargets) {
-      for (const file of excludedFiles) {
-        // Remove PBXBuildFile entries for excluded files in extension targets
-        const buildFilePattern = new RegExp(
-          `\\s+[A-F0-9]{24}\\s+/\\* ${file} in Sources \\*/ = \\{isa = PBXBuildFile; fileRef = [A-F0-9]{24} /\\* ${file} \\*/; \\};.*?\\/\\* ${target} \\*/`,
-          'gs'
-        );
-        if (buildFilePattern.test(pbxprojContent)) {
-          pbxprojContent = pbxprojContent.replace(buildFilePattern, '');
-          modified = true;
-          console.log(`  🗑️  Removed ${file} build file reference from ${target}`);
-        }
-        
-        // Remove PBXFileReference entries for excluded files in extension directories
-        const fileRefPattern = new RegExp(
-          `\\s+[A-F0-9]{24}\\s+/\\* ${file} \\*/ = \\{isa = PBXFileReference; lastKnownFileType = sourcecode\\.swift; path = "${file}"; sourceTree = "<group>"; \\};`,
-          'g'
-        );
-        if (fileRefPattern.test(pbxprojContent)) {
-          // Find the fileRef ID and remove it from the group
-          const fileRefMatch = pbxprojContent.match(new RegExp(`([A-F0-9]{24})\\s+/\\* ${file} \\*/ = \\{isa = PBXFileReference`, 'g'));
-          if (fileRefMatch) {
-            const fileRefId = fileRefMatch[0].substring(0, 24);
-            // Remove from group children
-            const groupPattern = new RegExp(`(\\s+${fileRefId}\\s+/\\* ${file} \\*/,\\s*)`, 'g');
-            pbxprojContent = pbxprojContent.replace(groupPattern, '');
-            // Remove the file reference definition
-            pbxprojContent = pbxprojContent.replace(fileRefPattern, '');
-            modified = true;
-            console.log(`  🗑️  Removed ${file} file reference from ${target} group`);
-          }
-        }
-      }
-    }
-    
-    if (modified) {
-      fs.writeFileSync(pbxprojPath, pbxprojContent, 'utf-8');
-      console.log('  ✅ Updated project.pbxproj');
-    } else {
-      console.log('  ℹ️  No changes needed in project.pbxproj');
-    }
-  } else {
-    console.log('  ⚠️  project.pbxproj not found');
-  }
-  
+
   // Copy CloudKitSyncBridge.m to iOS App only (Objective-C bridge file)
   const cloudkitBridgeM = 'CloudKitSyncBridge.m';
   const cloudkitBridgeMSource = path.join(sharedFilesDir, cloudkitBridgeM);
