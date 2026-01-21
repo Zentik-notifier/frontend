@@ -1,5 +1,8 @@
 import Foundation
 import React
+#if os(iOS)
+import WatchConnectivity
+#endif
 
 /**
  * React Native bridge for CloudKit sync operations
@@ -685,6 +688,78 @@ class CloudKitSyncBridge: RCTEventEmitter {
     resolve(["success": true])
     #else
     reject("NOT_SUPPORTED", "resetInitialSyncFlag is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Send Watch token and server address to Watch app
+   */
+  @objc
+  func sendWatchTokenSettings(
+    _ token: String,
+    serverAddress: String,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    guard WCSession.isSupported() else {
+      reject("NOT_SUPPORTED", "WatchConnectivity is not supported on this device", nil)
+      return
+    }
+    
+    // Use AppDelegate's method to send token settings
+    // We'll use a notification with a completion handler pattern
+    let notificationName = NSNotification.Name("SendWatchTokenSettings")
+    var observer: NSObjectProtocol?
+    
+    var observerRemoved = false
+    
+    observer = NotificationCenter.default.addObserver(
+      forName: notificationName,
+      object: nil,
+      queue: .main
+    ) { notification in
+      guard !observerRemoved else { return }
+      
+      if let observer = observer {
+        NotificationCenter.default.removeObserver(observer)
+        observerRemoved = true
+      }
+      
+      guard let userInfo = notification.userInfo,
+            let success = userInfo["success"] as? Bool else {
+        reject("SEND_FAILED", "Invalid response from AppDelegate", nil)
+        return
+      }
+      
+      if success {
+        resolve(["success": true])
+      } else {
+        let error = userInfo["error"] as? String ?? "Unknown error"
+        reject("SEND_FAILED", error, nil)
+      }
+    }
+    
+    // Post notification to AppDelegate
+    NotificationCenter.default.post(
+      name: notificationName,
+      object: nil,
+      userInfo: [
+        "token": token,
+        "serverAddress": serverAddress
+      ]
+    )
+    
+    // Timeout after 10 seconds
+    DispatchQueue.main.asyncAfter(deadline: .now() + 10.0) {
+      if !observerRemoved, let observer = observer {
+        NotificationCenter.default.removeObserver(observer)
+        observerRemoved = true
+        reject("TIMEOUT", "Timeout waiting for Watch response", nil)
+      }
+    }
+    #else
+    reject("NOT_SUPPORTED", "sendWatchTokenSettings is only available on iOS", nil)
     #endif
   }
 

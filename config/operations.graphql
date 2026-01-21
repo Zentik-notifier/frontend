@@ -797,6 +797,22 @@ mutation CreateAccessTokenForBucket($bucketId: String!, $name: String!) {
   }
 }
 
+mutation CreateOrRegenerateWatchToken {
+  createOrRegenerateWatchToken {
+    ...AccessTokenResponseFragment
+  }
+}
+
+query GetWatchToken {
+  getWatchToken {
+    ...AccessTokenFragment
+  }
+}
+
+mutation DeleteWatchToken {
+  deleteWatchToken
+}
+
 # User Session Mutations
 mutation RevokeSession($sessionId: String!) {
   revokeSession(sessionId: $sessionId)

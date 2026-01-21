@@ -152,6 +152,30 @@ export interface Translation {
       notificationLimitError: string;
       notificationLimitInvalid: string;
     };
+    watchToken: {
+      title: string;
+      description: string;
+      generateButton: string;
+      regenerateButton: string;
+      deleteButton: string;
+      sendSettingsButton: string;
+      tokenExists: string;
+      noToken: string;
+      generating: string;
+      sending: string;
+      generateSuccess: string;
+      generateError: string;
+      deleteSuccess: string;
+      deleteError: string;
+      sendSuccess: string;
+      sendError: string;
+      sendErrorWatchNotOpen: string;
+      deleteConfirmTitle: string;
+      deleteConfirmMessage: string;
+      regenerateConfirmTitle: string;
+      regenerateConfirmMessage: string;
+      watchAppRequired: string;
+    };
     privacy: {
       title: string;
       description: string;
@@ -826,6 +850,7 @@ export interface Translation {
       expires: string;
       neverExpires: string;
       limitedToBuckets: string;
+      watchTokenNote: string;
     };
     form: {
       title: string;
@@ -2248,6 +2273,39 @@ export interface Translation {
     unknown: string;
     noMediaFiles: string;
     noFilesInFolder: string;
+    sqlite: {
+      title: string;
+      description: string;
+    };
+    sqliteBackup: {
+      button: string;
+      shareTitle: string;
+      success: string;
+      successMessage: string;
+      error: string;
+      webNotSupported: string;
+    };
+    sqliteRestore: {
+      button: string;
+      confirmTitle: string;
+      confirmMessage: string;
+      restoreButton: string;
+      success: string;
+      successMessage: string;
+      error: string;
+      webNotSupported: string;
+    };
+    sqliteReset: {
+      button: string;
+      confirmTitle: string;
+      confirmMessage: string;
+      resetButton: string;
+      success: string;
+      successMessage: string;
+      error: string;
+      errorMessage: string;
+      webNotSupported: string;
+    };
     mediaMetadata: string;
     cachedItems: string;
     notDownloaded: string;
@@ -2772,6 +2830,16 @@ export interface Translation {
       title: string;
       message: string;
     };
+  };
+  databaseRecovery: {
+    title: string;
+    description: string;
+    warning: string;
+    recoverButton: string;
+    recovering: string;
+    recoverySuccess: string;
+    recoveryError: string;
+    recoveryInProgress: string;
   };
   notFound: {
     title: string;

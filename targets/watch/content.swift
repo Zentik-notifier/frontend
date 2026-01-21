@@ -26,6 +26,14 @@ class WatchSettingsManager {
     }
 }
 
+// MARK: - Helper Functions
+
+func hasWatchTokenAndAddress() -> Bool {
+    let token = UserDefaults.standard.string(forKey: "watch_access_token")
+    let address = UserDefaults.standard.string(forKey: "watch_server_address")
+    return token != nil && !token!.isEmpty && address != nil && !address!.isEmpty
+}
+
 // MARK: - Global Bucket Icon Cache
 
 /// Global cache for loaded bucket icons shared across all views
@@ -88,6 +96,7 @@ struct ContentView: View {
     @StateObject private var iconCache = BucketIconCache.shared
     @State private var isInitialLoad: Bool = true
     @State private var lastFetchTime: Date?
+    @State private var showTokenReceivedAlert: Bool = false
     @Environment(\.scenePhase) private var scenePhase
     
     var body: some View {
@@ -105,6 +114,13 @@ struct ContentView: View {
         )
         .environmentObject(iconCache)
         .environmentObject(connectivityManager)
+        .alert("Token Received", isPresented: $showTokenReceivedAlert) {
+            Button("OK") {
+                showTokenReceivedAlert = false
+            }
+        } message: {
+            Text("Watch token and server settings have been received successfully. You can now execute notification actions directly from the watch.")
+        }
         .onAppear {
             // Clear icon cache on app open to ensure fresh icons
             iconCache.clearCache()
@@ -114,6 +130,16 @@ struct ContentView: View {
             print("⌚ [ContentView] 📱 App opened - data loaded from cache")
             isInitialLoad = false
             lastFetchTime = Date()
+            
+            // Listen for Watch token settings received notification
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("WatchTokenSettingsReceived"),
+                object: nil,
+                queue: .main
+            ) { _ in
+                showTokenReceivedAlert = true
+                WKInterfaceDevice.current().play(.success)
+            }
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             // Detect when app transitions from background to active (foreground)
@@ -440,10 +466,20 @@ struct BucketMenuView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     HStack(spacing: 6) {
-                        // Settings button
+                        // Settings button with warning badge if token/address missing
                         NavigationLink(destination: SettingsView()) {
-                            Image(systemName: "gearshape.fill")
-                                .font(.system(size: 11))
+                            ZStack {
+                                Image(systemName: "gearshape.fill")
+                                    .font(.system(size: 11))
+                                
+                                // Show exclamation mark if token or address is missing
+                                if !hasWatchTokenAndAddress() {
+                                    Image(systemName: "exclamationmark.circle.fill")
+                                        .font(.system(size: 8))
+                                        .foregroundColor(.orange)
+                                        .offset(x: 6, y: -6)
+                                }
+                            }
                         }
                         
                         // Refresh button with loader
@@ -1598,6 +1634,8 @@ struct AnimatedImageView: View {
 struct SettingsView: View {
     @State private var cloudKitEnabled: Bool = CloudKitManager.shared.isCloudKitEnabled
     @State private var maxNotificationsLimit: Int = WatchSettingsManager.shared.maxNotificationsLimit
+    @State private var watchToken: String? = UserDefaults.standard.string(forKey: "watch_access_token")
+    @State private var serverAddress: String? = UserDefaults.standard.string(forKey: "watch_server_address")
     
     var body: some View {
         List {
@@ -1644,6 +1682,70 @@ struct SettingsView: View {
                 .disabled(!cloudKitEnabled)
             }
             
+            Section(header: Text("Watch Token")) {
+                if let token = watchToken, let address = serverAddress, !token.isEmpty, !address.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Server Address")
+                                .font(.headline)
+                            Spacer()
+                        }
+                        Text(address)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        HStack {
+                            Text("Token")
+                                .font(.headline)
+                            Spacer()
+                        }
+                        .padding(.top, 4)
+                        Text(token.prefix(20) + "...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                                .font(.system(size: 16))
+                            Text("Token and Server Address Required")
+                                .font(.headline)
+                                .foregroundColor(.orange)
+                        }
+                        
+                        Text("To execute notification actions from the watch, you need to set up the token and server address from the iOS app.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 4)
+                        
+                        Text("How to set up:")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .padding(.top, 8)
+                        
+                        Text("1. Open the Zentik app on your iPhone")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text("2. Go to Settings > App Settings > CloudKit")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text("3. Tap 'Generate Token' in the Watch Token section")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text("4. Tap 'Send Settings to Watch'")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+            
             Section(header: Text("Notifications")) {
                 NavigationLink(destination: MaxNotificationsSettingsView()) {
                     HStack {
@@ -1676,6 +1778,14 @@ struct SettingsView: View {
         .onAppear {
             cloudKitEnabled = CloudKitManager.shared.isCloudKitEnabled
             maxNotificationsLimit = WatchSettingsManager.shared.maxNotificationsLimit
+            // Refresh token and address on appear
+            watchToken = UserDefaults.standard.string(forKey: "watch_access_token")
+            serverAddress = UserDefaults.standard.string(forKey: "watch_server_address")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("WatchTokenSettingsReceived"))) { _ in
+            // Update token and address when received
+            watchToken = UserDefaults.standard.string(forKey: "watch_access_token")
+            serverAddress = UserDefaults.standard.string(forKey: "watch_server_address")
         }
     }
 }

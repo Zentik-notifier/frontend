@@ -820,6 +820,24 @@ class IosBridgeService {
       throw error;
     }
   }
+
+  /**
+   * Send Watch token and server address to Watch app
+   */
+  async sendWatchTokenSettings(token: string, serverAddress: string): Promise<{ success: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      throw new Error('sendWatchTokenSettings is only available on iOS');
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.sendWatchTokenSettings(token, serverAddress);
+      console.log('[WatchConnectivity] Token settings sent to Watch');
+      return result;
+    } catch (error) {
+      console.error('[WatchConnectivity] Failed to send token settings to Watch:', error);
+      throw error;
+    }
+  }
 }
 
 export default new IosBridgeService();

@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { NotificationFragment } from '@/generated/gql-operations-generated';
 import { File, Paths } from 'expo-file-system';
+import { databaseRecoveryEvents, DATABASE_CORRUPTION_DETECTED } from './database-recovery-events';
 
 // IndexedDB schema for web storage
 export interface WebStorageDB extends DBSchema {
@@ -258,6 +259,29 @@ export async function executeQuery<T>(
         errorMessage
       );
 
+      // Check for database corruption error (SQLite error code 11: database disk image is malformed)
+      const isCorruptionError = 
+        errorCode === 11 ||
+        errorCode === 'ERR_INTERNAL_SQLITE_ERROR' ||
+        errorMessage.includes('database disk image is malformed') ||
+        errorMessage.includes('malformed') ||
+        (errorMessage.includes('finalizeAsync') && errorMessage.includes('Error code 11'));
+
+      if (isCorruptionError) {
+        console.error('[executeQuery] Database corruption detected:', errorMessage);
+        // Emit event to notify recovery system
+        databaseRecoveryEvents.emit(DATABASE_CORRUPTION_DETECTED, {
+          errorMessage,
+          errorCode,
+          originalError: error,
+        });
+        // Throw a special error that can be caught by the recovery system
+        const corruptionError = new Error('Database corruption detected');
+        (corruptionError as any).isCorruptionError = true;
+        (corruptionError as any).originalError = error;
+        throw corruptionError;
+      }
+
       // Don't retry on certain errors
       if (
         errorMessage.includes('closing') ||
@@ -298,6 +322,11 @@ export async function executeQuery<T>(
     `[executeQuery] ${operationName} failed after ${retryCount + 1} attempts:`,
     lastError?.message || lastError
   );
+
+  // Check if the last error was a corruption error
+  if (lastError && (lastError as any).isCorruptionError) {
+    throw lastError;
+  }
 
   throw new Error(`Database operation failed: ${operationName}`);
 }

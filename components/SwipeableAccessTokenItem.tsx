@@ -52,6 +52,10 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
     return bucketsData?.buckets.filter((b) => bucketIds.includes(b.id)) || [];
   }, [token.scopes, bucketsData]);
 
+  const isWatchToken = useMemo(() => {
+    return token.scopes?.includes("watch") ?? false;
+  }, [token.scopes]);
+
   const handleEditToken = (tokenId: string) => {
     navigateToEditAccessToken(tokenId);
   };
@@ -75,7 +79,7 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
     }
   };
 
-  const deleteAction = !isOffline
+  const deleteAction = !isOffline && !isWatchToken
     ? {
         icon: "delete" as const,
         label: t("accessTokens.item.delete"),
@@ -102,7 +106,8 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
       });
     }
 
-    if (!isOffline) {
+    // Disable edit for Watch token - it can only be managed from CloudKit settings
+    if (!isOffline && !isWatchToken) {
       items.push({
         id: "edit",
         label: t("accessTokens.item.edit"),
@@ -112,7 +117,7 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
     }
 
     return items;
-  }, [isOffline, hasToken, t, token.id, handleEditToken, copyToken]);
+  }, [isOffline, hasToken, isWatchToken, t, token.id, handleEditToken, copyToken]);
 
   return (
     <SwipeableItem
@@ -152,7 +157,22 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
                       color={theme.colors.primary}
                     />
                   )}
+                  {isWatchToken && (
+                    <Icon
+                      source="watch"
+                      size={14}
+                      color={theme.colors.primary}
+                    />
+                  )}
                 </View>
+                {isWatchToken && (
+                  <Text
+                    variant="bodySmall"
+                    style={[styles.statusText, { color: theme.colors.primary }]}
+                  >
+                    {t("accessTokens.item.watchTokenNote")}
+                  </Text>
+                )}
                 {isExpired && (
                   <Text
                     variant="bodySmall"

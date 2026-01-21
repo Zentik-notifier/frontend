@@ -1,6 +1,7 @@
 import { ChangelogUpdatesModal } from "@/components/ChangelogUpdatesModal";
 import FeedbackModal from "@/components/FeedbackModal";
 import OnboardingModal from "@/components/Onboarding/OnboardingModal";
+import { databaseRecoveryEvents, DATABASE_CORRUPTION_DETECTED } from "@/services/database-recovery-events";
 import {
   ChangelogForModalFragment,
   DeviceInfoDto,
@@ -92,6 +93,9 @@ interface AppContextProps {
   latestChangelog: ChangelogForModalFragment | null;
   needsChangelogAppUpdateNotice: boolean;
   needsChangelogBackendBehindNotice: boolean;
+  showDatabaseRecoveryModal: boolean;
+  setShowDatabaseRecoveryModal: (show: boolean) => void;
+  handleDatabaseRecoveryRequest: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -126,6 +130,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const push = usePushNotifications(versions);
   const connectionStatus = useConnectionStatus(push);
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
+  const [showDatabaseRecoveryModal, setShowDatabaseRecoveryModal] = useState(false);
 
   useEffect(() => {
     const checkAndSetLocale = async () => {
@@ -657,6 +662,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setIsChangelogModalOpen(false);
   };
 
+  const handleDatabaseRecoveryRequest = async () => {
+    // TODO: Implement recovery logic
+    console.log('[AppContext] Database recovery requested');
+    // For now, just dismiss the modal
+    setShowDatabaseRecoveryModal(false);
+  };
+
+  // Listen for database corruption events from db-setup.ts
+  useEffect(() => {
+    const handleCorruptionDetected = () => {
+      console.log('[AppContext] Database corruption detected, showing recovery modal');
+      setShowDatabaseRecoveryModal(true);
+    };
+
+    databaseRecoveryEvents.on(DATABASE_CORRUPTION_DETECTED, handleCorruptionDetected);
+
+    return () => {
+      databaseRecoveryEvents.off(DATABASE_CORRUPTION_DETECTED, handleCorruptionDetected);
+    };
+  }, []);
+
   return (
     <AppContext.Provider
       value={{
@@ -688,6 +714,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         latestChangelog,
         needsChangelogAppUpdateNotice,
         needsChangelogBackendBehindNotice,
+        showDatabaseRecoveryModal,
+        setShowDatabaseRecoveryModal,
+        handleDatabaseRecoveryRequest,
       }}
     >
       {children}

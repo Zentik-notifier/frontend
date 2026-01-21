@@ -73,6 +73,17 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         if WCSession.isSupported() {
             wcSession = WCSession.default
             wcSession?.delegate = self
+            
+            // Check for existing application context (token settings sent before watch was active)
+            if let applicationContext = wcSession?.applicationContext, !applicationContext.isEmpty {
+                LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "Found existing application context", metadata: ["keys": "\(applicationContext.keys)"], source: "Watch")
+                if let type = applicationContext["type"] as? String, type == "watchTokenSettings" {
+                    handleWatchTokenSettings(message: applicationContext, replyHandler: { _ in })
+                }
+            } else {
+                LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "No application context available yet", source: "Watch")
+            }
+            
             wcSession?.activate()
         }
     }
@@ -86,7 +97,64 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
             DispatchQueue.main.async {
                 self.isConnected = activationState == .activated
             }
+            
+            // After activation, check for application context again (in case it was set while activating)
+            if activationState == .activated {
+                let applicationContext = session.applicationContext
+                if !applicationContext.isEmpty {
+                    LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "Application context available after activation", metadata: ["keys": "\(applicationContext.keys)"], source: "Watch")
+                    if let type = applicationContext["type"] as? String, type == "watchTokenSettings" {
+                        handleWatchTokenSettings(message: applicationContext, replyHandler: { _ in })
+                    }
+                } else {
+                    LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "Application context data is nil after activation", source: "Watch")
+                }
+            }
         }
+    }
+    
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        guard let type = message["type"] as? String else {
+            replyHandler(["success": false, "error": "Missing message type"])
+            return
+        }
+        
+        if type == "watchTokenSettings" {
+            handleWatchTokenSettings(message: message, replyHandler: replyHandler)
+        } else {
+            replyHandler(["success": false, "error": "Unknown message type"])
+        }
+    }
+    
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        if let type = applicationContext["type"] as? String, type == "watchTokenSettings" {
+            handleWatchTokenSettings(message: applicationContext, replyHandler: { _ in })
+        }
+    }
+    
+    private func handleWatchTokenSettings(message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        guard let token = message["token"] as? String,
+              let serverAddress = message["serverAddress"] as? String else {
+            LoggingSystem.shared.log(level: "ERROR", tag: "WatchConnectivity", message: "Missing token or server address", source: "Watch")
+            replyHandler(["success": false, "error": "Missing token or server address"])
+            return
+        }
+        
+        // Save token and server address to UserDefaults
+        UserDefaults.standard.set(token, forKey: "watch_access_token")
+        UserDefaults.standard.set(serverAddress, forKey: "watch_server_address")
+        UserDefaults.standard.synchronize()
+        
+        LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "Watch token settings received and saved", source: "Watch")
+        
+        // Post notification to show confirmation in UI
+        NotificationCenter.default.post(
+            name: NSNotification.Name("WatchTokenSettingsReceived"),
+            object: nil,
+            userInfo: ["token": token, "serverAddress": serverAddress]
+        )
+        
+        replyHandler(["success": true])
     }
     
     @objc private func appDidBecomeActive() {
@@ -578,16 +646,91 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     func executeNotificationAction(notificationId: String, action: NotificationAction) {
         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Execute notification action", metadata: ["notificationId": notificationId, "action": action.type], source: "Watch")
         
+        // Check if we have Watch token - if yes, execute via backend API
+        let watchToken = UserDefaults.standard.string(forKey: "watch_access_token")
+        let serverAddress = UserDefaults.standard.string(forKey: "watch_server_address")
+        
+        if let token = watchToken, let server = serverAddress {
+            // Execute action via backend API using Watch token
+            executeActionViaBackend(notificationId: notificationId, action: action, token: token, serverAddress: server)
+            return
+        }
+        
+        // Fallback to local/CloudKit handling if no token
         // For actions that modify notification state, handle locally
         if action.type == NotificationActionType.markAsRead.rawValue {
             markNotificationAsReadFromWatch(id: notificationId)
         } else if action.type == NotificationActionType.delete.rawValue {
             deleteNotificationFromWatch(id: notificationId)
-                        } else {
+        } else {
             // Other actions (webhook, snooze, etc.) need to be executed via backend
-            // For now, just log - backend execution will be handled by iPhone sync
-            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Action requires backend execution", metadata: ["action": action.type], source: "Watch")
+            // Log that we need token for this action
+            LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Action requires backend execution but no Watch token available", metadata: ["action": action.type], source: "Watch")
         }
+    }
+    
+    private func executeActionViaBackend(notificationId: String, action: NotificationAction, token: String, serverAddress: String) {
+        let baseUrl = serverAddress.replacingOccurrences(of: "/$", with: "", options: .regularExpression)
+        let apiUrl = "\(baseUrl)/api/v1"
+        
+        var endpoint: String
+        var method: String = "PATCH"
+        
+        switch action.type {
+        case NotificationActionType.markAsRead.rawValue:
+            endpoint = "\(apiUrl)/notifications/watch/\(notificationId)/read"
+            method = "PATCH"
+        case NotificationActionType.delete.rawValue:
+            endpoint = "\(apiUrl)/notifications/watch/\(notificationId)"
+            method = "DELETE"
+        case NotificationActionType.postpone.rawValue:
+            endpoint = "\(apiUrl)/notifications/watch/postpone"
+            method = "POST"
+        default:
+            // For webhook and other actions, we might need to handle differently
+            LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Action type not yet supported via backend API", metadata: ["action": action.type], source: "Watch")
+            return
+        }
+        
+        var request = URLRequest(url: URL(string: endpoint)!)
+        request.httpMethod = method
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Add body for POST requests
+        if method == "POST" && action.type == NotificationActionType.postpone.rawValue {
+            if let minutes = Int(action.value ?? "0") {
+                let body: [String: Any] = [
+                    "notificationId": notificationId,
+                    "minutes": minutes
+                ]
+                request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            }
+        }
+        
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to execute action via backend", metadata: ["action": action.type, "error": error.localizedDescription], source: "Watch")
+                return
+            }
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Action executed successfully via backend", metadata: ["action": action.type, "statusCode": "\(httpResponse.statusCode)"], source: "Watch")
+                    
+                    // Update local cache for mark as read and delete
+                    if action.type == NotificationActionType.markAsRead.rawValue {
+                        self.markNotificationAsReadFromWatch(id: notificationId)
+                    } else if action.type == NotificationActionType.delete.rawValue {
+                        self.deleteNotificationFromWatch(id: notificationId)
+                    }
+                } else {
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Backend API returned error", metadata: ["action": action.type, "statusCode": "\(httpResponse.statusCode)"], source: "Watch")
+                }
+            }
+        }
+        
+        task.resume()
     }
     
     func sendLogsToiPhone(completion: @escaping (Bool, String?) -> Void) {

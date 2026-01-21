@@ -73,6 +73,11 @@ RCT_EXTERN_METHOD(setCloudKitNotificationLimit:(NSNumber *)limit
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(sendWatchTokenSettings:(NSString *)token
+                  serverAddress:(NSString *)serverAddress
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 + (BOOL)requiresMainQueueSetup
 {
   return NO;

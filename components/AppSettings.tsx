@@ -23,6 +23,7 @@ import UnifiedCacheSettings from "./UnifiedCacheSettings";
 import { VersionInfo } from "./VersionInfo";
 import { useSettings } from "@/hooks/useSettings";
 import iosBridgeService from "@/services/ios-bridge";
+import { authService } from "@/services/auth-service";
 
 export function AppSettings() {
   const theme = useTheme();
@@ -68,9 +69,15 @@ export function AppSettings() {
     phase: string;
   } | null>(null);
 
+  // Watch Token state
+  const [watchToken, setWatchToken] = useState<{ id: string; name: string; token?: string } | null>(null);
+  const [watchTokenLoading, setWatchTokenLoading] = useState(false);
+  const [showWatchTokenModal, setShowWatchTokenModal] = useState(false);
+
   useEffect(() => {
     loadApiUrl();
     loadCloudKitStatus();
+    loadWatchToken();
   }, []);
 
   // Listen to CloudKit sync progress events
@@ -278,6 +285,140 @@ export function AppSettings() {
 
   const handleRefresh = async () => {
     // This screen mostly manages local settings; noop refresh hook
+    await loadWatchToken();
+  };
+
+  const loadWatchToken = async () => {
+    if (Platform.OS !== 'ios') return;
+    
+    try {
+      const authData = settingsService.getAuthData();
+      if (!authData?.accessToken) return;
+
+      const token = await authService.ensureValidToken(true);
+      if (!token) return;
+
+      const apiUrl = settingsService.getApiBaseWithPrefix();
+      const response = await fetch(`${apiUrl}/access-tokens/watch`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setWatchToken(data);
+      } else if (response.status === 404) {
+        setWatchToken(null);
+      }
+    } catch (error) {
+      console.error('Failed to load Watch token:', error);
+    }
+  };
+
+  const createOrRegenerateWatchToken = async () => {
+    if (Platform.OS !== 'ios') return;
+    
+    setWatchTokenLoading(true);
+    try {
+      const token = await authService.ensureValidToken(true);
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      const apiUrl = settingsService.getApiBaseWithPrefix();
+      const response = await fetch(`${apiUrl}/access-tokens/watch`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create token: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setWatchToken(data);
+      setDialogMessage(t("appSettings.watchToken.generateSuccess"));
+      setShowSuccessDialog(true);
+      
+      // Automatically send settings to Watch after generating token
+      await sendWatchTokenSettings(data.token);
+    } catch (error: any) {
+      console.error('Failed to create/regenerate Watch token:', error);
+      setDialogMessage(t("appSettings.watchToken.generateError"));
+      setShowErrorDialog(true);
+    } finally {
+      setWatchTokenLoading(false);
+    }
+  };
+
+  const deleteWatchToken = async () => {
+    if (Platform.OS !== 'ios') return;
+    
+    setWatchTokenLoading(true);
+    try {
+      const token = await authService.ensureValidToken(true);
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      const apiUrl = settingsService.getApiBaseWithPrefix();
+      const response = await fetch(`${apiUrl}/access-tokens/watch`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete token: ${response.statusText}`);
+      }
+
+      setWatchToken(null);
+      setDialogMessage(t("appSettings.watchToken.deleteSuccess"));
+      setShowSuccessDialog(true);
+    } catch (error: any) {
+      console.error('Failed to delete Watch token:', error);
+      setDialogMessage(t("appSettings.watchToken.deleteError"));
+      setShowErrorDialog(true);
+    } finally {
+      setWatchTokenLoading(false);
+    }
+  };
+
+  const sendWatchTokenSettings = async (tokenValue?: string) => {
+    if (Platform.OS !== 'ios') return;
+    
+    const tokenToSend = tokenValue || watchToken?.token;
+    if (!tokenToSend) {
+      setDialogMessage(t("appSettings.watchToken.sendError"));
+      setShowErrorDialog(true);
+      return;
+    }
+
+    setWatchTokenLoading(true);
+    try {
+      const serverAddress = settingsService.getApiUrl();
+      await iosBridgeService.sendWatchTokenSettings(tokenToSend, serverAddress);
+      setDialogMessage(t("appSettings.watchToken.sendSuccess"));
+      setShowSuccessDialog(true);
+    } catch (error: any) {
+      console.error('Failed to send Watch token settings:', error);
+      if (error.message?.includes('not reachable') || error.message?.includes('not activated')) {
+        setDialogMessage(t("appSettings.watchToken.sendErrorWatchNotOpen"));
+      } else {
+        setDialogMessage(t("appSettings.watchToken.sendError"));
+      }
+      setShowErrorDialog(true);
+    } finally {
+      setWatchTokenLoading(false);
+    }
   };
 
   return (
@@ -706,6 +847,131 @@ export function AppSettings() {
                     {t("appSettings.cloudKit.resetZoneButton")}
                   </Button> */}
                 </View>
+              )}
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Watch Token Settings (iOS only) */}
+        {Platform.OS === 'ios' && (
+          <Card style={styles.apiUrlCard}>
+            <Card.Content>
+              <Text variant="headlineSmall" style={styles.sectionTitle}>
+                {t("appSettings.watchToken.title")}
+              </Text>
+              <Text
+                variant="bodyMedium"
+                style={[
+                  styles.sectionDescription,
+                  { color: theme.colors.onSurfaceVariant, marginBottom: 16 },
+                ]}
+              >
+                {t("appSettings.watchToken.description")}
+              </Text>
+
+              {/* Token Status */}
+              <View style={styles.hintsSettingRow}>
+                <View style={styles.hintsSettingInfo}>
+                  <Text variant="titleMedium" style={styles.hintsSettingTitle}>
+                    {watchToken ? t("appSettings.watchToken.tokenExists") : t("appSettings.watchToken.noToken")}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={{ marginTop: 16, gap: 8 }}>
+                {!watchToken ? (
+                  <Button
+                    mode="contained"
+                    icon="key"
+                    onPress={createOrRegenerateWatchToken}
+                    disabled={watchTokenLoading}
+                    loading={watchTokenLoading}
+                  >
+                    {watchTokenLoading
+                      ? t("appSettings.watchToken.generating")
+                      : t("appSettings.watchToken.generateButton")}
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      mode="contained"
+                      icon="refresh"
+                      onPress={() => {
+                        Alert.alert(
+                          t("appSettings.watchToken.regenerateConfirmTitle"),
+                          t("appSettings.watchToken.regenerateConfirmMessage"),
+                          [
+                            {
+                              text: t("common.cancel"),
+                              style: "cancel",
+                            },
+                            {
+                              text: t("appSettings.watchToken.regenerateButton"),
+                              style: "destructive",
+                              onPress: createOrRegenerateWatchToken,
+                            },
+                          ]
+                        );
+                      }}
+                      disabled={watchTokenLoading}
+                      loading={watchTokenLoading}
+                    >
+                      {watchTokenLoading
+                        ? t("appSettings.watchToken.generating")
+                        : t("appSettings.watchToken.regenerateButton")}
+                    </Button>
+                    <Button
+                      mode="outlined"
+                      icon="send"
+                      onPress={() => sendWatchTokenSettings()}
+                      disabled={watchTokenLoading}
+                      loading={watchTokenLoading}
+                    >
+                      {watchTokenLoading
+                        ? t("appSettings.watchToken.sending")
+                        : t("appSettings.watchToken.sendSettingsButton")}
+                    </Button>
+                    <Button
+                      mode="outlined"
+                      icon="delete"
+                      buttonColor={theme.colors.error}
+                      textColor={theme.colors.onError}
+                      onPress={() => {
+                        Alert.alert(
+                          t("appSettings.watchToken.deleteConfirmTitle"),
+                          t("appSettings.watchToken.deleteConfirmMessage"),
+                          [
+                            {
+                              text: t("common.cancel"),
+                              style: "cancel",
+                            },
+                            {
+                              text: t("appSettings.watchToken.deleteButton"),
+                              style: "destructive",
+                              onPress: deleteWatchToken,
+                            },
+                          ]
+                        );
+                      }}
+                      disabled={watchTokenLoading}
+                    >
+                      {t("appSettings.watchToken.deleteButton")}
+                    </Button>
+                  </>
+                )}
+              </View>
+
+              {watchToken && (
+                <Text
+                  variant="bodySmall"
+                  style={[
+                    styles.sectionDescription,
+                    { color: theme.colors.onSurfaceVariant, marginTop: 16 },
+                  ]}
+                >
+                  {t("appSettings.watchToken.watchAppRequired")}
+                </Text>
               )}
             </Card.Content>
           </Card>

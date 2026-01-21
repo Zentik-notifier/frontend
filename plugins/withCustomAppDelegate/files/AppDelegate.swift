@@ -92,8 +92,46 @@ FirebaseApp.configure()
     
     // Setup WatchConnectivity for receiving logs from Watch
     setupWatchConnectivity()
+    
+    // Listen for Watch token settings requests from React Native
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleSendWatchTokenSettings(_:)),
+      name: NSNotification.Name("SendWatchTokenSettings"),
+      object: nil
+    )
 
     return result
+  }
+  
+  @objc private func handleSendWatchTokenSettings(_ notification: Notification) {
+    guard let userInfo = notification.userInfo,
+          let token = userInfo["token"] as? String,
+          let serverAddress = userInfo["serverAddress"] as? String else {
+      DispatchQueue.main.async {
+        NotificationCenter.default.post(
+          name: NSNotification.Name("SendWatchTokenSettings"),
+          object: nil,
+          userInfo: ["success": false, "error": "Missing token or server address"]
+        )
+      }
+      return
+    }
+    
+    sendWatchTokenSettings(token: token, serverAddress: serverAddress) { success, error in
+      var responseUserInfo: [String: Any] = ["success": success]
+      if let error = error {
+        responseUserInfo["error"] = error
+      }
+      
+      DispatchQueue.main.async {
+        NotificationCenter.default.post(
+          name: NSNotification.Name("SendWatchTokenSettings"),
+          object: nil,
+          userInfo: responseUserInfo
+        )
+      }
+    }
   }
   
   // MARK: - WatchConnectivity Setup
@@ -133,9 +171,71 @@ FirebaseApp.configure()
     
     if type == "watchLogs" {
       handleWatchLogs(message: message, replyHandler: replyHandler)
+    } else if type == "watchTokenSettings" {
+      handleWatchTokenSettings(message: message, replyHandler: replyHandler)
     } else {
       replyHandler(["success": false, "error": "Unknown message type"])
     }
+  }
+  
+  private func handleWatchTokenSettings(message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+    // Watch confirms receipt of token settings
+    print("📱 [AppDelegate] ✅ Watch confirmed receipt of token settings")
+    replyHandler(["success": true])
+  }
+  
+  /// Send Watch token and server address to Watch app
+  func sendWatchTokenSettings(token: String, serverAddress: String, completion: @escaping (Bool, String?) -> Void) {
+    guard let session = wcSession else {
+      completion(false, "WCSession not available")
+      return
+    }
+    
+    guard session.activationState == .activated else {
+      completion(false, "WCSession not activated")
+      return
+    }
+    
+    let context: [String: Any] = [
+      "type": "watchTokenSettings",
+      "token": token,
+      "serverAddress": serverAddress,
+      "timestamp": Date().timeIntervalSince1970
+    ]
+    
+    // Always update application context first to ensure it's available when Watch restarts
+    do {
+      try session.updateApplicationContext(context)
+      print("📱 [AppDelegate] ✅ Updated application context with Watch token settings")
+    } catch {
+      print("📱 [AppDelegate] ⚠️ Failed to update application context: \(error.localizedDescription)")
+      // Continue anyway - we'll try to send message directly
+    }
+    
+    guard session.isReachable else {
+      // Watch is not reachable, but we've already updated the context
+      // It will be received when Watch becomes active
+      completion(true, nil)
+      return
+    }
+    
+    // Send message directly if Watch is reachable (for immediate confirmation)
+    session.sendMessage(context, replyHandler: { reply in
+      if let success = reply["success"] as? Bool, success {
+        print("📱 [AppDelegate] ✅ Watch confirmed receipt of token settings")
+        completion(true, nil)
+      } else {
+        let errorMsg = reply["error"] as? String ?? "Unknown error"
+        print("📱 [AppDelegate] ❌ Watch failed to confirm receipt: \(errorMsg)")
+        // Still consider it successful since application context was updated
+        completion(true, nil)
+      }
+    }, errorHandler: { error in
+      print("📱 [AppDelegate] ⚠️ Error sending message to Watch: \(error.localizedDescription)")
+      // Still consider it successful since application context was updated
+      // Watch will receive it when it becomes active
+      completion(true, nil)
+    })
   }
   
   private func handleWatchLogs(message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {

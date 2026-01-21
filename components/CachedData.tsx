@@ -17,12 +17,14 @@ import { FlashList } from "@shopify/flash-list";
 import { Paths } from "expo-file-system";
 import { Image } from "expo-image";
 import * as Sharing from "expo-sharing";
+import * as DocumentPicker from "expo-document-picker";
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
-import { Card, IconButton, Text, useTheme, SegmentedButtons } from "react-native-paper";
+import { Card, IconButton, Text, useTheme, SegmentedButtons, Button } from "react-native-paper";
 import DetailCollapsibleSection from "./ui/DetailCollapsibleSection";
 import DetailModal from "./ui/DetailModal";
 import PaperScrollView from "./ui/PaperScrollView";
+import { exportSQLiteDatabaseToFile, importSQLiteDatabaseFromFile, deleteSQLiteDatabase } from "@/services/db-setup";
 
 type DetailRecord = {
   type: "bucket" | "notification" | "log" | "setting" | "media";
@@ -72,6 +74,9 @@ export default function CachedData() {
   >([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [loadingMetadata, setLoadingMetadata] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const {
     handleExportNotifications,
@@ -765,13 +770,13 @@ export default function CachedData() {
       newStack.pop(); // Remove current folder
       return newStack;
     });
-    
+
     // Reload the parent folder or root
     setLoadingMedia(true);
     try {
       const newStack = [...mediaFolderStack];
       newStack.pop();
-      
+
       if (newStack.length === 0) {
         // Back to root
         await loadMediaItems();
@@ -1120,6 +1125,150 @@ export default function CachedData() {
     loadInitialMediaCount();
   }, [sortMediaFiles]);
 
+  const handleBackupSQLite = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert(
+        t("common.error"),
+        t("cachedData.sqliteBackup.webNotSupported")
+      );
+      return;
+    }
+
+    setIsBackingUp(true);
+    try {
+      const fileUri = await exportSQLiteDatabaseToFile();
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'application/sql',
+          dialogTitle: t("cachedData.sqliteBackup.shareTitle"),
+        });
+      } else {
+        Alert.alert(
+          t("cachedData.sqliteBackup.success"),
+          t("cachedData.sqliteBackup.successMessage", { path: fileUri })
+        );
+      }
+    } catch (error: any) {
+      console.error("SQLite backup failed:", error);
+      Alert.alert(
+        t("common.error"),
+        t("cachedData.sqliteBackup.error", { error: error?.message || String(error) })
+      );
+    } finally {
+      setIsBackingUp(false);
+    }
+  }, [t]);
+
+  const handleResetSQLite = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert(
+        t("cachedData.sqliteReset.webNotSupported")
+      );
+      return;
+    }
+
+    Alert.alert(
+      t("cachedData.sqliteReset.confirmTitle"),
+      t("cachedData.sqliteReset.confirmMessage"),
+      [
+        {
+          text: t("common.cancel"),
+          style: "cancel",
+        },
+        {
+          text: t("cachedData.sqliteReset.resetButton"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsResetting(true);
+              await deleteSQLiteDatabase();
+              Alert.alert(
+                t("cachedData.sqliteReset.success"),
+                t("cachedData.sqliteReset.successMessage"),
+                [
+                  {
+                    text: t("common.ok"),
+                    onPress: () => {
+                      // Refresh data after reset
+                      refreshData();
+                    },
+                  },
+                ]
+              );
+            } catch (error: any) {
+              console.error("SQLite reset failed:", error);
+              Alert.alert(
+                t("cachedData.sqliteReset.error"),
+                t("cachedData.sqliteReset.errorMessage", { error: error?.message || String(error) })
+              );
+            } finally {
+              setIsResetting(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [t, refreshData]);
+
+  const handleRestoreSQLite = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert(
+        t("common.error"),
+        t("cachedData.sqliteRestore.webNotSupported")
+      );
+      return;
+    }
+
+    Alert.alert(
+      t("cachedData.sqliteRestore.confirmTitle"),
+      t("cachedData.sqliteRestore.confirmMessage"),
+      [
+        {
+          text: t("common.cancel"),
+          style: "cancel",
+        },
+        {
+          text: t("cachedData.sqliteRestore.restoreButton"),
+          style: "destructive",
+          onPress: async () => {
+            setIsRestoring(true);
+            try {
+              const result = await DocumentPicker.getDocumentAsync({
+                type: ['application/sql', 'text/plain'],
+                copyToCacheDirectory: true,
+              });
+
+              if (result.canceled || !result.assets || result.assets.length === 0) {
+                setIsRestoring(false);
+                return;
+              }
+
+              const fileUri = result.assets[0].uri;
+              await importSQLiteDatabaseFromFile(fileUri);
+
+              Alert.alert(
+                t("cachedData.sqliteRestore.success"),
+                t("cachedData.sqliteRestore.successMessage")
+              );
+
+              // Refresh data after restore
+              await refreshData();
+            } catch (error: any) {
+              console.error("SQLite restore failed:", error);
+              Alert.alert(
+                t("common.error"),
+                t("cachedData.sqliteRestore.error", { error: error?.message || String(error) })
+              );
+            } finally {
+              setIsRestoring(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [t, refreshData]);
+
   return (
     <PaperScrollView onRefresh={refreshData} loading={isLoading}>
       <Text
@@ -1128,6 +1277,57 @@ export default function CachedData() {
       >
         {t("cachedData.description")}
       </Text>
+
+      {/* SQLite Backup/Restore Section */}
+      {Platform.OS !== 'web' && (
+        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+          <Card.Content>
+            <Text variant="titleMedium" style={{ marginBottom: 8 }}>
+              {t("cachedData.sqlite.title")}
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onSurfaceVariant, marginBottom: 16 }}
+            >
+              {t("cachedData.sqlite.description")}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
+              <Button
+                mode="contained"
+                icon="database-export"
+                onPress={handleBackupSQLite}
+                loading={isBackingUp}
+                disabled={isBackingUp || isRestoring || isResetting}
+                style={{ flex: 1, minWidth: '30%' }}
+              >
+                {t("cachedData.sqliteBackup.button")}
+              </Button>
+              <Button
+                mode="outlined"
+                icon="database-import"
+                onPress={handleRestoreSQLite}
+                loading={isRestoring}
+                disabled={isBackingUp || isRestoring || isResetting}
+                style={{ flex: 1, minWidth: '30%' }}
+              >
+                {t("cachedData.sqliteRestore.button")}
+              </Button>
+              <Button
+                mode="outlined"
+                icon="database-remove"
+                onPress={handleResetSQLite}
+                loading={isResetting}
+                disabled={isBackingUp || isRestoring || isResetting}
+                buttonColor={theme.colors.error}
+                textColor={theme.colors.onError}
+                style={{ flex: 1, minWidth: '30%' }}
+              >
+                {t("cachedData.sqliteReset.button")}
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
+      )}
 
       {/* Notifications Section */}
       <DetailCollapsibleSection
@@ -1666,8 +1866,8 @@ export default function CachedData() {
                             {file.isDirectory
                               ? t("cachedData.folder")
                               : file.size
-                              ? `${(file.size / 1024).toFixed(2)} KB`
-                              : t("cachedData.unknown")}
+                                ? `${(file.size / 1024).toFixed(2)} KB`
+                                : t("cachedData.unknown")}
                           </Text>
                         </View>
                         <View style={styles.itemActions}>
@@ -1743,8 +1943,8 @@ export default function CachedData() {
                               {file.isDirectory
                                 ? t("cachedData.folder")
                                 : file.size
-                                ? `${(file.size / 1024).toFixed(2)} KB`
-                                : t("cachedData.unknown")}
+                                  ? `${(file.size / 1024).toFixed(2)} KB`
+                                  : t("cachedData.unknown")}
                             </Text>
                           </View>
                           <View style={styles.itemActions}>
@@ -1888,23 +2088,23 @@ export default function CachedData() {
           selectedRecord?.type === "bucket"
             ? t("cachedData.bucketDetails")
             : selectedRecord?.type === "log"
-            ? t("cachedData.logEntryDetails")
-            : selectedRecord?.type === "setting"
-            ? t("cachedData.settingDetails")
-            : selectedRecord?.type === "media"
-            ? t("cachedData.mediaDetails")
-            : t("cachedData.notificationDetails")
+              ? t("cachedData.logEntryDetails")
+              : selectedRecord?.type === "setting"
+                ? t("cachedData.settingDetails")
+                : selectedRecord?.type === "media"
+                  ? t("cachedData.mediaDetails")
+                  : t("cachedData.notificationDetails")
         }
         icon={
           selectedRecord?.type === "bucket"
             ? "folder"
             : selectedRecord?.type === "log"
-            ? "file-document-outline"
-            : selectedRecord?.type === "setting"
-            ? "cog"
-            : selectedRecord?.type === "media"
-            ? "image"
-            : "bell"
+              ? "file-document-outline"
+              : selectedRecord?.type === "setting"
+                ? "cog"
+                : selectedRecord?.type === "media"
+                  ? "image"
+                  : "bell"
         }
         actions={{
           cancel: {
@@ -1958,8 +2158,8 @@ export default function CachedData() {
                   <View style={{ alignItems: "center" }}>
                     {(selectedRecord.data as CacheItem).localPath || (selectedRecord.data as CacheItem).localThumbPath ? (
                       <Image
-                        source={{ 
-                          uri: mediaViewMode === "thumbnail" 
+                        source={{
+                          uri: mediaViewMode === "thumbnail"
                             ? ((selectedRecord.data as CacheItem).localThumbPath || (selectedRecord.data as CacheItem).localPath)
                             : (selectedRecord.data as CacheItem).localPath
                         }}
@@ -2034,6 +2234,9 @@ const styles = StyleSheet.create({
   description: {
     marginBottom: 16,
     paddingHorizontal: 4,
+  },
+  card: {
+    marginBottom: 16,
   },
   itemCard: {
     borderRadius: 8,

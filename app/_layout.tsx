@@ -19,10 +19,12 @@ import { MenuProvider } from "react-native-popup-menu";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppProvider, useAppContext } from "../contexts/AppContext";
+import { DatabaseRecoveryModal } from "../components/DatabaseRecoveryModal";
 import { NotificationToastProvider } from "../contexts/NotificationToastContext";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb, openWebStorageDb } from "../services/db-setup";
 import { settingsService } from "../services/settings-service";
+import { databaseRecoveryEvents, DATABASE_CORRUPTION_DETECTED } from "../services/database-recovery-events";
 
 const scheme = getCustomScheme();
 
@@ -104,6 +106,7 @@ function AppContent() {
           {isMobile ? <MobileLayout /> : <TabletLayout />}
           {Platform.OS === "web" && <AlertDialog />}
         </RequireAuth>
+        <DatabaseRecoveryModal />
       </MenuProvider>
     </AppProvider>
   );
@@ -125,7 +128,28 @@ export default function RootLayout() {
     // Initialize core services
     installConsoleLoggerBridge();
     console.log("[LayoutInit] Console logger bridge installed");
-    openSharedCacheDb().catch();
+    
+    // Open database with error handling for corruption
+    openSharedCacheDb().catch((error: any) => {
+      const errorMessage = error?.message || String(error);
+      const isCorruptionError = 
+        error?.code === 11 ||
+        error?.code === 'ERR_INTERNAL_SQLITE_ERROR' ||
+        errorMessage.includes('database disk image is malformed') ||
+        errorMessage.includes('malformed') ||
+        (errorMessage.includes('finalizeAsync') && errorMessage.includes('Error code 11'));
+      
+      if (isCorruptionError) {
+        console.error('[RootLayout] Database corruption detected during initialization');
+        databaseRecoveryEvents.emit(DATABASE_CORRUPTION_DETECTED, {
+          errorMessage,
+          errorCode: error?.code,
+          originalError: error,
+        });
+      } else {
+        console.error('[RootLayout] Failed to open database:', error);
+      }
+    });
     openWebStorageDb().catch();
     console.log("[LayoutInit] DB opened");
 

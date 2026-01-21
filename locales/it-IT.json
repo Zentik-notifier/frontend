@@ -149,6 +149,30 @@
       "notificationLimitError": "Impossibile impostare il limite notifiche. Riprova.",
       "notificationLimitInvalid": "Inserisci un numero valido tra 10 e 10000"
     },
+    "watchToken": {
+      "title": "Token Apple Watch",
+      "description": "Genera un token per il tuo Apple Watch per eseguire azioni sulle notifiche direttamente dall'orologio. Il token consente all'orologio di eseguire azioni come segna come letto, elimina e chiamate webhook.",
+      "generateButton": "Genera Token",
+      "regenerateButton": "Rigenera Token",
+      "deleteButton": "Elimina Token",
+      "sendSettingsButton": "Invia Impostazioni al Watch",
+      "tokenExists": "Token esistente",
+      "noToken": "Nessun token generato",
+      "generating": "Generazione...",
+      "sending": "Invio...",
+      "generateSuccess": "Token generato con successo",
+      "generateError": "Impossibile generare il token",
+      "deleteSuccess": "Token eliminato con successo",
+      "deleteError": "Impossibile eliminare il token",
+      "sendSuccess": "Impostazioni inviate al Watch con successo",
+      "sendError": "Impossibile inviare le impostazioni al Watch",
+      "sendErrorWatchNotOpen": "Apri l'app del Watch per ricevere le impostazioni",
+      "deleteConfirmTitle": "Eliminare il Token Watch?",
+      "deleteConfirmMessage": "Sei sicuro di voler eliminare il token Watch? L'orologio non sarà più in grado di eseguire azioni sulle notifiche.",
+      "regenerateConfirmTitle": "Rigenerare il Token Watch?",
+      "regenerateConfirmMessage": "Questo eliminerà il token corrente e ne creerà uno nuovo. L'orologio dovrà ricevere il nuovo token.",
+      "watchAppRequired": "Apri l'app del Watch per ricevere il token e l'indirizzo del server."
+    },
     "privacy": {
       "title": "Privacy",
       "description": "Controlla come vengono tracciate le tue azioni sull'interfaccia utente per il miglioramento del servizio",
@@ -893,7 +917,8 @@
       "neverUsed": "Mai utilizzato",
       "expires": "Scade",
       "neverExpires": "Non scade mai",
-      "limitedToBuckets": "Limitato ai bucket"
+      "limitedToBuckets": "Limitato ai bucket",
+      "watchTokenNote": "Gestisci questo token dalle impostazioni CloudKit"
     },
     "form": {
       "title": "Crea Token di Accesso",
@@ -2476,6 +2501,39 @@
     "unknown": "Sconosciuto",
     "noMediaFiles": "Nessun file media",
     "noFilesInFolder": "Nessun file in questa cartella",
+    "sqlite": {
+      "title": "Database SQLite",
+      "description": "Esegui backup e ripristino del database SQLite"
+    },
+    "sqliteBackup": {
+      "button": "Backup Database",
+      "shareTitle": "Condividi Backup Database",
+      "success": "Backup Completato",
+      "successMessage": "Backup del database creato con successo",
+      "error": "Errore durante il backup: {{error}}",
+      "webNotSupported": "Il backup del database è disponibile solo su piattaforme mobili"
+    },
+    "sqliteRestore": {
+      "button": "Ripristina Database",
+      "confirmTitle": "Ripristina Database",
+      "confirmMessage": "Questo sostituirà il database corrente con il file di backup. Tutti i dati attuali verranno persi. Sei sicuro?",
+      "restoreButton": "Ripristina",
+      "success": "Ripristino Completato",
+      "successMessage": "Database ripristinato con successo. Ricarica l'app.",
+      "error": "Errore durante il ripristino: {{error}}",
+      "webNotSupported": "Il ripristino del database è disponibile solo su piattaforme mobili"
+    },
+    "sqliteReset": {
+      "button": "Reset Database",
+      "confirmTitle": "Reset Database",
+      "confirmMessage": "Questo eliminerà completamente il database e tutti i suoi dati. Il database verrà ricreato da zero al prossimo avvio dell'app. Questa azione non può essere annullata. Sei sicuro?",
+      "resetButton": "Reset",
+      "success": "Reset Completato",
+      "successMessage": "Il database è stato resettato. L'app lo ricreerà al prossimo avvio.",
+      "error": "Errore durante il reset: {{error}}",
+      "errorMessage": "Errore durante il reset: {{error}}",
+      "webNotSupported": "Il reset del database è disponibile solo su piattaforme mobili"
+    },
     "mediaMetadata": "Metadata Media",
     "cachedItems": "elementi in cache",
     "notDownloaded": "Non scaricato",
@@ -2774,5 +2832,15 @@
       "title": "Successo",
       "message": "Messaggio inviato con successo!"
     }
+  },
+  "databaseRecovery": {
+    "title": "Corruzione Database Rilevata",
+    "description": "Il database sembra essere corrotto. Puoi tentare di recuperare i tuoi dati dal database corrente prima di resettarlo.",
+    "warning": "⚠️ Attenzione: Se il recupero fallisce, potresti perdere i tuoi dati locali. Assicurati di avere un backup o che i tuoi dati siano sincronizzati con il server.",
+    "recoverButton": "Recupera Dati",
+    "recovering": "Recupero in corso...",
+    "recoverySuccess": "Recupero dati completato con successo",
+    "recoveryError": "Impossibile recuperare i dati",
+    "recoveryInProgress": "Recupero in corso, attendere..."
   }
 }

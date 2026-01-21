@@ -149,6 +149,30 @@
       "notificationLimitError": "Failed to set notification limit. Please try again.",
       "notificationLimitInvalid": "Please enter a valid number between 10 and 10000"
     },
+    "watchToken": {
+      "title": "Apple Watch Token",
+      "description": "Generate a token for your Apple Watch to execute notification actions directly from the watch. The token allows the watch to perform actions like mark as read, delete, and webhook calls.",
+      "generateButton": "Generate Token",
+      "regenerateButton": "Regenerate Token",
+      "deleteButton": "Delete Token",
+      "sendSettingsButton": "Send Settings to Watch",
+      "tokenExists": "Token exists",
+      "noToken": "No token generated",
+      "generating": "Generating...",
+      "sending": "Sending...",
+      "generateSuccess": "Token generated successfully",
+      "generateError": "Failed to generate token",
+      "deleteSuccess": "Token deleted successfully",
+      "deleteError": "Failed to delete token",
+      "sendSuccess": "Settings sent to Watch successfully",
+      "sendError": "Failed to send settings to Watch",
+      "sendErrorWatchNotOpen": "Please open the Watch app to receive the settings",
+      "deleteConfirmTitle": "Delete Watch Token?",
+      "deleteConfirmMessage": "Are you sure you want to delete the Watch token? The watch will no longer be able to execute notification actions.",
+      "regenerateConfirmTitle": "Regenerate Watch Token?",
+      "regenerateConfirmMessage": "This will delete the current token and create a new one. The watch will need to receive the new token.",
+      "watchAppRequired": "Please open the Watch app to receive the token and server address."
+    },
     "privacy": {
       "title": "Privacy",
       "description": "Control how your UI actions are tracked for service improvement",
@@ -822,7 +846,8 @@
       "neverUsed": "Never used",
       "expires": "Expires",
       "neverExpires": "Never expires",
-      "limitedToBuckets": "Limited to buckets"
+      "limitedToBuckets": "Limited to buckets",
+      "watchTokenNote": "Manage this token from CloudKit settings"
     },
     "form": {
       "title": "Create Access Token",
@@ -2245,6 +2270,39 @@
     "unknown": "Unknown",
     "noMediaFiles": "No media files",
     "noFilesInFolder": "No files in this folder",
+    "sqlite": {
+      "title": "SQLite Database",
+      "description": "Backup and restore the SQLite database"
+    },
+    "sqliteBackup": {
+      "button": "Backup Database",
+      "shareTitle": "Share Database Backup",
+      "success": "Backup Successful",
+      "successMessage": "Database backup created successfully",
+      "error": "Backup failed: {{error}}",
+      "webNotSupported": "Database backup is only available on mobile platforms"
+    },
+    "sqliteRestore": {
+      "button": "Restore Database",
+      "confirmTitle": "Restore Database",
+      "confirmMessage": "This will replace your current database with the backup file. All current data will be lost. Are you sure?",
+      "restoreButton": "Restore",
+      "success": "Restore Successful",
+      "successMessage": "Database restored successfully. Please refresh the app.",
+      "error": "Restore failed: {{error}}",
+      "webNotSupported": "Database restore is only available on mobile platforms"
+    },
+    "sqliteReset": {
+      "button": "Reset Database",
+      "confirmTitle": "Reset Database",
+      "confirmMessage": "This will completely delete the database and all its data. The database will be recreated from scratch on next app launch. This action cannot be undone. Are you sure?",
+      "resetButton": "Reset",
+      "success": "Reset Successful",
+      "successMessage": "Database has been reset. The app will recreate it on next launch.",
+      "error": "Reset failed: {{error}}",
+      "errorMessage": "Reset failed: {{error}}",
+      "webNotSupported": "Database reset is only available on mobile platforms"
+    },
     "mediaMetadata": "Media Metadata",
     "cachedItems": "cached items",
     "notDownloaded": "Not downloaded",
@@ -2769,6 +2827,16 @@
       "title": "Success",
       "message": "Message sent successfully!"
     }
+  },
+  "databaseRecovery": {
+    "title": "Database Corruption Detected",
+    "description": "The database appears to be corrupted. You can attempt to recover your data from the current database before resetting it.",
+    "warning": "⚠️ Warning: If recovery fails, you may lose your local data. Make sure you have a backup or that your data is synced with the server.",
+    "recoverButton": "Recover Data",
+    "recovering": "Recovering...",
+    "recoverySuccess": "Data recovery completed successfully",
+    "recoveryError": "Failed to recover data",
+    "recoveryInProgress": "Recovery in progress, please wait..."
   },
   "notFound": {
     "title": "Page Not Found",

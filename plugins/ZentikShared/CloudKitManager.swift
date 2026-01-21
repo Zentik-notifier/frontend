@@ -233,12 +233,32 @@ public class CloudKitManager: NSObject {
         if let overrideContainerId = UserDefaults.standard.string(forKey: cloudKitContainerOverrideKey), !overrideContainerId.isEmpty {
             containerId = overrideContainerId
         } else {
-            let bundleId = KeychainAccess.getMainBundleIdentifier()
+            var bundleId = KeychainAccess.getMainBundleIdentifier()
+            // Remove .dev suffix for CloudKit container (CloudKit container should always use production bundle ID)
+            if bundleId.hasSuffix(".dev") {
+                bundleId = String(bundleId.dropLast(4)) // Remove ".dev"
+            }
             containerId = "iCloud.\(bundleId)"
         }
         self.container = CKContainer(identifier: containerId)
         self.privateDatabase = container.privateCloudDatabase
         super.init()
+        
+        // Log container info for debugging CloudKit issues
+        let resolvedContainerId = container.containerIdentifier ?? containerId
+        let bundleId = KeychainAccess.getMainBundleIdentifier()
+        LoggingSystem.shared.log(
+            level: "INFO",
+            tag: "CloudKit",
+            message: "CloudKitManager initialized",
+            metadata: [
+                "containerId": containerId,
+                "resolvedContainerId": resolvedContainerId,
+                "bundleId": bundleId,
+                "zoneName": customZoneName
+            ],
+            source: self.logSource
+        )
         
         // Log container override after super.init() so we can use self.logSource
         if let overrideContainerId = UserDefaults.standard.string(forKey: cloudKitContainerOverrideKey), !overrideContainerId.isEmpty {
@@ -346,9 +366,34 @@ public class CloudKitManager: NSObject {
         let flagIsSet = UserDefaults.standard.bool(forKey: zoneInitializedKey)
         
         // Always verify zone exists, even if flag is set (in case of previous failed creation)
-        LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Checking if custom zone exists", metadata: ["zoneName": customZoneName, "zoneID": "\(customZoneID)", "flagIsSet": "\(flagIsSet)"], source: self.logSource)
+        let resolvedContainerId = container.containerIdentifier ?? "unknown"
+        let bundleId = KeychainAccess.getMainBundleIdentifier()
+        
+        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Checking if custom zone exists", metadata: [
+            "zoneName": customZoneName,
+            "zoneID": "\(customZoneID)",
+            "flagIsSet": "\(flagIsSet)",
+            "containerId": resolvedContainerId,
+            "bundleId": bundleId
+        ], source: self.logSource)
         
         privateDatabase.fetch(withRecordZoneID: customZoneID) { zone, error in
+            // Log zone fetch result
+            if let zone = zone {
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Zone exists", metadata: [
+                    "zoneName": self.customZoneName,
+                    "containerId": resolvedContainerId,
+                    "zoneID": "\(zone.zoneID)"
+                ], source: self.logSource)
+            } else if let error = error {
+                let errorDescription = error.localizedDescription
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Zone fetch result", metadata: [
+                    "zoneName": self.customZoneName,
+                    "containerId": resolvedContainerId,
+                    "error": errorDescription,
+                    "zoneExists": "false"
+                ], source: self.logSource)
+            }
             if zone != nil {
                 // Zone exists - ensure flag is set
                 if !flagIsSet {
@@ -2252,7 +2297,13 @@ public class CloudKitManager: NSObject {
                             self.processOrphanedBuckets(allRecords: allRecords, sqliteBucketIds: sqliteBucketIds, completion: completion)
                         }
                     case .failure(let error):
-                        LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching buckets from CloudKit for cleanup", metadata: ["error": error.localizedDescription], source: self.logSource)
+                        let resolvedContainerId = self.container.containerIdentifier ?? "unknown"
+                        LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching buckets from CloudKit for cleanup", metadata: [
+                            "error": error.localizedDescription,
+                            "containerId": resolvedContainerId,
+                            "zoneName": self.customZoneName,
+                            "recordType": RecordType.bucket.rawValue
+                        ], source: self.logSource)
                         completion(0, error)
                     }
                 }
@@ -2965,6 +3016,8 @@ public class CloudKitManager: NSObject {
         operation.configurationsByRecordZoneID = configurations
         
         var updatedCount = 0
+        var bucketsUpdatedCount = 0
+        var notificationsUpdatedCount = 0
         var deletedCount = 0
         var newChangeToken: CKServerChangeToken?
         var completionCalled = false
@@ -2974,8 +3027,10 @@ public class CloudKitManager: NSObject {
             updatedCount += 1
             // Update local database based on record type (without posting notifications during sync)
             if record.recordType == RecordType.notification.rawValue {
+                notificationsUpdatedCount += 1
                 self.updateLocalNotificationFromCloudKit(record: record, isRecordUpdated: true, suppressNotification: true)
             } else if record.recordType == RecordType.bucket.rawValue {
+                bucketsUpdatedCount += 1
                 self.updateLocalBucketFromCloudKit(record: record, suppressNotification: true)
             }
         }
@@ -3113,7 +3168,13 @@ public class CloudKitManager: NSObject {
             }
             
             if updatedCount > 0 || deletedCount > 0 {
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Incremental sync completed", metadata: ["updated": "\(updatedCount)", "deleted": "\(deletedCount)", "fullSync": "\(fullSync)"], source: self.logSource)
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Incremental sync completed", metadata: [
+                    "notificationsUpdated": "\(notificationsUpdatedCount)",
+                    "bucketsUpdated": "\(bucketsUpdatedCount)",
+                    "totalUpdated": "\(updatedCount)",
+                    "deleted": "\(deletedCount)",
+                    "fullSync": "\(fullSync)"
+                ], source: self.logSource)
                 
                 // Post single notification at the end of sync (only on Watch)
                 #if os(watchOS)
@@ -3307,7 +3368,10 @@ public class CloudKitManager: NSObject {
         updateWatchDataStoreFromCloudKitRecord(record: record, recordType: RecordType.bucket.rawValue, suppressNotification: suppressNotification)
         #else
         // TODO: Update SQLite bucket when needed
-        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Bucket updated from CloudKit", metadata: ["bucketId": bucketId], source: self.logSource)
+        // Only log individual bucket updates if not suppressed (during batch sync, summary will be logged instead)
+        if !suppressNotification {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Bucket updated from CloudKit", metadata: ["bucketId": bucketId], source: self.logSource)
+        }
         #endif
     }
     
@@ -4335,10 +4399,17 @@ public class CloudKitManager: NSObject {
      * Available on both iOS (for verification) and Watch
      */
     public func fetchAllBucketsFromCloudKit(completion: @escaping ([[String: Any]], Error?) -> Void) {
-        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Fetching all buckets from CloudKit", source: self.logSource)
+        let resolvedContainerId = container.containerIdentifier ?? "unknown"
+        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Fetching all buckets from CloudKit", metadata: [
+            "containerId": resolvedContainerId,
+            "zoneName": customZoneName,
+            "recordType": RecordType.bucket.rawValue
+        ], source: self.logSource)
         
         let predicate = NSPredicate(value: true) // Fetch all buckets
         let query = CKQuery(recordType: RecordType.bucket.rawValue, predicate: predicate)
+        // Add sortDescriptor on 'name' field to make it queryable (required for CloudKit queries)
+        query.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
         
         var allBuckets: [[String: Any]] = []
         var fetchError: Error?
@@ -4413,8 +4484,14 @@ public class CloudKitManager: NSObject {
                     }
                     
                 case .failure(let error):
+                    let resolvedContainerId = self.container.containerIdentifier ?? "unknown"
                     Swift.print("☁️ [CloudKitManager] ❌ Error fetching buckets page: \(error.localizedDescription)")
-                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching buckets", metadata: ["error": error.localizedDescription], source: self.logSource)
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching buckets", metadata: [
+                        "error": error.localizedDescription,
+                        "containerId": resolvedContainerId,
+                        "zoneName": self.customZoneName,
+                        "recordType": RecordType.bucket.rawValue
+                    ], source: self.logSource)
                     completion(allBuckets.isEmpty ? [] : allBuckets, error)
                 }
             }
