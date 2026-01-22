@@ -23,8 +23,8 @@ import {
   UsePushNotifications,
   usePushNotifications,
 } from "@/hooks/usePushNotifications";
-import { openSharedCacheDb } from "@/services/db-setup";
 import { initializeBackgroundTasks } from "@/services/background-tasks";
+import { openSharedCacheDb } from "@/services/db-setup";
 import { logger } from "@/services/logger";
 import * as Localization from "expo-localization";
 import React, {
@@ -144,8 +144,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           console.error("Error setting locale:", e);
         }
       }
-      // await push.checkBackgroundTaskStatus();
-      // await push.testNoPushCheckTask();
     };
     checkAndSetLocale();
   }, [userSettings]);

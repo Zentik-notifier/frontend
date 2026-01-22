@@ -329,31 +329,48 @@ export async function enablePushBackgroundTasks(options?: {
   try {
     const status = await BackgroundFetch.getStatusAsync();
     if (status === BackgroundFetch.BackgroundTaskStatus.Restricted) {
-      console.warn('[Tasks] Background fetch restricted on this device');
+      console.warn('[Tasks] Background tasks are restricted on this device');
       return;
     }
 
-    try { await BackgroundFetch.unregisterTaskAsync(NOTIFICATION_REFRESH_TASK); } catch {}
-    try { await BackgroundFetch.unregisterTaskAsync(CHANGELOG_CHECK_TASK); } catch {}
-    try { await BackgroundFetch.unregisterTaskAsync(NO_PUSH_CHECK_TASK); } catch {}
+    // Helpful diagnostics: if a task isn't defined, registerTaskAsync will never work.
+    const definitions = {
+      [NOTIFICATION_REFRESH_TASK]: TaskManager.isTaskDefined(NOTIFICATION_REFRESH_TASK),
+      [CHANGELOG_CHECK_TASK]: TaskManager.isTaskDefined(CHANGELOG_CHECK_TASK),
+      [NO_PUSH_CHECK_TASK]: TaskManager.isTaskDefined(NO_PUSH_CHECK_TASK),
+    };
+    console.debug('[Tasks] Push tasks definitions:', definitions);
+
+    const registerWithLog = async (taskName: string, minimumInterval: number) => {
+      if (!TaskManager.isTaskDefined(taskName)) {
+        console.warn(`[Tasks] Cannot register '${taskName}': task is not defined`);
+        return;
+      }
+
+      try {
+        await BackgroundFetch.registerTaskAsync(taskName, { minimumInterval });
+        console.debug(`[Tasks] ✅ ${taskName} registered`, { minimumInterval });
+      } catch (e) {
+        console.debug(`[Tasks] ℹ️ ${taskName} already registered or not supported`, e);
+      }
+    };
 
     try {
-      await BackgroundFetch.registerTaskAsync(NOTIFICATION_REFRESH_TASK, {
-        minimumInterval: notificationsRefreshMinimumInterval,
-      });
+      await BackgroundFetch.unregisterTaskAsync(NOTIFICATION_REFRESH_TASK);
+      console.debug(`[Tasks] Unregistered ${NOTIFICATION_REFRESH_TASK}`);
+    } catch {}
+    try {
+      await BackgroundFetch.unregisterTaskAsync(CHANGELOG_CHECK_TASK);
+      console.debug(`[Tasks] Unregistered ${CHANGELOG_CHECK_TASK}`);
+    } catch {}
+    try {
+      await BackgroundFetch.unregisterTaskAsync(NO_PUSH_CHECK_TASK);
+      console.debug(`[Tasks] Unregistered ${NO_PUSH_CHECK_TASK}`);
     } catch {}
 
-    try {
-      await BackgroundFetch.registerTaskAsync(CHANGELOG_CHECK_TASK, {
-        minimumInterval: changelogCheckMinimumInterval,
-      });
-    } catch {}
-
-    try {
-      await BackgroundFetch.registerTaskAsync(NO_PUSH_CHECK_TASK, {
-        minimumInterval: noPushCheckMinimumInterval,
-      });
-    } catch {}
+    await registerWithLog(NOTIFICATION_REFRESH_TASK, notificationsRefreshMinimumInterval);
+    await registerWithLog(CHANGELOG_CHECK_TASK, changelogCheckMinimumInterval);
+    await registerWithLog(NO_PUSH_CHECK_TASK, noPushCheckMinimumInterval);
   } catch (error) {
     console.error('[Tasks] Error enabling push background tasks:', error);
   }
