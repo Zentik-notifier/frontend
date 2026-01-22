@@ -2294,11 +2294,16 @@ export interface Translation {
     };
     sqliteRestore: {
       button: string;
+      latestBackupButton: string;
+      latestBackupNotFound: string;
+      latestBackupConfirmTitle: string;
+      latestBackupConfirmMessage: string;
       confirmTitle: string;
       confirmMessage: string;
       restoreButton: string;
       success: string;
       successMessage: string;
+      latestBackupSuccessMessage: string;
       error: string;
       webNotSupported: string;
     };

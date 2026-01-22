@@ -24,6 +24,7 @@ import {
   usePushNotifications,
 } from "@/hooks/usePushNotifications";
 import { openSharedCacheDb } from "@/services/db-setup";
+import { initializeBackgroundTasks } from "@/services/background-tasks";
 import { logger } from "@/services/logger";
 import * as Localization from "expo-localization";
 import React, {
@@ -148,6 +149,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
     checkAndSetLocale();
   }, [userSettings]);
+
+  useEffect(() => {
+    // Best-effort: iOS/Android scheduling is OS-controlled; interval is a minimum hint.
+    initializeBackgroundTasks();
+  }, []);
 
   useEffect(() => {
     const registerDatePickerTranslations = async () => {

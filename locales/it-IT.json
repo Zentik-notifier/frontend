@@ -2522,11 +2522,16 @@
     },
     "sqliteRestore": {
       "button": "Ripristina Database",
+      "latestBackupButton": "Ripristina Ultimo Backup Locale",
+      "latestBackupNotFound": "Nessun backup automatico locale trovato.",
+      "latestBackupConfirmTitle": "Ripristina Ultimo Backup Locale",
+      "latestBackupConfirmMessage": "Questo sostituirà il database corrente con l'ultimo backup automatico locale. Tutti i dati attuali verranno persi. Sei sicuro?",
       "confirmTitle": "Ripristina Database",
       "confirmMessage": "Questo sostituirà il database corrente con il file di backup. Tutti i dati attuali verranno persi. Sei sicuro?",
       "restoreButton": "Ripristina",
       "success": "Ripristino Completato",
       "successMessage": "Database ripristinato con successo. Ricarica l'app.",
+      "latestBackupSuccessMessage": "Database ripristinato dall'ultimo backup locale ({{name}}).",
       "error": "Errore durante il ripristino: {{error}}",
       "webNotSupported": "Il ripristino del database è disponibile solo su piattaforme mobili"
     },

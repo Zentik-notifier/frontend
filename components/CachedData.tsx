@@ -25,6 +25,7 @@ import DetailCollapsibleSection from "./ui/DetailCollapsibleSection";
 import DetailModal from "./ui/DetailModal";
 import PaperScrollView from "./ui/PaperScrollView";
 import { exportSQLiteDatabaseToFile, importSQLiteDatabaseFromFile, deleteSQLiteDatabase } from "@/services/db-setup";
+import { getLatestAutoDbBackup, restoreLatestAutoDbBackup } from "@/services/db-auto-backup";
 
 type DetailRecord = {
   type: "bucket" | "notification" | "log" | "setting" | "media";
@@ -77,6 +78,7 @@ export default function CachedData() {
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [latestAutoBackupName, setLatestAutoBackupName] = useState<string | null>(null);
 
   const {
     handleExportNotifications,
@@ -88,6 +90,20 @@ export default function CachedData() {
   const refreshData = useCallback(async () => {
     await refetch();
   }, [refetch]);
+
+  const refreshLatestAutoBackup = useCallback(async () => {
+    if (Platform.OS === 'web') return;
+    try {
+      const latest = await getLatestAutoDbBackup();
+      setLatestAutoBackupName(latest?.name ?? null);
+    } catch {
+      setLatestAutoBackupName(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshLatestAutoBackup();
+  }, [refreshLatestAutoBackup]);
 
   // === NOTIFICATIONS SECTION ===
 
@@ -1269,6 +1285,55 @@ export default function CachedData() {
     );
   }, [t, refreshData]);
 
+  const handleRestoreLatestAutoBackup = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert(t("common.error"), t("cachedData.sqliteRestore.webNotSupported"));
+      return;
+    }
+
+    if (!latestAutoBackupName) {
+      Alert.alert(t("common.error"), t("cachedData.sqliteRestore.latestBackupNotFound"));
+      return;
+    }
+
+    Alert.alert(
+      t("cachedData.sqliteRestore.latestBackupConfirmTitle"),
+      t("cachedData.sqliteRestore.latestBackupConfirmMessage"),
+      [
+        {
+          text: t("common.cancel"),
+          style: "cancel",
+        },
+        {
+          text: t("cachedData.sqliteRestore.restoreButton"),
+          style: "destructive",
+          onPress: async () => {
+            setIsRestoring(true);
+            try {
+              const restored = await restoreLatestAutoDbBackup();
+
+              Alert.alert(
+                t("cachedData.sqliteRestore.success"),
+                t("cachedData.sqliteRestore.latestBackupSuccessMessage", { name: restored.name })
+              );
+
+              await refreshData();
+              await refreshLatestAutoBackup();
+            } catch (error: any) {
+              console.error('SQLite latest-backup restore failed:', error);
+              Alert.alert(
+                t("common.error"),
+                t("cachedData.sqliteRestore.error", { error: error?.message || String(error) })
+              );
+            } finally {
+              setIsRestoring(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [t, latestAutoBackupName, refreshData, refreshLatestAutoBackup]);
+
   return (
     <PaperScrollView onRefresh={refreshData} loading={isLoading}>
       <Text
@@ -1311,6 +1376,15 @@ export default function CachedData() {
                 style={{ width: '100%' }}
               >
                 {t("cachedData.sqliteRestore.button")}
+              </Button>
+              <Button
+                mode="outlined"
+                icon="history"
+                onPress={handleRestoreLatestAutoBackup}
+                disabled={isBackingUp || isRestoring || isResetting || !latestAutoBackupName}
+                style={{ width: '100%' }}
+              >
+                {t("cachedData.sqliteRestore.latestBackupButton")}
               </Button>
               <Button
                 mode="outlined"

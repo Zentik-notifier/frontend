@@ -2291,11 +2291,16 @@
     },
     "sqliteRestore": {
       "button": "Restore Database",
+      "latestBackupButton": "Restore Latest Local Backup",
+      "latestBackupNotFound": "No local automatic backup found yet.",
+      "latestBackupConfirmTitle": "Restore Latest Local Backup",
+      "latestBackupConfirmMessage": "This will replace your current database with the latest automatic local backup. All current data will be lost. Are you sure?",
       "confirmTitle": "Restore Database",
       "confirmMessage": "This will replace your current database with the backup file. All current data will be lost. Are you sure?",
       "restoreButton": "Restore",
       "success": "Restore Successful",
       "successMessage": "Database restored successfully. Please refresh the app.",
+      "latestBackupSuccessMessage": "Database restored from latest local backup ({{name}}).",
       "error": "Restore failed: {{error}}",
       "webNotSupported": "Database restore is only available on mobile platforms"
     },
