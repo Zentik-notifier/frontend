@@ -539,22 +539,28 @@ public class KeychainAccess {
     public static func getBadgeCountFromKeychain() -> Int {
         guard let countString = DatabaseAccess.getSettingValue(key: "auth_badgeCount"),
               let count = Int(countString) else {
-            print("🔑 [KeychainAccess] ℹ️ No badge count found in database, returning 0")
+            if CloudKitManagerBase.isCloudKitDebugEnabled() {
+                print("🔑 [KeychainAccess] ℹ️ No badge count found in database, returning 0")
+            }
             return 0
         }
-        
-        print("🔑 [KeychainAccess] ✅ Retrieved badge count from database: \(count)")
+
+        if CloudKitManagerBase.isCloudKitDebugEnabled() {
+            print("🔑 [KeychainAccess] ✅ Retrieved badge count from database: \(count)")
+        }
         return count
     }
     
     /// Save badge count to SQLite database (replaces keychain storage)
     public static func saveBadgeCountToKeychain(count: Int) {
         let success = DatabaseAccess.setSettingValue(key: "auth_badgeCount", value: String(count))
-        
-        if success {
-            print("🔑 [KeychainAccess] ✅ Saved badge count to database: \(count)")
-        } else {
-            print("🔑 [KeychainAccess] ❌ Failed to save badge count to database")
+
+        if CloudKitManagerBase.isCloudKitDebugEnabled() {
+            if success {
+                print("🔑 [KeychainAccess] ✅ Saved badge count to database: \(count)")
+            } else {
+                print("🔑 [KeychainAccess] ❌ Failed to save badge count to database")
+            }
         }
     }
     

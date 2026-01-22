@@ -1291,14 +1291,14 @@ export default function CachedData() {
             >
               {t("cachedData.sqlite.description")}
             </Text>
-            <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
+            <View style={{ flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
               <Button
                 mode="contained"
                 icon="database-export"
                 onPress={handleBackupSQLite}
                 loading={isBackingUp}
                 disabled={isBackingUp || isRestoring || isResetting}
-                style={{ flex: 1, minWidth: '30%' }}
+                style={{ width: '100%' }}
               >
                 {t("cachedData.sqliteBackup.button")}
               </Button>
@@ -1308,7 +1308,7 @@ export default function CachedData() {
                 onPress={handleRestoreSQLite}
                 loading={isRestoring}
                 disabled={isBackingUp || isRestoring || isResetting}
-                style={{ flex: 1, minWidth: '30%' }}
+                style={{ width: '100%' }}
               >
                 {t("cachedData.sqliteRestore.button")}
               </Button>
@@ -1320,7 +1320,7 @@ export default function CachedData() {
                 disabled={isBackingUp || isRestoring || isResetting}
                 buttonColor={theme.colors.error}
                 textColor={theme.colors.onError}
-                style={{ flex: 1, minWidth: '30%' }}
+                style={{ width: '100%' }}
               >
                 {t("cachedData.sqliteReset.button")}
               </Button>

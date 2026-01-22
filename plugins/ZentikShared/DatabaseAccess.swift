@@ -283,6 +283,68 @@ public class DatabaseAccess {
             }
         }
     }
+
+    /// Set notification read_at explicitly (used by CloudKit incremental sync)
+    /// - Parameters:
+    ///   - notificationId: The notification ID to update
+    ///   - readAtMs: Timestamp in milliseconds since epoch, or nil to mark unread
+    ///   - source: Source identifier for logging (default: "DatabaseAccess")
+    ///   - completion: Completion handler with success status
+    public static func setNotificationReadAt(
+        notificationId: String,
+        readAtMs: Int64?,
+        source: String = "DatabaseAccess",
+        completion: @escaping (Bool) -> Void = { _ in }
+    ) {
+        performDatabaseOperation(
+            type: .write,
+            name: "SetReadAt",
+            source: source,
+            operation: { db, isVerbose in
+                let sql: String
+                if readAtMs == nil {
+                    sql = "UPDATE notifications SET read_at = NULL WHERE id = ?"
+                } else {
+                    sql = "UPDATE notifications SET read_at = ? WHERE id = ?"
+                }
+
+                var stmt: OpaquePointer?
+                let prepareResult = sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+                guard prepareResult == SQLITE_OK else {
+                    let errorMsg = String(cString: sqlite3_errmsg(db))
+                    return .failure("Failed to prepare statement: \(errorMsg) (code: \(prepareResult))")
+                }
+                defer { sqlite3_finalize(stmt) }
+
+                if let readAtMs {
+                    sqlite3_bind_int64(stmt, 1, readAtMs)
+                    sqlite3_bind_text(stmt, 2, (notificationId as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                } else {
+                    sqlite3_bind_text(stmt, 1, (notificationId as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                }
+
+                let result = sqlite3_step(stmt)
+                let changes = sqlite3_changes(db)
+                if isVerbose {
+                    print("📱 [DatabaseAccess] 🔍 [SetReadAt] sqlite3_step result: \(result) (SQLITE_DONE=\(SQLITE_DONE)), changes: \(changes)")
+                }
+
+                if result == SQLITE_DONE {
+                    return .success
+                } else {
+                    let errorMsg = String(cString: sqlite3_errmsg(db))
+                    return .failure("Step failed: \(result) - \(errorMsg)")
+                }
+            }
+        ) { (dbResult: DatabaseOperationResult) in
+            switch dbResult {
+            case .success:
+                completion(true)
+            default:
+                completion(false)
+            }
+        }
+    }
     
     /// Fetch a single notification by ID from database
     /// Returns notification data as dictionary with all fields parsed
@@ -910,12 +972,16 @@ public class DatabaseAccess {
         if sqlite3_step(stmt) == SQLITE_ROW {
             if let cString = sqlite3_column_text(stmt, 0) {
                 let value = String(cString: cString)
-                print("📱 [DatabaseAccess] ✅ Retrieved setting '\(key)': \(value)")
+                if CloudKitManagerBase.isCloudKitDebugEnabled() {
+                    print("📱 [DatabaseAccess] ✅ Retrieved setting '\(key)': \(value)")
+                }
                 return value
             }
         }
-        
-        print("📱 [DatabaseAccess] ℹ️ Setting '\(key)' not found")
+
+        if CloudKitManagerBase.isCloudKitDebugEnabled() {
+            print("📱 [DatabaseAccess] ℹ️ Setting '\(key)' not found")
+        }
         return nil
     }
     
@@ -957,7 +1023,9 @@ public class DatabaseAccess {
         sqlite3_bind_int64(stmt, 3, timestamp)
         
         if sqlite3_step(stmt) == SQLITE_DONE {
-            print("📱 [DatabaseAccess] ✅ Saved setting '\(key)': \(value)")
+            if CloudKitManagerBase.isCloudKitDebugEnabled() {
+                print("📱 [DatabaseAccess] ✅ Saved setting '\(key)': \(value)")
+            }
             return true
         } else {
             let errorMsg = String(cString: sqlite3_errmsg(db))

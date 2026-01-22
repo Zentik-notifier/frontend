@@ -90,6 +90,20 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
 
 // Create cache with dynamic URL resolution
 const createCacheDynamic = () => new InMemoryCache({
+  typePolicies: {
+    Query: {
+      fields: {
+        // This query is not paginated/parameterized in our schema. We intentionally
+        // replace the full list on each fetch to avoid Apollo's "data may be lost"
+        // warning when the backend returns a different subset/order.
+        notifications: {
+          merge(_existing, incoming) {
+            return incoming;
+          },
+        },
+      },
+    },
+  },
   dataIdFromObject: (object: any) => {
     if (object.id) {
       return `${object.__typename}:${object.id}`;

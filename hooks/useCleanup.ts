@@ -5,12 +5,24 @@ import { cleanupGalleryBySettings, mediaCache } from "@/services/media-cache-ser
 import { cleanupNotificationsBySettings, getAllNotificationsFromCache } from "@/services/notifications-repository";
 import { settingsService } from "@/services/settings-service";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { getAllBuckets } from "@/db/repositories/buckets-repository";
 import { Platform } from "react-native";
 import { useNotificationActions } from "./useNotificationActions";
 import { useGetVersionsInfo } from "./useGetVersionsInfo";
 import iosBridgeService from "@/services/ios-bridge";
+
+// NOTE: `useCleanup()` is used in multiple places (AppContext + push/background hooks).
+// A per-hook `useRef` lock won't prevent concurrent cleanups across instances.
+// Keep a module-level lock + throttling to avoid repeated runs/log spam.
+let globalCleanupInFlight: Promise<void> | null = null;
+let globalCleanupLastStartedAtMs = 0;
+let globalCleanupLastFinishedAtMs = 0;
+const GLOBAL_CLEANUP_MIN_INTERVAL_MS = 12_000;
+
+let globalCloudKitInFlight: Promise<void> | null = null;
+let globalCloudKitLastAttemptAtMs = 0;
+const GLOBAL_CLOUDKIT_MIN_INTERVAL_MS = 45_000;
 
 // Polyfill for requestIdleCallback (not available in React Native)
 const requestIdleCallbackPolyfill = (callback: () => void) => {
@@ -33,19 +45,28 @@ export const useCleanup = () => {
     const notificationCallbacks = useNotificationActions();
     const { versions } = useGetVersionsInfo();
 
-    // Use ref to track if cleanup is currently running
-    const isCleanupRunningRef = useRef(false);
-
     const cleanup = useCallback(async (props?: CleanupProps) => {
         const { force, skipNetwork = false, onRotateDeviceKeys } = props || {};
-        // Prevent multiple concurrent cleanup operations
-        if (isCleanupRunningRef.current) {
+        const nowMs = Date.now();
+
+        const authDataAtStart = settingsService.getAuthData();
+        const hasAuthAtStart = !!authDataAtStart.accessToken;
+        const effectiveSkipNetwork = skipNetwork || !hasAuthAtStart;
+
+        // Global in-flight lock across all `useCleanup()` hook instances.
+        if (globalCleanupInFlight) {
+            return globalCleanupInFlight;
+        }
+
+        // Global throttle to prevent rapid repeat triggers (AppState/background tasks).
+        if (!force && nowMs - globalCleanupLastStartedAtMs < GLOBAL_CLEANUP_MIN_INTERVAL_MS) {
             return;
         }
 
-        isCleanupRunningRef.current = true;
+        globalCleanupLastStartedAtMs = nowMs;
 
-        try {
+        globalCleanupInFlight = (async () => {
+            try {
             const shouldCleanup = !!settingsService.shouldRunCleanup();
 
             const formatTime = (ms: number): string => {
@@ -135,7 +156,8 @@ export const useCleanup = () => {
             await waitRAF();
 
             // 3. Load data from network and merging (if not skipped)
-            if (!skipNetwork) {
+            // If user is logged out, force cache-only mode to avoid noisy failing requests.
+            if (!effectiveSkipNetwork) {
                 const timings = await executeWithRAF(
                     async () => {
                         return await refreshAll(false);
@@ -163,8 +185,9 @@ export const useCleanup = () => {
             try {
                 const authData = settingsService.getAuthData();
                 const deviceId = authData.deviceId;
+                const hasAuth = !!authData.accessToken;
 
-                if (deviceId) {
+                if (hasAuth && deviceId) {
                     await notificationCallbacks.useUpdateUserDevice({
                         deviceId,
                         metadata: JSON.stringify(versions),
@@ -172,7 +195,7 @@ export const useCleanup = () => {
 
                     console.log("[Cleanup] ✓ Updated device metadata", versions);
                 } else {
-                    console.log("[Cleanup] Skipping device metadata update: no deviceId in auth data");
+                    console.log("[Cleanup] Skipping device metadata update: missing auth/deviceId");
                 }
             } catch (error) {
                 console.warn("[Cleanup] Failed to update device metadata", error);
@@ -256,8 +279,22 @@ export const useCleanup = () => {
             ).catch(() => { });
 
             // 9. CloudKit initialization and sync (iOS only)
-            if (Platform.OS === 'ios' && !skipNetwork) {
-                await executeWithRAF(
+            // Must be independent from app login / backend network refresh:
+            // CloudKit is a native/iCloud pipeline and should still run when `skipNetwork` is true.
+            if (Platform.OS === 'ios') {
+                const cloudKitNowMs = Date.now();
+
+                if (
+                    !force &&
+                    (globalCloudKitInFlight || cloudKitNowMs - globalCloudKitLastAttemptAtMs < GLOBAL_CLOUDKIT_MIN_INTERVAL_MS)
+                ) {
+                    // Avoid spamming schema/subscription/sync logs if cleanup gets triggered repeatedly.
+                    return;
+                }
+
+                globalCloudKitLastAttemptAtMs = cloudKitNowMs;
+
+                globalCloudKitInFlight = executeWithRAF(
                     async () => {
                         try {
                             // Check if CloudKit is enabled
@@ -306,12 +343,21 @@ export const useCleanup = () => {
                         }
                     },
                     'CloudKit initialization and sync'
-                ).catch(() => { });
+                )
+                    .catch(() => { })
+                    .finally(() => {
+                        globalCloudKitInFlight = null;
+                    });
+
+                await globalCloudKitInFlight;
             }
-        } finally {
-            // Always release the lock when cleanup completes or fails
-            isCleanupRunningRef.current = false;
-        }
+            } finally {
+                globalCleanupLastFinishedAtMs = Date.now();
+                globalCleanupInFlight = null;
+            }
+        })();
+
+        return globalCleanupInFlight;
     }, [queryClient, refreshAll, notificationCallbacks, versions]);
 
     return { cleanup };

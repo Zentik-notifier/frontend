@@ -83,6 +83,10 @@
       "description": "Configure the display of hints and guides in the app",
       "showHintsTitle": "Show Hints"
     },
+    "watch": {
+      "title": "Watch",
+      "description": "Apple Watch related settings, including watch authentication."
+    },
     "cloudKit": {
       "title": "iCloud",
       "description": "Synchronize your notifications and buckets with iCloud to keep them in sync across your Apple devices. Sync is required to have notifications available on Apple Watch.",
@@ -135,8 +139,10 @@
       "resyncTitle": "ReSync to CloudKit",
       "resyncMessage": "This will delete all data from CloudKit and re-upload everything from scratch. This may take a while. Continue?",
       "resyncConfirm": "ReSync",
-      "resyncSuccess": "ReSync completed successfully. Synced {{notifications}} notifications and {{buckets}} buckets.",
+      "resyncSuccess": "ReSync completed. CloudKit now contains {{notifications}} notifications and {{buckets}} buckets.",
       "resyncError": "Failed to resync CloudKit. Please try again.",
+      "debugLogsTitle": "Debug logs",
+      "debugLogsDescription": "Enable verbose CloudKit logging (useful for troubleshooting).",
       "notificationLimitTitle": "Notification Limit",
       "notificationLimitDescription": "Set the maximum number of notifications to keep in CloudKit. Older notifications will be automatically removed. Leave empty for unlimited.",
       "notificationLimitInputLabel": "Limit (10-10000)",
@@ -151,11 +157,11 @@
     },
     "watchToken": {
       "title": "Apple Watch Token",
-      "description": "Generate a token for your Apple Watch to execute notification actions directly from the watch. The token allows the watch to perform actions like mark as read, delete, and webhook calls.",
+      "description": "Manage the token used by the Apple Watch app to perform notification actions (and send token + server address to the Watch).",
       "generateButton": "Generate Token",
       "regenerateButton": "Regenerate Token",
       "deleteButton": "Delete Token",
-      "sendSettingsButton": "Send Settings to Watch",
+      "sendSettingsButton": "Update Watch data",
       "tokenExists": "Token exists",
       "noToken": "No token generated",
       "generating": "Generating...",
@@ -171,7 +177,7 @@
       "deleteConfirmMessage": "Are you sure you want to delete the Watch token? The watch will no longer be able to execute notification actions.",
       "regenerateConfirmTitle": "Regenerate Watch Token?",
       "regenerateConfirmMessage": "This will delete the current token and create a new one. The watch will need to receive the new token.",
-      "watchAppRequired": "Please open the Watch app to receive the token and server address."
+      "watchAppRequired": "Please open the Watch app to receive/update the settings."
     },
     "privacy": {
       "title": "Privacy",
@@ -871,6 +877,7 @@
       "createError": "Failed to create access token",
       "updateError": "Failed to update access token",
       "noTokenId": "No token ID provided",
+      "invalidTokenId": "Invalid token ID",
       "tokenNotFound": "Access token not found",
       "tokenId": "Token ID",
       "tokenIdCopied": "Token ID copied to clipboard",
@@ -2831,12 +2838,28 @@
   "databaseRecovery": {
     "title": "Database Corruption Detected",
     "description": "The database appears to be corrupted. You can attempt to recover your data from the current database before resetting it.",
+    "choiceDescription": "The database appears to be corrupted. Choose how to recover.",
     "warning": "⚠️ Warning: If recovery fails, you may lose your local data. Make sure you have a backup or that your data is synced with the server.",
     "recoverButton": "Recover Data",
     "recovering": "Recovering...",
+    "recoverFromBackendButton": "Recover from backend",
+    "recoverFromLocalButton": "Repair current database",
+    "recoverFromICloudButton": "Download notifications from iCloud",
+    "iCloudOnlyOnIOS": "iCloud recovery is only available on iOS.",
     "recoverySuccess": "Data recovery completed successfully",
     "recoveryError": "Failed to recover data",
-    "recoveryInProgress": "Recovery in progress, please wait..."
+    "recoveryInProgress": "Recovery in progress, please wait...",
+    "status": {
+      "starting": "Starting…",
+      "backup": "Creating a raw database backup…",
+      "export": "Exporting database…",
+      "import": "Rebuilding database…",
+      "reset": "Resetting local database…",
+      "fetch_backend": "Downloading data from backend…",
+      "save_backend": "Saving downloaded data locally…",
+      "fetch_cloudkit": "Downloading notifications from iCloud…",
+      "upsert_notifications": "Saving notifications locally…"
+    }
   },
   "notFound": {
     "title": "Page Not Found",

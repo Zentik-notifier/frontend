@@ -83,6 +83,10 @@
       "description": "Configura la visualizzazione dei suggerimenti e delle guide nell'app",
       "showHintsTitle": "Mostra Suggerimenti"
     },
+    "watch": {
+      "title": "Watch",
+      "description": "Impostazioni relative ad Apple Watch, incluse l'autenticazione del watch."
+    },
     "cloudKit": {
       "title": "iCloud",
       "description": "Sincronizza le tue notifiche e i bucket con iCloud per mantenerli sincronizzati tra i tuoi dispositivi Apple. La sincronizzazione è richiesta per avere le notifiche disponibili su Apple Watch.",
@@ -135,8 +139,10 @@
       "resyncTitle": "ReSincronizza con CloudKit",
       "resyncMessage": "Questo eliminerà tutti i dati da CloudKit e ricaricherà tutto da zero. Questo potrebbe richiedere del tempo. Continuare?",
       "resyncConfirm": "ReSincronizza",
-      "resyncSuccess": "ReSincronizzazione completata con successo. Sincronizzate {{notifications}} notifiche e {{buckets}} bucket.",
+      "resyncSuccess": "ReSincronizzazione completata. In CloudKit ora ci sono {{notifications}} notifiche e {{buckets}} bucket.",
       "resyncError": "Impossibile re-sincronizzare CloudKit. Riprova.",
+      "debugLogsTitle": "Log di debug",
+      "debugLogsDescription": "Abilita log CloudKit verbosi (utile per troubleshooting).",
       "notificationLimitTitle": "Limite Notifiche",
       "notificationLimitDescription": "Imposta il numero massimo di notifiche da conservare in CloudKit. Le notifiche più vecchie verranno rimosse automaticamente. Lascia vuoto per illimitato.",
       "notificationLimitInputLabel": "Limite (10-10000)",
@@ -151,11 +157,11 @@
     },
     "watchToken": {
       "title": "Token Apple Watch",
-      "description": "Genera un token per il tuo Apple Watch per eseguire azioni sulle notifiche direttamente dall'orologio. Il token consente all'orologio di eseguire azioni come segna come letto, elimina e chiamate webhook.",
+      "description": "Gestisci il token usato dall'app Apple Watch per eseguire azioni sulle notifiche (e invia token + indirizzo server al Watch).",
       "generateButton": "Genera Token",
       "regenerateButton": "Rigenera Token",
       "deleteButton": "Elimina Token",
-      "sendSettingsButton": "Invia Impostazioni al Watch",
+      "sendSettingsButton": "Aggiorna dati Watch",
       "tokenExists": "Token esistente",
       "noToken": "Nessun token generato",
       "generating": "Generazione...",
@@ -171,7 +177,7 @@
       "deleteConfirmMessage": "Sei sicuro di voler eliminare il token Watch? L'orologio non sarà più in grado di eseguire azioni sulle notifiche.",
       "regenerateConfirmTitle": "Rigenerare il Token Watch?",
       "regenerateConfirmMessage": "Questo eliminerà il token corrente e ne creerà uno nuovo. L'orologio dovrà ricevere il nuovo token.",
-      "watchAppRequired": "Apri l'app del Watch per ricevere il token e l'indirizzo del server."
+      "watchAppRequired": "Apri l'app del Watch per ricevere/aggiornare le impostazioni."
     },
     "privacy": {
       "title": "Privacy",
@@ -942,6 +948,7 @@
       "createError": "Impossibile creare il token di accesso",
       "updateError": "Impossibile aggiornare il token di accesso",
       "noTokenId": "ID token non fornito",
+      "invalidTokenId": "ID token non valido",
       "tokenNotFound": "Token di accesso non trovato",
       "tokenId": "ID Token",
       "tokenIdCopied": "ID token copiato negli appunti",
@@ -2836,11 +2843,27 @@
   "databaseRecovery": {
     "title": "Corruzione Database Rilevata",
     "description": "Il database sembra essere corrotto. Puoi tentare di recuperare i tuoi dati dal database corrente prima di resettarlo.",
+    "choiceDescription": "Il database sembra essere corrotto. Scegli come recuperare.",
     "warning": "⚠️ Attenzione: Se il recupero fallisce, potresti perdere i tuoi dati locali. Assicurati di avere un backup o che i tuoi dati siano sincronizzati con il server.",
     "recoverButton": "Recupera Dati",
     "recovering": "Recupero in corso...",
+    "recoverFromBackendButton": "Recupera dal backend",
+    "recoverFromLocalButton": "Ripara database corrente",
+    "recoverFromICloudButton": "Scarica notifiche da iCloud",
+    "iCloudOnlyOnIOS": "Il recupero da iCloud è disponibile solo su iOS.",
     "recoverySuccess": "Recupero dati completato con successo",
     "recoveryError": "Impossibile recuperare i dati",
-    "recoveryInProgress": "Recupero in corso, attendere..."
+    "recoveryInProgress": "Recupero in corso, attendere...",
+    "status": {
+      "starting": "Avvio…",
+      "backup": "Creazione backup grezzo del database…",
+      "export": "Esportazione database…",
+      "import": "Ricostruzione database…",
+      "reset": "Reset del database locale…",
+      "fetch_backend": "Download dati dal backend…",
+      "save_backend": "Salvataggio dati in locale…",
+      "fetch_cloudkit": "Download notifiche da iCloud…",
+      "upsert_notifications": "Salvataggio notifiche in locale…"
+    }
   }
 }

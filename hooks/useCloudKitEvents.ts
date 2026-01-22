@@ -3,16 +3,20 @@
  * Handles CloudKit subscription notifications and updates SQLite/React Query
  */
 
-import { useEffect } from 'react';
-import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { AppState, NativeEventEmitter, NativeModules, Platform } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import iosBridgeService from '@/services/ios-bridge';
+import { settingsService } from '@/services/settings-service';
 import { notificationKeys } from './notifications/useNotificationQueries';
 
 const { CloudKitSyncBridge } = NativeModules;
 
 export function useCloudKitEvents() {
   const queryClient = useQueryClient();
+  const pushSyncInFlightRef = useRef<Promise<any> | null>(null);
+
+  const isDebugEnabled = () => settingsService.getSettings().cloudKitDebug === true;
 
   useEffect(() => {
     if (Platform.OS !== 'ios' || !CloudKitSyncBridge) {
@@ -21,8 +25,17 @@ export function useCloudKitEvents() {
 
     const eventEmitter = new NativeEventEmitter(CloudKitSyncBridge);
 
+    console.log('[CloudKitEvents] Listener registered');
+
     const handleNotificationUpdated = async (event: { notificationId: string }) => {
-      console.log('[CloudKitEvents] Notification updated:', event.notificationId);
+      console.log('[CloudKitEvents] cloudKitNotificationUpdated', {
+        notificationId: event.notificationId,
+        appState: AppState.currentState,
+        ts: Date.now(),
+      });
+      if (isDebugEnabled()) {
+        console.log('[CloudKitEvents] Notification updated:', event.notificationId);
+      }
 
       try {
         // Invalidate React Query to refresh UI immediately
@@ -36,7 +49,14 @@ export function useCloudKitEvents() {
     };
 
     const handleNotificationDeleted = async (event: { notificationId: string }) => {
-      console.log('[CloudKitEvents] Notification deleted:', event.notificationId);
+      console.log('[CloudKitEvents] cloudKitNotificationDeleted', {
+        notificationId: event.notificationId,
+        appState: AppState.currentState,
+        ts: Date.now(),
+      });
+      if (isDebugEnabled()) {
+        console.log('[CloudKitEvents] Notification deleted:', event.notificationId);
+      }
 
       try {
         // Invalidate React Query to refresh UI immediately
@@ -52,32 +72,92 @@ export function useCloudKitEvents() {
     const handleRecordChanged = async (event: {
       recordType: string;
       recordId: string;
-      reason: 'recordCreated' | 'recordUpdated' | 'recordDeleted';
+      // NOTE: native sends various reasons (e.g. push, push_zone, incremental_changed, ...)
+      reason: string;
       recordData?: any;
     }) => {
-      console.log('[CloudKitEvents] Record changed:', event);
+      console.log('[CloudKitEvents] cloudKitRecordChanged', {
+        recordType: event.recordType,
+        recordId: event.recordId,
+        reason: event.reason,
+        hasRecordData: !!event.recordData,
+        appState: AppState.currentState,
+        ts: Date.now(),
+      });
+      if (isDebugEnabled()) {
+        console.log('[CloudKitEvents] Record changed:', event);
+      }
 
       try {
-        // Perform incremental sync to fetch the updated record and update SQLite
-        const result = await iosBridgeService.syncFromCloudKitIncremental(false);
-        
-        if (result.success) {
-          console.log(`[CloudKitEvents] ✅ Incremental sync completed - Updated: ${result.updatedCount} records`);
-          
-          // Invalidate React Query to refresh UI
-          if (event.recordType === 'Notification') {
+        const reason = event.reason || '';
+
+        // CRITICAL: CloudKit incremental sync emits `cloudKitRecordChanged` events itself.
+        // If we call incremental sync in response to those, it becomes an infinite loop.
+        const isIncrementalOutputEvent = reason.startsWith('incremental_');
+        const isPushDrivenEvent = reason.startsWith('push') || reason === 'subscription' || reason === 'remote_notification';
+
+        // For incremental output events, just invalidate UI caches (SQLite is already updated by native).
+        if (isIncrementalOutputEvent) {
+          console.log('[CloudKitEvents] Incremental output event -> invalidate only', {
+            recordType: event.recordType,
+            recordId: event.recordId,
+            reason,
+          });
+          const recordType = event.recordType;
+          if (recordType === 'Notifications' || recordType === 'Notification') {
             queryClient.invalidateQueries({ queryKey: notificationKeys.detail(event.recordId) });
             queryClient.invalidateQueries({ queryKey: notificationKeys.lists() });
             queryClient.invalidateQueries({ queryKey: notificationKeys.stats() });
             queryClient.invalidateQueries({ queryKey: ['app-state'] });
-          } else if (event.recordType === 'Bucket') {
+          } else if (recordType === 'Buckets' || recordType === 'Bucket') {
+            queryClient.invalidateQueries({ queryKey: notificationKeys.bucketsStats() });
+            queryClient.invalidateQueries({ queryKey: ['app-state'] });
+          }
+          return;
+        }
+
+        // Only push-driven events should trigger an incremental fetch.
+        if (!isPushDrivenEvent) {
+          console.log('[CloudKitEvents] Non-push event -> ignoring', { reason });
+          return;
+        }
+
+        // Deduplicate concurrent push events (burst of notifications).
+        if (pushSyncInFlightRef.current) {
+          // console.log('[CloudKitEvents] Push sync already in-flight; awaiting');
+          await pushSyncInFlightRef.current;
+          return;
+        }
+
+        pushSyncInFlightRef.current = iosBridgeService.syncFromCloudKitIncremental(false);
+        console.log('[CloudKitEvents] Starting incremental sync (push-driven)');
+        const result = await pushSyncInFlightRef.current;
+        pushSyncInFlightRef.current = null;
+
+        console.log('[CloudKitEvents] Incremental sync result', result);
+        
+        if (result.success) {
+          if (isDebugEnabled()) {
+            console.log(`[CloudKitEvents] ✅ Incremental sync completed - Updated: ${result.updatedCount} records`);
+          }
+          
+          // Invalidate React Query to refresh UI
+          if (event.recordType === 'Notifications' || event.recordType === 'Notification') {
+            queryClient.invalidateQueries({ queryKey: notificationKeys.detail(event.recordId) });
+            queryClient.invalidateQueries({ queryKey: notificationKeys.lists() });
+            queryClient.invalidateQueries({ queryKey: notificationKeys.stats() });
+            queryClient.invalidateQueries({ queryKey: ['app-state'] });
+          } else if (event.recordType === 'Buckets' || event.recordType === 'Bucket') {
             queryClient.invalidateQueries({ queryKey: notificationKeys.bucketsStats() });
             queryClient.invalidateQueries({ queryKey: ['app-state'] });
           }
         } else {
-          console.warn('[CloudKitEvents] ⚠️ Incremental sync failed');
+          if (isDebugEnabled()) {
+            console.warn('[CloudKitEvents] ⚠️ Incremental sync failed');
+          }
         }
       } catch (error) {
+        pushSyncInFlightRef.current = null;
         console.error('[CloudKitEvents] ❌ Error handling record change:', error);
       }
     };
@@ -90,14 +170,24 @@ export function useCloudKitEvents() {
       phase: 'starting' | 'syncing' | 'completed';
     }) => {
       const step = event.step || 'unknown';
-      console.log(`[CloudKitEvents] Sync progress [${step}]: ${event.currentItem}/${event.totalItems} ${event.itemType} (${event.phase})`);
+      if (isDebugEnabled()) {
+        console.log(`[CloudKitEvents] Sync progress [${step}]: ${event.currentItem}/${event.totalItems} ${event.itemType} (${event.phase})`);
+      }
       
       // You can update UI here, e.g., show progress bar
       // Example: updateProgressBar(event.currentItem, event.totalItems, event.itemType, event.step);
     };
 
     const handleNotificationsBatchUpdated = async (event: { notificationIds: string[]; count: number }) => {
-      console.log(`[CloudKitEvents] Batch notifications updated: ${event.count} notifications`);
+      console.log('[CloudKitEvents] cloudKitNotificationsBatchUpdated', {
+        count: event.count,
+        idsPreview: event.notificationIds.slice(0, 5),
+        appState: AppState.currentState,
+        ts: Date.now(),
+      });
+      if (isDebugEnabled()) {
+        console.log(`[CloudKitEvents] Batch notifications updated: ${event.count} notifications`);
+      }
 
       try {
         // Invalidate React Query to refresh UI immediately

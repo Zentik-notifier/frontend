@@ -68,9 +68,10 @@ function copySharedFilesToTarget(
   }
 
   // Files to exclude from extensions (React Native bridges)
-  // CloudKitManager.swift is needed in both NSE and NCE for NotificationActionHandler
   const excludedFiles = [
-    'CloudKitSyncBridge.swift'  // React Native bridge, not needed in extensions
+    'CloudKitSyncBridge.swift', // React Native bridge, not needed in extensions
+    'CloudKitManager.swift', // Legacy monolith (removed)
+    'WatchCloudKit.swift' // Watch-only orchestrator
   ];
 
   // Read all .swift files from the ZentikShared directory
@@ -119,9 +120,10 @@ async function addAppExtensionTarget(
   const pbxProject = newConfig.modResults;
 
   // Files to exclude from extensions (React Native bridges)
-  // CloudKitManager.swift is needed in both NSE and NCE for NotificationActionHandler
   const excludedFiles = [
-    'CloudKitSyncBridge.swift'  // React Native bridge, not needed in extensions
+    'CloudKitSyncBridge.swift', // React Native bridge, not needed in extensions
+    'CloudKitManager.swift', // Legacy monolith (removed)
+    'WatchCloudKit.swift' // Watch-only orchestrator
   ];
 
   const existingTargetKey = pbxProject.findTargetKey(targetName);

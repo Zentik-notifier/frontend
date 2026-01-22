@@ -37,10 +37,12 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
     () =>
       token.isExpired ||
       (token.expiresAt && new Date(token.expiresAt) < new Date()),
-    [token.isExpired, token.expiresAt]
+    [token.isExpired, token.expiresAt],
   );
 
   const hasToken = !!token.token;
+
+  const isWatchToken = token.scopes?.includes("watch");
 
   const scopedBuckets = useMemo(() => {
     if (!token.scopes || token.scopes.length === 0) return [];
@@ -51,10 +53,6 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
 
     return bucketsData?.buckets.filter((b) => bucketIds.includes(b.id)) || [];
   }, [token.scopes, bucketsData]);
-
-  const isWatchToken = useMemo(() => {
-    return token.scopes?.includes("watch") ?? false;
-  }, [token.scopes]);
 
   const handleEditToken = (tokenId: string) => {
     navigateToEditAccessToken(tokenId);
@@ -79,7 +77,7 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
     }
   };
 
-  const deleteAction = !isOffline && !isWatchToken
+  const deleteAction = !isOffline
     ? {
         icon: "delete" as const,
         label: t("accessTokens.item.delete"),
@@ -107,7 +105,7 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
     }
 
     // Disable edit for Watch token - it can only be managed from CloudKit settings
-    if (!isOffline && !isWatchToken) {
+    if (!isOffline) {
       items.push({
         id: "edit",
         label: t("accessTokens.item.edit"),
@@ -117,7 +115,7 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
     }
 
     return items;
-  }, [isOffline, hasToken, isWatchToken, t, token.id, handleEditToken, copyToken]);
+  }, [isOffline, hasToken, t, token.id, handleEditToken, copyToken]);
 
   return (
     <SwipeableItem

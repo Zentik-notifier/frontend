@@ -1,7 +1,7 @@
 import { ChangelogUpdatesModal } from "@/components/ChangelogUpdatesModal";
+import { DatabaseRecoveryModal } from "@/components/DatabaseRecoveryModal";
 import FeedbackModal from "@/components/FeedbackModal";
 import OnboardingModal from "@/components/Onboarding/OnboardingModal";
-import { databaseRecoveryEvents, DATABASE_CORRUPTION_DETECTED } from "@/services/database-recovery-events";
 import {
   ChangelogForModalFragment,
   DeviceInfoDto,
@@ -93,9 +93,6 @@ interface AppContextProps {
   latestChangelog: ChangelogForModalFragment | null;
   needsChangelogAppUpdateNotice: boolean;
   needsChangelogBackendBehindNotice: boolean;
-  showDatabaseRecoveryModal: boolean;
-  setShowDatabaseRecoveryModal: (show: boolean) => void;
-  handleDatabaseRecoveryRequest: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -130,7 +127,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const push = usePushNotifications(versions);
   const connectionStatus = useConnectionStatus(push);
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
-  const [showDatabaseRecoveryModal, setShowDatabaseRecoveryModal] = useState(false);
 
   useEffect(() => {
     const checkAndSetLocale = async () => {
@@ -547,8 +543,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
-      if (nextAppState === "active" && userId) {
-        console.log("[AppContext] App is active, cleaning up and syncing");
+      if (nextAppState === "active") {
+        const authData = settingsService.getAuthData();
+        const hasAuth = !!authData.accessToken;
+        const shouldSkipNetwork = !hasAuth;
+
+        console.log(
+          `[AppContext] App is active, cleaning up and syncing (skipNetwork=${shouldSkipNetwork})`
+        );
         logAppEvent({
           event: "app_opened",
           level: "info",
@@ -562,9 +564,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await processPendingNavigationIntent();
         await openSharedCacheDb();
 
-        await cleanup();
+        await cleanup({
+          skipNetwork: shouldSkipNetwork,
+          onRotateDeviceKeys: hasAuth ? push.registerDevice : undefined,
+        });
 
-        await connectionStatus.checkForUpdates();
+        if (hasAuth && userId) {
+          await connectionStatus.checkForUpdates();
+        }
       } else if (
         nextAppState === "inactive" &&
         userSettings.settings.notificationsPreferences?.markAsReadMode ===
@@ -662,26 +669,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setIsChangelogModalOpen(false);
   };
 
-  const handleDatabaseRecoveryRequest = async () => {
-    // TODO: Implement recovery logic
-    console.log('[AppContext] Database recovery requested');
-    // For now, just dismiss the modal
-    setShowDatabaseRecoveryModal(false);
-  };
-
-  // Listen for database corruption events from db-setup.ts
-  useEffect(() => {
-    const handleCorruptionDetected = () => {
-      console.log('[AppContext] Database corruption detected, showing recovery modal');
-      setShowDatabaseRecoveryModal(true);
-    };
-
-    databaseRecoveryEvents.on(DATABASE_CORRUPTION_DETECTED, handleCorruptionDetected);
-
-    return () => {
-      databaseRecoveryEvents.off(DATABASE_CORRUPTION_DETECTED, handleCorruptionDetected);
-    };
-  }, []);
 
   return (
     <AppContext.Provider
@@ -714,12 +701,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         latestChangelog,
         needsChangelogAppUpdateNotice,
         needsChangelogBackendBehindNotice,
-        showDatabaseRecoveryModal,
-        setShowDatabaseRecoveryModal,
-        handleDatabaseRecoveryRequest,
       }}
     >
       {children}
+      <DatabaseRecoveryModal />
       {isOnboardingOpen && (
         <OnboardingModal
           onClose={() => setIsOnboardingOpen(false)}

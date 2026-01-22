@@ -123,27 +123,33 @@ public struct WidgetNotification: Codable {
     public let bucketIconUrl: String?
     public let attachments: [WidgetAttachment]
     public let actions: [NotificationAction]
+
+    private static let iso8601Lock = NSLock()
+    private static let iso8601Fractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let iso8601NoFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
     
     /// Parsed Date from createdAt ISO8601 string
     /// Centralized date parsing to avoid ISO8601DateFormatter state pollution
     public var createdAtDate: Date {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        
-        // Try with fractional seconds first
-        if let date = formatter.date(from: createdAt) {
+        Self.iso8601Lock.lock()
+        defer { Self.iso8601Lock.unlock() }
+
+        if let date = Self.iso8601Fractional.date(from: createdAt) {
             return date
         }
-        
-        // Fallback: try without fractional seconds
-        formatter.formatOptions = [.withInternetDateTime]
-        if let date = formatter.date(from: createdAt) {
+        if let date = Self.iso8601NoFractional.date(from: createdAt) {
             return date
         }
-        
-        // Last resort: return current date (should never happen)
-        print("⚠️ Failed to parse createdAt: \(createdAt)")
-        return Date()
+        return .distantPast
     }
     
     /// Filter actions to only show allowed types
@@ -310,14 +316,28 @@ public struct NotificationParser {
             }
             
             if let type = type {
+                let value = actionDict.getString("value") ?? actionDict.getString("v")
+
+                // Support compact keys to keep payloads small across transports.
+                // Backend optimizations: t (type), v (value), title/label, and some actions may use u for url.
+                let url = actionDict.getString("url") ?? actionDict.getString("u")
+                let bucketId = actionDict.getString("bucketId") ?? actionDict.getString("bid") ?? actionDict.getString("b")
+                let minutes: Int? = {
+                    if let m = actionDict.getInt("minutes") { return m }
+                    if let mStr = actionDict.getString("minutes"), let m = Int(mStr) { return m }
+                    // Common: minutes are encoded in the compact value.
+                    if let v = value, let m = Int(v.trimmingCharacters(in: .whitespacesAndNewlines)) { return m }
+                    return nil
+                }()
+
                 let action = NotificationAction(
                     type: type,
                     label: actionDict.getString("label") ?? actionDict.getString("title") ?? "",
-                    value: actionDict.getString("value") ?? actionDict.getString("v"),
+                    value: value,
                     id: actionDict.getString("id"),
-                    url: actionDict.getString("url"),
-                    bucketId: actionDict.getString("bucketId"),
-                    minutes: actionDict.getInt("minutes")
+                    url: url,
+                    bucketId: bucketId,
+                    minutes: minutes
                 )
                 actions.append(action)
             }

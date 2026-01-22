@@ -2,6 +2,7 @@ import Foundation
 import React
 #if os(iOS)
 import WatchConnectivity
+import CloudKit
 #endif
 
 /**
@@ -10,6 +11,30 @@ import WatchConnectivity
  */
 @objc(CloudKitSyncBridge)
 class CloudKitSyncBridge: RCTEventEmitter {
+
+  private var hasListeners: Bool = false
+
+  private func infoLog(_ message: String, metadata: [String: Any]? = nil) {
+    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: message, metadata: metadata, source: "CloudKitSyncBridge")
+  }
+
+  private func warnLog(_ message: String, metadata: [String: Any]? = nil) {
+    LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: message, metadata: metadata, source: "CloudKitSyncBridge")
+  }
+
+  private func errorLog(_ message: String, metadata: [String: Any]? = nil) {
+    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: message, metadata: metadata, source: "CloudKitSyncBridge")
+  }
+
+  private func debugLog(_ message: String, metadata: [String: Any]? = nil) {
+    guard CloudKitManagerBase.isCloudKitDebugEnabled() else { return }
+    LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: message, metadata: metadata, source: "CloudKitSyncBridge")
+  }
+
+  // Backward-compatible wrapper (gated debug)
+  private func debugPrint(_ message: String) {
+    debugLog(message)
+  }
   
   // MARK: - React Native Module Setup
   
@@ -31,6 +56,15 @@ class CloudKitSyncBridge: RCTEventEmitter {
   // MARK: - Static Event Emitter
   
   private static var sharedInstance: CloudKitSyncBridge?
+
+  // When RN has no listeners yet (cold start / early native events), RCTEventEmitter will drop events.
+  // Keep a small queue and flush once JS starts observing.
+  private static let pendingEventLock = NSLock()
+  private static var pendingRecordChangedEvents: [[String: Any]] = []
+  private static var pendingNotificationDeletedIds: [String] = []
+  private static var pendingBucketUpdatedIds: [String] = []
+  private static var pendingBucketDeletedIds: [String] = []
+  private static let pendingEventsMax = 100
   
   // Debounce mechanism for batch updates
   private static var pendingNotificationIds: Set<String> = []
@@ -56,6 +90,11 @@ class CloudKitSyncBridge: RCTEventEmitter {
       // Cancel existing timer
       notificationDebounceTimer?.invalidate()
       notificationDebounceTimer = nil
+
+      // If JS isn't listening yet, keep pending IDs and wait for startObserving.
+      if let instance = sharedInstance, instance.hasListeners == false {
+        return
+      }
       
       // If we have many updates, emit batch event immediately
       if currentCount >= batchThreshold {
@@ -71,6 +110,11 @@ class CloudKitSyncBridge: RCTEventEmitter {
   }
   
   private static func emitBatchNotificationUpdate() {
+    // If JS isn't listening yet, do not flush; keep pending IDs.
+    if let instance = sharedInstance, instance.hasListeners == false {
+      return
+    }
+
     notificationDebounceLock.lock()
     let notificationIds = Array(pendingNotificationIds)
     pendingNotificationIds.removeAll()
@@ -98,21 +142,48 @@ class CloudKitSyncBridge: RCTEventEmitter {
   @objc
   static func notifyNotificationDeleted(_ notificationId: String) {
     DispatchQueue.main.async {
-      sharedInstance?.sendEvent(withName: "cloudKitNotificationDeleted", body: ["notificationId": notificationId])
+      if let instance = sharedInstance, instance.hasListeners {
+        instance.sendEvent(withName: "cloudKitNotificationDeleted", body: ["notificationId": notificationId])
+      } else {
+        pendingEventLock.lock()
+        pendingNotificationDeletedIds.append(notificationId)
+        if pendingNotificationDeletedIds.count > pendingEventsMax {
+          pendingNotificationDeletedIds.removeFirst(pendingNotificationDeletedIds.count - pendingEventsMax)
+        }
+        pendingEventLock.unlock()
+      }
     }
   }
   
   @objc
   static func notifyBucketUpdated(_ bucketId: String) {
     DispatchQueue.main.async {
-      sharedInstance?.sendEvent(withName: "cloudKitBucketUpdated", body: ["bucketId": bucketId])
+      if let instance = sharedInstance, instance.hasListeners {
+        instance.sendEvent(withName: "cloudKitBucketUpdated", body: ["bucketId": bucketId])
+      } else {
+        pendingEventLock.lock()
+        pendingBucketUpdatedIds.append(bucketId)
+        if pendingBucketUpdatedIds.count > pendingEventsMax {
+          pendingBucketUpdatedIds.removeFirst(pendingBucketUpdatedIds.count - pendingEventsMax)
+        }
+        pendingEventLock.unlock()
+      }
     }
   }
   
   @objc
   static func notifyBucketDeleted(_ bucketId: String) {
     DispatchQueue.main.async {
-      sharedInstance?.sendEvent(withName: "cloudKitBucketDeleted", body: ["bucketId": bucketId])
+      if let instance = sharedInstance, instance.hasListeners {
+        instance.sendEvent(withName: "cloudKitBucketDeleted", body: ["bucketId": bucketId])
+      } else {
+        pendingEventLock.lock()
+        pendingBucketDeletedIds.append(bucketId)
+        if pendingBucketDeletedIds.count > pendingEventsMax {
+          pendingBucketDeletedIds.removeFirst(pendingBucketDeletedIds.count - pendingEventsMax)
+        }
+        pendingEventLock.unlock()
+      }
     }
   }
   
@@ -127,7 +198,22 @@ class CloudKitSyncBridge: RCTEventEmitter {
       if let recordData = recordData {
         body["recordData"] = recordData
       }
-      sharedInstance?.sendEvent(withName: "cloudKitRecordChanged", body: body)
+
+      // Base log for push-driven events
+      if reason.hasPrefix("push") {
+        sharedInstance?.infoLog("CloudKit subscription event received", metadata: ["recordType": recordType, "recordId": recordId, "reason": reason])
+      }
+
+      if let instance = sharedInstance, instance.hasListeners {
+        instance.sendEvent(withName: "cloudKitRecordChanged", body: body)
+      } else {
+        pendingEventLock.lock()
+        pendingRecordChangedEvents.append(body)
+        if pendingRecordChangedEvents.count > pendingEventsMax {
+          pendingRecordChangedEvents.removeFirst(pendingRecordChangedEvents.count - pendingEventsMax)
+        }
+        pendingEventLock.unlock()
+      }
     }
   }
   
@@ -190,19 +276,56 @@ class CloudKitSyncBridge: RCTEventEmitter {
     super.init()
     CloudKitSyncBridge.setSharedInstance(self)
   }
+
+  override func startObserving() {
+    hasListeners = true
+    infoLog("RN started observing CloudKit events")
+
+    // Flush any queued events + debounced notification updates.
+    CloudKitSyncBridge.emitBatchNotificationUpdate()
+
+    CloudKitSyncBridge.pendingEventLock.lock()
+    let recordEvents = CloudKitSyncBridge.pendingRecordChangedEvents
+    CloudKitSyncBridge.pendingRecordChangedEvents.removeAll()
+    let deletedIds = CloudKitSyncBridge.pendingNotificationDeletedIds
+    CloudKitSyncBridge.pendingNotificationDeletedIds.removeAll()
+    let bucketUpdated = CloudKitSyncBridge.pendingBucketUpdatedIds
+    CloudKitSyncBridge.pendingBucketUpdatedIds.removeAll()
+    let bucketDeleted = CloudKitSyncBridge.pendingBucketDeletedIds
+    CloudKitSyncBridge.pendingBucketDeletedIds.removeAll()
+    CloudKitSyncBridge.pendingEventLock.unlock()
+
+    for body in recordEvents {
+      sendEvent(withName: "cloudKitRecordChanged", body: body)
+    }
+    for id in deletedIds {
+      sendEvent(withName: "cloudKitNotificationDeleted", body: ["notificationId": id])
+    }
+    for id in bucketUpdated {
+      sendEvent(withName: "cloudKitBucketUpdated", body: ["bucketId": id])
+    }
+    for id in bucketDeleted {
+      sendEvent(withName: "cloudKitBucketDeleted", body: ["bucketId": id])
+    }
+  }
+
+  override func stopObserving() {
+    hasListeners = false
+    infoLog("RN stopped observing CloudKit events")
+  }
   
   // MARK: - Sync Operations
   
   /**
    * Trigger manual sync to CloudKit
-   * This only triggers the sync - CloudKitManager will fetch from SQLite and update CloudKit
+    * This only triggers the sync - PhoneCloudKit will fetch from SQLite and update CloudKit
    */
   @objc
   func triggerSyncToCloud(
     _ resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
-    CloudKitManager.shared.triggerSyncToCloud { success, error, stats in
+    PhoneCloudKit.shared.triggerSyncToCloud { success, error, stats in
       if success {
         let result: [String: Any] = [
           "success": true,
@@ -228,7 +351,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
     _ resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
-    CloudKitManager.shared.triggerSyncToCloudWithDebounce()
+    PhoneCloudKit.shared.triggerSyncToCloudWithDebounce()
     
     // Return immediately - sync is triggered in background
     resolve([
@@ -257,7 +380,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
       readAt = nil
     }
     
-    CloudKitManager.shared.updateNotificationReadStatusInCloudKit(
+    PhoneCloudKit.shared.updateNotificationReadStatusInCloudKit(
       notificationId: notificationId,
       readAt: readAt
     ) { success, error in
@@ -295,7 +418,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
       readAt = nil
     }
     
-    CloudKitManager.shared.updateNotificationsReadStatusInCloudKit(
+    PhoneCloudKit.shared.updateNotificationsReadStatusInCloudKit(
       notificationIds: notificationIds,
       readAt: readAt
     ) { success, count, error in
@@ -318,7 +441,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
-    CloudKitManager.shared.deleteNotificationFromCloudKit(notificationId: notificationId) { success, error in
+    PhoneCloudKit.shared.deleteNotificationFromCloudKit(notificationId: notificationId) { success, error in
       if success {
         resolve(["success": true])
       } else {
@@ -338,7 +461,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
-    CloudKitManager.shared.deleteNotificationsFromCloudKit(notificationIds: notificationIds) { success, count, error in
+    PhoneCloudKit.shared.deleteNotificationsFromCloudKit(notificationIds: notificationIds) { success, count, error in
       if success {
         resolve(["success": true, "deletedCount": count])
       } else {
@@ -358,13 +481,99 @@ class CloudKitSyncBridge: RCTEventEmitter {
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
-    CloudKitManager.shared.syncFromCloudKitIncremental(fullSync: fullSync) { count, error in
-      if let error = error {
-        let errorMessage = error.localizedDescription
-        reject("SYNC_FAILED", errorMessage, error)
-      } else {
-        resolve(["success": true, "updatedCount": count])
+    if fullSync {
+      PhoneCloudKit.shared.resetIncrementalToken()
+    }
+
+    PhoneCloudKit.shared.fetchIncrementalChanges { result in
+      switch result {
+      case .failure(let error):
+        reject("SYNC_FAILED", error.localizedDescription, error)
+      case .success(let changes):
+        // Apply minimal changes to SQLite (readAt + deletes) and emit events.
+        // This ensures watch actions propagate even if JS listeners weren't registered
+        // at the time a push arrived.
+        for change in changes {
+          switch change {
+          case .changed(let record):
+            let recordType = record.recordType
+            let recordName = record.recordID.recordName
+            let recordData = self.serializeRecordForJS(record)
+
+            if recordType == PhoneCloudKit.Defaults.notificationRecordType,
+               let id = record["id"] as? String {
+              let readAtDate = record["readAt"] as? Date
+              let readAtMs: Int64? = readAtDate.map { Int64($0.timeIntervalSince1970 * 1000) }
+              DatabaseAccess.setNotificationReadAt(
+                notificationId: id,
+                readAtMs: readAtMs,
+                source: "CloudKitSyncBridge"
+              )
+            }
+
+            CloudKitSyncBridge.notifyRecordChanged(
+              recordType: recordType,
+              recordId: recordName,
+              reason: "incremental_changed",
+              recordData: recordData
+            )
+
+            if recordType == PhoneCloudKit.Defaults.notificationRecordType,
+               let id = record["id"] as? String {
+              CloudKitSyncBridge.notifyNotificationUpdated(id)
+            } else if recordType == PhoneCloudKit.Defaults.bucketRecordType,
+                      let id = record["id"] as? String {
+              CloudKitSyncBridge.notifyBucketUpdated(id)
+            }
+
+          case .deleted(let recordID, let recordType):
+            let recordName = recordID.recordName
+            let resolvedType = recordType ?? self.inferRecordType(from: recordName)
+
+            if recordName.hasPrefix("Notification-"),
+               let id = self.stripPrefix("Notification-", from: recordName) {
+              DatabaseAccess.deleteNotification(notificationId: id, source: "CloudKitSyncBridge")
+            }
+
+            CloudKitSyncBridge.notifyRecordChanged(
+              recordType: resolvedType,
+              recordId: recordName,
+              reason: "incremental_deleted",
+              recordData: nil
+            )
+
+            if recordName.hasPrefix("Notification-"), let id = self.stripPrefix("Notification-", from: recordName) {
+              CloudKitSyncBridge.notifyNotificationDeleted(id)
+            } else if recordName.hasPrefix("Bucket-"), let id = self.stripPrefix("Bucket-", from: recordName) {
+              CloudKitSyncBridge.notifyBucketDeleted(id)
+            }
+          }
+        }
+
+        resolve(["success": true, "updatedCount": changes.count])
       }
+    }
+  }
+
+  /**
+   * Fetch all notifications currently stored in CloudKit.
+   * NOTE: This returns notifications only (no buckets) and is intended for recovery flows.
+   */
+  @objc
+  func fetchAllNotificationsFromCloudKit(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    PhoneCloudKit.shared.fetchAllNotificationsFromCloudKit { notifications, error in
+      if let error = error {
+        reject("FETCH_FAILED", error.localizedDescription, error)
+        return
+      }
+      resolve([
+        "success": true,
+        "count": notifications.count,
+        "notifications": notifications
+      ])
     }
   }
   
@@ -377,25 +586,42 @@ class CloudKitSyncBridge: RCTEventEmitter {
     _ resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
-    Swift.print("☁️ [CloudKitSyncBridge] Triggering full sync with verification...")
+    self.infoLog("Triggering full sync with verification")
     
     // Reset last sync timestamp to force full sync
+    // (Key is container-specific in the legacy implementation; remove both to be safe)
     UserDefaults.standard.removeObject(forKey: "cloudkit_last_sync_timestamp")
+    let containerId = CloudKitManagerBase.makeDefaultConfiguration().containerIdentifier
+    UserDefaults.standard.removeObject(forKey: "cloudkit_last_sync_timestamp_\(containerId)")
     
     // Get count from SQLite first (total count, not just unread)
     DatabaseAccess.getTotalNotificationCount(source: "CloudKitSyncBridge") { sqliteNotificationCount in
       DatabaseAccess.getAllBuckets(source: "CloudKitSyncBridge") { buckets in
         let sqliteBucketCount = buckets.count
         
-        Swift.print("☁️ [CloudKitSyncBridge] SQLite counts - Notifications: \(sqliteNotificationCount), Buckets: \(sqliteBucketCount)")
+        self.infoLog(
+          "SQLite counts",
+          metadata: [
+            "notifications": sqliteNotificationCount,
+            "buckets": sqliteBucketCount
+          ]
+        )
         
         // Perform full sync (will sync all records since epoch)
-        CloudKitManager.shared.triggerSyncToCloud { success, error, stats in
+        PhoneCloudKit.shared.triggerSyncToCloud { success, error, stats in
           if success {
-            Swift.print("☁️ [CloudKitSyncBridge] ✅ Full sync completed - Notifications: \(stats?.notificationsSynced ?? 0) synced, \(stats?.notificationsUpdated ?? 0) updated, Buckets: \(stats?.bucketsSynced ?? 0) synced, \(stats?.bucketsUpdated ?? 0) updated")
+            self.infoLog(
+              "Full sync completed",
+              metadata: [
+                "notificationsSynced": stats?.notificationsSynced ?? 0,
+                "notificationsUpdated": stats?.notificationsUpdated ?? 0,
+                "bucketsSynced": stats?.bucketsSynced ?? 0,
+                "bucketsUpdated": stats?.bucketsUpdated ?? 0
+              ]
+            )
             
             // Wait a bit for CloudKit to process (increased delay due to rate limiting)
-            Swift.print("☁️ [CloudKitSyncBridge] Waiting 5 seconds before verification to allow CloudKit to process")
+            self.debugLog("Waiting before verification")
             DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
               let group = DispatchGroup()
               var cloudKitNotificationCount = 0
@@ -404,7 +630,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
               
               // Fetch notifications from CloudKit
               group.enter()
-              CloudKitManager.shared.fetchAllNotificationsFromCloudKit { notifications, error in
+              PhoneCloudKit.shared.fetchAllNotificationsFromCloudKit { notifications, error in
                 if let error = error {
                   fetchError = error
                 } else {
@@ -415,7 +641,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
               
               // Fetch buckets from CloudKit
               group.enter()
-              CloudKitManager.shared.fetchAllBucketsFromCloudKit { buckets, error in
+              PhoneCloudKit.shared.fetchAllBucketsFromCloudKit { buckets, error in
                 if let error = error {
                   fetchError = error
                 } else {
@@ -442,13 +668,23 @@ class CloudKitSyncBridge: RCTEventEmitter {
                   "bucketsUpdated": stats?.bucketsUpdated ?? 0
                 ]
                 
-                Swift.print("☁️ [CloudKitSyncBridge] ✅ Verification completed: \(result)")
+                self.infoLog(
+                  "Verification completed",
+                  metadata: [
+                    "notificationsMatch": notificationsMatch,
+                    "bucketsMatch": bucketsMatch,
+                    "sqliteNotifications": sqliteNotificationCount,
+                    "cloudKitNotifications": cloudKitNotificationCount,
+                    "sqliteBuckets": sqliteBucketCount,
+                    "cloudKitBuckets": cloudKitBucketCount
+                  ]
+                )
                 resolve(result)
               }
             }
           } else {
             let errorMessage = error?.localizedDescription ?? "Unknown error"
-            Swift.print("☁️ [CloudKitSyncBridge] ❌ Full sync failed: \(errorMessage)")
+            self.errorLog("Full sync failed", metadata: ["error": errorMessage])
             reject("SYNC_FAILED", errorMessage, error)
           }
         }
@@ -489,7 +725,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
     #if os(iOS)
-    CloudKitManager.shared.deleteCloudKitZone { success, error in
+    PhoneCloudKit.shared.deleteCloudKitZone { success, error in
       if let error = error {
         let errorMessage = error.localizedDescription
         reject("DELETE_ZONE_FAILED", errorMessage, error)
@@ -512,7 +748,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
     #if os(iOS)
-    CloudKitManager.shared.resetCloudKitZone { success, error in
+    PhoneCloudKit.shared.resetCloudKitZone { success, error in
       if let error = error {
         let errorMessage = error.localizedDescription
         reject("RESET_ZONE_FAILED", errorMessage, error)
@@ -534,7 +770,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
     #if os(iOS)
-    CloudKitManager.shared.initializeSchemaIfNeeded { success, error in
+    PhoneCloudKit.shared.initializeSchemaIfNeeded { success, error in
       if let error = error {
         let errorMessage = error.localizedDescription
         reject("INIT_SCHEMA_FAILED", errorMessage, error)
@@ -557,7 +793,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
     #if os(iOS)
-    CloudKitManager.shared.setupSubscriptions { success, error in
+    PhoneCloudKit.shared.setupSubscriptions { success, error in
       if let error = error {
         let errorMessage = error.localizedDescription
         reject("SETUP_SUBSCRIPTIONS_FAILED", errorMessage, error)
@@ -579,10 +815,43 @@ class CloudKitSyncBridge: RCTEventEmitter {
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
     #if os(iOS)
-    let enabled = CloudKitManager.shared.isCloudKitEnabled
+    let enabled = PhoneCloudKit.shared.isCloudKitEnabled
     resolve(["enabled": enabled])
     #else
     reject("NOT_SUPPORTED", "isCloudKitEnabled is only available on iOS", nil)
+    #endif
+  }
+
+  /**
+   * Check if CloudKit debug logging is enabled
+   */
+  @objc
+  func isCloudKitDebugEnabled(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    let enabled = CloudKitManagerBase.isCloudKitDebugEnabled()
+    resolve(["enabled": enabled])
+    #else
+    reject("NOT_SUPPORTED", "isCloudKitDebugEnabled is only available on iOS", nil)
+    #endif
+  }
+
+  /**
+   * Set CloudKit debug logging enabled state
+   */
+  @objc
+  func setCloudKitDebugEnabled(
+    _ enabled: Bool,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    CloudKitManagerBase.setCloudKitDebugEnabled(enabled)
+    resolve(["success": true, "enabled": enabled])
+    #else
+    reject("NOT_SUPPORTED", "setCloudKitDebugEnabled is only available on iOS", nil)
     #endif
   }
   
@@ -596,7 +865,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
     #if os(iOS)
-    CloudKitManager.setCloudKitEnabled(enabled)
+    CloudKitManagerBase.setCloudKitEnabled(enabled)
     resolve(["success": true, "enabled": enabled, "disabled": !enabled])
     #else
     reject("NOT_SUPPORTED", "setCloudKitEnabled is only available on iOS", nil)
@@ -613,7 +882,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
     #if os(iOS)
-    CloudKitManager.setCloudKitDisabled(disabled)
+    CloudKitManagerBase.setCloudKitDisabled(disabled)
     resolve(["success": true, "disabled": disabled, "enabled": !disabled])
     #else
     reject("NOT_SUPPORTED", "setCloudKitDisabled is only available on iOS", nil)
@@ -630,7 +899,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
     #if os(iOS)
-    let limit = CloudKitManager.cloudKitNotificationLimit
+    let limit = CloudKitManagerBase.cloudKitNotificationLimit
     resolve(["limit": limit as Any])
     #else
     reject("NOT_SUPPORTED", "getCloudKitNotificationLimit is only available on iOS", nil)
@@ -649,9 +918,9 @@ class CloudKitSyncBridge: RCTEventEmitter {
   ) {
     #if os(iOS)
     if let limitValue = limit {
-      CloudKitManager.cloudKitNotificationLimit = limitValue.intValue
+      CloudKitManagerBase.cloudKitNotificationLimit = limitValue.intValue
     } else {
-      CloudKitManager.cloudKitNotificationLimit = nil
+      CloudKitManagerBase.cloudKitNotificationLimit = nil
     }
     resolve(["success": true, "limit": limit as Any])
     #else
@@ -668,7 +937,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
     #if os(iOS)
-    let completed = UserDefaults.standard.bool(forKey: CloudKitManager.cloudKitInitialSyncCompletedKey)
+    let completed = UserDefaults.standard.bool(forKey: CloudKitManagerBase.cloudKitInitialSyncCompletedKey)
     resolve(["completed": completed])
     #else
     reject("NOT_SUPPORTED", "isInitialSyncCompleted is only available on iOS", nil)
@@ -684,11 +953,52 @@ class CloudKitSyncBridge: RCTEventEmitter {
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
     #if os(iOS)
-    UserDefaults.standard.removeObject(forKey: CloudKitManager.cloudKitInitialSyncCompletedKey)
+    UserDefaults.standard.removeObject(forKey: CloudKitManagerBase.cloudKitInitialSyncCompletedKey)
     resolve(["success": true])
     #else
     reject("NOT_SUPPORTED", "resetInitialSyncFlag is only available on iOS", nil)
     #endif
+  }
+
+  // MARK: - Helpers
+
+  private func stripPrefix(_ prefix: String, from value: String) -> String? {
+    guard value.hasPrefix(prefix) else { return nil }
+    return String(value.dropFirst(prefix.count))
+  }
+
+  private func inferRecordType(from recordName: String) -> String {
+    if recordName.hasPrefix("Notification-") {
+      return PhoneCloudKit.Defaults.notificationRecordType
+    }
+    if recordName.hasPrefix("Bucket-") {
+      return PhoneCloudKit.Defaults.bucketRecordType
+    }
+    return "Unknown"
+  }
+
+  private func serializeRecordForJS(_ record: CKRecord) -> [String: Any] {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+    var dict: [String: Any] = [
+      "recordName": record.recordID.recordName,
+      "recordType": record.recordType
+    ]
+
+    // Whitelist a small set of fields that we know are JSON-safe
+    for key in ["id", "bucketId", "title", "body", "subtitle", "createdAt", "readAt", "name", "iconUrl", "color"] {
+      if let value = record[key] {
+        if let date = value as? Date {
+          dict[key] = formatter.string(from: date)
+        } else if let str = value as? String {
+          dict[key] = str
+        } else if let num = value as? NSNumber {
+          dict[key] = num
+        }
+      }
+    }
+    return dict
   }
   
   /**

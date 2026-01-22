@@ -150,16 +150,6 @@ struct ContentView: View {
                 // App opened for the first time or from inactive state
                 print("⌚ [ContentView] 📱→⌚ App became active")
                 checkAndRefreshIfNeeded()
-            } else if newPhase == .background {
-                // App going to background - send logs to iPhone
-                print("⌚ [ContentView] 📴 App going to background - sending logs to iPhone")
-                connectivityManager.sendLogsToiPhone { success, error in
-                    if success {
-                        print("⌚ [ContentView] ✅ Logs sent successfully")
-                    } else {
-                        print("⌚ [ContentView] ⚠️ Failed to send logs: \(error ?? "Unknown error")")
-                    }
-                }
             }
         }
     }
@@ -182,7 +172,7 @@ struct ContentView: View {
         guard let lastUpdate = connectivityManager.lastUpdate else {
             // No previous update - check if initial sync has been completed
             // If not, let initialization handle it. Otherwise, do incremental sync
-            let initialSyncCompleted = UserDefaults.standard.bool(forKey: CloudKitManager.cloudKitInitialSyncCompletedKey)
+            let initialSyncCompleted = UserDefaults.standard.bool(forKey: CloudKitManagerBase.cloudKitInitialSyncCompletedKey)
             if initialSyncCompleted {
                 print("⌚ [ContentView] 🔄 No previous update found but initial sync completed - triggering incremental sync")
                 connectivityManager.syncFromCloudKitIncremental()
@@ -1157,7 +1147,7 @@ struct NotificationDetailView: View {
         
         print("⌚ [NotificationDetailView] 🎬 Executing action: \(action.type) - \(action.label) for notification \(notificationData.notification.id)")
         
-        // Send action execution request to iPhone via WCSession
+        // Execute on watch (best-effort REST/CloudKit where applicable)
         connectivityManager.executeNotificationAction(
             notificationId: notificationData.notification.id,
             action: action
@@ -1167,7 +1157,7 @@ struct NotificationDetailView: View {
         WKInterfaceDevice.current().play(.success)
         
         // Show confirmation (optional - could add a toast/alert here)
-        print("⌚ [NotificationDetailView] ✅ Action sent to iPhone: \(action.label)")
+        print("⌚ [NotificationDetailView] ✅ Action requested on watch: \(action.label)")
     }
     
     private func systemImageForAction(_ actionType: String) -> String {
@@ -1632,7 +1622,9 @@ struct AnimatedImageView: View {
 // MARK: - Settings View
 
 struct SettingsView: View {
-    @State private var cloudKitEnabled: Bool = CloudKitManager.shared.isCloudKitEnabled
+    @StateObject private var connectivityManager = WatchConnectivityManager.shared
+    @State private var cloudKitEnabled: Bool = WatchCloudKit.shared.isCloudKitEnabled
+    @State private var cloudKitDebugEnabled: Bool = CloudKitManagerBase.isCloudKitDebugEnabled()
     @State private var maxNotificationsLimit: Int = WatchSettingsManager.shared.maxNotificationsLimit
     @State private var watchToken: String? = UserDefaults.standard.string(forKey: "watch_access_token")
     @State private var serverAddress: String? = UserDefaults.standard.string(forKey: "watch_server_address")
@@ -1660,17 +1652,47 @@ struct SettingsView: View {
                         .labelsHidden()
                 }
                 .onChange(of: cloudKitEnabled) { oldValue, newValue in
-                    CloudKitManager.setCloudKitEnabled(newValue)
+                    CloudKitManagerBase.setCloudKitEnabled(newValue)
+                }
+
+                HStack(spacing: 10) {
+                    Image(systemName: "ladybug.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.orange)
+                        .frame(width: 32, height: 32)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Debug logs")
+                            .font(.headline)
+                        Text(cloudKitDebugEnabled ? "Enabled" : "Disabled")
+                            .font(.caption)
+                            .foregroundColor(cloudKitDebugEnabled ? .green : .secondary)
+                    }
+
+                    Spacer()
+
+                    Toggle("", isOn: $cloudKitDebugEnabled)
+                        .labelsHidden()
+                }
+                .onChange(of: cloudKitDebugEnabled) { _, newValue in
+                    CloudKitManagerBase.setCloudKitDebugEnabled(newValue)
                 }
                 
                 Button(action: {
-                    WatchConnectivityManager.shared.requestFullSync()
+                    connectivityManager.requestFullSync()
                 }) {
                     HStack(spacing: 10) {
-                        Image(systemName: "arrow.clockwise.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.blue)
-                            .frame(width: 32, height: 32)
+                        Group {
+                            if connectivityManager.isFullSyncing {
+                                ProgressView()
+                                    .frame(width: 32, height: 32)
+                            } else {
+                                Image(systemName: "arrow.clockwise.circle.fill")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.blue)
+                                    .frame(width: 32, height: 32)
+                            }
+                        }
                         
                         Text("Full Sync")
                             .font(.headline)
@@ -1679,7 +1701,7 @@ struct SettingsView: View {
                         Spacer()
                     }
                 }
-                .disabled(!cloudKitEnabled)
+                .disabled(!cloudKitEnabled || connectivityManager.isFullSyncing || connectivityManager.isSyncing)
             }
             
             Section(header: Text("Watch Token")) {
@@ -1776,7 +1798,7 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            cloudKitEnabled = CloudKitManager.shared.isCloudKitEnabled
+            cloudKitEnabled = WatchCloudKit.shared.isCloudKitEnabled
             maxNotificationsLimit = WatchSettingsManager.shared.maxNotificationsLimit
             // Refresh token and address on appear
             watchToken = UserDefaults.standard.string(forKey: "watch_access_token")
@@ -1835,9 +1857,9 @@ struct MaxNotificationsSettingsView: View {
 struct LogsView: View {
     @State private var logs: [LoggingSystem.LogEntry] = []
     @State private var isLoading: Bool = true
-    @State private var isSending: Bool = false
-    @State private var sendError: String?
-    @StateObject private var connectivityManager = WatchConnectivityManager.shared
+    @State private var isSendingLogs: Bool = false
+    @State private var showSendResultAlert: Bool = false
+    @State private var sendResultMessage: String = ""
     
     var body: some View {
         Group {
@@ -1872,27 +1894,24 @@ struct LogsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button(action: {
+                Button {
                     sendLogsToiPhone()
-                }) {
-                    if isSending {
+                } label: {
+                    if isSendingLogs {
                         ProgressView()
-                            .scaleEffect(0.8)
                     } else {
-                        Image(systemName: "square.and.arrow.up")
+                        Image(systemName: "paperplane")
                     }
                 }
-                .disabled(isSending || logs.isEmpty)
+                .disabled(isSendingLogs)
             }
         }
-        .alert("Error", isPresented: .constant(sendError != nil)) {
-            Button("OK") {
-                sendError = nil
+        .alert("Send Logs", isPresented: $showSendResultAlert) {
+            Button("OK", role: .cancel) {
+                showSendResultAlert = false
             }
         } message: {
-            if let error = sendError {
-                Text(error)
-            }
+            Text(sendResultMessage)
         }
         .onAppear {
             loadLogs()
@@ -1909,20 +1928,21 @@ struct LogsView: View {
             }
         }
     }
-    
+
     private func sendLogsToiPhone() {
-        isSending = true
-        sendError = nil
-        
-        connectivityManager.sendLogsToiPhone { success, error in
+        isSendingLogs = true
+        sendResultMessage = ""
+
+        WatchConnectivityManager.shared.sendLogsToiPhone { success, error in
             DispatchQueue.main.async {
-                isSending = false
+                self.isSendingLogs = false
                 if success {
-                    // Reload logs (should be empty now)
-                    loadLogs()
+                    self.sendResultMessage = "Logs sent to iPhone"
                 } else {
-                    sendError = error ?? "Failed to send logs"
+                    let fallbackError = error ?? "Unknown error"
+                    self.sendResultMessage = "Failed to send logs: \(fallbackError)"
                 }
+                self.showSendResultAlert = true
             }
         }
     }

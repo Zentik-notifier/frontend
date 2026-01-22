@@ -1,4 +1,5 @@
 import { NativeModules, Platform } from 'react-native';
+import { settingsService } from './settings-service';
 
 const { WidgetReloadBridge, DatabaseAccessBridge, CloudKitSyncBridge } = NativeModules;
 
@@ -10,6 +11,8 @@ console.log('[IosBridge] Available bridges:', {
 });
 
 const isIOS = Platform.OS === 'ios';
+
+const isCloudKitDebugEnabled = () => settingsService.getSettings().cloudKitDebug === true;
 
 // ========== IosBridgeService ==========
 
@@ -539,7 +542,9 @@ class IosBridgeService {
 
     try {
       const result = await CloudKitSyncBridge.syncFromCloudKitIncremental(fullSync);
-      console.log('[CloudKit] Incremental sync completed:', result);
+      if (isCloudKitDebugEnabled()) {
+        console.log('[CloudKit] Incremental sync completed:', result);
+      }
       return result;
     } catch (error) {
       console.error('[CloudKit] Failed to perform incremental sync:', error);
@@ -547,6 +552,49 @@ class IosBridgeService {
         success: false,
         updatedCount: 0,
       };
+    }
+  }
+
+  /**
+   * Fetch all notifications currently stored in CloudKit.
+   * Intended for recovery flows (notifications only).
+   */
+  async fetchAllNotificationsFromCloudKit(): Promise<{
+    success: boolean;
+    count: number;
+    notifications: Array<{
+      id: string;
+      bucketId: string;
+      title: string;
+      body: string;
+      subtitle?: string;
+      createdAt: string;
+      readAt?: string;
+      isRead?: boolean;
+      attachments?: any[];
+      actions?: any[];
+    }>;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return { success: false, count: 0, notifications: [] };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.fetchAllNotificationsFromCloudKit();
+      if (isCloudKitDebugEnabled()) {
+        console.log('[CloudKit] fetchAllNotificationsFromCloudKit completed:', {
+          success: result?.success,
+          count: result?.count,
+        });
+      }
+      return {
+        success: !!result?.success,
+        count: result?.count || 0,
+        notifications: result?.notifications || [],
+      };
+    } catch (error) {
+      console.error('[CloudKit] Failed to fetch all notifications from CloudKit:', error);
+      return { success: false, count: 0, notifications: [] };
     }
   }
 
@@ -581,7 +629,9 @@ class IosBridgeService {
 
     try {
       const result = await CloudKitSyncBridge.triggerFullSyncWithVerification();
-      console.log('[CloudKit] Full sync with verification completed:', result);
+      if (isCloudKitDebugEnabled()) {
+        console.log('[CloudKit] Full sync with verification completed:', result);
+      }
       return result;
     } catch (error) {
       console.error('[CloudKit] Failed to trigger full sync with verification:', error);
@@ -611,7 +661,9 @@ class IosBridgeService {
 
     try {
       const result = await CloudKitSyncBridge.initializeSchemaIfNeeded();
-      console.log('[CloudKit] Schema initialization completed:', result);
+      if (isCloudKitDebugEnabled()) {
+        console.log('[CloudKit] Schema initialization completed:', result);
+      }
       return result;
     } catch (error) {
       console.error('[CloudKit] Failed to initialize schema:', error);
@@ -630,7 +682,9 @@ class IosBridgeService {
 
     try {
       const result = await CloudKitSyncBridge.setupSubscriptions();
-      console.log('[CloudKit] Subscriptions setup completed:', result);
+      if (isCloudKitDebugEnabled()) {
+        console.log('[CloudKit] Subscriptions setup completed:', result);
+      }
       return result;
     } catch (error) {
       console.error('[CloudKit] Failed to setup subscriptions:', error);
@@ -656,6 +710,52 @@ class IosBridgeService {
   }
 
   /**
+   * Check if CloudKit debug logging is enabled
+   */
+  async isCloudKitDebugEnabled(): Promise<{ enabled: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return { enabled: false };
+    }
+
+    try {
+      const fn = (CloudKitSyncBridge as any).isCloudKitDebugEnabled;
+      if (typeof fn !== 'function') {
+        // Backward compatibility: native module built without debug methods.
+        return { enabled: false };
+      }
+
+      const result = await fn();
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to check debug enabled state:', error);
+      return { enabled: false };
+    }
+  }
+
+  /**
+   * Set CloudKit debug logging enabled state
+   */
+  async setCloudKitDebugEnabled(enabled: boolean): Promise<{ success: boolean; enabled: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      throw new Error('CloudKit debug flag is only available on iOS');
+    }
+
+    try {
+      const fn = (CloudKitSyncBridge as any).setCloudKitDebugEnabled;
+      if (typeof fn !== 'function') {
+        throw new Error('CloudKit debug methods are not available in this build (rebuild iOS app)');
+      }
+
+      const result = await fn(enabled);
+      console.log('[CloudKit] Debug enabled state changed:', result);
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to set debug enabled state:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Set CloudKit enabled state
    */
   async setCloudKitEnabled(enabled: boolean): Promise<{ success: boolean; enabled: boolean }> {
@@ -665,7 +765,9 @@ class IosBridgeService {
 
     try {
       const result = await CloudKitSyncBridge.setCloudKitEnabled(enabled);
-      console.log('[CloudKit] Enabled state changed:', result);
+      if (isCloudKitDebugEnabled()) {
+        console.log('[CloudKit] Enabled state changed:', result);
+      }
       return result;
     } catch (error) {
       console.error('[CloudKit] Failed to set enabled state:', error);
@@ -702,7 +804,9 @@ class IosBridgeService {
 
     try {
       const result = await CloudKitSyncBridge.setCloudKitNotificationLimit(limit ?? undefined);
-      console.log('[CloudKit] Notification limit changed:', limit);
+      if (isCloudKitDebugEnabled()) {
+        console.log('[CloudKit] Notification limit changed:', limit);
+      }
       return { success: result.success, limit: result.limit ?? null };
     } catch (error) {
       console.error('[CloudKit] Failed to set notification limit:', error);
@@ -737,7 +841,9 @@ class IosBridgeService {
 
     try {
       const result = await CloudKitSyncBridge.resetInitialSyncFlag();
-      console.log('[CloudKit] Initial sync flag reset:', result);
+      if (isCloudKitDebugEnabled()) {
+        console.log('[CloudKit] Initial sync flag reset:', result);
+      }
       return result;
     } catch (error) {
       console.error('[CloudKit] Failed to reset initial sync flag:', error);
@@ -755,7 +861,9 @@ class IosBridgeService {
 
     try {
       const result = await CloudKitSyncBridge.deleteCloudKitZone();
-      console.log('[CloudKit] Zone deleted:', result);
+      if (isCloudKitDebugEnabled()) {
+        console.log('[CloudKit] Zone deleted:', result);
+      }
       return result;
     } catch (error) {
       console.error('[CloudKit] Failed to delete zone:', error);

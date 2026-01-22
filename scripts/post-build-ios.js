@@ -8,6 +8,7 @@ const watchTargetDir = path.join(__dirname, '..', 'targets', 'watch');
 const sharedFilesDir = path.join(__dirname, '..', 'plugins', 'ZentikShared');
 const isDev = process.env.APP_VARIANT === 'development';
 const bundleIdentifier = isDev ? 'com.apocaliss92.zentik.dev' : 'com.apocaliss92.zentik';
+const verbose = process.env.VERBOSE === '1' || process.env.VERBOSE === 'true';
 
 /**
  * Get all Swift files from the ZentikShared directory
@@ -23,7 +24,7 @@ function getSharedSwiftFiles(sharedDir) {
     .map(entry => entry.name);
 }
 
-console.log('🔧 Fixing ShareExtension entitlements and copying shared files...');
+console.log('Updating iOS entitlements and syncing shared Swift files...');
 
 const shareExtensionDirs = [
   { path: path.join(iosDir, 'ZentikShareExtension'), name: 'ZentikShareExtension.entitlements', isDev: false },
@@ -72,32 +73,31 @@ for (const { path: shareExtDir, name: entitlementsFileName, isDev: isDevDir } of
 
   fs.writeFileSync(entitlementsPath, entitlementsContent, 'utf-8');
   
-  console.log(`✅ Updated: ${entitlementsFileName}`);
-  console.log(`   🔑 Keychain: $(AppIdentifierPrefix)${currentBundleId}.keychain`);
+  console.log(`Updated entitlements: ${path.relative(process.cwd(), entitlementsPath)}`);
+  if (verbose) {
+    console.log(`  Keychain group: $(AppIdentifierPrefix)${currentBundleId}.keychain`);
+    console.log(`  App group: group.${currentBundleId}`);
+  }
   
   updated++;
 }
 
-console.log(`\n✅ Successfully updated ${updated} entitlements file(s)!`);
+console.log(`Done: updated ${updated} entitlements file(s).`);
 
 // Copy shared files to all iOS targets
 if (fs.existsSync(sharedFilesDir)) {
-  console.log('\n📦 Copying shared files to all iOS targets...');
+  console.log('\nSyncing shared Swift files into targets...');
   
   // Get all Swift files from ZentikShared directory
   const sharedFiles = getSharedSwiftFiles(sharedFilesDir);
   
-  if (sharedFiles.length === 0) {
-    console.log('  ⚠️  No Swift files found in ZentikShared directory');
-  } else {
-    console.log(`  📁 Found ${sharedFiles.length} shared Swift files`);
-  }
+  console.log(`Found ${sharedFiles.length} shared Swift file(s) in plugins/ZentikShared`);
   
   const iosTargets = [
-    { path: path.join(iosDir, 'ZentikDev'), name: 'iOS App (ZentikDev)', exclude: [] },
-    { path: path.join(iosDir, 'ZentikNotificationService'), name: 'Notification Service Extension', exclude: ['CloudKitSyncBridge.swift'] },
-    { path: path.join(iosDir, 'ZentikNotificationContentExtension'), name: 'Notification Content Extension', exclude: ['CloudKitSyncBridge.swift'] },
-    { path: watchTargetDir, name: 'Watch Target', exclude: ['NotificationActionHandler.swift', 'CloudKitSyncBridge.swift'] },
+    { path: path.join(iosDir, 'ZentikDev'), name: 'iOS App (ZentikDev)', exclude: ['CloudKitManager.swift'] },
+    { path: path.join(iosDir, 'ZentikNotificationService'), name: 'Notification Service Extension', exclude: ['CloudKitSyncBridge.swift', 'CloudKitManager.swift'] },
+    { path: path.join(iosDir, 'ZentikNotificationContentExtension'), name: 'Notification Content Extension', exclude: ['CloudKitSyncBridge.swift', 'CloudKitManager.swift'] },
+    { path: watchTargetDir, name: 'Watch Target', exclude: ['NotificationActionHandler.swift', 'CloudKitSyncBridge.swift', 'CloudKitManager.swift', 'PhoneCloudKit.swift'] },
     { path: path.join(__dirname, '..', 'targets', 'widget'), name: 'Widget Target', exclude: ['NotificationActionHandler.swift', 'CloudKitSyncBridge.swift', 'CloudKitManager.swift'] }
   ];
   
@@ -109,10 +109,9 @@ if (fs.existsSync(sharedFilesDir)) {
       continue;
     }
     
-    console.log(`\n  📁 ${target.name}:`);
-    let copiedFiles = 0;
-    let skippedFiles = 0;
-    let removedFiles = 0;
+    const copied = [];
+    const skipped = [];
+    const removed = [];
     
     // First, remove excluded files if they exist
     if (target.exclude && target.exclude.length > 0) {
@@ -120,8 +119,7 @@ if (fs.existsSync(sharedFilesDir)) {
         const excludedFilePath = path.join(target.path, excludedFile);
         if (fs.existsSync(excludedFilePath)) {
           fs.unlinkSync(excludedFilePath);
-          console.log(`    🗑️  Removed ${excludedFile} from ${target.name}`);
-          removedFiles++;
+          removed.push(excludedFile);
         }
       }
     }
@@ -129,8 +127,7 @@ if (fs.existsSync(sharedFilesDir)) {
     for (const fileName of sharedFiles) {
       // Skip files in the exclude list for this target
       if (target.exclude && target.exclude.includes(fileName)) {
-        console.log(`    ⏭️  ${fileName} (skipped - not needed for ${target.name})`);
-        skippedFiles++;
+        skipped.push(fileName);
         continue;
       }
       
@@ -145,20 +142,23 @@ if (fs.existsSync(sharedFilesDir)) {
         content = content.replace(/BUNDLE_ID_PLACEHOLDER/g, bundleIdentifier);
         fs.writeFileSync(targetPath, content, 'utf-8');
         
-        console.log(`    ✅ ${fileName}`);
-        copiedFiles++;
+        copied.push(fileName);
         totalCopied++;
       }
     }
-    
-    if (skippedFiles > 0 || removedFiles > 0) {
-      console.log(`    Total: ${copiedFiles}/${sharedFiles.length} files copied (${skippedFiles} skipped, ${removedFiles} removed)`);
-    } else {
-      console.log(`    Total: ${copiedFiles}/${sharedFiles.length} files`);
+
+    console.log(`\n${target.name}`);
+    console.log(`  Destination: ${path.relative(process.cwd(), target.path)}`);
+    console.log(`  Copied (${copied.length}/${sharedFiles.length}): ${copied.join(', ')}`);
+    if (verbose && skipped.length > 0) {
+      console.log(`  Skipped (${skipped.length}): ${skipped.join(', ')}`);
+    }
+    if (verbose && removed.length > 0) {
+      console.log(`  Removed (${removed.length}): ${removed.join(', ')}`);
     }
   }
-  
-  console.log(`\n✅ Successfully copied ${totalCopied} files across all targets!`);
+
+  console.log(`\nDone: copied ${totalCopied} file(s) across all targets.`);
 
   // Copy CloudKitSyncBridge.m to iOS App only (Objective-C bridge file)
   const cloudkitBridgeM = 'CloudKitSyncBridge.m';
@@ -174,6 +174,6 @@ if (fs.existsSync(sharedFilesDir)) {
     content = content.replace(/BUNDLE_ID_PLACEHOLDER/g, bundleIdentifier);
     fs.writeFileSync(cloudkitBridgeMDest, content, 'utf-8');
     
-    console.log(`\n✅ ${cloudkitBridgeM} copied to iOS App`);
+    console.log(`\nCopied ${cloudkitBridgeM} to iOS App: ${path.relative(process.cwd(), cloudkitBridgeMDest)}`);
   }
 }

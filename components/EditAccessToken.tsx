@@ -18,9 +18,14 @@ export default function EditAccessToken({ tokenId }: EditAccessTokenProps) {
   const { t } = useI18n();
   const { formatDate } = useDateFormat();
 
+  const isUuidLike = (value: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+  const canFetchToken = !!tokenId && isUuidLike(tokenId);
+
   const { data, loading, error, refetch } = useGetAccessTokenQuery({
     variables: { tokenId },
-    skip: !tokenId,
+    skip: !canFetchToken,
   });
 
   const tokenData = data?.getAccessToken;
@@ -34,6 +39,16 @@ export default function EditAccessToken({ tokenId }: EditAccessTokenProps) {
       <Surface style={styles.errorContainer}>
         <Text style={[styles.errorText, { color: theme.colors.error }]}>
           {t("accessTokens.form.noTokenId" as any)}
+        </Text>
+      </Surface>
+    );
+  }
+
+  if (!canFetchToken) {
+    return (
+      <Surface style={styles.errorContainer}>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>
+          {t("accessTokens.form.invalidTokenId" as any)}
         </Text>
       </Surface>
     );

@@ -34,6 +34,10 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate, WCS
   private var expoNotificationDelegate: UNUserNotificationCenterDelegate?
   private var wcSession: WCSession?
 
+  // WC is intentionally restricted to:
+  // - iPhone -> Watch: settings (applicationContext/sendMessage)
+  // - Watch -> iPhone: logs (sendMessage)
+
   public override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
@@ -68,24 +72,6 @@ FirebaseApp.configure()
     // 2. Setup subscriptions (after zone is initialized)
     // 3. Trigger sync operations
     // This ensures proper ordering and error handling from React side
-    
-    // Subscribe to sync progress notifications
-    NotificationCenter.default.addObserver(
-      forName: CloudKitManager.syncProgressNotification,
-      object: nil,
-      queue: .main
-    ) { notification in
-      if let progress = notification.userInfo?["progress"] as? CloudKitManager.SyncProgress {
-        // Forward to React Native bridge
-        CloudKitSyncBridge.notifySyncProgress(
-          currentItem: progress.currentItem,
-          totalItems: progress.totalItems,
-          itemType: progress.itemType,
-          phase: progress.phase,
-          step: progress.step
-        )
-      }
-    }
     
     // Register for remote notifications (required for CloudKit subscriptions)
     application.registerForRemoteNotifications()
@@ -168,21 +154,16 @@ FirebaseApp.configure()
       replyHandler(["success": false, "error": "Missing message type"])
       return
     }
-    
+
     if type == "watchLogs" {
       handleWatchLogs(message: message, replyHandler: replyHandler)
-    } else if type == "watchTokenSettings" {
-      handleWatchTokenSettings(message: message, replyHandler: replyHandler)
-    } else {
-      replyHandler(["success": false, "error": "Unknown message type"])
+      return
     }
+
+    replyHandler(["success": false, "error": "Unknown message type"])
   }
-  
-  private func handleWatchTokenSettings(message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
-    // Watch confirms receipt of token settings
-    print("📱 [AppDelegate] ✅ Watch confirmed receipt of token settings")
-    replyHandler(["success": true])
-  }
+
+
   
   /// Send Watch token and server address to Watch app
   func sendWatchTokenSettings(token: String, serverAddress: String, completion: @escaping (Bool, String?) -> Void) {
@@ -574,18 +555,7 @@ FirebaseApp.configure()
     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
   ) {
     // Check if this is a CloudKit notification
-    if let notification = CKNotification(fromRemoteNotificationDictionary: userInfo as! [String: NSObject]) {
-      let subscriptionID = notification.subscriptionID ?? "unknown"
-      // Reduced verbosity - only log errors
-      // Check if CloudKit is enabled before handling notification
-      guard CloudKitManager.shared.isCloudKitEnabled else {
-        print("☁️ [AppDelegate] ⚠️ CloudKit is disabled, ignoring remote notification")
-        completionHandler(.noData)
-        return
-      }
-      
-      CloudKitManager.shared.handleRemoteNotification(userInfo: userInfo, completion: completionHandler)
-    } else {
+    guard let ckNotification = PhoneCloudKit.shared.parseCloudKitNotification(from: userInfo) else {
       LoggingSystem.shared.log(
         level: "INFO",
         tag: "CloudKit",
@@ -593,7 +563,93 @@ FirebaseApp.configure()
         source: "AppDelegate"
       )
       super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
+      return
     }
+
+    guard PhoneCloudKit.shared.isCloudKitEnabled else {
+      print("☁️ [AppDelegate] ⚠️ CloudKit is disabled, ignoring remote notification")
+      completionHandler(.noData)
+      return
+    }
+
+    // Prefer per-record fetch when possible, then notify React.
+    if let queryNotification = ckNotification as? CKQueryNotification,
+       let recordID = queryNotification.recordID {
+      PhoneCloudKit.shared.fetchRecord(recordID: recordID) { result in
+        switch result {
+        case .failure(let error):
+          LoggingSystem.shared.log(
+            level: "ERROR",
+            tag: "CloudKit",
+            message: "Failed to fetch record after push",
+            metadata: ["error": error.localizedDescription, "recordName": recordID.recordName],
+            source: "AppDelegate"
+          )
+
+          // Still notify React so it can refresh.
+          let fallbackId = Self.extractZentikId(fromRecordName: recordID.recordName)
+          CloudKitSyncBridge.notifyRecordChanged(
+            recordType: "Unknown",
+            recordId: fallbackId,
+            reason: "push_fetch_failed",
+            recordData: nil
+          )
+          completionHandler(.failed)
+
+        case .success(let record):
+          guard let record else {
+            let fallbackId = Self.extractZentikId(fromRecordName: recordID.recordName)
+            CloudKitSyncBridge.notifyRecordChanged(
+              recordType: "Unknown",
+              recordId: fallbackId,
+              reason: "push_record_missing",
+              recordData: nil
+            )
+            completionHandler(.noData)
+            return
+          }
+
+          let recordType = record.recordType
+          let id = (record["id"] as? String) ?? Self.extractZentikId(fromRecordName: recordID.recordName)
+
+          CloudKitSyncBridge.notifyRecordChanged(
+            recordType: recordType,
+            recordId: id,
+            reason: "push",
+            recordData: nil
+          )
+
+          // Keep existing RN listeners working.
+          if recordType == PhoneCloudKit.Defaults.notificationRecordType {
+            CloudKitSyncBridge.notifyNotificationUpdated(id)
+          } else if recordType == PhoneCloudKit.Defaults.bucketRecordType {
+            CloudKitSyncBridge.notifyBucketUpdated(id)
+          }
+
+          completionHandler(.newData)
+        }
+      }
+      return
+    }
+
+    // For zone-level notifications, we don't have a recordID.
+    CloudKitSyncBridge.notifyRecordChanged(
+      recordType: "Zone",
+      recordId: ckNotification.subscriptionID ?? "unknown",
+      reason: "push_zone",
+      recordData: nil
+    )
+    completionHandler(.newData)
+  }
+
+  private static func extractZentikId(fromRecordName recordName: String) -> String {
+    if recordName.hasPrefix("Notification-") {
+      return recordName.replacingOccurrences(of: "Notification-", with: "")
+    }
+    if recordName.hasPrefix("Bucket-") {
+      return recordName.replacingOccurrences(of: "Bucket-", with: "")
+    }
+    return recordName
   }
   
 }

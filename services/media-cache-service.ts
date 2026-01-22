@@ -96,9 +96,11 @@ class MediaCacheService {
     public metadata$ = new BehaviorSubject<CacheMetadata>(this.metadata);
     private hasFilesystemPermission: boolean = true;
 
-    // Track current bucket parameters in memory to detect changes
+    // Track current bucket icon parameters in memory to detect changes.
+    // IMPORTANT: do not include bucketName here; different screens may pass different names
+    // for the same bucketId (e.g. stale notification snapshot vs buckets list), which would
+    // cause infinite invalidation + re-download loops.
     private bucketParamsCache = new Map<string, {
-        bucketName: string;
         iconUrl?: string;
         timestamp: number;
     }>();
@@ -1309,12 +1311,9 @@ class MediaCacheService {
             const cachedParams = this.bucketParamsCache.get(bucketId);
             const currentTimestamp = Date.now();
 
-            // Compare current params with cached params
-            // Use iconAttachmentUuid for comparison if available (more stable than URL)
-            const paramsChanged = cachedParams && (
-                cachedParams.bucketName !== bucketName ||
-                (cachedParams.iconUrl !== iconUrl)
-            );
+            // Compare current params with cached params.
+            // Only invalidate if the icon URL changes.
+            const paramsChanged = cachedParams && (cachedParams.iconUrl !== iconUrl);
 
             if (paramsChanged) {
                 // console.log(`[MediaCache] 🔄 Bucket params changed for ${bucketName}`, {
@@ -1324,10 +1323,10 @@ class MediaCacheService {
                 // console.log(`[MediaCache] 🗑️ Invalidating cache for ${bucketName}`);
                 await this.invalidateBucketIcon(bucketId, bucketName);
                 // Update timestamp for invalidated icon
-                this.bucketParamsCache.set(bucketId, { bucketName, iconUrl, timestamp: currentTimestamp });
+                this.bucketParamsCache.set(bucketId, { iconUrl, timestamp: currentTimestamp });
             } else if (!cachedParams) {
                 // First time seeing this bucket
-                this.bucketParamsCache.set(bucketId, { bucketName, iconUrl, timestamp: currentTimestamp });
+                this.bucketParamsCache.set(bucketId, { iconUrl, timestamp: currentTimestamp });
             }
 
             // Check if already cached
@@ -1373,7 +1372,6 @@ class MediaCacheService {
 
         if (cachedParams) {
             const paramsChanged =
-                cachedParams.bucketName !== bucketName ||
                 cachedParams.iconUrl !== iconUrl;
 
             if (paramsChanged) {
@@ -1628,11 +1626,8 @@ class MediaCacheService {
                 return;
             }
 
-            // Generate cache key with OLD parameters
-            const oldCacheKey = this.generateBucketIconCacheKey(
-                bucketId,
-                oldParams.bucketName,
-            );
+            // Generate cache key with OLD parameters (currently based on bucketId only)
+            const oldCacheKey = this.generateBucketIconCacheKey(bucketId, newBucketName ?? "");
 
             if (isWeb) {
                 // Delete from IndexedDB
@@ -1642,10 +1637,7 @@ class MediaCacheService {
                 }
             } else {
                 // Delete from filesystem using old parameters
-                const oldFileUri = await this.getBucketIconFilePath(
-                    bucketId,
-                    oldParams.bucketName,
-                );
+                const oldFileUri = await this.getBucketIconFilePath(bucketId, newBucketName ?? "");
                 const file = new File(oldFileUri);
                 if (file.exists) {
                     await file.delete();

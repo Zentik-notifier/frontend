@@ -63,7 +63,7 @@ export default function DetailCollapsibleSection({
         </View>
 
         {actions.length > 0 && (
-          <View style={styles.actionsRow}>
+          <View style={styles.actionsColumn}>
             {actions.map((action, index) => (
               <Button
                 key={index}
@@ -106,13 +106,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontWeight: "600",
   },
-  actionsRow: {
-    flexDirection: "row",
+  actionsColumn: {
+    flexDirection: "column",
     gap: 8,
     marginBottom: 16,
+    alignItems: "stretch",
   },
   actionButton: {
-    flex: 1,
+    width: "100%",
   },
   expandedContent: {
     marginTop: 8,

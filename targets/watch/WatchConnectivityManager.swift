@@ -3,10 +3,10 @@ import CloudKit
 import WatchConnectivity
 
 /**
- * WatchConnectivityManager - Placeholder replaced by CloudKitManager
+ * WatchConnectivityManager - Wrapper per WatchCloudKit
  * 
  * This is a minimal stub that maintains the interface used by content.swift
- * but uses CloudKitManager internally for data synchronization.
+ * but uses WatchCloudKit internally for data synchronization.
  * 
  * TODO: Implement CloudKit fetch methods to replace WatchConnectivity
  */
@@ -20,13 +20,24 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     @Published var lastUpdate: Date?
     @Published var isWaitingForResponse: Bool = false
     @Published var isSyncing: Bool = false
+    @Published var isFullSyncing: Bool = false
     
     private let dataStore = WatchDataStore.shared
     private var wcSession: WCSession?
     
-    private var lastSyncTime: Date?
-    private let minSyncInterval: TimeInterval = 30.0 // Minimum 30 seconds between syncs
-    private var syncWorkItem: DispatchWorkItem?
+    private let syncStateQueue = DispatchQueue(label: "WatchConnectivityManager.syncStateQueue")
+    private var syncInFlight: Bool = false
+
+    private let topUpQueue = DispatchQueue(label: "WatchConnectivityManager.topUpQueue")
+    private var topUpInFlight: Bool = false
+
+    private var uiRefreshWorkItem: DispatchWorkItem?
+    private let uiRefreshDebounceInterval: TimeInterval = 0.35
+    private let uiRefreshFastDebounceInterval: TimeInterval = 0.08
+
+    // WC is intentionally restricted to:
+    // - iPhone -> Watch: settings (watchTokenSettings via applicationContext/message)
+    // - Watch -> iPhone: logs transfer (watchLogs via sendMessage)
     
     private override init() {
         super.init()
@@ -39,7 +50,7 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         // Listen for CloudKit data updates (from remote notifications)
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(handleCloudKitDataUpdate),
+            selector: #selector(handleCloudKitDataUpdate(_:)),
             name: NSNotification.Name("CloudKitDataUpdated"),
             object: nil
         )
@@ -166,9 +177,8 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     }
     
     @objc private func appWillResignActive() {
-        // Cancel any pending sync work items
-        syncWorkItem?.cancel()
-        syncWorkItem = nil
+        // Best-effort: persist any pending cache writes before backgrounding.
+        dataStore.flushPendingWrites()
     }
     
     /// Public method to trigger incremental sync (used by UI)
@@ -177,71 +187,73 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     }
     
     private func performIncrementalSync() {
-        // Cancel any pending sync work item
-        syncWorkItem?.cancel()
-        
-        // Check if enough time has passed since last sync
-        if let lastSync = lastSyncTime {
-            let timeSinceLastSync = Date().timeIntervalSince(lastSync)
-            if timeSinceLastSync < minSyncInterval {
-                let remainingTime = minSyncInterval - timeSinceLastSync
-                LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Throttling sync request", metadata: ["remainingSeconds": "\(Int(remainingTime))"], source: "Watch")
-                
-                // Schedule sync after remaining time
-                syncWorkItem = DispatchWorkItem { [weak self] in
-                    self?.performSync()
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + remainingTime, execute: syncWorkItem!)
-                return
-            }
-        }
-        
-        // Perform sync immediately
-        performSync()
+        requestSync(fullSync: false)
     }
     
-    private func performSync() {
-        // Update last sync time
-        lastSyncTime = Date()
-        
-        // Cancel any pending work item
-        syncWorkItem?.cancel()
-        syncWorkItem = nil
-        
-        // Check if already syncing
-        guard !isSyncing else {
-            LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: "Sync already in progress, skipping", source: "Watch")
-            return
+    private func requestSync(fullSync: Bool) {
+        syncStateQueue.async { [weak self] in
+            guard let self = self else { return }
+
+            if self.syncInFlight {
+                LoggingSystem.shared.log(
+                    level: "INFO",
+                    tag: "CloudKit",
+                    message: "Sync already in progress; skipping",
+                    metadata: ["fullSync": fullSync ? "true" : "false"],
+                    source: "Watch"
+                )
+
+                if fullSync {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.isFullSyncing = false
+                    }
+                }
+                return
+            }
+
+            self.syncInFlight = true
+            DispatchQueue.main.async { [weak self] in
+                self?.isSyncing = true
+            }
+
+            self.performSyncInternal(fullSync: fullSync)
         }
-        
-        DispatchQueue.main.async { [weak self] in
-            self?.isSyncing = true
-        }
-        
+    }
+
+    private func performSyncInternal(fullSync: Bool) {
         // Check if CloudKit is enabled before syncing
-        guard CloudKitManager.shared.isCloudKitEnabled else {
+        guard WatchCloudKit.shared.isCloudKitEnabled else {
             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping sync", source: "Watch")
             DispatchQueue.main.async { [weak self] in
                 self?.isSyncing = false
+                self?.isFullSyncing = false
+            }
+            syncStateQueue.async { [weak self] in
+                guard let self = self else { return }
+                self.syncInFlight = false
             }
             return
         }
-        
-        CloudKitManager.shared.syncFromCloudKitIncremental(fullSync: false) { count, error in
+
+        WatchCloudKit.shared.syncFromCloudKitIncremental(fullSync: fullSync) { count, error in
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 self.isSyncing = false
-                
-                if let error = error {
-                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Incremental sync failed", metadata: ["error": error.localizedDescription], source: "Watch")
-                } else {
-                    if count > 0 {
-                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Incremental sync completed", metadata: ["updatedCount": "\(count)"], source: "Watch")
-                        // Reload cache and update UI
-                        self.loadCachedData()
-                        self.updateBucketCounts()
-                    }
+                if fullSync {
+                    self.isFullSyncing = false
                 }
+
+                if let error = error {
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: fullSync ? "Full sync failed" : "Incremental sync failed", metadata: ["error": error.localizedDescription], source: "Watch")
+                } else if count > 0 {
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: fullSync ? "Full sync completed" : "Incremental sync completed", metadata: ["updatedCount": "\(count)"], source: "Watch")
+                    self.scheduleUIRefresh(reason: fullSync ? "fullSync" : "incrementalSync")
+                }
+            }
+
+            self.syncStateQueue.async { [weak self] in
+                guard let self = self else { return }
+                self.syncInFlight = false
             }
         }
     }
@@ -250,11 +262,138 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         NotificationCenter.default.removeObserver(self)
     }
     
-    @objc private func handleCloudKitDataUpdate() {
-        // Ensure UI updates happen on main thread
-        DispatchQueue.main.async { [weak self] in
-            self?.loadCachedData()
-            self?.updateBucketCounts()
+    @objc private func handleCloudKitDataUpdate(_ notification: Notification) {
+        let changedNotificationIds = (notification.userInfo?["changedNotificationIds"] as? [String]) ?? []
+        let deletedNotificationIds = (notification.userInfo?["deletedNotificationIds"] as? [String]) ?? []
+        let changedBucketIds = (notification.userInfo?["changedBucketIds"] as? [String]) ?? []
+        let deletedBucketIds = (notification.userInfo?["deletedBucketIds"] as? [String]) ?? []
+
+        // If we have diff info, apply it without reloading JSON from disk.
+        if !changedNotificationIds.isEmpty || !deletedNotificationIds.isEmpty || !changedBucketIds.isEmpty || !deletedBucketIds.isEmpty {
+            scheduleUIRefresh(
+                reason: "cloudKitDataUpdated(diff)",
+                debounceInterval: uiRefreshFastDebounceInterval
+            ) { [weak self] in
+                self?.applyCloudKitDiffToUI(
+                    changedNotificationIds: changedNotificationIds,
+                    deletedNotificationIds: deletedNotificationIds,
+                    changedBucketIds: changedBucketIds,
+                    deletedBucketIds: deletedBucketIds
+                )
+            }
+            return
+        }
+
+        // Fallback (older versions): reload from cache.
+        scheduleUIRefresh(reason: "cloudKitDataUpdated")
+    }
+
+    private func scheduleUIRefresh(
+        reason: String,
+        debounceInterval: TimeInterval? = nil,
+        work: (() -> Void)? = nil
+    ) {
+        // Coalesce bursts of updates to avoid blocking the UI when many notifications arrive
+        uiRefreshWorkItem?.cancel()
+        let interval = debounceInterval ?? uiRefreshDebounceInterval
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            if let work {
+                work()
+            } else {
+                self.loadCachedData()
+                self.updateBucketCounts()
+            }
+        }
+        uiRefreshWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + interval, execute: workItem)
+    }
+
+    private func makeNotificationData(from cached: WatchDataStore.CachedNotification) -> NotificationData {
+        let notification = WidgetNotification(
+            id: cached.id,
+            title: cached.title,
+            body: cached.body,
+            subtitle: cached.subtitle,
+            createdAt: cached.createdAt,
+            isRead: cached.isRead,
+            bucketId: cached.bucketId,
+            bucketName: cached.bucketName,
+            bucketColor: cached.bucketColor,
+            bucketIconUrl: cached.bucketIconUrl,
+            attachments: cached.attachments.map { WidgetAttachment(mediaType: $0.mediaType, url: $0.url, name: $0.name) },
+            actions: cached.actions.map { NotificationAction(type: $0.type, label: $0.label, value: $0.value, id: $0.id, url: $0.url, bucketId: $0.bucketId, minutes: $0.minutes) }
+        )
+        return NotificationData(notification: notification)
+    }
+
+    private func normalizeNotificationsForDisplay() {
+        let maxLimit = WatchSettingsManager.shared.maxNotificationsLimit
+
+        let mostRecent = notifications
+            .sorted { $0.notification.createdAtDate > $1.notification.createdAtDate }
+
+        let limited = Array(mostRecent.prefix(maxLimit))
+
+        notifications = limited.sorted { a, b in
+            if a.notification.isRead != b.notification.isRead {
+                return !a.notification.isRead && b.notification.isRead
+            }
+            return a.notification.createdAtDate > b.notification.createdAtDate
+        }
+    }
+
+    private func applyCloudKitDiffToUI(
+        changedNotificationIds: [String],
+        deletedNotificationIds: [String],
+        changedBucketIds: [String],
+        deletedBucketIds: [String]
+    ) {
+        let cache = dataStore.loadCache()
+
+        let deletedSet = Set(deletedNotificationIds)
+        if !deletedSet.isEmpty {
+            notifications.removeAll { deletedSet.contains($0.notification.id) }
+        }
+
+        let changedSet = Set(changedNotificationIds)
+        if !changedSet.isEmpty {
+            for id in changedSet {
+                if let cached = cache.notifications.first(where: { $0.id == id }) {
+                    let updated = makeNotificationData(from: cached)
+                    if let idx = notifications.firstIndex(where: { $0.notification.id == id }) {
+                        notifications[idx] = updated
+                    } else {
+                        notifications.append(updated)
+                    }
+                } else {
+                    // Might have been trimmed out of the bounded cache.
+                    notifications.removeAll { $0.notification.id == id }
+                }
+            }
+        }
+
+        // Buckets are typically few; replace them from cache for consistency.
+        buckets = cache.buckets.map { cached in
+            BucketItem(
+                id: cached.id,
+                name: cached.name,
+                unreadCount: cached.unreadCount,
+                totalCount: 0,
+                color: cached.color,
+                iconUrl: cached.iconUrl,
+                lastNotificationDate: nil
+            )
+        }
+
+        unreadCount = cache.unreadCount
+        lastUpdate = cache.lastUpdate
+
+        normalizeNotificationsForDisplay()
+        updateBucketCounts()
+
+        if !deletedNotificationIds.isEmpty {
+            ensureFilledToMaxLimit(reason: "cloudKitDeletion")
         }
     }
     
@@ -280,25 +419,37 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
             return NotificationData(notification: notification)
         }
         
-        // Sort notifications: unread first, then by createdAt descending (newest first)
-        let sorted = mappedNotifications.sorted { notif1, notif2 in
-            // Unread notifications come first
-            if notif1.notification.isRead != notif2.notification.isRead {
-                return !notif1.notification.isRead && notif2.notification.isRead
-            }
-            // Then sort by createdAt descending (newest first)
-            let dateFormatter = ISO8601DateFormatter()
-            dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            if let date1 = dateFormatter.date(from: notif1.notification.createdAt),
-               let date2 = dateFormatter.date(from: notif2.notification.createdAt) {
-                return date1 > date2
-            }
-            return false
-        }
-        
-        // Apply maximum notifications limit (load only the 100 most recent by createdAt)
+        // Apply maximum notifications limit (keep only the N most recent by createdAt)
+        // Then sort for display (unread first, then newest first).
         let maxLimit = WatchSettingsManager.shared.maxNotificationsLimit
-        notifications = Array(sorted.prefix(maxLimit))
+        let totalAvailable = mappedNotifications.count
+
+        let mostRecent = mappedNotifications
+            .sorted { $0.notification.createdAtDate > $1.notification.createdAtDate }
+
+        let limited = Array(mostRecent.prefix(maxLimit))
+
+        let displaySorted = limited.sorted { a, b in
+            if a.notification.isRead != b.notification.isRead {
+                return !a.notification.isRead && b.notification.isRead
+            }
+            return a.notification.createdAtDate > b.notification.createdAtDate
+        }
+
+        notifications = displaySorted
+        if totalAvailable > maxLimit {
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "WatchConnectivity",
+                message: "Applied notifications display limit",
+                metadata: [
+                    "totalAvailable": "\(totalAvailable)",
+                    "displayLimit": "\(maxLimit)",
+                    "displayed": "\(notifications.count)"
+                ],
+                source: "Watch"
+            )
+        }
         
         // Convert cached buckets to BucketItem
         buckets = cache.buckets.map { cached in
@@ -331,13 +482,13 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         // Fetch notifications
         group.enter()
         // Check if CloudKit is enabled before fetching
-        guard CloudKitManager.shared.isCloudKitEnabled else {
+        guard WatchCloudKit.shared.isCloudKitEnabled else {
             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping fetch", source: "Watch")
             group.leave()
             return
         }
-        
-        CloudKitManager.shared.fetchAllNotificationsFromCloudKit { notifications, error in
+
+        WatchCloudKit.shared.fetchAllNotificationsFromCloudKit { notifications, error in
             if let error = error {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching notifications from CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
                 fetchError = error
@@ -351,13 +502,13 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         // Fetch buckets
         group.enter()
         // Check if CloudKit is enabled before fetching
-        guard CloudKitManager.shared.isCloudKitEnabled else {
+        guard WatchCloudKit.shared.isCloudKitEnabled else {
             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping fetch", source: "Watch")
             group.leave()
             return
         }
-        
-        CloudKitManager.shared.fetchAllBucketsFromCloudKit { buckets, error in
+
+        WatchCloudKit.shared.fetchAllBucketsFromCloudKit { buckets, error in
         if let error = error {
                 LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching buckets from CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
                 fetchError = error
@@ -421,9 +572,6 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         var bucketCounts: [String: (total: Int, unread: Int)] = [:]
         var bucketLastDates: [String: Date] = [:]
         
-        let dateFormatter = ISO8601DateFormatter()
-        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        
         for notificationData in notifications {
             let bucketId = notificationData.notification.bucketId
             let isRead = notificationData.notification.isRead
@@ -469,7 +617,7 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         
         // Perform incremental sync in background without blocking UI
         // Check if CloudKit is enabled before syncing
-        guard CloudKitManager.shared.isCloudKitEnabled else {
+        guard WatchCloudKit.shared.isCloudKitEnabled else {
             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping sync", source: "Watch")
             return
         }
@@ -484,421 +632,613 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         
         // Perform full sync in background without blocking UI
         // Check if CloudKit is enabled before syncing
-        guard CloudKitManager.shared.isCloudKitEnabled else {
+        guard WatchCloudKit.shared.isCloudKitEnabled else {
             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping full sync", source: "Watch")
             return
         }
         
-        // Perform sync on background queue to avoid blocking UI
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard let self = self else { return }
-            
-            CloudKitManager.shared.syncFromCloudKitIncremental(fullSync: true) { count, error in
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
-                    
-                    if let error = error {
-                        LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Full sync failed", metadata: ["error": error.localizedDescription], source: "Watch")
-                    } else {
-                        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Full sync completed", metadata: ["updatedCount": "\(count)"], source: "Watch")
-                        // Reload cache and update UI only when sync completes
-                        self.loadCachedData()
-                        self.updateBucketCounts()
-                    }
+        DispatchQueue.main.async { [weak self] in
+            self?.isFullSyncing = true
+        }
+        requestSync(fullSync: true)
+    }
+
+    // MARK: - Watch REST helpers (using watch token settings)
+
+    private func buildApiBaseWithPrefix(from serverAddress: String) -> String {
+        let trimmed = serverAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = trimmed.replacingOccurrences(of: "/$", with: "", options: .regularExpression)
+
+        // If user already includes /api/v1, don't double-append.
+        if base.hasSuffix("/api/v1") {
+            return base
+        }
+        return base + "/api/v1"
+    }
+
+    private func makeWatchApiRequest(
+        path: String,
+        method: String,
+        jsonBody: [String: Any]? = nil
+    ) -> URLRequest? {
+        guard let token = UserDefaults.standard.string(forKey: "watch_access_token"),
+              let serverAddress = UserDefaults.standard.string(forKey: "watch_server_address") else {
+            return nil
+        }
+        let tokenTrimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        let serverTrimmed = serverAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !tokenTrimmed.isEmpty, !serverTrimmed.isEmpty else { return nil }
+
+        let apiBase = buildApiBaseWithPrefix(from: serverTrimmed)
+        let urlString = apiBase + path
+        guard let url = URL(string: urlString) else { return nil }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("Bearer \(tokenTrimmed)", forHTTPHeaderField: "Authorization")
+
+        if let jsonBody {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            if let data = try? JSONSerialization.data(withJSONObject: jsonBody) {
+                request.httpBody = data
+            }
+        }
+
+        return request
+    }
+
+    private func performWatchApiRequest(
+        path: String,
+        method: String,
+        jsonBody: [String: Any]? = nil,
+        completion: @escaping (Bool) -> Void
+    ) {
+        guard let request = makeWatchApiRequest(path: path, method: method, jsonBody: jsonBody) else {
+            // Missing watch settings is not an error condition for CloudKit sync.
+            // It simply means watch-scoped REST actions are currently unavailable.
+            LoggingSystem.shared.log(level: "INFO", tag: "WatchREST", message: "Missing watch token/serverAddress; skipping REST call", metadata: ["path": path, "method": method], source: "Watch")
+            completion(false)
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { _, response, error in
+            if let error {
+                LoggingSystem.shared.log(level: "ERROR", tag: "WatchREST", message: "REST call failed", metadata: ["path": path, "error": error.localizedDescription], source: "Watch")
+                completion(false)
+                return
+            }
+
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            if status >= 200 && status < 300 {
+                completion(true)
+            } else {
+                // REST is best-effort from watch. Backend may have already cleaned up notifications.
+                // Treat common idempotent statuses as success to avoid noisy logs and blocking follow-up.
+                if status == 404 || status == 410 {
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "WatchREST",
+                        message: "REST resource missing; treating as success",
+                        metadata: ["path": path, "status": "\(status)", "method": method],
+                        source: "Watch"
+                    )
+                    completion(true)
+                } else {
+                    LoggingSystem.shared.log(level: "WARN", tag: "WatchREST", message: "REST call returned HTTP error", metadata: ["path": path, "status": "\(status)", "method": method], source: "Watch")
+                    completion(false)
                 }
+            }
+        }.resume()
+    }
+
+    private func ensureFilledToMaxLimit(reason: String) {
+        let maxLimit = WatchSettingsManager.shared.maxNotificationsLimit
+        guard notifications.count < maxLimit else { return }
+
+        topUpQueue.async { [weak self] in
+            guard let self = self else { return }
+            if self.topUpInFlight { return }
+            self.topUpInFlight = true
+
+            WatchCloudKit.shared.fetchLatestNotificationsFromCloudKit(limit: maxLimit) { notifications, error in
+                if let error {
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Top-up fetch failed", metadata: ["error": error.localizedDescription, "reason": reason], source: "Watch")
+                    self.topUpQueue.async { self.topUpInFlight = false }
+                    return
+                }
+
+                self.dataStore.replaceNotificationsFromCloudKit(notifications: notifications)
+                DispatchQueue.main.async { [weak self] in
+                    self?.scheduleUIRefresh(reason: "topUp(\(reason))", debounceInterval: self?.uiRefreshFastDebounceInterval)
+                }
+
+                self.topUpQueue.async { self.topUpInFlight = false }
             }
         }
     }
     
     func markNotificationAsReadFromWatch(id: String) {
-        // Update local cache immediately for instant UI feedback
-        if let index = notifications.firstIndex(where: { $0.notification.id == id }) {
-            let cached = dataStore.loadCache()
-            if let cacheIndex = cached.notifications.firstIndex(where: { $0.id == id }) {
-                var updatedCache = cached
-                updatedCache.notifications[cacheIndex].isRead = true
-                if updatedCache.notifications[cacheIndex].isRead && !notifications[index].notification.isRead {
-                    updatedCache.unreadCount = max(0, updatedCache.unreadCount - 1)
-                }
-                dataStore.saveCache(updatedCache)
-                DispatchQueue.main.async { [weak self] in
-                    self?.loadCachedData()
-                    self?.updateBucketCounts()
-                }
-            }
+        LoggingSystem.shared.log(level: "INFO", tag: "WatchAction", message: "Mark notification as read requested", metadata: ["notificationId": id], source: "Watch")
+
+        // Update UI state immediately (avoid disk IO + heavy reload on main thread)
+        let wasRead = notifications.first(where: { $0.notification.id == id })?.notification.isRead ?? true
+        if !wasRead {
+            unreadCount = max(0, unreadCount - 1)
         }
-        
-        // Update CloudKit using shared method
-        // Check if CloudKit is enabled before updating
-        guard CloudKitManager.shared.isCloudKitEnabled else {
-            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping read status update", source: "Watch")
-            return
+        notifications = notifications.map { item in
+            guard item.notification.id == id else { return item }
+            let n = item.notification
+            let updated = WidgetNotification(
+                id: n.id,
+                title: n.title,
+                body: n.body,
+                subtitle: n.subtitle,
+                createdAt: n.createdAt,
+                isRead: true,
+                bucketId: n.bucketId,
+                bucketName: n.bucketName,
+                bucketColor: n.bucketColor,
+                bucketIconUrl: n.bucketIconUrl,
+                attachments: n.attachments,
+                actions: n.actions
+            )
+            return NotificationData(notification: updated)
         }
-        
-        CloudKitManager.shared.updateNotificationReadStatusInCloudKit(notificationId: id, readAt: Date()) { success, error in
-            if let error = error {
-                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to update notification read status in CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
-            }
+
+        // Re-apply sort + limit (list is small on watch)
+        let maxLimit = WatchSettingsManager.shared.maxNotificationsLimit
+        notifications = Array(
+            notifications
+                .sorted { a, b in
+                    if a.notification.isRead != b.notification.isRead {
+                        return !a.notification.isRead && b.notification.isRead
+                    }
+                    return a.notification.createdAtDate > b.notification.createdAtDate
+                }
+                .prefix(maxLimit)
+        )
+        updateBucketCounts()
+
+        // Persist cache update off the main thread (record-level)
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            self?.dataStore.setNotificationReadStatus(id: id, isRead: true)
+        }
+
+        // Best-effort remote updates (REST + CloudKit) via shared handler
+        Task { [weak self] in
+            let results = await NotificationActionHandler.executeWatchRemoteUpdates(actionType: "MARK_AS_READ", notificationId: id)
+            LoggingSystem.shared.log(
+                level: results.contains(where: { !$0.success }) ? "WARN" : "INFO",
+                tag: "WatchAction",
+                message: "Remote updates completed (best-effort)",
+                metadata: ["notificationId": id, "type": "MARK_AS_READ"],
+                source: "Watch"
+            )
+            self?.performIncrementalSync()
         }
     }
     
     func markMultipleNotificationsAsReadFromWatch(ids: [String]) {
         guard !ids.isEmpty else { return }
-        
-        // Update local cache immediately
-        let cached = dataStore.loadCache()
-        var updatedCache = cached
-        var unreadReduction = 0
-        
-        for id in ids {
-            if let cacheIndex = updatedCache.notifications.firstIndex(where: { $0.id == id }),
-               !updatedCache.notifications[cacheIndex].isRead {
-                updatedCache.notifications[cacheIndex].isRead = true
-                unreadReduction += 1
+
+        // Update UI state immediately
+        let idSet = Set(ids)
+        let previouslyUnread = notifications.filter { idSet.contains($0.notification.id) && !$0.notification.isRead }.count
+        if previouslyUnread > 0 {
+            unreadCount = max(0, unreadCount - previouslyUnread)
+        }
+        notifications = notifications.map { item in
+            guard idSet.contains(item.notification.id) else { return item }
+            let n = item.notification
+            if n.isRead { return item }
+            let updated = WidgetNotification(
+                id: n.id,
+                title: n.title,
+                body: n.body,
+                subtitle: n.subtitle,
+                createdAt: n.createdAt,
+                isRead: true,
+                bucketId: n.bucketId,
+                bucketName: n.bucketName,
+                bucketColor: n.bucketColor,
+                bucketIconUrl: n.bucketIconUrl,
+                attachments: n.attachments,
+                actions: n.actions
+            )
+            return NotificationData(notification: updated)
+        }
+
+        let maxLimit = WatchSettingsManager.shared.maxNotificationsLimit
+        notifications = Array(
+            notifications
+                .sorted { a, b in
+                    if a.notification.isRead != b.notification.isRead {
+                        return !a.notification.isRead && b.notification.isRead
+                    }
+                    return a.notification.createdAtDate > b.notification.createdAtDate
+                }
+                .prefix(maxLimit)
+        )
+        updateBucketCounts()
+
+        // Persist cache update off the main thread (record-level)
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            self?.dataStore.setNotificationsReadStatus(ids: ids, isRead: true)
+        }
+
+        // Best-effort CloudKit: keep iPhone in sync via CK
+        WatchCloudKit.shared.updateNotificationsReadStatusInCloudKit(
+            notificationIds: ids,
+            readAt: Date()
+        ) { success, updatedCount, error in
+            if let error {
+                LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to update read status in CloudKit", metadata: ["count": "\(updatedCount)", "error": error.localizedDescription], source: "Watch")
+            } else if success {
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Updated read status in CloudKit", metadata: ["count": "\(updatedCount)"], source: "Watch")
             }
         }
-        
-        updatedCache.unreadCount = max(0, updatedCache.unreadCount - unreadReduction)
-        dataStore.saveCache(updatedCache)
-        DispatchQueue.main.async { [weak self] in
-            self?.loadCachedData()
-            self?.updateBucketCounts()
+
+        // Best-effort REST: apply per-notification (small bounded list on watch)
+        for id in ids {
+            performWatchApiRequest(path: "/notifications/watch/\(id)/read", method: "PATCH") { _ in }
         }
-        
-        // Update CloudKit using shared batch method
-        // Check if CloudKit is enabled before updating
-        guard CloudKitManager.shared.isCloudKitEnabled else {
-            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping read status update", source: "Watch")
+
+        performIncrementalSync()
+    }
+
+    /// Execute a notification action from the Watch UI.
+    /// WC is NOT used for actions; only REST (WATCH scope) is used.
+    func executeNotificationAction(notificationId: String, action: NotificationAction) {
+        let actionType = action.type.uppercased()
+        LoggingSystem.shared.log(level: "INFO", tag: "WatchAction", message: "Execute action requested", metadata: ["notificationId": notificationId, "type": actionType], source: "Watch")
+
+        func extractMinutes(from action: NotificationAction) -> Int? {
+            if let minutes = action.minutes { return minutes }
+            if let value = action.value, let minutes = Int(value.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                return minutes
+            }
+            return nil
+        }
+
+        switch actionType {
+        case "MARK_AS_READ":
+            markNotificationAsReadFromWatch(id: notificationId)
+            return
+        case "MARK_AS_UNREAD":
+            markNotificationAsUnreadFromWatch(id: notificationId)
+            return
+        case "DELETE":
+            deleteNotificationFromWatch(id: notificationId)
+            return
+        case "POSTPONE":
+            if let minutes = extractMinutes(from: action) {
+                postponeNotificationFromWatch(id: notificationId, minutes: minutes)
+                return
+            }
+            break
+        case "SNOOZE":
+            if let minutes = extractMinutes(from: action) {
+                let bucketId = action.bucketId ?? notifications.first(where: { $0.notification.id == notificationId })?.notification.bucketId
+                if let bucketId {
+                    snoozeBucketFromWatch(bucketId: bucketId, minutes: minutes)
+                    return
+                }
+            }
+            break
+        case "WEBHOOK":
+            if let webhookId = action.value?.trimmingCharacters(in: .whitespacesAndNewlines), !webhookId.isEmpty {
+                executeWebhookFromWatch(webhookId: webhookId)
+                return
+            }
+            break
+        case "BACKGROUND_CALL":
+            let raw = (action.value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Supported formats:
+            // 1) url is provided explicitly (action.url) and action.value is the HTTP method (or empty)
+            // 2) action.value contains "METHOD::URL"
+            // 3) action.value is a URL (defaults to GET)
+            let explicitUrl = action.url?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let explicitUrl, !explicitUrl.isEmpty {
+                let method = (raw.isEmpty ? "GET" : raw).uppercased()
+                executeBackgroundCallFromWatch(method: method, url: explicitUrl)
+                return
+            }
+
+            if raw.contains("::") {
+                let parts = raw.components(separatedBy: "::")
+                if parts.count >= 2 {
+                    let method = parts[0].trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                    let url = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !method.isEmpty, !url.isEmpty {
+                        executeBackgroundCallFromWatch(method: method, url: url)
+                        return
+                    }
+                }
+            }
+
+            if raw.lowercased().hasPrefix("http://") || raw.lowercased().hasPrefix("https://") {
+                executeBackgroundCallFromWatch(method: "GET", url: raw)
+                return
+            }
+            break
+        default:
+            break
+        }
+
+        LoggingSystem.shared.log(
+            level: "WARN",
+            tag: "WatchAction",
+            message: "Action not supported or missing required data",
+            metadata: ["notificationId": notificationId, "type": actionType],
+            source: "Watch"
+        )
+    }
+
+    private func snoozeBucketFromWatch(bucketId: String, minutes: Int) {
+        LoggingSystem.shared.log(level: "INFO", tag: "WatchAction", message: "Snooze bucket requested", metadata: ["bucketId": bucketId, "minutes": "\(minutes)"], source: "Watch")
+        performWatchApiRequest(
+            path: "/buckets/\(bucketId)/snooze-minutes",
+            method: "POST",
+            jsonBody: ["minutes": minutes]
+        ) { success in
+            LoggingSystem.shared.log(
+                level: success ? "INFO" : "WARN",
+                tag: "WatchREST",
+                message: success ? "Snooze executed via REST" : "Snooze failed via REST",
+                metadata: ["bucketId": bucketId, "minutes": "\(minutes)"],
+                source: "Watch"
+            )
+        }
+    }
+
+    private func executeWebhookFromWatch(webhookId: String) {
+        LoggingSystem.shared.log(level: "INFO", tag: "WatchAction", message: "Execute webhook requested", metadata: ["webhookId": webhookId], source: "Watch")
+        performWatchApiRequest(path: "/webhooks/\(webhookId)/execute", method: "POST") { success in
+            LoggingSystem.shared.log(
+                level: success ? "INFO" : "WARN",
+                tag: "WatchREST",
+                message: success ? "Webhook executed via REST" : "Webhook execution failed via REST",
+                metadata: ["webhookId": webhookId],
+                source: "Watch"
+            )
+        }
+    }
+
+    private func executeBackgroundCallFromWatch(method: String, url: String) {
+        LoggingSystem.shared.log(level: "INFO", tag: "WatchAction", message: "Background call requested", metadata: ["method": method, "url": url], source: "Watch")
+        guard let target = URL(string: url) else {
+            LoggingSystem.shared.log(level: "WARN", tag: "WatchAction", message: "Invalid background call URL", metadata: ["url": url], source: "Watch")
             return
         }
-        
-        CloudKitManager.shared.updateNotificationsReadStatusInCloudKit(notificationIds: ids, readAt: Date()) { success, count, error in
-            if let error = error {
-                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to update notifications read status", metadata: ["count": "\(count)", "error": error.localizedDescription], source: "Watch")
+
+        var request = URLRequest(url: target)
+        request.httpMethod = method
+        URLSession.shared.dataTask(with: request) { _, response, error in
+            if let error {
+                LoggingSystem.shared.log(level: "WARN", tag: "WatchREST", message: "Background call failed", metadata: ["method": method, "url": url, "error": error.localizedDescription], source: "Watch")
+                return
             }
-        }
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            if status >= 200 && status < 300 {
+                LoggingSystem.shared.log(level: "INFO", tag: "WatchREST", message: "Background call ok", metadata: ["method": method, "url": url, "status": "\(status)"], source: "Watch")
+            } else {
+                LoggingSystem.shared.log(level: "WARN", tag: "WatchREST", message: "Background call HTTP error", metadata: ["method": method, "url": url, "status": "\(status)"], source: "Watch")
+            }
+        }.resume()
     }
     
     func markNotificationAsUnreadFromWatch(id: String) {
-        // Update local cache immediately
-        if let index = notifications.firstIndex(where: { $0.notification.id == id }) {
-            let cached = dataStore.loadCache()
-            if let cacheIndex = cached.notifications.firstIndex(where: { $0.id == id }) {
-                var updatedCache = cached
-                updatedCache.notifications[cacheIndex].isRead = false
-                if !updatedCache.notifications[cacheIndex].isRead && notifications[index].notification.isRead {
-                    updatedCache.unreadCount += 1
-                }
-                dataStore.saveCache(updatedCache)
-                DispatchQueue.main.async { [weak self] in
-                    self?.loadCachedData()
-                    self?.updateBucketCounts()
-                }
-            }
+        LoggingSystem.shared.log(level: "INFO", tag: "WatchAction", message: "Mark notification as unread requested", metadata: ["notificationId": id], source: "Watch")
+
+        // Update UI state immediately
+        let wasRead = notifications.first(where: { $0.notification.id == id })?.notification.isRead ?? false
+        if wasRead {
+            unreadCount += 1
         }
-        
-        // Update CloudKit using shared method
-        // Check if CloudKit is enabled before updating
-        guard CloudKitManager.shared.isCloudKitEnabled else {
-            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping unread status update", source: "Watch")
-            return
+        notifications = notifications.map { item in
+            guard item.notification.id == id else { return item }
+            let n = item.notification
+            let updated = WidgetNotification(
+                id: n.id,
+                title: n.title,
+                body: n.body,
+                subtitle: n.subtitle,
+                createdAt: n.createdAt,
+                isRead: false,
+                bucketId: n.bucketId,
+                bucketName: n.bucketName,
+                bucketColor: n.bucketColor,
+                bucketIconUrl: n.bucketIconUrl,
+                attachments: n.attachments,
+                actions: n.actions
+            )
+            return NotificationData(notification: updated)
         }
-        
-        CloudKitManager.shared.updateNotificationReadStatusInCloudKit(notificationId: id, readAt: nil) { success, error in
-            if let error = error {
-                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to update notification unread status in CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
+
+        let maxLimit = WatchSettingsManager.shared.maxNotificationsLimit
+        notifications = Array(
+            notifications
+                .sorted { a, b in
+                    if a.notification.isRead != b.notification.isRead {
+                        return !a.notification.isRead && b.notification.isRead
+                    }
+                    return a.notification.createdAtDate > b.notification.createdAtDate
+                }
+                .prefix(maxLimit)
+        )
+        updateBucketCounts()
+
+        // Persist cache update off the main thread (record-level)
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            self?.dataStore.setNotificationReadStatus(id: id, isRead: false)
+        }
+
+        // Best-effort remote updates (REST + CloudKit) via shared handler
+        Task { [weak self] in
+            let results = await NotificationActionHandler.executeWatchRemoteUpdates(actionType: "MARK_AS_UNREAD", notificationId: id)
+            LoggingSystem.shared.log(
+                level: results.contains(where: { !$0.success }) ? "WARN" : "INFO",
+                tag: "WatchAction",
+                message: "Remote updates completed (best-effort)",
+                metadata: ["notificationId": id, "type": "MARK_AS_UNREAD"],
+                source: "Watch"
+            )
+            self?.performIncrementalSync()
+        }
+    }
+
+    private func postponeNotificationFromWatch(id: String, minutes: Int) {
+        LoggingSystem.shared.log(level: "INFO", tag: "WatchAction", message: "Postpone requested", metadata: ["notificationId": id, "minutes": "\(minutes)"], source: "Watch")
+
+        Task { [weak self] in
+            let results = await NotificationActionHandler.executeWatchRemoteUpdates(actionType: "POSTPONE", notificationId: id, minutes: minutes)
+            LoggingSystem.shared.log(
+                level: results.contains(where: { !$0.success }) ? "WARN" : "INFO",
+                tag: "WatchAction",
+                message: "Remote updates completed (best-effort)",
+                metadata: ["notificationId": id, "type": "POSTPONE", "minutes": "\(minutes)"],
+                source: "Watch"
+            )
+            await MainActor.run {
+                self?.performIncrementalSync()
             }
         }
     }
     
     func deleteNotificationFromWatch(id: String) {
-        // Update local cache immediately
-        let cached = dataStore.loadCache()
-        var updatedCache = cached
-        
-        if let cacheIndex = updatedCache.notifications.firstIndex(where: { $0.id == id }) {
-            let wasUnread = !updatedCache.notifications[cacheIndex].isRead
-            updatedCache.notifications.remove(at: cacheIndex)
-            if wasUnread {
-                updatedCache.unreadCount = max(0, updatedCache.unreadCount - 1)
-            }
-            dataStore.saveCache(updatedCache)
-            DispatchQueue.main.async { [weak self] in
-                self?.loadCachedData()
-                self?.updateBucketCounts()
-            }
+        LoggingSystem.shared.log(level: "INFO", tag: "WatchAction", message: "Delete notification requested", metadata: ["notificationId": id], source: "Watch")
+
+        // Update UI state immediately
+        let wasUnread = notifications.first(where: { $0.notification.id == id }).map { !$0.notification.isRead } ?? false
+        notifications.removeAll { $0.notification.id == id }
+        if wasUnread {
+            unreadCount = max(0, unreadCount - 1)
         }
-        
-        // Delete from CloudKit using shared method
-        // Check if CloudKit is enabled before deleting
-        guard CloudKitManager.shared.isCloudKitEnabled else {
-            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping delete", source: "Watch")
-            return
+        updateBucketCounts()
+
+        // Persist cache update off the main thread (record-level)
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            self?.dataStore.deleteNotificationFromCache(id: id)
         }
-        
-        CloudKitManager.shared.deleteNotificationFromCloudKit(notificationId: id) { success, error in
-            if let error = error {
-                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to delete notification from CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
+
+        Task { [weak self] in
+            let results = await NotificationActionHandler.executeWatchRemoteUpdates(actionType: "DELETE", notificationId: id)
+            LoggingSystem.shared.log(
+                level: results.contains(where: { !$0.success }) ? "WARN" : "INFO",
+                tag: "WatchAction",
+                message: "Remote updates completed (best-effort)",
+                metadata: ["notificationId": id, "type": "DELETE"],
+                source: "Watch"
+            )
+            await MainActor.run {
+                self?.performIncrementalSync()
+                self?.ensureFilledToMaxLimit(reason: "delete")
             }
         }
     }
-    
-    func executeNotificationAction(notificationId: String, action: NotificationAction) {
-        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Execute notification action", metadata: ["notificationId": notificationId, "action": action.type], source: "Watch")
-        
-        // Check if we have Watch token - if yes, execute via backend API
-        let watchToken = UserDefaults.standard.string(forKey: "watch_access_token")
-        let serverAddress = UserDefaults.standard.string(forKey: "watch_server_address")
-        
-        if let token = watchToken, let server = serverAddress {
-            // Execute action via backend API using Watch token
-            executeActionViaBackend(notificationId: notificationId, action: action, token: token, serverAddress: server)
-            return
-        }
-        
-        // Fallback to local/CloudKit handling if no token
-        // For actions that modify notification state, handle locally
-        if action.type == NotificationActionType.markAsRead.rawValue {
-            markNotificationAsReadFromWatch(id: notificationId)
-        } else if action.type == NotificationActionType.delete.rawValue {
-            deleteNotificationFromWatch(id: notificationId)
-        } else {
-            // Other actions (webhook, snooze, etc.) need to be executed via backend
-            // Log that we need token for this action
-            LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Action requires backend execution but no Watch token available", metadata: ["action": action.type], source: "Watch")
-        }
-    }
-    
-    private func executeActionViaBackend(notificationId: String, action: NotificationAction, token: String, serverAddress: String) {
-        let baseUrl = serverAddress.replacingOccurrences(of: "/$", with: "", options: .regularExpression)
-        let apiUrl = "\(baseUrl)/api/v1"
-        
-        var endpoint: String
-        var method: String = "PATCH"
-        
-        switch action.type {
-        case NotificationActionType.markAsRead.rawValue:
-            endpoint = "\(apiUrl)/notifications/watch/\(notificationId)/read"
-            method = "PATCH"
-        case NotificationActionType.delete.rawValue:
-            endpoint = "\(apiUrl)/notifications/watch/\(notificationId)"
-            method = "DELETE"
-        case NotificationActionType.postpone.rawValue:
-            endpoint = "\(apiUrl)/notifications/watch/postpone"
-            method = "POST"
-        default:
-            // For webhook and other actions, we might need to handle differently
-            LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Action type not yet supported via backend API", metadata: ["action": action.type], source: "Watch")
-            return
-        }
-        
-        var request = URLRequest(url: URL(string: endpoint)!)
-        request.httpMethod = method
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add body for POST requests
-        if method == "POST" && action.type == NotificationActionType.postpone.rawValue {
-            if let minutes = Int(action.value ?? "0") {
-                let body: [String: Any] = [
-                    "notificationId": notificationId,
-                    "minutes": minutes
-                ]
-                request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-            }
-        }
-        
-        let task = URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Failed to execute action via backend", metadata: ["action": action.type, "error": error.localizedDescription], source: "Watch")
-                return
-            }
-            
-            if let httpResponse = response as? HTTPURLResponse {
-                if httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Action executed successfully via backend", metadata: ["action": action.type, "statusCode": "\(httpResponse.statusCode)"], source: "Watch")
-                    
-                    // Update local cache for mark as read and delete
-                    if action.type == NotificationActionType.markAsRead.rawValue {
-                        self.markNotificationAsReadFromWatch(id: notificationId)
-                    } else if action.type == NotificationActionType.delete.rawValue {
-                        self.deleteNotificationFromWatch(id: notificationId)
-                    }
-                } else {
-                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Backend API returned error", metadata: ["action": action.type, "statusCode": "\(httpResponse.statusCode)"], source: "Watch")
-                }
-            }
-        }
-        
-        task.resume()
-    }
-    
+
+    /// Manually send Watch logs to iPhone (invoked by LogsView button).
+    /// Uses `sendMessage` with batching, therefore requires iPhone to be reachable.
     func sendLogsToiPhone(completion: @escaping (Bool, String?) -> Void) {
-        guard let session = wcSession, session.isReachable else {
+        guard let session = wcSession else {
+            LoggingSystem.shared.log(level: "WARN", tag: "WatchConnectivity", message: "WCSession not available, cannot send logs", source: "Watch")
+            completion(false, "WCSession not available")
+            return
+        }
+
+        // Ensure buffered logs are persisted before reading
+        LoggingSystem.shared.flushLogs()
+
+        guard session.isReachable else {
             LoggingSystem.shared.log(level: "WARN", tag: "WatchConnectivity", message: "iPhone not reachable, cannot send logs", source: "Watch")
             completion(false, "iPhone not reachable")
             return
         }
-        
-        // Flush logs first to ensure all are written to file
-        LoggingSystem.shared.flushLogs()
-        
-        // Small delay to ensure flush completes
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            // Read all logs
-            let allLogs = LoggingSystem.shared.readLogs()
-            
-            guard !allLogs.isEmpty else {
-                LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "No logs to send", source: "Watch")
-                completion(false, "No logs to send")
+
+        let allLogs = LoggingSystem.shared.readLogs()
+        guard !allLogs.isEmpty else {
+            LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "No logs to send", source: "Watch")
+            completion(true, nil)
+            return
+        }
+
+        // Keep payload bounded to avoid WatchConnectivity message limits.
+        let maxLogsToSend = 2000
+        let logsToSend = Array(allLogs.prefix(maxLogsToSend))
+
+        let logsData: [[String: Any]] = logsToSend.map { entry in
+            var dict: [String: Any] = [
+                "id": entry.id,
+                "level": entry.level,
+                "message": entry.message,
+                "timestamp": entry.timestamp,
+                "source": entry.source
+            ]
+            if let tag = entry.tag {
+                dict["tag"] = tag
+            }
+            if let metadata = entry.metadata {
+                dict["metadata"] = metadata
+            }
+            return dict
+        }
+
+        let batchSize = 50
+        let totalBatches = Int(ceil(Double(logsData.count) / Double(batchSize)))
+        var currentBatch = 0
+        var didComplete = false
+
+        if allLogs.count > maxLogsToSend {
+            LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "Trimming logs for transfer", metadata: ["totalLogs": "\(allLogs.count)", "sending": "\(maxLogsToSend)"], source: "Watch")
+        }
+
+        LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "Sending logs to iPhone", metadata: ["logs": "\(logsData.count)", "batchSize": "\(batchSize)", "totalBatches": "\(totalBatches)"], source: "Watch")
+
+        func finish(_ success: Bool, _ error: String?) {
+            guard !didComplete else { return }
+            didComplete = true
+            completion(success, error)
+        }
+
+        func sendNextBatch() {
+            if currentBatch >= totalBatches {
+                LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "Finished sending logs to iPhone", metadata: ["totalBatches": "\(totalBatches)", "logs": "\(logsData.count)"], source: "Watch")
+                finish(true, nil)
                 return
             }
-            
-            // Convert logs to dictionary array for transmission
-            let logsData: [[String: Any]] = allLogs.map { log in
-                var dict: [String: Any] = [
-                    "id": log.id,
-                    "level": log.level,
-                    "message": log.message,
-                    "timestamp": log.timestamp,
-                    "source": log.source
-                ]
-                if let tag = log.tag {
-                    dict["tag"] = tag
-                }
-                if let metadata = log.metadata {
-                    dict["metadata"] = metadata
-                }
-                return dict
-            }
-            
-            LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "Sending logs to iPhone in batches", metadata: ["totalCount": "\(logsData.count)"], source: "Watch")
-            
-            // Send logs in batches to avoid payload size limit
-            // WCSession has a limit of ~65KB per message, so we send ~100 logs per batch
-            let batchSize = 100
-            let totalBatches = (logsData.count + batchSize - 1) / batchSize
-            var currentBatch = 0
-            var allBatchesSent = false
-            
-            // Notify React Native that transfer is starting
-            if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
-                let selector = NSSelectorFromString("notifyWatchLogsTransferProgressWithDictionary:")
-                if bridgeClass.responds(to: selector) {
-                    let dict: [String: Any] = [
-                        "currentBatch": 0,
-                        "totalBatches": totalBatches,
-                        "logsInBatch": 0,
-                        "phase": "starting"
-                    ]
-                    _ = bridgeClass.perform(selector, with: dict)
-                }
-            }
-            
-            func sendNextBatch() {
-                guard currentBatch < totalBatches else {
-                    // All batches sent successfully
-                    allBatchesSent = true
-                    LoggingSystem.shared.clearAllLogs()
-                    LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "All log batches sent successfully and cleared", metadata: ["totalCount": "\(logsData.count)"], source: "Watch")
-                    
-                    // Notify React Native that transfer is completed
-                    if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
-                        let selector = NSSelectorFromString("notifyWatchLogsTransferProgressWithDictionary:")
-                        if bridgeClass.responds(to: selector) {
-                            let dict: [String: Any] = [
-                                "currentBatch": totalBatches,
-                                "totalBatches": totalBatches,
-                                "logsInBatch": 0,
-                                "phase": "completed"
-                            ]
-                            _ = bridgeClass.perform(selector, with: dict)
-                        }
+
+            let startIndex = currentBatch * batchSize
+            let endIndex = min(startIndex + batchSize, logsData.count)
+            let batch = Array(logsData[startIndex..<endIndex])
+
+            let message: [String: Any] = [
+                "type": "watchLogs",
+                "logs": batch,
+                "batchIndex": currentBatch,
+                "totalBatches": totalBatches,
+                "count": batch.count,
+                "isLastBatch": currentBatch == totalBatches - 1
+            ]
+
+            session.sendMessage(message, replyHandler: { reply in
+                if let success = reply["success"] as? Bool, success {
+                    currentBatch += 1
+                    // Small delay between batches to avoid overwhelming the link
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        sendNextBatch()
                     }
-                    
-                    completion(true, nil)
-                    return
+                } else {
+                    let errorMsg = reply["error"] as? String ?? "Unknown error"
+                    LoggingSystem.shared.log(level: "ERROR", tag: "WatchConnectivity", message: "Failed to send logs batch", metadata: ["batch": "\(currentBatch + 1)/\(totalBatches)", "error": errorMsg], source: "Watch")
+                    finish(false, errorMsg)
                 }
-                
-                let startIndex = currentBatch * batchSize
-                let endIndex = min(startIndex + batchSize, logsData.count)
-                let batch = Array(logsData[startIndex..<endIndex])
-                
-                let message: [String: Any] = [
-                    "type": "watchLogs",
-                    "logs": batch,
-                    "batchIndex": currentBatch,
-                    "totalBatches": totalBatches,
-                    "count": batch.count,
-                    "isLastBatch": currentBatch == totalBatches - 1
-                ]
-                
-                LoggingSystem.shared.log(level: "DEBUG", tag: "WatchConnectivity", message: "Sending log batch", metadata: ["batch": "\(currentBatch + 1)/\(totalBatches)", "count": "\(batch.count)"], source: "Watch")
-                
-                // Notify React Native of batch progress
-                if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
-                    let selector = NSSelectorFromString("notifyWatchLogsTransferProgressWithDictionary:")
-                    if bridgeClass.responds(to: selector) {
-                        let dict: [String: Any] = [
-                            "currentBatch": currentBatch + 1,
-                            "totalBatches": totalBatches,
-                            "logsInBatch": batch.count,
-                            "phase": "transferring"
-                        ]
-                        _ = bridgeClass.perform(selector, with: dict)
-                    }
-                }
-                
-                session.sendMessage(message, replyHandler: { reply in
-                    if let success = reply["success"] as? Bool, success {
-                        currentBatch += 1
-                        // Small delay between batches to avoid overwhelming the connection
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            sendNextBatch()
-                        }
-                    } else {
-                        let errorMsg = reply["error"] as? String ?? "Unknown error"
-                        LoggingSystem.shared.log(level: "ERROR", tag: "WatchConnectivity", message: "Failed to send log batch", metadata: ["batch": "\(currentBatch + 1)/\(totalBatches)", "error": errorMsg], source: "Watch")
-                        
-                        // Notify React Native of error
-                        if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
-                            let selector = NSSelectorFromString("notifyWatchLogsTransferProgressWithDictionary:")
-                            if bridgeClass.responds(to: selector) {
-                                let dict: [String: Any] = [
-                                    "currentBatch": currentBatch,
-                                    "totalBatches": totalBatches,
-                                    "logsInBatch": 0,
-                                    "phase": "error"
-                                ]
-                                _ = bridgeClass.perform(selector, with: dict)
-                            }
-                        }
-                        
-                        completion(false, errorMsg)
-                    }
-                }, errorHandler: { error in
-                    LoggingSystem.shared.log(level: "ERROR", tag: "WatchConnectivity", message: "Error sending log batch", metadata: ["batch": "\(currentBatch + 1)/\(totalBatches)", "error": error.localizedDescription], source: "Watch")
-                    
-                    // Notify React Native of error
-                    if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
-                        let selector = NSSelectorFromString("notifyWatchLogsTransferProgressWithDictionary:")
-                        if bridgeClass.responds(to: selector) {
-                            let dict: [String: Any] = [
-                                "currentBatch": currentBatch,
-                                "totalBatches": totalBatches,
-                                "logsInBatch": 0,
-                                "phase": "error"
-                            ]
-                            _ = bridgeClass.perform(selector, with: dict)
-                        }
-                    }
-                    
-                    completion(false, error.localizedDescription)
-                })
-            }
-            
-            // Start sending batches
-            sendNextBatch()
+            }, errorHandler: { error in
+                LoggingSystem.shared.log(level: "ERROR", tag: "WatchConnectivity", message: "Error sending logs batch", metadata: ["batch": "\(currentBatch + 1)/\(totalBatches)", "error": error.localizedDescription], source: "Watch")
+                finish(false, error.localizedDescription)
+            })
         }
+
+        sendNextBatch()
     }
 }

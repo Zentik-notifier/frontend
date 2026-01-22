@@ -2380,7 +2380,7 @@ class NotificationService: UNNotificationServiceExtension {
     actions: [[String: Any]]
   ) {
     // Check if CloudKit is enabled before saving
-    guard CloudKitManager.shared.isCloudKitEnabled else {
+    guard PhoneCloudKit.shared.isCloudKitEnabled else {
       print("📱 [NotificationService] ⚠️ CloudKit is disabled, skipping CloudKit save for notification: \(notificationId)")
       return
     }
@@ -2411,7 +2411,7 @@ class NotificationService: UNNotificationServiceExtension {
       return dict
     }
     
-    CloudKitManager.shared.saveNotificationToCloudKit(
+    PhoneCloudKit.shared.saveNotificationToCloudKit(
       notificationId: notificationId,
       bucketId: bucketId,
       title: title,

@@ -1,51 +1,38 @@
 #!/bin/bash
 
-# Script per sincronizzare le estensioni iOS dalla cartella plugins alla cartella ios
-# Questo script copia i file Swift aggiornati nelle estensioni iOS
+# Sync iOS extensions and shared Swift files from ./plugins into ./ios and ./targets.
+# Focus: show what gets copied and where.
 
 set -e  # Exit on error
 
-echo "🔄 Sincronizzazione estensioni iOS in corso..."
+VERBOSE=${VERBOSE:-0}
+
+printf "Syncing iOS extensions and shared files...\n"
 
 # Percorsi delle cartelle
 PLUGINS_DIR="plugins/withIosNotificationExtensions/files"
 IOS_DIR="ios"
 
-# Colori per output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+print_status() { printf "[INFO] %s\n" "$1"; }
+print_success() { printf "[OK] %s\n" "$1"; }
+print_warning() { printf "[WARN] %s\n" "$1"; }
+print_error() { printf "[ERROR] %s\n" "$1"; }
 
-# Funzione per stampare messaggi colorati
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+is_verbose() {
+    [[ "$VERBOSE" == "1" || "$VERBOSE" == "true" ]]
 }
 
 # Verifica che la cartella plugins esista
 if [ ! -d "$PLUGINS_DIR" ]; then
-    print_error "Cartella plugins non trovata: $PLUGINS_DIR"
-    print_error "Assicurati di eseguire lo script dalla cartella mobile"
+    print_error "Plugins directory not found: $PLUGINS_DIR"
+    print_error "Run this script from the frontend directory"
     exit 1
 fi
 
 # Verifica che la cartella ios esista
 if [ ! -d "$IOS_DIR" ]; then
-    print_error "Cartella ios non trovata: $IOS_DIR"
-    print_error "Assicurati di eseguire lo script dalla cartella mobile"
+    print_error "iOS directory not found: $IOS_DIR"
+    print_error "Run this script from the frontend directory"
     exit 1
 fi
 
@@ -57,7 +44,9 @@ replace_placeholders() {
     if [[ "$file_path" == *.swift ]] || [[ "$file_path" == *.m ]] || [[ "$file_path" == *.entitlements ]]; then
         if [ -f "$file_path" ]; then
             sed -i '' "s/{{MAIN_BUNDLE_ID}}/$bundle_id/g" "$file_path"
-            print_status "  🔄 Sostituiti placeholder in $(basename "$file_path")"
+            if is_verbose; then
+                print_status "Replaced placeholders in $(basename "$file_path")"
+            fi
         fi
     fi
 }
@@ -68,26 +57,24 @@ BUNDLE_ID="com.apocaliss92.zentik.dev"
 # Controlla la variabile d'ambiente APP_VARIANT
 if [ "$APP_VARIANT" = "development" ] || [ -f ".env" ] && grep -q "APP_VARIANT=development" .env; then
     BUNDLE_ID="com.apocaliss92.zentik.dev"
-    print_status "Modalità development rilevata (APP_VARIANT), usando: $BUNDLE_ID"
+    print_status "Using development bundle id: $BUNDLE_ID"
 elif [ -f "app.config.ts" ]; then
     # Fallback: controlla il file di configurazione
     if grep -q 'APP_VARIANT.*development' app.config.ts; then
         BUNDLE_ID="com.apocaliss92.zentik.dev"
-        print_status "Modalità development rilevata da app.config.ts, usando: $BUNDLE_ID"
+        print_status "Using development bundle id: $BUNDLE_ID"
     else
         BUNDLE_ID="com.apocaliss92.zentik"
-        print_status "Modalità production, usando: $BUNDLE_ID"
+        print_status "Using production bundle id: $BUNDLE_ID"
     fi
 else
-    print_status "Configurazione non trovata, usando bundle ID di default: $BUNDLE_ID"
+    print_status "Config not found; using default bundle id: $BUNDLE_ID"
 fi
 
-print_status "🎯 Bundle ID finale: $BUNDLE_ID"
-
-print_status "Inizio sincronizzazione estensioni iOS..."
+print_status "Bundle id: $BUNDLE_ID"
 
 # 1. Notification Service Extension
-print_status "Sincronizzazione Notification Service Extension..."
+print_status "Syncing Notification Service Extension..."
 
 SERVICE_SOURCE="$PLUGINS_DIR/ZentikNotificationService"
 SERVICE_DEST="$IOS_DIR/ZentikNotificationService"
@@ -108,21 +95,13 @@ if [ -d "$SERVICE_SOURCE" ]; then
         fi
     done
     
-    print_success "Notification Service Extension sincronizzata"
-    
-    # Mostra i file copiati
-    if [ -f "$SERVICE_DEST/NotificationService.swift" ]; then
-        print_status "  ✅ NotificationService.swift copiato"
-    fi
-    if [ -f "$SERVICE_DEST/Info.plist" ]; then
-        print_status "  ✅ Info.plist copiato"
-    fi
+    print_success "Notification Service Extension synced"
 else
-    print_warning "Cartella Notification Service Extension non trovata: $SERVICE_SOURCE"
+    print_warning "Notification Service Extension source not found: $SERVICE_SOURCE"
 fi
 
 # 2. Content Extension
-print_status "Sincronizzazione Content Extension..."
+print_status "Syncing Notification Content Extension..."
 
 CONTENT_SOURCE="$PLUGINS_DIR/ZentikNotificationContentExtension"
 CONTENT_DEST="$IOS_DIR/ZentikNotificationContentExtension"
@@ -144,24 +123,13 @@ if [ -d "$CONTENT_SOURCE" ]; then
         fi
     done
     
-    print_success "Content Extension sincronizzata"
-    
-    # Mostra i file copiati
-    if [ -f "$CONTENT_DEST/NotificationViewController.swift" ]; then
-        print_status "  ✅ NotificationViewController.swift copiato"
-    fi
-    if [ -f "$CONTENT_DEST/Info.plist" ]; then
-        print_status "  ✅ Info.plist copiato"
-    fi
-    if [ -f "$CONTENT_DEST/MainInterface.storyboard" ]; then
-        print_status "  ✅ MainInterface.storyboard copiato"
-    fi
+    print_success "Notification Content Extension synced"
 else
-    print_warning "Cartella Content Extension non trovata: $CONTENT_SOURCE"
+    print_warning "Notification Content Extension source not found: $CONTENT_SOURCE"
 fi
 
 # 3. AppDelegate
-print_status "Sincronizzazione AppDelegate..."
+print_status "Syncing AppDelegate..."
 
 APPDELEGATE_SOURCE="plugins/withCustomAppDelegate/files/AppDelegate.swift"
 APPDELEGATE_DEST="$IOS_DIR/ZentikDev/AppDelegate.swift"
@@ -173,14 +141,13 @@ if [ -f "$APPDELEGATE_SOURCE" ]; then
     # Sostituisci placeholder
     replace_placeholders "$APPDELEGATE_DEST" "$BUNDLE_ID"
     
-    print_success "AppDelegate sincronizzato"
-    print_status "  ✅ AppDelegate.swift copiato"
+    print_success "AppDelegate synced"
 else
-    print_warning "AppDelegate non trovato: $APPDELEGATE_SOURCE"
+    print_warning "AppDelegate source not found: $APPDELEGATE_SOURCE"
 fi
 
-# 3.5 DatabaseAccessBridge (per app iOS principale)
-print_status "Sincronizzazione DatabaseAccessBridge files..."
+# 3.5 DatabaseAccessBridge (iOS app only)
+print_status "Syncing DatabaseAccessBridge..."
 
 DATABASE_ACCESS_BRIDGE_SOURCE="plugins/withDatabaseAccessBridge/files"
 DATABASE_ACCESS_BRIDGE_DEST="$IOS_DIR/ZentikDev"
@@ -198,21 +165,23 @@ for file in "${DATABASE_ACCESS_BRIDGE_FILES[@]}"; do
     if [ -f "$source_file" ]; then
         cp -f "$source_file" "$dest_file"
         replace_placeholders "$dest_file" "$BUNDLE_ID"
-        print_status "  ✅ $file copiato in iOS App"
+        if is_verbose; then
+            print_status "Copied $file to iOS app"
+        fi
         ((db_bridge_copied++))
     else
-        print_warning "  ⚠️  $file non trovato in $DATABASE_ACCESS_BRIDGE_SOURCE"
+        print_warning "$file not found in $DATABASE_ACCESS_BRIDGE_SOURCE"
     fi
 done
 
 if [ $db_bridge_copied -gt 0 ]; then
-    print_success "DatabaseAccessBridge: $db_bridge_copied file copiati in iOS App"
+    print_success "DatabaseAccessBridge: copied $db_bridge_copied file(s)"
 fi
 
-# 3.7 CloudKitSyncBridge (per app iOS principale)
+# 3.7 CloudKitSyncBridge (iOS app only)
 # CloudKitSyncBridge.swift viene copiato automaticamente dalla sezione file condivisi
 # Qui copiamo solo il file .m (Objective-C bridge)
-print_status "Sincronizzazione CloudKitSyncBridge files..."
+print_status "Syncing CloudKitSyncBridge (Objective-C bridge)..."
 
 CLOUDKIT_SYNC_BRIDGE_SOURCE="plugins/ZentikShared"
 CLOUDKIT_SYNC_BRIDGE_DEST="$IOS_DIR/ZentikDev"
@@ -229,28 +198,30 @@ for file in "${CLOUDKIT_SYNC_BRIDGE_FILES[@]}"; do
     if [ -f "$source_file" ]; then
         cp -f "$source_file" "$dest_file"
         replace_placeholders "$dest_file" "$BUNDLE_ID"
-        print_status "  ✅ $file copiato in iOS App"
+        if is_verbose; then
+            print_status "Copied $file to iOS app"
+        fi
         ((cloudkit_bridge_copied++))
     else
-        print_warning "  ⚠️  $file non trovato in $CLOUDKIT_SYNC_BRIDGE_SOURCE"
+        print_warning "$file not found in $CLOUDKIT_SYNC_BRIDGE_SOURCE"
     fi
 done
 
 if [ $cloudkit_bridge_copied -gt 0 ]; then
-    print_success "CloudKitSyncBridge: $cloudkit_bridge_copied file .m copiato in iOS App (CloudKitSyncBridge.swift copiato automaticamente dalla sezione file condivisi)"
+    print_success "CloudKitSyncBridge: copied $cloudkit_bridge_copied file(s) (.m only)"
 fi
 
-# 4. Shared Files (copiati in ogni target: AppDelegate, NSE, NCE)
-print_status "Sincronizzazione file condivisi in tutti i target..."
+# 4. Shared Files (copied into iOS app + extensions + watch/widget targets)
+print_status "Syncing shared Swift files into all targets..."
 
 SHARED_SOURCE="plugins/ZentikShared"
 
 # Trova automaticamente tutti i file .swift nella cartella ZentikShared
 if [ -d "$SHARED_SOURCE" ]; then
     SHARED_FILES=($(find "$SHARED_SOURCE" -maxdepth 1 -type f -name "*.swift" -exec basename {} \;))
-    print_status "  📦 Trovati ${#SHARED_FILES[@]} file condivisi in ZentikShared"
+    print_status "Found ${#SHARED_FILES[@]} shared Swift file(s) in plugins/ZentikShared"
 else
-    print_error "Cartella file condivisi non trovata: $SHARED_SOURCE"
+    print_error "Shared files directory not found: $SHARED_SOURCE"
     exit 1
 fi
 
@@ -267,7 +238,9 @@ copy_shared_files() {
         return
     fi
     
-    print_status "  Copiando file condivisi in $target_name..."
+    local copied_list=()
+    local skipped_list=()
+    local removed_list=()
     
     # First, remove excluded files if they exist
     local removed_count=0
@@ -277,7 +250,7 @@ copy_shared_files() {
             local excluded_file="$dest_dir/$pattern"
             if [ -f "$excluded_file" ]; then
                 rm -f "$excluded_file"
-                print_status "    🗑️  $pattern rimosso da $target_name"
+                removed_list+=("$pattern")
                 ((removed_count++))
             fi
         done
@@ -297,9 +270,9 @@ copy_shared_files() {
                 fi
             done
             if [ "$should_skip" = true ]; then
-            print_status "    ⏭️  $file saltato (non necessario per $target_name)"
-            ((skipped_count++))
-            continue
+                skipped_list+=("$file")
+                ((skipped_count++))
+                continue
             fi
         fi
         
@@ -309,21 +282,22 @@ copy_shared_files() {
         if [ -f "$source_file" ]; then
             cp -f "$source_file" "$dest_file"
             replace_placeholders "$dest_file" "$BUNDLE_ID"
-            print_status "    ✅ $file copiato"
+            copied_list+=("$file")
             ((copied_count++))
         else
-            print_warning "    ⚠️  $file non trovato in $SHARED_SOURCE"
+            print_warning "$file not found in $SHARED_SOURCE"
         fi
     done
-    
-    if [ $skipped_count -gt 0 ] || [ $removed_count -gt 0 ]; then
-        if [ $removed_count -gt 0 ]; then
-            print_success "  $target_name: $copied_count/${#files_array[@]} file copiati ($skipped_count saltati, $removed_count rimossi)"
-        else
-        print_success "  $target_name: $copied_count/${#files_array[@]} file copiati ($skipped_count saltati)"
-        fi
-    else
-        print_success "  $target_name: $copied_count/${#files_array[@]} file copiati"
+
+    print_success "$target_name: copied $copied_count/${#files_array[@]} (skipped $skipped_count, removed $removed_count)"
+    if [ ${#copied_list[@]} -gt 0 ]; then
+        print_status "$target_name copied: ${copied_list[*]}"
+    fi
+    if is_verbose && [ ${#skipped_list[@]} -gt 0 ]; then
+        print_status "$target_name skipped: ${skipped_list[*]}"
+    fi
+    if is_verbose && [ ${#removed_list[@]} -gt 0 ]; then
+        print_status "$target_name removed: ${removed_list[*]}"
     fi
 }
 
@@ -331,30 +305,29 @@ if [ -d "$SHARED_SOURCE" ]; then
     # Copia file condivisi in iOS App principale
     copy_shared_files "$IOS_DIR/ZentikDev" "iOS App" "" "${SHARED_FILES[@]}"
     
-    # Copia file condivisi in Notification Service Extension (escludi solo CloudKitSyncBridge.swift)
-    # CloudKitManager.swift è necessario per NotificationActionHandler
-    copy_shared_files "$SERVICE_DEST" "NSE" "CloudKitSyncBridge.swift" "${SHARED_FILES[@]}"
+    # Copia file condivisi in Notification Service Extension (escludi bridge RN + monolite CloudKit)
+    copy_shared_files "$SERVICE_DEST" "NSE" "CloudKitSyncBridge.swift|CloudKitManager.swift" "${SHARED_FILES[@]}"
     
-    # Copia file condivisi in Content Extension (escludi solo CloudKitSyncBridge.swift)
-    # CloudKitManager.swift è necessario per NotificationActionHandler
-    copy_shared_files "$CONTENT_DEST" "NCE" "CloudKitSyncBridge.swift" "${SHARED_FILES[@]}"
+    # Copia file condivisi in Content Extension (escludi bridge RN + monolite CloudKit)
+    copy_shared_files "$CONTENT_DEST" "NCE" "CloudKitSyncBridge.swift|CloudKitManager.swift" "${SHARED_FILES[@]}"
     
-    # 5. Watch Extension (escludi NotificationActionHandler)
-    print_status "Sincronizzazione Watch Extension..."
+    # 5. Watch Extension
+    print_status "Syncing Watch target shared files..."
     
     WATCH_DIR="targets/watch"
     
     if [ -d "$WATCH_DIR" ]; then
-        # Exclude NotificationActionHandler.swift and CloudKitSyncBridge.swift (React Native bridge, not needed on Watch)
-        copy_shared_files "$WATCH_DIR" "Watch" "NotificationActionHandler.swift|CloudKitSyncBridge.swift" "${SHARED_FILES[@]}"
+        # Exclude CloudKitSyncBridge.swift (React Native bridge, not needed on Watch)
+        # Start cutting out the monolithic CloudKitManager.swift from the watch target.
+        copy_shared_files "$WATCH_DIR" "Watch" "CloudKitSyncBridge.swift|CloudKitManager.swift|PhoneCloudKit.swift" "${SHARED_FILES[@]}"
         
-        print_success "Watch Extension sincronizzata"
+        print_success "Watch target synced"
     else
-        print_warning "Cartella Watch Extension non trovata: $WATCH_DIR"
+        print_warning "Watch target directory not found: $WATCH_DIR"
     fi
     
-    # 6. Widget Extension (escludi NotificationActionHandler, CloudKitSyncBridge.swift e CloudKitManager.swift)
-    print_status "Sincronizzazione Widget Extension..."
+    # 6. Widget Extension
+    print_status "Syncing Widget target shared files..."
     
     WIDGET_DIR="targets/widget"
     
@@ -363,20 +336,19 @@ if [ -d "$SHARED_SOURCE" ]; then
         # Widget Extension doesn't handle CloudKit remote notifications and doesn't need CloudKit sync
         copy_shared_files "$WIDGET_DIR" "Widget" "NotificationActionHandler.swift|CloudKitSyncBridge.swift|CloudKitManager.swift" "${SHARED_FILES[@]}"
         
-        print_success "Widget Extension sincronizzata"
+        print_success "Widget target synced"
     else
-        print_warning "Cartella Widget Extension non trovata: $WIDGET_DIR"
+        print_warning "Widget target directory not found: $WIDGET_DIR"
     fi
     
-    print_success "File condivisi sincronizzati in tutti i target"
+    print_success "Shared files synced into all targets"
 else
-    print_error "Cartella file condivisi non trovata: $SHARED_SOURCE"
-    print_error "Assicurati che la cartella $SHARED_SOURCE esista"
+    print_error "Shared files directory not found: $SHARED_SOURCE"
     exit 1
 fi
 
-# 7. Verifica finale
-print_status "Verifica finale sincronizzazione..."
+# 7. Final summary
+print_status "Sync completed."
 
 # Conta i file nelle cartelle di destinazione
 SERVICE_FILES=$(find "$SERVICE_DEST" -name "*.swift" -o -name "*.plist" 2>/dev/null | wc -l | tr -d ' ')
@@ -385,37 +357,23 @@ APPDELEGATE_FILES=$(find "$IOS_DIR/ZentikDev" -name "*.swift" 2>/dev/null | wc -
 WATCH_FILES=$(find "$WATCH_DIR" -name "*.swift" 2>/dev/null | wc -l | tr -d ' ')
 WIDGET_FILES=$(find "$WIDGET_DIR" -name "*.swift" 2>/dev/null | wc -l | tr -d ' ')
 
-print_success "Sincronizzazione completata!"
-print_status "File copiati:"
-print_status "  📱 Notification Service Extension: $SERVICE_FILES file"
-print_status "  🎨 Content Extension: $CONTENT_FILES file"
+print_success "Summary"
+print_status "Notification Service Extension files: $SERVICE_FILES"
+print_status "Notification Content Extension files: $CONTENT_FILES"
 if [ -f "$APPDELEGATE_DEST" ]; then
-    print_status "  🎯 AppDelegate: copiato + file condivisi"
+    print_status "AppDelegate: synced"
 fi
 if [ $db_bridge_copied -gt 0 ]; then
-    print_status "  💾 DatabaseAccessBridge: $db_bridge_copied file copiati in iOS App"
+    print_status "DatabaseAccessBridge: $db_bridge_copied file(s)"
 fi
 if [ $cloudkit_bridge_copied -gt 0 ]; then
-    print_status "  ☁️  CloudKitSyncBridge: $cloudkit_bridge_copied file copiati in iOS App"
+    print_status "CloudKitSyncBridge (.m): $cloudkit_bridge_copied file(s)"
 fi
 if [ -d "$WATCH_DIR" ]; then
-    print_status "  ⌚ Watch Extension: $WATCH_FILES file"
+    print_status "Watch target Swift files: $WATCH_FILES"
 fi
 if [ -d "$WIDGET_DIR" ]; then
-    print_status "  📦 Widget Extension: $WIDGET_FILES file"
+    print_status "Widget target Swift files: $WIDGET_FILES"
 fi
-print_status "  📦 File condivisi: ${#SHARED_FILES[@]} file .swift copiati automaticamente da plugins/ZentikShared in tutti i target (iOS App, NSE, NCE, Watch, Widget)"
-
-# 8. Suggerimenti per il prossimo step
-echo ""
-print_status "🎯 Prossimi passi:"
-print_status "1. Verifica le modifiche: git diff"
-print_status "2. I file sono già sincronizzati in watch/widget, non serve prebuild"
-print_status "3. Testa le notifiche per verificare che tutto funzioni"
-print_status "4. Controlla i log per confermare l'uso dei file condivisi"
-print_status ""
-print_status "📝 Nota: Tutti i file .swift in plugins/ZentikShared vengono copiati automaticamente"
-print_status "    in ogni target (iOS App, NSE, NCE, Watch, Widget) per evitare il prebuild"
-
-echo ""
-print_success "✨ Sincronizzazione completata con successo!"
+print_status "Shared Swift files available: ${#SHARED_FILES[@]} (from plugins/ZentikShared)"
+print_status "Tip: set VERBOSE=1 for skipped/removed details."

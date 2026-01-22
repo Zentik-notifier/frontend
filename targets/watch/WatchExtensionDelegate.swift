@@ -60,7 +60,7 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
         
         // Setup CloudKit subscriptions (schema initialization and initial sync are handled by iOS App via React useCleanup)
         // Only setup subscriptions if CloudKit is enabled
-        guard CloudKitManager.shared.isCloudKitEnabled else {
+        guard WatchCloudKit.shared.isCloudKitEnabled else {
             print("⌚ [WatchExtensionDelegate] ⚠️ CloudKit is disabled, skipping subscription setup")
             LoggingSystem.shared.log(
                 level: "INFO",
@@ -71,9 +71,10 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
             return
         }
         
-        // Setup CloudKit subscriptions (schema must be initialized first by iOS App)
-        CloudKitManager.shared.setupSubscriptions { success, error in
-            if success {
+        // Ensure zone + subscriptions
+        WatchCloudKit.shared.ensureReady { result in
+            switch result {
+            case .success:
                 print("⌚ [WatchExtensionDelegate] ✅ CloudKit subscriptions setup successfully")
                 
                 // Re-register for remote notifications after subscriptions are setup
@@ -82,7 +83,7 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
                     print("⌚ [WatchExtensionDelegate] 📱 Re-registering for remote notifications after subscription setup...")
                     WKExtension.shared().registerForRemoteNotifications()
                 }
-            } else if let error = error {
+            case .failure(let error):
                 print("⌚ [WatchExtensionDelegate] ❌ CloudKit subscriptions setup failed: \(error.localizedDescription)")
                 LoggingSystem.shared.log(
                     level: "ERROR",
@@ -205,35 +206,31 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
                 source: "WatchExtensionDelegate"
             )
             
-            // Convert WKBackgroundFetchResult to UIBackgroundFetchResult for CloudKitManager
+            // Convert WKBackgroundFetchResult to UIBackgroundFetchResult for WatchCloudKit
             // Check if CloudKit is enabled before handling notification
-            guard CloudKitManager.shared.isCloudKitEnabled else {
+            guard WatchCloudKit.shared.isCloudKitEnabled else {
                 print("⌚ [WatchExtensionDelegate] ⚠️ CloudKit is disabled, ignoring remote notification")
                 completionHandler(.noData)
                 return
             }
-            
-            CloudKitManager.shared.handleRemoteNotification(userInfo: userInfo) { result in
-                let watchResult: WKBackgroundFetchResult
+
+            WatchCloudKit.shared.handleRemoteNotification(userInfo: userInfo) { result in
                 switch result {
-                case .newData:
-                    watchResult = .newData
-                case .noData:
-                    watchResult = .noData
-                case .failed:
-                    watchResult = .failed
-                @unknown default:
-                    watchResult = .noData
+                case .failure(let error):
+                    print("⌚ [WatchExtensionDelegate] ❌ CloudKit notification processing failed: \(error.localizedDescription)")
+                    completionHandler(.failed)
+                case .success(let appliedCount):
+                    let watchResult: WKBackgroundFetchResult = appliedCount > 0 ? .newData : .noData
+                    print("⌚ [WatchExtensionDelegate] ✅ CloudKit notification processed - result: \(watchResult) applied=\(appliedCount)")
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "Watch",
+                        message: "CloudKit notification processed",
+                        metadata: ["result": "\(watchResult)", "appliedCount": "\(appliedCount)"],
+                        source: "WatchExtensionDelegate"
+                    )
+                    completionHandler(watchResult)
                 }
-                print("⌚ [WatchExtensionDelegate] ✅ CloudKit notification processed - result: \(watchResult)")
-                LoggingSystem.shared.log(
-                    level: "INFO",
-                    tag: "Watch",
-                    message: "CloudKit notification processed",
-                    metadata: ["result": "\(watchResult)"],
-                    source: "WatchExtensionDelegate"
-                )
-                completionHandler(watchResult)
             }
         } else {
             print("⌚ [WatchExtensionDelegate] ⚠️ Not a CloudKit notification")
@@ -274,14 +271,13 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
             // Process CloudKit notification silently (don't show alert)
             // The notification will be handled by didReceiveRemoteNotification or we can process it here
             // Check if CloudKit is enabled before handling notification
-            guard CloudKitManager.shared.isCloudKitEnabled else {
+            guard WatchCloudKit.shared.isCloudKitEnabled else {
                 print("⌚ [WatchExtensionDelegate] ⚠️ CloudKit is disabled, ignoring remote notification")
                 completionHandler([])
                 return
             }
-            
-            CloudKitManager.shared.handleRemoteNotification(userInfo: userInfo) { result in
-                print("⌚ [WatchExtensionDelegate] ✅ CloudKit notification processed in foreground - result: \(result)")
+
+            WatchCloudKit.shared.handleRemoteNotification(userInfo: userInfo) { _ in
                 // Don't show notification banner - we handle it silently
                 completionHandler([])
             }

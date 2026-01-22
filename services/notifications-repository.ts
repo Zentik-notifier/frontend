@@ -357,14 +357,30 @@ export async function upsertNotificationsBatch(notifications: NotificationFragme
     try {
       // Get all deleted notification IDs (tombstones) to filter out
       const deletedIds = new Set<string>();
+
+      // Tombstones are meant to prevent re-adding items deleted locally while the server/backend
+      // still hasn't cleaned them up. If kept forever, they can block CloudKit-driven updates.
+      // Keep them effective only for a limited time window.
+      const tombstoneMaxAgeMs = 2 * 24 * 60 * 60 * 1000; // 2 days
+      const tombstoneCutoff = Date.now() - tombstoneMaxAgeMs;
+      let ignoredOldTombstones = 0;
       
       if (Platform.OS === 'web') {
         // IndexedDB
         const tombstones = await db.getAll('deleted_notifications');
-        tombstones.forEach((t: any) => deletedIds.add(t.id));
+        tombstones.forEach((t: any) => {
+          if (typeof t.deleted_at === 'number' && t.deleted_at < tombstoneCutoff) {
+            ignoredOldTombstones++;
+            return;
+          }
+          deletedIds.add(t.id);
+        });
       } else {
         // SQLite
-        const tombstones = await db.getAllAsync('SELECT id FROM deleted_notifications');
+        const tombstones = await db.getAllAsync(
+          'SELECT id, deleted_at FROM deleted_notifications WHERE deleted_at >= ?',
+          [tombstoneCutoff]
+        );
         tombstones.forEach((t: any) => deletedIds.add(t.id));
       }
       
@@ -373,7 +389,19 @@ export async function upsertNotificationsBatch(notifications: NotificationFragme
       const skippedCount = notifications.length - notificationsToSave.length;
       
       if (skippedCount > 0) {
-        console.log(`[upsertNotificationsBatch] Skipped ${skippedCount} deleted notifications`);
+        const skippedIdsPreview = notifications
+          .filter(n => deletedIds.has(n.id))
+          .slice(0, 5)
+          .map(n => n.id)
+          .join(',');
+        console.log(
+          `[upsertNotificationsBatch] Skipped ${skippedCount} deleted notifications` +
+            (skippedIdsPreview ? ` (ids: ${skippedIdsPreview}${skippedCount > 5 ? ',...' : ''})` : '')
+        );
+      }
+
+      if (ignoredOldTombstones > 0) {
+        console.log(`[upsertNotificationsBatch] Ignored ${ignoredOldTombstones} old tombstones (cutoff=${new Date(tombstoneCutoff).toISOString()})`);
       }
       
       if (notificationsToSave.length === 0) {

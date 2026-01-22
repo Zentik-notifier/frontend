@@ -86,6 +86,10 @@ export interface Translation {
       description: string;
       showHintsTitle: string;
     };
+    watch: {
+      title: string;
+      description: string;
+    };
     cloudKit: {
       title: string;
       description: string;
@@ -140,6 +144,8 @@ export interface Translation {
       resyncConfirm: string;
       resyncSuccess: string;
       resyncError: string;
+      debugLogsTitle: string;
+      debugLogsDescription: string;
       notificationLimitTitle: string;
       notificationLimitDescription: string;
       notificationLimitInputLabel: string;
@@ -874,6 +880,7 @@ export interface Translation {
       createError: string;
       updateError: string;
       noTokenId: string;
+      invalidTokenId: string;
       tokenNotFound: string;
       tokenId: string;
       tokenIdCopied: string;
@@ -2834,12 +2841,28 @@ export interface Translation {
   databaseRecovery: {
     title: string;
     description: string;
+    choiceDescription: string;
     warning: string;
     recoverButton: string;
     recovering: string;
+    recoverFromBackendButton: string;
+    recoverFromLocalButton: string;
+    recoverFromICloudButton: string;
+    iCloudOnlyOnIOS: string;
     recoverySuccess: string;
     recoveryError: string;
     recoveryInProgress: string;
+    status: {
+      starting: string;
+      backup: string;
+      export: string;
+      import: string;
+      reset: string;
+      fetch_backend: string;
+      save_backend: string;
+      fetch_cloudkit: string;
+      upsert_notifications: string;
+    };
   };
   notFound: {
     title: string;

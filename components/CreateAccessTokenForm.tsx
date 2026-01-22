@@ -5,12 +5,19 @@ import {
   CreateAccessTokenDto,
   useCreateAccessTokenMutation,
   useGetBucketsQuery,
-  useUpdateAccessTokenMutation
+  useUpdateAccessTokenMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Alert, Keyboard, Platform, StyleSheet, Switch, View } from "react-native";
+import {
+  Alert,
+  Keyboard,
+  Platform,
+  StyleSheet,
+  Switch,
+  View,
+} from "react-native";
 import {
   Button,
   Card,
@@ -40,6 +47,7 @@ export default function CreateAccessTokenForm({
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [createdToken, setCreatedToken] = useState("");
   const [wasTokenStored, setWasTokenStored] = useState(false);
+  const isWatchToken = tokenData?.scopes?.includes("watch") ?? false;
   const editMode = !!tokenData;
 
   // Initialize form in edit mode
@@ -51,7 +59,7 @@ export default function CreateAccessTokenForm({
       if (tokenData.expiresAt) {
         const daysUntilExpiry = Math.ceil(
           (new Date(tokenData.expiresAt).getTime() - Date.now()) /
-            (1000 * 60 * 60 * 24)
+            (1000 * 60 * 60 * 24),
         );
         if (daysUntilExpiry > 0) {
           setExpirationDays(daysUntilExpiry.toString());
@@ -74,7 +82,11 @@ export default function CreateAccessTokenForm({
   });
 
   const [updateAccessToken] = useUpdateAccessTokenMutation({
-    refetchQueries: ["GetUserAccessTokens", "GetAccessToken", "GetAccessTokensForBucket"],
+    refetchQueries: [
+      "GetUserAccessTokens",
+      "GetAccessToken",
+      "GetAccessTokensForBucket",
+    ],
   });
 
   const updateToken = async () => {
@@ -95,7 +107,7 @@ export default function CreateAccessTokenForm({
 
     try {
       setCreating(true);
-      
+
       const updateData: any = {
         name: newTokenName.trim(),
       };
@@ -115,7 +127,7 @@ export default function CreateAccessTokenForm({
       // Update scopes
       if (useScopes && selectedBucketIds.length > 0) {
         updateData.scopes = selectedBucketIds.map(
-          (bucketId) => `message-bucket-creation:${bucketId}`
+          (bucketId) => `message-bucket-creation:${bucketId}`,
         );
       } else {
         updateData.scopes = [];
@@ -168,7 +180,7 @@ export default function CreateAccessTokenForm({
       // Add scopes if enabled
       if (useScopes && selectedBucketIds.length > 0) {
         createData.scopes = selectedBucketIds.map(
-          (bucketId) => `message-bucket-creation:${bucketId}`
+          (bucketId) => `message-bucket-creation:${bucketId}`,
         );
       }
 
@@ -178,12 +190,12 @@ export default function CreateAccessTokenForm({
 
       if (response.data?.createAccessToken) {
         const token = response.data.createAccessToken.token;
-        
+
         // Store token info for dialog
         setCreatedToken(token);
         setWasTokenStored(storeToken);
         setShowSuccessDialog(true);
-        
+
         // Reset form
         setNewTokenName("");
         setExpirationDays("");
@@ -206,7 +218,8 @@ export default function CreateAccessTokenForm({
     setStoreToken(true);
   };
 
-  const isFormValid = newTokenName.trim() && (!useScopes || selectedBucketIds.length > 0);
+  const isFormValid =
+    newTokenName.trim() && (!useScopes || selectedBucketIds.length > 0);
 
   return (
     <View>
@@ -250,23 +263,25 @@ export default function CreateAccessTokenForm({
           </View>
 
           {/* Expiration - Editable in both modes */}
-          <View style={styles.inputGroup}>
-            <Text variant="titleMedium" style={styles.inputLabel}>
-              {t("accessTokens.form.expiration")}
-            </Text>
-            <TextInput
-              mode="outlined"
-              value={expirationDays}
-              onChangeText={setExpirationDays}
-              placeholder={t("accessTokens.form.expirationPlaceholder")}
-              keyboardType="numeric"
-              returnKeyType="done"
-              onSubmitEditing={() => Keyboard.dismiss()}
-            />
-            <Text variant="bodySmall" style={styles.inputHint}>
-              {t("accessTokens.form.expirationHint")}
-            </Text>
-          </View>
+          {!isWatchToken && (
+            <View style={styles.inputGroup}>
+              <Text variant="titleMedium" style={styles.inputLabel}>
+                {t("accessTokens.form.expiration")}
+              </Text>
+              <TextInput
+                mode="outlined"
+                value={expirationDays}
+                onChangeText={setExpirationDays}
+                placeholder={t("accessTokens.form.expirationPlaceholder")}
+                keyboardType="numeric"
+                returnKeyType="done"
+                onSubmitEditing={() => Keyboard.dismiss()}
+              />
+              <Text variant="bodySmall" style={styles.inputHint}>
+                {t("accessTokens.form.expirationHint")}
+              </Text>
+            </View>
+          )}
 
           {!editMode && (
             <View
@@ -305,86 +320,93 @@ export default function CreateAccessTokenForm({
           )}
 
           {/* Scopes - Show in both modes */}
-          <View
-            style={[
-              styles.switchRow,
-              { backgroundColor: theme.colors.surfaceVariant },
-            ]}
-          >
-            <View style={styles.switchLabelContainer}>
-              <Text
-                style={[styles.switchLabel, { color: theme.colors.onSurface }]}
-              >
-                {t("accessTokens.form.limitToBuckets" as any)}
-              </Text>
-              <Text
-                style={[
-                  styles.switchDescription,
-                  { color: theme.colors.onSurfaceVariant },
-                ]}
-              >
-                {t("accessTokens.form.limitToBucketsHint" as any)}
-              </Text>
+          {!isWatchToken && (
+            <View
+              style={[
+                styles.switchRow,
+                { backgroundColor: theme.colors.surfaceVariant },
+              ]}
+            >
+              <View style={styles.switchLabelContainer}>
+                <Text
+                  style={[
+                    styles.switchLabel,
+                    { color: theme.colors.onSurface },
+                  ]}
+                >
+                  {t("accessTokens.form.limitToBuckets")}
+                </Text>
+                <Text
+                  style={[
+                    styles.switchDescription,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
+                  {t("accessTokens.form.limitToBucketsHint")}
+                </Text>
+              </View>
+              <Switch
+                value={useScopes}
+                onValueChange={(value) => {
+                  setUseScopes(value);
+                  if (!value) {
+                    setSelectedBucketIds([]);
+                  }
+                }}
+                trackColor={{
+                  false: theme.colors.outline,
+                  true: theme.colors.primary,
+                }}
+              />
             </View>
-            <Switch
-              value={useScopes}
-              onValueChange={(value) => {
-                setUseScopes(value);
-                if (!value) {
-                  setSelectedBucketIds([]);
-                }
-              }}
-              trackColor={{
-                false: theme.colors.outline,
-                true: theme.colors.primary,
-              }}
-            />
-          </View>
+          )}
 
-          {useScopes && (
+          {useScopes && !isWatchToken && (
             <View style={styles.inputGroup}>
               <MultiBucketSelector
-                label={t("accessTokens.form.selectBuckets" as any)}
+                label={t("accessTokens.form.selectBuckets")}
                 selectedBucketIds={selectedBucketIds}
                 onBucketsChange={setSelectedBucketIds}
               />
             </View>
           )}
 
-          <View style={styles.buttonRow}>
-            {!editMode ? (
-              <>
+          {!isWatchToken && (
+            <View style={styles.buttonRow}>
+              {!editMode ? (
+                <>
+                  <Button
+                    mode="contained"
+                    onPress={createToken}
+                    disabled={!isFormValid || creating}
+                    style={styles.createButton}
+                  >
+                    {creating
+                      ? t("accessTokens.form.creating")
+                      : t("accessTokens.form.createButton")}
+                  </Button>
+
+                  <Button
+                    mode="outlined"
+                    onPress={resetForm}
+                    disabled={creating}
+                    style={styles.resetButton}
+                  >
+                    {t("common.reset")}
+                  </Button>
+                </>
+              ) : (
                 <Button
                   mode="contained"
-                  onPress={createToken}
+                  onPress={updateToken}
                   disabled={!isFormValid || creating}
                   style={styles.createButton}
                 >
-                  {creating
-                    ? t("accessTokens.form.creating")
-                    : t("accessTokens.form.createButton")}
+                  {creating ? t("common.saving") : t("common.save")}
                 </Button>
-
-                <Button
-                  mode="outlined"
-                  onPress={resetForm}
-                  disabled={creating}
-                  style={styles.resetButton}
-                >
-                  {t("common.reset")}
-                </Button>
-              </>
-            ) : (
-              <Button
-                mode="contained"
-                onPress={updateToken}
-                disabled={!isFormValid || creating}
-                style={styles.createButton}
-              >
-                {creating ? t("common.saving") : t("common.save")}
-              </Button>
-            )}
-          </View>
+              )}
+            </View>
+          )}
         </Card.Content>
       </Card>
 
@@ -397,25 +419,27 @@ export default function CreateAccessTokenForm({
             router.back();
           }}
         >
-          <Dialog.Title>{t("accessTokens.form.tokenCreatedTitle")}</Dialog.Title>
+          <Dialog.Title>
+            {t("accessTokens.form.tokenCreatedTitle")}
+          </Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium" style={styles.dialogMessage}>
               {wasTokenStored
-                ? t("accessTokens.form.tokenCreatedStoredMessage" as any)
-                : t("accessTokens.form.tokenCreatedNotStoredMessage" as any)}
+                ? t("accessTokens.form.tokenCreatedStoredMessage")
+                : t("accessTokens.form.tokenCreatedNotStoredMessage")}
             </Text>
-            
+
             {/* Token display with copy button */}
             <View style={styles.tokenContainer}>
               <Text variant="labelMedium" style={styles.tokenLabel}>
-                {t("accessTokens.form.yourToken" as any)}
+                {t("accessTokens.form.yourToken")}
               </Text>
               <View style={styles.tokenDisplayBox}>
-                <Text 
-                  variant="bodySmall" 
+                <Text
+                  variant="bodySmall"
                   style={[
                     styles.tokenText,
-                    { color: theme.colors.onSurfaceVariant }
+                    { color: theme.colors.onSurfaceVariant },
                   ]}
                   selectable
                 >

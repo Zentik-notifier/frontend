@@ -135,6 +135,9 @@ export interface UserSettings {
   bucketSharingHints?: string[];
   // Privacy: disable user action tracking for non-commercial purposes
   disableUserTracking?: boolean;
+
+  // Debug: enable verbose CloudKit logging (native + JS)
+  cloudKitDebug?: boolean;
 }
 
 export interface AuthData {
@@ -179,6 +182,7 @@ const DEFAULT_SETTINGS: UserSettings = {
     autoDownloadEnabled: true,
     wifiOnlyDownload: false,
   },
+  cloudKitDebug: false,
   notificationsLastSeenId: undefined,
   notificationVisualization: {
     hideRead: false,

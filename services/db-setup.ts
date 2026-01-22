@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { NotificationFragment } from '@/generated/gql-operations-generated';
 import { File, Paths } from 'expo-file-system';
-import { databaseRecoveryEvents, DATABASE_CORRUPTION_DETECTED } from './database-recovery-events';
+import { databaseRecoveryService } from './database-recovery-service';
 
 // IndexedDB schema for web storage
 export interface WebStorageDB extends DBSchema {
@@ -269,13 +269,15 @@ export async function executeQuery<T>(
 
       if (isCorruptionError) {
         console.error('[executeQuery] Database corruption detected:', errorMessage);
-        // Emit event to notify recovery system
-        databaseRecoveryEvents.emit(DATABASE_CORRUPTION_DETECTED, {
+
+        databaseRecoveryService.notifyCorruption({
           errorMessage,
           errorCode,
           originalError: error,
+          source: `executeQuery:${operationName}`,
         });
-        // Throw a special error that can be caught by the recovery system
+
+        // Throw a special error that can be caught by callers
         const corruptionError = new Error('Database corruption detected');
         (corruptionError as any).isCorruptionError = true;
         (corruptionError as any).originalError = error;
@@ -343,6 +345,7 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
   isClosing = false;
 
   dbPromise = (async () => {
+    try {
     const sharedDir = await getSharedMediaCacheDirectoryAsync();
     // expo-sqlite expects databaseName and an optional directory path (not URI)
     const directory = sharedDir.startsWith('file://') ? sharedDir.replace('file://', '') : sharedDir;
@@ -531,6 +534,25 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
     dbInstance = db;
 
     return db;
+    } catch (error: any) {
+      // If open/config fails due to corruption, notify the central recovery service.
+      if (databaseRecoveryService.isCorruptionError(error)) {
+        const errorMessage = error?.message || String(error);
+        databaseRecoveryService.notifyCorruption({
+          errorMessage,
+          errorCode: error?.code,
+          originalError: error,
+          source: 'openSharedCacheDb',
+        });
+
+        const corruptionError = new Error('Database corruption detected');
+        (corruptionError as any).isCorruptionError = true;
+        (corruptionError as any).originalError = error;
+        throw corruptionError;
+      }
+
+      throw error;
+    }
   })();
 
   return dbPromise;
@@ -674,6 +696,78 @@ export async function deleteSQLiteDatabase(): Promise<void> {
   }
 }
 
+type SQLiteDbFilePaths = {
+  directory: string;
+  dbPath: string;
+  walPath: string;
+  shmPath: string;
+};
+
+async function getSQLiteDbFilePaths(): Promise<SQLiteDbFilePaths> {
+  const { getSharedMediaCacheDirectoryAsync } = await import('../utils/shared-cache');
+
+  const sharedDir = await getSharedMediaCacheDirectoryAsync();
+  const directory = sharedDir.startsWith('file://') ? sharedDir.replace('file://', '') : sharedDir;
+
+  const dbPath = `${directory}/cache.db`;
+  return {
+    directory,
+    dbPath,
+    walPath: `${dbPath}-wal`,
+    shmPath: `${dbPath}-shm`,
+  };
+}
+
+/**
+ * Best-effort snapshot of raw SQLite DB files to the cache directory.
+ * This does NOT modify the database; it simply copies files so data can be recovered manually if needed.
+ *
+ * @returns List of created backup file URIs (may be empty)
+ */
+export async function backupSQLiteDatabaseFiles(): Promise<string[]> {
+  if (Platform.OS === 'web') {
+    return [];
+  }
+
+  const { Directory, File, Paths } = await import('expo-file-system');
+  const { dbPath, walPath, shmPath } = await getSQLiteDbFilePaths();
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupDir = new Directory(Paths.cache, 'zentik-db-backups');
+  if (!backupDir.exists) {
+    backupDir.create();
+  }
+
+  const candidates = [
+    { src: dbPath, suffix: 'cache.db' },
+    { src: walPath, suffix: 'cache.db-wal' },
+    { src: shmPath, suffix: 'cache.db-shm' },
+  ];
+
+  const created: string[] = [];
+
+  for (const { src, suffix } of candidates) {
+    try {
+      const srcFile = new File(src);
+      if (!srcFile.exists) continue;
+
+      const destFile = new File(backupDir, `${suffix}.${timestamp}.bak`);
+      await (srcFile as any).copy(destFile as any);
+      created.push(destFile.uri);
+    } catch (error: any) {
+      console.warn('[DB] ⚠️ Failed to backup file (non-fatal):', src, error?.message || error);
+    }
+  }
+
+  if (created.length > 0) {
+    console.log('[DB] ✅ Database backup created:', created);
+  } else {
+    console.log('[DB] ℹ️ No database files found to backup');
+  }
+
+  return created;
+}
+
 /**
  * Export SQLite database to SQL dump file (mobile only)
  * This function:
@@ -705,20 +799,33 @@ export async function exportSQLiteDatabaseToFile(): Promise<string> {
     for (const table of tables) {
       const tableName = table.name;
 
-      // Get table schema
-      const schemaResult = await db.getAllAsync<{ sql: string }>(
-        `SELECT sql FROM sqlite_master WHERE type='table' AND name=?`,
-        [tableName]
-      );
+      try {
+        // Get table schema
+        const schemaResult = await db.getAllAsync<{ sql: string }>(
+          `SELECT sql FROM sqlite_master WHERE type='table' AND name=?`,
+          [tableName]
+        );
 
-      if (schemaResult.length > 0 && schemaResult[0].sql) {
-        sqlDump += `-- Table: ${tableName}\n`;
-        sqlDump += `DROP TABLE IF EXISTS ${tableName};\n`;
-        sqlDump += `${schemaResult[0].sql};\n\n`;
+        if (schemaResult.length > 0 && schemaResult[0].sql) {
+          sqlDump += `-- Table: ${tableName}\n`;
+          sqlDump += `DROP TABLE IF EXISTS ${tableName};\n`;
+          sqlDump += `${schemaResult[0].sql};\n\n`;
+        }
+      } catch (schemaError: any) {
+        console.warn('[DB] ⚠️ Failed to export schema for table (skipping):', tableName, schemaError?.message);
+        sqlDump += `-- ⚠️ Failed to export schema for table: ${tableName} (${schemaError?.message || schemaError})\n\n`;
+        continue;
       }
 
-      // Get all rows from table
-      const rows = await db.getAllAsync(`SELECT * FROM ${tableName}`);
+      // Get all rows from table (best-effort per table)
+      let rows: any[] = [];
+      try {
+        rows = await db.getAllAsync(`SELECT * FROM ${tableName}`);
+      } catch (rowsError: any) {
+        console.warn('[DB] ⚠️ Failed to export rows for table (skipping data):', tableName, rowsError?.message);
+        sqlDump += `-- ⚠️ Failed to export rows for table: ${tableName} (${rowsError?.message || rowsError})\n\n`;
+        continue;
+      }
 
       if (rows.length > 0) {
         sqlDump += `-- Data for table: ${tableName}\n`;
@@ -741,19 +848,24 @@ export async function exportSQLiteDatabaseToFile(): Promise<string> {
       }
     }
 
-    // Get indices
-    const indices = await db.getAllAsync<{ name: string; sql: string }>(
-      "SELECT name, sql FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'"
-    );
+    // Get indices (best-effort)
+    try {
+      const indices = await db.getAllAsync<{ name: string; sql: string }>(
+        "SELECT name, sql FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'"
+      );
 
-    if (indices.length > 0) {
-      sqlDump += '-- Indices\n';
-      for (const index of indices) {
-        if (index.sql) {
-          sqlDump += `${index.sql};\n`;
+      if (indices.length > 0) {
+        sqlDump += '-- Indices\n';
+        for (const index of indices) {
+          if (index.sql) {
+            sqlDump += `${index.sql};\n`;
+          }
         }
+        sqlDump += '\n';
       }
-      sqlDump += '\n';
+    } catch (indexError: any) {
+      console.warn('[DB] ⚠️ Failed to export indices (non-fatal):', indexError?.message || indexError);
+      sqlDump += `-- ⚠️ Failed to export indices (${indexError?.message || indexError})\n\n`;
     }
 
     sqlDump += '-- Re-enable foreign keys\n';
@@ -765,7 +877,7 @@ export async function exportSQLiteDatabaseToFile(): Promise<string> {
 
     // Create and write file in one operation
     const file = new File(Paths.cache, fileName);
-    file.write(sqlDump);
+    await file.write(sqlDump);
 
     console.log(`[DB] ✅ Database exported to: ${file.uri}`);
     return file.uri;
@@ -773,6 +885,87 @@ export async function exportSQLiteDatabaseToFile(): Promise<string> {
     console.error('[DB] ❌ Error exporting database:', error?.message || error);
     throw error;
   }
+}
+
+function splitSqlStatements(sqlDump: string): string[] {
+  const statements: string[] = [];
+  let current = '';
+
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let i = 0; i < sqlDump.length; i++) {
+    const ch = sqlDump[i];
+    const next = i + 1 < sqlDump.length ? sqlDump[i + 1] : '';
+
+    if (inLineComment) {
+      if (ch === '\n') {
+        inLineComment = false;
+        // Preserve a newline boundary (optional)
+      }
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (ch === '*' && next === '/') {
+        inBlockComment = false;
+        i++; // Skip '/'
+      }
+      continue;
+    }
+
+    if (!inSingleQuote && !inDoubleQuote) {
+      // Start of comments
+      if (ch === '-' && next === '-') {
+        inLineComment = true;
+        i++; // Skip second '-'
+        continue;
+      }
+      if (ch === '/' && next === '*') {
+        inBlockComment = true;
+        i++; // Skip '*'
+        continue;
+      }
+    }
+
+    if (ch === "'" && !inDoubleQuote) {
+      if (inSingleQuote && next === "'") {
+        // Escaped single quote inside string
+        current += "''";
+        i++;
+        continue;
+      }
+      inSingleQuote = !inSingleQuote;
+      current += ch;
+      continue;
+    }
+
+    if (ch === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
+      current += ch;
+      continue;
+    }
+
+    if (ch === ';' && !inSingleQuote && !inDoubleQuote) {
+      const trimmed = current.trim();
+      if (trimmed.length > 0) {
+        statements.push(trimmed);
+      }
+      current = '';
+      continue;
+    }
+
+    current += ch;
+  }
+
+  const tail = current.trim();
+  if (tail.length > 0) {
+    statements.push(tail);
+  }
+
+  return statements;
 }
 
 /**
@@ -816,12 +1009,8 @@ export async function importSQLiteDatabaseFromFile(filePath: string): Promise<vo
     // Open new database (will be created automatically)
     const db = await openSharedCacheDb();
 
-    // Split SQL dump into individual statements
-    // This is a simple split - for production you might want a proper SQL parser
-    const statements = sqlDump
-      .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0 && !s.startsWith('--'));
+    // Split SQL dump into individual statements (quote/comment-aware)
+    const statements = splitSqlStatements(sqlDump);
 
     console.log(`[DB] 📝 Executing ${statements.length} SQL statements...`);
 

@@ -28,7 +28,7 @@ import {
     BucketWithStats
 } from '@/types/notifications';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 // Type for bucket from GetBucketsQuery (includes userBucket)
 type BucketWithUserData = NonNullable<GetBucketsQuery['buckets']>[number];
@@ -50,7 +50,17 @@ export function useNetworkSync() {
         fetchPolicy: 'network-only',
     });
 
+    // Prevent bursty triggers (e.g. multiple CloudKit invalidations) from running
+    // multiple concurrent network syncs that race and cause repeated upserts.
+    const syncInFlightRef = useRef<Promise<NetworkSyncResult> | null>(null);
+
     const syncFromNetwork = useCallback(async (): Promise<NetworkSyncResult> => {
+        if (syncInFlightRef.current) {
+            // console.log('[useNetworkSync] Sync already in-flight; awaiting');
+            return await syncInFlightRef.current;
+        }
+
+        const run = (async (): Promise<NetworkSyncResult> => {
         let networkTime = 0;
         let mergeTime = 0;
 
@@ -356,7 +366,17 @@ export function useNetworkSync() {
             console.error('[useNetworkSync] Error syncing from network:', error);
             throw error;
         }
-    }, [fetchBuckets, fetchNotifications, queryClient]);
+        })();
+
+        syncInFlightRef.current = run;
+        try {
+            return await run;
+        } finally {
+            if (syncInFlightRef.current === run) {
+                syncInFlightRef.current = null;
+            }
+        }
+    }, [fetchBuckets, fetchNotifications, queryClient, updateReceivedNotifications]);
 
     return { syncFromNetwork };
 }
