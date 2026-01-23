@@ -167,74 +167,67 @@ public final class WatchCloudKit {
         core.privateDatabase.add(op)
     }
 
-    public func fetchAllNotificationsFromCloudKit(completion: @escaping ([[String: Any]], Error?) -> Void) {
-        let predicate = NSPredicate(value: true)
-        let query = CKQuery(recordType: Defaults.notificationRecordType, predicate: predicate)
-        query.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
-
-        let op = CKQueryOperation(query: query)
-        op.zoneID = core.zoneID
-        op.qualityOfService = .utility
-
-        let dateFormatter = ISO8601DateFormatter()
-        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
-        var notifications: [[String: Any]] = []
-        var fetchError: Error?
-
-        op.recordMatchedBlock = { _, result in
+    public func fetchAllNotificationsFromCloudKit(limit: Int? = nil, completion: @escaping ([[String: Any]], Error?) -> Void) {
+        core.queryRecords(
+            recordType: Defaults.notificationRecordType,
+            predicate: NSPredicate(value: true),
+            sortDescriptors: [NSSortDescriptor(key: "createdAt", ascending: false)],
+            resultsLimit: limit
+        ) { result in
             switch result {
-            case .success(let record):
-                guard let id = record["id"] as? String,
-                      let bucketId = record["bucketId"] as? String,
-                      let title = record["title"] as? String,
-                      let body = record["body"] as? String,
-                      let createdAt = record["createdAt"] as? Date else {
-                    return
-                }
-
-                let subtitle = record["subtitle"] as? String
-                let readAt = record["readAt"] as? Date
-                let isRead = readAt != nil
-
-                var attachments: [[String: Any]] = []
-                if let attachmentsString = record["attachments"] as? String,
-                   let attachmentsData = attachmentsString.data(using: .utf8),
-                   let attachmentsArray = try? JSONSerialization.jsonObject(with: attachmentsData) as? [[String: Any]] {
-                    attachments = attachmentsArray
-                }
-
-                var actions: [[String: Any]] = []
-                if let actionsString = record["actions"] as? String,
-                   let actionsData = actionsString.data(using: .utf8),
-                   let actionsArray = try? JSONSerialization.jsonObject(with: actionsData) as? [[String: Any]] {
-                    actions = actionsArray
-                }
-
-                var dict: [String: Any] = [
-                    "id": id,
-                    "bucketId": bucketId,
-                    "title": title,
-                    "body": body,
-                    "createdAt": dateFormatter.string(from: createdAt),
-                    "isRead": isRead,
-                    "attachments": attachments,
-                    "actions": actions
-                ]
-
-                if let subtitle { dict["subtitle"] = subtitle }
-                if let readAt { dict["readAt"] = dateFormatter.string(from: readAt) }
-
-                notifications.append(dict)
-
             case .failure(let error):
-                fetchError = error
-            }
-        }
+                completion([], error)
+            case .success(let records):
+                let dateFormatter = ISO8601DateFormatter()
+                dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 
-        op.queryResultBlock = { result in
-            switch result {
-            case .success:
+                var notifications: [[String: Any]] = []
+                notifications.reserveCapacity(records.count)
+
+                for record in records {
+                    guard let id = record["id"] as? String,
+                          let bucketId = record["bucketId"] as? String,
+                          let title = record["title"] as? String,
+                          let body = record["body"] as? String,
+                          let createdAt = record["createdAt"] as? Date else {
+                        continue
+                    }
+
+                    let subtitle = record["subtitle"] as? String
+                    let readAt = record["readAt"] as? Date
+                    let isRead = readAt != nil
+
+                    var attachments: [[String: Any]] = []
+                    if let attachmentsString = record["attachments"] as? String,
+                       let attachmentsData = attachmentsString.data(using: .utf8),
+                       let attachmentsArray = try? JSONSerialization.jsonObject(with: attachmentsData) as? [[String: Any]] {
+                        attachments = attachmentsArray
+                    }
+
+                    var actions: [[String: Any]] = []
+                    if let actionsString = record["actions"] as? String,
+                       let actionsData = actionsString.data(using: .utf8),
+                       let actionsArray = try? JSONSerialization.jsonObject(with: actionsData) as? [[String: Any]] {
+                        actions = actionsArray
+                    }
+
+                    var dict: [String: Any] = [
+                        "id": id,
+                        "bucketId": bucketId,
+                        "title": title,
+                        "body": body,
+                        "createdAt": dateFormatter.string(from: createdAt),
+                        "isRead": isRead,
+                        "attachments": attachments,
+                        "actions": actions
+                    ]
+
+                    if let subtitle { dict["subtitle"] = subtitle }
+                    if let readAt { dict["readAt"] = dateFormatter.string(from: readAt) }
+
+                    notifications.append(dict)
+                }
+
                 // Sort unread first, then createdAt desc
                 notifications.sort { n1, n2 in
                     let r1 = (n1["isRead"] as? Bool) ?? false
@@ -242,13 +235,10 @@ public final class WatchCloudKit {
                     if r1 != r2 { return !r1 && r2 }
                     return (n1["createdAt"] as? String ?? "") > (n2["createdAt"] as? String ?? "")
                 }
-                completion(notifications, fetchError)
-            case .failure(let error):
-                completion([], error)
+
+                completion(notifications, nil)
             }
         }
-
-        core.privateDatabase.add(op)
     }
 
     public func fetchAllBucketsFromCloudKit(completion: @escaping ([[String: Any]], Error?) -> Void) {
@@ -335,9 +325,44 @@ public final class WatchCloudKit {
         }
     }
     
+    private func notifySyncProgress(currentItem: Int, totalItems: Int, itemType: String, phase: String, step: String = "") {
+        let dict: [String: Any] = [
+            "currentItem": currentItem,
+            "totalItems": totalItems,
+            "itemType": itemType,
+            "phase": phase,
+            "step": step
+        ]
+        
+        // Post to NotificationCenter for watch UI to observe
+        NotificationCenter.default.post(
+            name: NSNotification.Name("CloudKitSyncProgress"),
+            object: nil,
+            userInfo: dict
+        )
+    }
+    
     private func performFullSyncFromCloudKit(completion: @escaping (Int, Error?) -> Void) {
+        // EVENT 1: FullSync started
+        self.notifySyncProgress(
+            currentItem: 0,
+            totalItems: 0,
+            itemType: "",
+            phase: "starting",
+            step: "full_sync"
+        )
+        
         // Step 1: Clear local data
         WatchDataStore.shared.clearCache()
+        
+        // EVENT 2: Reset started
+        self.notifySyncProgress(
+            currentItem: 0,
+            totalItems: 0,
+            itemType: "",
+            phase: "starting",
+            step: "reset_cloudkit"
+        )
         
         // Step 2: Delete subscriptions
         let subscriptionIDs = [Defaults.notificationSubscriptionID, Defaults.bucketSubscriptionID]
@@ -353,6 +378,24 @@ public final class WatchCloudKit {
             // Step 3: Reset token
             self.core.resetServerChangeToken()
             
+            // EVENT 3: Reset completed
+            self.notifySyncProgress(
+                currentItem: 0,
+                totalItems: 0,
+                itemType: "",
+                phase: "completed",
+                step: "reset_cloudkit"
+            )
+            
+            // EVENT 4: Buckets preparing
+            self.notifySyncProgress(
+                currentItem: 0,
+                totalItems: 0,
+                itemType: "bucket",
+                phase: "preparing",
+                step: "sync_buckets"
+            )
+            
             // Step 4: Fetch all data from CloudKit
             let group = DispatchGroup()
             var allNotifications: [[String: Any]] = []
@@ -360,33 +403,91 @@ public final class WatchCloudKit {
             var fetchError: Error?
             
             group.enter()
-            self.fetchAllNotificationsFromCloudKit { notifications, error in
-                if let error = error {
-                    fetchError = error
-                } else {
-                    allNotifications = notifications
-                }
-                group.leave()
-            }
-            
-            group.enter()
             self.fetchAllBucketsFromCloudKit { buckets, error in
                 if let error = error {
                     fetchError = error
                 } else {
                     allBuckets = buckets
+                    
+                    // EVENT 5: Buckets found
+                    self.notifySyncProgress(
+                        currentItem: buckets.count,
+                        totalItems: buckets.count,
+                        itemType: "bucket",
+                        phase: "found",
+                        step: "sync_buckets"
+                    )
+                }
+                group.leave()
+            }
+            
+            group.enter()
+            // Fetch only the N most recent notifications (based on maxNotificationsLimit)
+            // Use same key as WatchSettingsManager for consistency
+            let maxLimit = UserDefaults.standard.integer(forKey: "watch_max_notifications_limit")
+            let limit = maxLimit > 0 ? maxLimit : 100 // Default to 100 if not set
+            
+            self.fetchLatestNotificationsFromCloudKit(limit: limit) { notifications, error in
+                if let error = error {
+                    fetchError = error
+                } else {
+                    allNotifications = notifications
+                    
+                    // EVENT 6: Notifications found
+                    self.notifySyncProgress(
+                        currentItem: notifications.count,
+                        totalItems: notifications.count,
+                        itemType: "notification",
+                        phase: "found",
+                        step: "sync_notifications"
+                    )
                 }
                 group.leave()
             }
             
             group.notify(queue: .main) {
                 if let error = fetchError {
+                    // EVENT: FullSync failed
+                    self.notifySyncProgress(
+                        currentItem: 0,
+                        totalItems: 0,
+                        itemType: "",
+                        phase: "failed",
+                        step: "full_sync"
+                    )
                     completion(0, error)
                     return
                 }
                 
                 // Step 5: Apply all data to cache
+                // EVENT 7: Applying data
+                self.notifySyncProgress(
+                    currentItem: 0,
+                    totalItems: allBuckets.count + allNotifications.count,
+                    itemType: "",
+                    phase: "starting",
+                    step: "apply_data"
+                )
+                
                 let applied = self.applyFullDataToWatchCache(notifications: allNotifications, buckets: allBuckets)
+                
+                // EVENT 8: Data applied
+                self.notifySyncProgress(
+                    currentItem: applied,
+                    totalItems: allBuckets.count + allNotifications.count,
+                    itemType: "",
+                    phase: "completed",
+                    step: "apply_data"
+                )
+                
+                // EVENT 9: Resubscribe started
+                self.notifySyncProgress(
+                    currentItem: 0,
+                    totalItems: 0,
+                    itemType: "",
+                    phase: "starting",
+                    step: "restart_subscriptions"
+                )
                 
                 // Step 6: Resubscribe
                 self.core.ensureSubscriptions(self.defaultSubscriptions()) { subResult in
@@ -398,17 +499,61 @@ public final class WatchCloudKit {
                         print("⌚ [WatchCloudKit] Subscriptions recreated")
                     }
                     
+                    // EVENT 10: Resubscribe completed
+                    self.notifySyncProgress(
+                        currentItem: 0,
+                        totalItems: 0,
+                        itemType: "",
+                        phase: "completed",
+                        step: "restart_subscriptions"
+                    )
+                    
+                    // EVENT 11: Token update started
+                    self.notifySyncProgress(
+                        currentItem: 0,
+                        totalItems: 0,
+                        itemType: "",
+                        phase: "starting",
+                        step: "update_server_token"
+                    )
+                    
                     // Step 7: Fetch zone changes to get new token
                     self.core.fetchZoneChanges { tokenResult in
                         switch tokenResult {
                         case .failure(let error):
                             print("⌚ [WatchCloudKit] Failed to fetch zone changes for new token: \(error.localizedDescription)")
                             // Continue anyway (non-fatal)
-                        case .success:
+                            // EVENT 12: Token update failed (non-fatal)
+                            self.notifySyncProgress(
+                                currentItem: 0,
+                                totalItems: 0,
+                                itemType: "",
+                                phase: "failed",
+                                step: "update_server_token"
+                            )
+                        case .success(let changes):
                             print("⌚ [WatchCloudKit] New token obtained")
+                            // EVENT 12: Token update completed
+                            self.notifySyncProgress(
+                                currentItem: changes.count,
+                                totalItems: changes.count,
+                                itemType: "",
+                                phase: "completed",
+                                step: "update_server_token"
+                            )
                         }
                         
                         UserDefaults.standard.set(true, forKey: CloudKitManagerBase.cloudKitInitialSyncCompletedKey)
+                        
+                        // EVENT 13: FullSync completed
+                        self.notifySyncProgress(
+                            currentItem: applied,
+                            totalItems: applied,
+                            itemType: "",
+                            phase: "completed",
+                            step: "full_sync"
+                        )
+                        
                         completion(applied, nil)
                     }
                 }

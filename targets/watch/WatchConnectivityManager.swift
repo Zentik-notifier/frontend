@@ -22,6 +22,13 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     @Published var isSyncing: Bool = false
     @Published var isFullSyncing: Bool = false
     
+    // Sync progress tracking
+    @Published var syncProgressCurrentItem: Int = 0
+    @Published var syncProgressTotalItems: Int = 0
+    @Published var syncProgressItemType: String = ""
+    @Published var syncProgressPhase: String = ""
+    @Published var syncProgressStep: String = ""
+    
     private let dataStore = WatchDataStore.shared
     private var wcSession: WCSession?
     
@@ -52,6 +59,14 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
             self,
             selector: #selector(handleCloudKitDataUpdate(_:)),
             name: NSNotification.Name("CloudKitDataUpdated"),
+            object: nil
+        )
+        
+        // Listen for CloudKit sync progress events
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleCloudKitSyncProgress(_:)),
+            name: NSNotification.Name("CloudKitSyncProgress"),
             object: nil
         )
         
@@ -267,6 +282,11 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
                 } else if count > 0 {
                     LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: fullSync ? "Full sync completed" : "Incremental sync completed", metadata: ["updatedCount": "\(count)"], source: "Watch")
                     self.scheduleUIRefresh(reason: fullSync ? "fullSync" : "incrementalSync")
+                    
+                    // After full sync, ensure we're filled to max limit (refill if needed after deletions)
+                    if fullSync {
+                        self.ensureFilledToMaxLimit(reason: "fullSync")
+                    }
                 }
             }
 
@@ -279,6 +299,35 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     
     deinit {
         NotificationCenter.default.removeObserver(self)
+    }
+    
+    @objc private func handleCloudKitSyncProgress(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let currentItem = userInfo["currentItem"] as? Int,
+              let totalItems = userInfo["totalItems"] as? Int,
+              let itemType = userInfo["itemType"] as? String,
+              let phase = userInfo["phase"] as? String else {
+            return
+        }
+        
+        let step = userInfo["step"] as? String ?? ""
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.syncProgressCurrentItem = currentItem
+            self?.syncProgressTotalItems = totalItems
+            self?.syncProgressItemType = itemType
+            self?.syncProgressPhase = phase
+            self?.syncProgressStep = step
+            
+            // Update isFullSyncing based on step
+            if step == "full_sync" {
+                if phase == "starting" {
+                    self?.isFullSyncing = true
+                } else if phase == "completed" || phase == "failed" {
+                    self?.isFullSyncing = false
+                }
+            }
+        }
     }
     
     @objc private func handleCloudKitDataUpdate(_ notification: Notification) {

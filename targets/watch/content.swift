@@ -1694,9 +1694,60 @@ struct SettingsView: View {
                             }
                         }
                         
-                        Text("Full Sync")
+                        // Show progress text or "Full Sync" based on sync state
+                        if connectivityManager.isFullSyncing {
+                            let step = connectivityManager.syncProgressStep
+                            let phase = connectivityManager.syncProgressPhase
+                            let itemType = connectivityManager.syncProgressItemType
+                            let current = connectivityManager.syncProgressCurrentItem
+                            let total = connectivityManager.syncProgressTotalItems
+                            
+                            // Show appropriate message based on step and phase
+                            Group {
+                                if step == "full_sync" {
+                                    if phase == "starting" {
+                                        Text("Starting sync...")
+                                    } else if phase == "completed" {
+                                        Text("Sync completed")
+                                    } else if phase == "failed" {
+                                        Text("Sync failed")
+                                            .foregroundColor(.red)
+                                    } else {
+                                        Text("Syncing...")
+                                    }
+                                } else if step == "sync_buckets" {
+                                    if phase == "found" {
+                                        Text("\(total) buckets found")
+                                    } else {
+                                        Text("Syncing buckets...")
+                                    }
+                                } else if step == "sync_notifications" {
+                                    if phase == "found" {
+                                        Text("\(total) notifications found")
+                                    } else {
+                                        Text("Syncing notifications...")
+                                    }
+                                } else if step == "apply_data" {
+                                    if total > 0 {
+                                        Text("Applying \(current)/\(total)")
+                                    } else {
+                                        Text("Applying data...")
+                                    }
+                                } else if step == "restart_subscriptions" {
+                                    Text("Restarting subscriptions...")
+                                } else if step == "update_server_token" {
+                                    Text("Updating token...")
+                                } else {
+                                    Text("Syncing...")
+                                }
+                            }
                             .font(.headline)
                             .foregroundColor(.primary)
+                        } else {
+                            Text("Full Sync")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                        }
                         
                         Spacer()
                     }
