@@ -706,11 +706,12 @@ public final class CloudKitManagerBase: NSObject {
         infoLog("runChunkedModifySaves starting", metadata: ["totalRecords": totalItems, "chunks": chunks.count, "maxBatchSize": config.maxBatchSize])
         
         runSerial(chunks, label: "save") { chunk, chunkDone in
-            self.infoLog("Creating CKModifyRecordsOperation", metadata: ["chunkSize": chunk.count, "recordTypes": Array(Set(chunk.map { $0.recordType }))])
-            let op = CKModifyRecordsOperation(recordsToSave: chunk, recordIDsToDelete: nil)
-            op.savePolicy = savePolicy
-            op.isAtomic = false
-            op.modifyRecordsResultBlock = { result in
+            self.saveChunkWithRetry(
+                chunk: chunk,
+                savePolicy: savePolicy,
+                maxRetries: 3,
+                retryCount: 0
+            ) { result in
                 switch result {
                 case .success:
                     self.infoLog("CKModifyRecordsOperation result received (success)", metadata: ["chunkSize": chunk.count, "completedItems": completedItems + chunk.count, "totalItems": totalItems])
@@ -724,10 +725,57 @@ public final class CloudKitManagerBase: NSObject {
                     chunkDone(.failure(error))
                 }
             }
-            self.infoLog("Adding CKModifyRecordsOperation to database", metadata: ["chunkSize": chunk.count])
-            self.privateDatabase.add(op)
-            self.infoLog("CKModifyRecordsOperation added to database", metadata: ["chunkSize": chunk.count])
         } completion: { completion($0) }
+    }
+    
+    private func saveChunkWithRetry(
+        chunk: [CKRecord],
+        savePolicy: CKModifyRecordsOperation.RecordSavePolicy,
+        maxRetries: Int,
+        retryCount: Int,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        self.infoLog("Creating CKModifyRecordsOperation", metadata: ["chunkSize": chunk.count, "recordTypes": Array(Set(chunk.map { $0.recordType })), "retryCount": retryCount])
+        let op = CKModifyRecordsOperation(recordsToSave: chunk, recordIDsToDelete: nil)
+        op.savePolicy = savePolicy
+        op.isAtomic = false
+        op.modifyRecordsResultBlock = { result in
+            switch result {
+            case .success:
+                completion(.success(()))
+            case .failure(let error):
+                // Check if it's a retryable error
+                if let ckError = error as? CKError,
+                   (ckError.code == .serviceUnavailable || ckError.code == .requestRateLimited),
+                   retryCount < maxRetries {
+                    let retryAfter = ckError.retryAfterSeconds ?? 1.0
+                    self.warnLog(
+                        "CloudKit service unavailable, retrying",
+                        metadata: [
+                            "chunkSize": chunk.count,
+                            "retryCount": retryCount + 1,
+                            "maxRetries": maxRetries,
+                            "retryAfter": retryAfter,
+                            "error": String(describing: error)
+                        ]
+                    )
+                    DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + retryAfter) {
+                        self.saveChunkWithRetry(
+                            chunk: chunk,
+                            savePolicy: savePolicy,
+                            maxRetries: maxRetries,
+                            retryCount: retryCount + 1,
+                            completion: completion
+                        )
+                    }
+                } else {
+                    completion(.failure(error))
+                }
+            }
+        }
+        self.infoLog("Adding CKModifyRecordsOperation to database", metadata: ["chunkSize": chunk.count])
+        self.privateDatabase.add(op)
+        self.infoLog("CKModifyRecordsOperation added to database", metadata: ["chunkSize": chunk.count])
     }
 
     private func runChunkedModifyDeletes(
