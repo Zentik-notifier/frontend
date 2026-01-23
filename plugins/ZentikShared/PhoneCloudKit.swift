@@ -681,19 +681,33 @@ public final class PhoneCloudKit {
                 ]
             )
             
-            // Notify watch to perform full sync
-            self.notifyWatchToFullSync()
-            
-            completion(
-                true,
-                nil,
-                SyncStats(
-                    notificationsSynced: syncedNotifications,
-                    bucketsSynced: syncedBuckets,
-                    notificationsUpdated: 0,
-                    bucketsUpdated: 0
+            // Fetch zone changes to update server change token after full sync
+            // This prevents iOS from receiving push notifications for records it just uploaded
+            self.fetchIncrementalChanges { fetchResult in
+                switch fetchResult {
+                case .success(let changes):
+                    // Token is automatically saved by fetchZoneChanges
+                    // We ignore the changes since we just uploaded them
+                    self.infoLog("Server change token updated after full sync", metadata: ["changesCount": "\(changes.count)"])
+                case .failure(let error):
+                    // Log but don't fail the sync - token update is best effort
+                    self.warnLog("Failed to update server change token after full sync", metadata: ["error": error.localizedDescription])
+                }
+                
+                // Notify watch to perform full sync
+                self.notifyWatchToFullSync()
+                
+                completion(
+                    true,
+                    nil,
+                    SyncStats(
+                        notificationsSynced: syncedNotifications,
+                        bucketsSynced: syncedBuckets,
+                        notificationsUpdated: 0,
+                        bucketsUpdated: 0
+                    )
                 )
-            )
+            }
         }
     }
 
