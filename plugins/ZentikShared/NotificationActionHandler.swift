@@ -158,6 +158,39 @@ public class NotificationActionHandler {
         }
     }
 
+    private static func deleteFromCloudKitBatch_watch(notificationIds: [String]) async -> StepResult {
+        guard !notificationIds.isEmpty else {
+            return StepResult(name: "cloudkit", success: true)
+        }
+        return await withCheckedContinuation { continuation in
+            WatchCloudKit.shared.deleteNotificationsFromCloudKit(notificationIds: notificationIds) { success, _, error in
+                if success {
+                    continuation.resume(returning: StepResult(name: "cloudkit", success: true))
+                } else {
+                    continuation.resume(returning: StepResult(name: "cloudkit", success: false, errorDescription: error?.localizedDescription ?? "Unknown error"))
+                }
+            }
+        }
+    }
+
+    private static func updateReadStatusInCloudKitBatch_watch(notificationIds: [String], readAt: Date?) async -> StepResult {
+        guard !notificationIds.isEmpty else {
+            return StepResult(name: "cloudkit", success: true)
+        }
+        return await withCheckedContinuation { continuation in
+            WatchCloudKit.shared.updateNotificationsReadStatusInCloudKit(
+                notificationIds: notificationIds,
+                readAt: readAt
+            ) { success, _, error in
+                if success {
+                    continuation.resume(returning: StepResult(name: "cloudkit", success: true))
+                } else {
+                    continuation.resume(returning: StepResult(name: "cloudkit", success: false, errorDescription: error?.localizedDescription ?? "Unknown error"))
+                }
+            }
+        }
+    }
+
     /// Watch-only: execute remote side-effects (REST + CloudKit) best-effort.
     /// This intentionally does not touch SQLite badge counts or local DB state.
     public static func executeWatchRemoteUpdates(
@@ -222,6 +255,57 @@ public class NotificationActionHandler {
 
         default:
             return [StepResult(name: "noop", success: false, errorDescription: "Unsupported action type")]
+        }
+    }
+
+    /// Watch-only: execute remote side-effects (REST + CloudKit) in batch for multiple notifications.
+    /// This intentionally does not touch SQLite badge counts or local DB state.
+    public static func executeWatchRemoteUpdatesBatch(
+        actionType: String,
+        notificationIds: [String]
+    ) async -> [StepResult] {
+        guard !notificationIds.isEmpty else {
+            return []
+        }
+
+        let type = actionType.uppercased()
+
+        switch type {
+        case "MARK_AS_READ":
+            async let rest = asyncResult("rest") {
+                try await performWatchApiRequest(
+                    path: "/notifications/watch/batch/read",
+                    method: "PATCH",
+                    jsonBody: ["ids": notificationIds]
+                )
+            }
+            async let ck = updateReadStatusInCloudKitBatch_watch(notificationIds: notificationIds, readAt: Date())
+            return [await rest, await ck]
+
+        case "MARK_AS_UNREAD":
+            async let rest = asyncResult("rest") {
+                try await performWatchApiRequest(
+                    path: "/notifications/watch/batch/unread",
+                    method: "PATCH",
+                    jsonBody: ["ids": notificationIds]
+                )
+            }
+            async let ck = updateReadStatusInCloudKitBatch_watch(notificationIds: notificationIds, readAt: nil)
+            return [await rest, await ck]
+
+        case "DELETE":
+            async let rest = asyncResult("rest") {
+                try await performWatchApiRequest(
+                    path: "/notifications/watch/batch",
+                    method: "DELETE",
+                    jsonBody: ["ids": notificationIds]
+                )
+            }
+            async let ck = deleteFromCloudKitBatch_watch(notificationIds: notificationIds)
+            return [await rest, await ck]
+
+        default:
+            return [StepResult(name: "noop", success: false, errorDescription: "Unsupported batch action type: \(type)")]
         }
     }
     #endif

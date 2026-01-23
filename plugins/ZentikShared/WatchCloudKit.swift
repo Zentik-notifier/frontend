@@ -317,20 +317,222 @@ public final class WatchCloudKit {
 
     public func syncFromCloudKitIncremental(fullSync: Bool = false, completion: @escaping (Int, Error?) -> Void) {
         if fullSync {
-            core.resetServerChangeToken()
-        }
+            // Full sync: clear local data, disable subscriptions, reset token, fetch all from CloudKit, resubscribe
+            performFullSyncFromCloudKit(completion: completion)
+        } else {
+            // Incremental sync: use zone changes with token
+            core.fetchZoneChanges { result in
+                switch result {
+                case .failure(let error):
+                    completion(0, error)
 
-        core.fetchZoneChanges { result in
-            switch result {
-            case .failure(let error):
-                completion(0, error)
-
-            case .success(let changes):
-                let applied = self.applyZoneChangesToWatchCache(changes)
-                UserDefaults.standard.set(true, forKey: CloudKitManagerBase.cloudKitInitialSyncCompletedKey)
-                completion(applied, nil)
+                case .success(let changes):
+                    let applied = self.applyZoneChangesToWatchCache(changes)
+                    UserDefaults.standard.set(true, forKey: CloudKitManagerBase.cloudKitInitialSyncCompletedKey)
+                    completion(applied, nil)
+                }
             }
         }
+    }
+    
+    private func performFullSyncFromCloudKit(completion: @escaping (Int, Error?) -> Void) {
+        // Step 1: Clear local data
+        WatchDataStore.shared.clearCache()
+        
+        // Step 2: Delete subscriptions
+        let subscriptionIDs = [Defaults.notificationSubscriptionID, Defaults.bucketSubscriptionID]
+        core.deleteSubscriptions(subscriptionIDs) { deleteResult in
+            switch deleteResult {
+            case .failure(let error):
+                // Log but continue (non-fatal)
+                print("⌚ [WatchCloudKit] Failed to delete subscriptions (non-fatal): \(error.localizedDescription)")
+            case .success:
+                print("⌚ [WatchCloudKit] Subscriptions deleted")
+            }
+            
+            // Step 3: Reset token
+            self.core.resetServerChangeToken()
+            
+            // Step 4: Fetch all data from CloudKit
+            let group = DispatchGroup()
+            var allNotifications: [[String: Any]] = []
+            var allBuckets: [[String: Any]] = []
+            var fetchError: Error?
+            
+            group.enter()
+            self.fetchAllNotificationsFromCloudKit { notifications, error in
+                if let error = error {
+                    fetchError = error
+                } else {
+                    allNotifications = notifications
+                }
+                group.leave()
+            }
+            
+            group.enter()
+            self.fetchAllBucketsFromCloudKit { buckets, error in
+                if let error = error {
+                    fetchError = error
+                } else {
+                    allBuckets = buckets
+                }
+                group.leave()
+            }
+            
+            group.notify(queue: .main) {
+                if let error = fetchError {
+                    completion(0, error)
+                    return
+                }
+                
+                // Step 5: Apply all data to cache
+                let applied = self.applyFullDataToWatchCache(notifications: allNotifications, buckets: allBuckets)
+                
+                // Step 6: Resubscribe
+                self.core.ensureSubscriptions(self.defaultSubscriptions()) { subResult in
+                    switch subResult {
+                    case .failure(let error):
+                        print("⌚ [WatchCloudKit] Failed to resubscribe: \(error.localizedDescription)")
+                        // Continue anyway (non-fatal)
+                    case .success:
+                        print("⌚ [WatchCloudKit] Subscriptions recreated")
+                    }
+                    
+                    // Step 7: Fetch zone changes to get new token
+                    self.core.fetchZoneChanges { tokenResult in
+                        switch tokenResult {
+                        case .failure(let error):
+                            print("⌚ [WatchCloudKit] Failed to fetch zone changes for new token: \(error.localizedDescription)")
+                            // Continue anyway (non-fatal)
+                        case .success:
+                            print("⌚ [WatchCloudKit] New token obtained")
+                        }
+                        
+                        UserDefaults.standard.set(true, forKey: CloudKitManagerBase.cloudKitInitialSyncCompletedKey)
+                        completion(applied, nil)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func applyFullDataToWatchCache(notifications: [[String: Any]], buckets: [[String: Any]]) -> Int {
+        let dataStore = WatchDataStore.shared
+        var cache = WatchDataStore.WatchCache()
+        
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        // Parse buckets
+        for bucketDict in buckets {
+            guard let id = bucketDict["id"] as? String,
+                  let name = bucketDict["name"] as? String else {
+                continue
+            }
+            
+            let bucket = WatchDataStore.CachedBucket(
+                id: id,
+                name: name,
+                unreadCount: 0,
+                color: bucketDict["color"] as? String,
+                iconUrl: bucketDict["iconUrl"] as? String
+            )
+            cache.buckets.append(bucket)
+        }
+        
+        // Parse notifications
+        for notifDict in notifications {
+            guard let id = notifDict["id"] as? String,
+                  let bucketId = notifDict["bucketId"] as? String,
+                  let title = notifDict["title"] as? String,
+                  let body = notifDict["body"] as? String,
+                  let createdAtStr = notifDict["createdAt"] as? String,
+                  let createdAt = dateFormatter.date(from: createdAtStr) else {
+                continue
+            }
+            
+            let isRead = (notifDict["isRead"] as? Bool) ?? false
+            let subtitle = notifDict["subtitle"] as? String
+            
+            var attachments: [WatchDataStore.CachedAttachment] = []
+            if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
+                attachments = attachmentsArray.compactMap { dict in
+                    guard let mediaType = dict["mediaType"] as? String else { return nil }
+                    return WatchDataStore.CachedAttachment(
+                        mediaType: mediaType,
+                        url: dict["url"] as? String,
+                        name: dict["name"] as? String
+                    )
+                }
+            }
+            
+            var actions: [WatchDataStore.CachedAction] = []
+            if let actionsArray = notifDict["actions"] as? [[String: Any]] {
+                actions = actionsArray.compactMap { dict in
+                    guard let type = dict["type"] as? String else { return nil }
+                    return WatchDataStore.CachedAction(
+                        type: type,
+                        label: dict["label"] as? String ?? "",
+                        value: dict["value"] as? String,
+                        id: dict["id"] as? String,
+                        url: dict["url"] as? String,
+                        bucketId: dict["bucketId"] as? String,
+                        minutes: dict["minutes"] as? Int
+                    )
+                }
+            }
+            
+            let bucket = cache.buckets.first(where: { $0.id == bucketId })
+            let notification = WatchDataStore.CachedNotification(
+                id: id,
+                title: title,
+                body: body,
+                subtitle: subtitle,
+                createdAt: createdAtStr,
+                isRead: isRead,
+                bucketId: bucketId,
+                bucketName: bucket?.name,
+                bucketColor: bucket?.color,
+                bucketIconUrl: bucket?.iconUrl,
+                attachments: attachments,
+                actions: actions
+            )
+            cache.notifications.append(notification)
+        }
+        
+        // Recompute unread counts
+        cache.unreadCount = cache.notifications.filter { !$0.isRead }.count
+        var unreadByBucket: [String: Int] = [:]
+        for n in cache.notifications where !n.isRead {
+            unreadByBucket[n.bucketId, default: 0] += 1
+        }
+        cache.buckets = cache.buckets.map { bucket in
+            WatchDataStore.CachedBucket(
+                id: bucket.id,
+                name: bucket.name,
+                unreadCount: unreadByBucket[bucket.id] ?? 0,
+                color: bucket.color,
+                iconUrl: bucket.iconUrl
+            )
+        }
+        
+        cache.lastUpdate = Date()
+        dataStore.saveCache(cache)
+        
+        // Post notification
+        let userInfo: [AnyHashable: Any] = [
+            "changedNotificationIds": cache.notifications.map { $0.id },
+            "deletedNotificationIds": [],
+            "changedBucketIds": cache.buckets.map { $0.id },
+            "deletedBucketIds": [],
+            "appliedCount": cache.notifications.count + cache.buckets.count,
+            "cacheNotificationCount": cache.notifications.count,
+            "cacheBucketCount": cache.buckets.count,
+            "lastUpdateTimestamp": cache.lastUpdate.timeIntervalSince1970
+        ]
+        NotificationCenter.default.post(name: NSNotification.Name("CloudKitDataUpdated"), object: nil, userInfo: userInfo)
+        
+        return cache.notifications.count + cache.buckets.count
     }
 
     /// Handles CloudKit push notifications.
@@ -460,8 +662,38 @@ public final class WatchCloudKit {
             case .failure(let error):
                 completion(false, error)
             case .success:
+                // Apply change to cache (batch operation even for single item)
                 _ = self.applyZoneChangesToWatchCache([.deleted(recordID: recordID, recordType: Defaults.notificationRecordType)])
                 completion(true, nil)
+            }
+        }
+    }
+    
+    /// Delete multiple notifications from CloudKit in a single batch operation
+    /// - Parameters:
+    ///   - notificationIds: Array of notification IDs to delete
+    ///   - completion: Completion handler with success status and count of deleted records
+    public func deleteNotificationsFromCloudKit(
+        notificationIds: [String],
+        completion: @escaping (Bool, Int, Error?) -> Void
+    ) {
+        guard !notificationIds.isEmpty else {
+            completion(true, 0, nil)
+            return
+        }
+        
+        let recordIDs = notificationIds.map { notificationRecordID($0) }
+        core.delete(recordIDs: recordIDs) { result in
+            switch result {
+            case .failure(let error):
+                completion(false, 0, error)
+            case .success:
+                // Apply all changes to cache in a single batch operation
+                let changes = recordIDs.map { recordID in
+                    CloudKitManagerBase.ZoneChange.deleted(recordID: recordID, recordType: Defaults.notificationRecordType)
+                }
+                let applied = self.applyZoneChangesToWatchCache(changes)
+                completion(true, applied, nil)
             }
         }
     }
@@ -606,16 +838,24 @@ public final class WatchCloudKit {
                 let type = recordType
                 if type == Defaults.notificationRecordType || recordID.recordName.hasPrefix("Notification-") {
                     let id = recordID.recordName.replacingOccurrences(of: "Notification-", with: "")
-                    cache.notifications.removeAll(where: { $0.id == id })
                     deletedNotificationIds.append(id)
                     appliedCount += 1
                 } else if type == Defaults.bucketRecordType || recordID.recordName.hasPrefix("Bucket-") {
                     let id = recordID.recordName.replacingOccurrences(of: "Bucket-", with: "")
-                    cache.buckets.removeAll(where: { $0.id == id })
                     deletedBucketIds.append(id)
                     appliedCount += 1
                 }
             }
+        }
+        
+        // Apply batch deletions (more efficient than removeAll in loop)
+        if !deletedNotificationIds.isEmpty {
+            let deletedSet = Set(deletedNotificationIds)
+            cache.notifications.removeAll(where: { deletedSet.contains($0.id) })
+        }
+        if !deletedBucketIds.isEmpty {
+            let deletedSet = Set(deletedBucketIds)
+            cache.buckets.removeAll(where: { deletedSet.contains($0.id) })
         }
 
         // Keep cache bounded to avoid expensive JSON writes and UI freezes on Watch.

@@ -49,7 +49,8 @@ class CloudKitSyncBridge: RCTEventEmitter {
       "cloudKitRecordChanged", // New event for all record changes
       "cloudKitSyncProgress", // Progress updates during sync operations
       "watchLogsTransferProgress", // Progress updates during watch logs transfer
-      "cloudKitNotificationsBatchUpdated" // Batch update event for multiple notifications
+      "cloudKitNotificationsBatchUpdated", // Batch update event for multiple notifications
+      "cloudKitNotificationsBatchDeleted" // Batch deletion event for multiple notifications
     ]
   }
   
@@ -72,6 +73,12 @@ class CloudKitSyncBridge: RCTEventEmitter {
   private static let notificationDebounceInterval: TimeInterval = 0.5 // 500ms debounce
   private static let batchThreshold = 10 // Emit batch event immediately if more than 10 updates
   private static let notificationDebounceLock = NSLock()
+  
+  // Debounce mechanism for batch deletions
+  private static var pendingNotificationDeletedIdsSet: Set<String> = []
+  private static var notificationDeletedDebounceTimer: Timer?
+  private static let notificationDeletedDebounceInterval: TimeInterval = 0.5 // 500ms debounce
+  private static let notificationDeletedDebounceLock = NSLock()
   
   @objc
   static func setSharedInstance(_ instance: CloudKitSyncBridge) {
@@ -141,16 +148,67 @@ class CloudKitSyncBridge: RCTEventEmitter {
   
   @objc
   static func notifyNotificationDeleted(_ notificationId: String) {
+    notificationDeletedDebounceLock.lock()
+    pendingNotificationDeletedIdsSet.insert(notificationId)
+    let currentCount = pendingNotificationDeletedIdsSet.count
+    notificationDeletedDebounceLock.unlock()
+    
+    // All timer operations must be on main thread
     DispatchQueue.main.async {
-      if let instance = sharedInstance, instance.hasListeners {
-        instance.sendEvent(withName: "cloudKitNotificationDeleted", body: ["notificationId": notificationId])
-      } else {
+      // Cancel existing timer
+      notificationDeletedDebounceTimer?.invalidate()
+      notificationDeletedDebounceTimer = nil
+      
+      // If JS isn't listening yet, keep pending IDs and wait for startObserving.
+      if let instance = sharedInstance, instance.hasListeners == false {
         pendingEventLock.lock()
         pendingNotificationDeletedIds.append(notificationId)
         if pendingNotificationDeletedIds.count > pendingEventsMax {
           pendingNotificationDeletedIds.removeFirst(pendingNotificationDeletedIds.count - pendingEventsMax)
         }
         pendingEventLock.unlock()
+        return
+      }
+      
+      // If we have many deletions, emit batch event immediately
+      if currentCount >= batchThreshold {
+        emitBatchNotificationDeletion()
+        return
+      }
+      
+      // Schedule debounced batch update (Timer must be on main thread)
+      notificationDeletedDebounceTimer = Timer.scheduledTimer(withTimeInterval: notificationDeletedDebounceInterval, repeats: false) { _ in
+        emitBatchNotificationDeletion()
+      }
+    }
+  }
+  
+  private static func emitBatchNotificationDeletion() {
+    // If JS isn't listening yet, do not flush; keep pending IDs.
+    if let instance = sharedInstance, instance.hasListeners == false {
+      return
+    }
+    
+    notificationDeletedDebounceLock.lock()
+    let notificationIds = Array(pendingNotificationDeletedIdsSet)
+    pendingNotificationDeletedIdsSet.removeAll()
+    notificationDeletedDebounceLock.unlock()
+    
+    notificationDeletedDebounceTimer?.invalidate()
+    notificationDeletedDebounceTimer = nil
+    
+    guard !notificationIds.isEmpty else { return }
+    
+    DispatchQueue.main.async {
+      if notificationIds.count == 1 {
+        // Single notification - emit individual event for backward compatibility
+        sharedInstance?.sendEvent(withName: "cloudKitNotificationDeleted", body: ["notificationId": notificationIds[0]])
+      } else {
+        // Multiple notifications - emit batch event
+        sharedInstance?.sendEvent(withName: "cloudKitNotificationsBatchDeleted", body: [
+          "notificationIds": notificationIds,
+          "count": notificationIds.count
+        ])
       }
     }
   }
@@ -281,8 +339,9 @@ class CloudKitSyncBridge: RCTEventEmitter {
     hasListeners = true
     infoLog("RN started observing CloudKit events")
 
-    // Flush any queued events + debounced notification updates.
+    // Flush any queued events + debounced notification updates and deletions.
     CloudKitSyncBridge.emitBatchNotificationUpdate()
+    CloudKitSyncBridge.emitBatchNotificationDeletion()
 
     CloudKitSyncBridge.pendingEventLock.lock()
     let recordEvents = CloudKitSyncBridge.pendingRecordChangedEvents
@@ -298,8 +357,16 @@ class CloudKitSyncBridge: RCTEventEmitter {
     for body in recordEvents {
       sendEvent(withName: "cloudKitRecordChanged", body: body)
     }
-    for id in deletedIds {
-      sendEvent(withName: "cloudKitNotificationDeleted", body: ["notificationId": id])
+    // Emit pending deletions in batch if there are many, otherwise individually
+    if deletedIds.count > 1 {
+      sendEvent(withName: "cloudKitNotificationsBatchDeleted", body: [
+        "notificationIds": deletedIds,
+        "count": deletedIds.count
+      ])
+    } else {
+      for id in deletedIds {
+        sendEvent(withName: "cloudKitNotificationDeleted", body: ["notificationId": id])
+      }
     }
     for id in bucketUpdated {
       sendEvent(withName: "cloudKitBucketUpdated", body: ["bucketId": id])
@@ -490,12 +557,14 @@ class CloudKitSyncBridge: RCTEventEmitter {
       case .failure(let error):
         reject("SYNC_FAILED", error.localizedDescription, error)
       case .success(let changes):
-        // Process changes in batch to avoid blocking and reduce event spam
+        // Collect all changes first to process in batches
         var notificationIds: [String] = []
         var bucketIds: [String] = []
         var deletedNotificationIds: [String] = []
+        var readAtMap: [String: Int64?] = [:]
+        var recordChangedEvents: [(recordType: String, recordId: String, reason: String, recordData: [String: Any]?)] = []
         
-        // First pass: apply database changes and collect IDs
+        // First pass: collect all changes without touching the database
         for change in changes {
           switch change {
           case .changed(let record):
@@ -507,23 +576,19 @@ class CloudKitSyncBridge: RCTEventEmitter {
                let id = record["id"] as? String {
               let readAtDate = record["readAt"] as? Date
               let readAtMs: Int64? = readAtDate.map { Int64($0.timeIntervalSince1970 * 1000) }
-              DatabaseAccess.setNotificationReadAt(
-                notificationId: id,
-                readAtMs: readAtMs,
-                source: "CloudKitSyncBridge"
-              )
+              readAtMap[id] = readAtMs
               notificationIds.append(id)
             } else if recordType == PhoneCloudKit.Defaults.bucketRecordType,
                       let id = record["id"] as? String {
               bucketIds.append(id)
             }
 
-            CloudKitSyncBridge.notifyRecordChanged(
+            recordChangedEvents.append((
               recordType: recordType,
               recordId: recordName,
               reason: "incremental_changed",
               recordData: recordData
-            )
+            ))
 
           case .deleted(let recordID, let recordType):
             let recordName = recordID.recordName
@@ -531,31 +596,73 @@ class CloudKitSyncBridge: RCTEventEmitter {
 
             if recordName.hasPrefix("Notification-"),
                let id = self.stripPrefix("Notification-", from: recordName) {
-              DatabaseAccess.deleteNotification(notificationId: id, source: "CloudKitSyncBridge")
               deletedNotificationIds.append(id)
             }
 
-            CloudKitSyncBridge.notifyRecordChanged(
+            recordChangedEvents.append((
               recordType: resolvedType,
               recordId: recordName,
               reason: "incremental_deleted",
               recordData: nil
-            )
+            ))
           }
         }
         
-        // Second pass: notify in batch to reduce event spam
-        for id in notificationIds {
-          CloudKitSyncBridge.notifyNotificationUpdated(id)
+        // Second pass: apply database changes in batches
+        let dispatchGroup = DispatchGroup()
+        var dbError: Error?
+        
+        // Batch update readAt timestamps
+        if !readAtMap.isEmpty {
+          dispatchGroup.enter()
+          DatabaseAccess.setNotificationsReadAt(readAtMap: readAtMap, source: "CloudKitSyncBridge") { success, count in
+            if !success {
+              dbError = NSError(domain: "CloudKitSyncBridge", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to update readAt timestamps"])
+            }
+            dispatchGroup.leave()
+          }
         }
-        for id in bucketIds {
-          CloudKitSyncBridge.notifyBucketUpdated(id)
+        
+        // Batch delete notifications
+        if !deletedNotificationIds.isEmpty {
+          dispatchGroup.enter()
+          DatabaseAccess.deleteNotifications(notificationIds: deletedNotificationIds, source: "CloudKitSyncBridge") { success, count in
+            if !success {
+              dbError = NSError(domain: "CloudKitSyncBridge", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to delete notifications"])
+            }
+            dispatchGroup.leave()
+          }
         }
-        for id in deletedNotificationIds {
-          CloudKitSyncBridge.notifyNotificationDeleted(id)
-        }
+        
+        // Wait for all database operations to complete
+        dispatchGroup.notify(queue: DispatchQueue.main) {
+          // Third pass: emit events after database operations complete
+          for event in recordChangedEvents {
+            CloudKitSyncBridge.notifyRecordChanged(
+              recordType: event.recordType,
+              recordId: event.recordId,
+              reason: event.reason,
+              recordData: event.recordData
+            )
+          }
+          
+          // Notify in batch to reduce event spam
+          for id in notificationIds {
+            CloudKitSyncBridge.notifyNotificationUpdated(id)
+          }
+          for id in bucketIds {
+            CloudKitSyncBridge.notifyBucketUpdated(id)
+          }
+          for id in deletedNotificationIds {
+            CloudKitSyncBridge.notifyNotificationDeleted(id)
+          }
 
-        resolve(["success": true, "updatedCount": changes.count])
+          if let error = dbError {
+            reject("DB_ERROR", error.localizedDescription, error)
+          } else {
+            resolve(["success": true, "updatedCount": changes.count])
+          }
+        }
       }
     }
   }
@@ -625,9 +732,9 @@ class CloudKitSyncBridge: RCTEventEmitter {
               ]
             )
             
-            // Wait a bit for CloudKit to process (increased delay due to rate limiting)
+            // Wait a bit for CloudKit to process (increased delay due to rate limiting and zone propagation)
             self.debugLog("Waiting before verification")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 10.0) {
               let group = DispatchGroup()
               var cloudKitNotificationCount = 0
               var cloudKitBucketCount = 0
@@ -635,10 +742,13 @@ class CloudKitSyncBridge: RCTEventEmitter {
               
               // Fetch notifications from CloudKit
               group.enter()
+              self.debugLog("Fetching notifications from CloudKit for verification")
               PhoneCloudKit.shared.fetchAllNotificationsFromCloudKit { notifications, error in
                 if let error = error {
+                  self.warnLog("Failed to fetch notifications for verification", metadata: ["error": error.localizedDescription])
                   fetchError = error
                 } else {
+                  self.debugLog("Fetched notifications for verification", metadata: ["count": notifications.count])
                   cloudKitNotificationCount = notifications.count
                 }
                 group.leave()
@@ -646,10 +756,13 @@ class CloudKitSyncBridge: RCTEventEmitter {
               
               // Fetch buckets from CloudKit
               group.enter()
+              self.debugLog("Fetching buckets from CloudKit for verification")
               PhoneCloudKit.shared.fetchAllBucketsFromCloudKit { buckets, error in
                 if let error = error {
+                  self.warnLog("Failed to fetch buckets for verification", metadata: ["error": error.localizedDescription])
                   fetchError = error
                 } else {
+                  self.debugLog("Fetched buckets for verification", metadata: ["count": buckets.count])
                   cloudKitBucketCount = buckets.count
                 }
                 group.leave()

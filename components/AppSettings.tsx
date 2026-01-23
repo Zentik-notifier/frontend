@@ -10,6 +10,7 @@ import {
   NativeEventEmitter,
   NativeModules,
 } from "react-native";
+import type { CloudKitSyncProgressEvent, CloudKitSyncStep, CloudKitSyncPhase } from "@/types/cloudkit-sync-events";
 import {
   Button,
   Card,
@@ -109,17 +110,11 @@ export function AppSettings() {
       NativeModules.CloudKitSyncBridge,
     );
 
-    const handleSyncProgress = (event: {
-      step?: string;
-      currentItem: number;
-      totalItems: number;
-      itemType: string;
-      phase: string;
-    }) => {
+    const handleSyncProgress = (event: CloudKitSyncProgressEvent) => {
       setSyncProgress(event);
 
-      // Clear progress when sync is completed
-      if (event.phase === "completed") {
+      // Clear progress when full sync is completed or failed
+      if (event.step === 'full_sync' && (event.phase === 'completed' || event.phase === 'failed')) {
         setTimeout(() => {
           setSyncProgress(null);
           loadCloudKitStatus();
@@ -160,11 +155,11 @@ export function AppSettings() {
   };
 
   const getSyncProgressText = (progress: {
-    step?: string;
+    step?: CloudKitSyncStep | string; // Allow legacy steps like "zone_creation", "schema_initialization"
     currentItem: number;
     totalItems: number;
     itemType: string;
-    phase: string;
+    phase: CloudKitSyncPhase | string; // Allow legacy phases
   }): string => {
     const stepKey = progress.step || "unknown";
     const phase = progress.phase;
@@ -797,63 +792,52 @@ export function AppSettings() {
                   </View>
                 )}
 
-                {/* Sync Progress / Status */}
-                {cloudKitEnabled && (
+                {/* Sync Progress */}
+                {cloudKitEnabled && syncProgress && (
                   <View style={{ marginTop: 16, marginBottom: 8 }}>
-                    {syncProgress ? (
-                      <View>
-                        <Text
-                          variant="bodySmall"
-                          style={{
-                            color: theme.colors.primary,
-                            fontWeight: "600",
-                          }}
-                        >
-                          {getSyncProgressText(syncProgress)}
-                        </Text>
-                        {syncProgress.totalItems > 0 && (
-                          <View style={{ marginTop: 8 }}>
-                            <View
-                              style={{
-                                height: 4,
-                                backgroundColor: theme.colors.surfaceVariant,
-                                borderRadius: 2,
-                                overflow: "hidden",
-                              }}
-                            >
-                              <View
-                                style={{
-                                  height: "100%",
-                                  width: `${(syncProgress.currentItem / syncProgress.totalItems) * 100}%`,
-                                  backgroundColor: theme.colors.primary,
-                                  borderRadius: 2,
-                                }}
-                              />
-                            </View>
-                            <Text
-                              variant="bodySmall"
-                              style={{
-                                color: theme.colors.onSurfaceVariant,
-                                marginTop: 4,
-                                fontSize: 11,
-                              }}
-                            >
-                              {syncProgress.currentItem} /{" "}
-                              {syncProgress.totalItems} {syncProgress.itemType}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    ) : (
+                    <View>
                       <Text
                         variant="bodySmall"
-                        style={{ color: theme.colors.onSurfaceVariant }}
+                        style={{
+                          color: theme.colors.primary,
+                          fontWeight: "600",
+                        }}
                       >
-                        {initialSyncCompleted
-                          ? t("appSettings.cloudKit.initialSyncCompleted")
-                          : t("appSettings.cloudKit.initialSyncPending")}
+                        {getSyncProgressText(syncProgress)}
                       </Text>
-                    )}
+                      {syncProgress.totalItems > 0 && (
+                        <View style={{ marginTop: 8 }}>
+                          <View
+                            style={{
+                              height: 4,
+                              backgroundColor: theme.colors.surfaceVariant,
+                              borderRadius: 2,
+                              overflow: "hidden",
+                            }}
+                          >
+                            <View
+                              style={{
+                                height: "100%",
+                                width: `${(syncProgress.currentItem / syncProgress.totalItems) * 100}%`,
+                                backgroundColor: theme.colors.primary,
+                                borderRadius: 2,
+                              }}
+                            />
+                          </View>
+                          <Text
+                            variant="bodySmall"
+                            style={{
+                              color: theme.colors.onSurfaceVariant,
+                              marginTop: 4,
+                              fontSize: 11,
+                            }}
+                          >
+                            {syncProgress.currentItem} /{" "}
+                            {syncProgress.totalItems} {syncProgress.itemType}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                 )}
 
@@ -876,11 +860,7 @@ export function AppSettings() {
                                 setCloudKitLoading(true);
                                 setCloudKitSyncing(true);
                                 try {
-                                  await iosBridgeService.resetCloudKitZone();
                                   setInitialSyncCompleted(false);
-                                  await new Promise((resolve) =>
-                                    setTimeout(resolve, 2000),
-                                  );
                                   const result =
                                     await iosBridgeService.triggerFullSyncWithVerification();
                                   if (result.success) {

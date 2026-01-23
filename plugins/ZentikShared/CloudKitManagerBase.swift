@@ -699,13 +699,26 @@ public final class CloudKitManagerBase: NSObject {
         progressCallback: ((Int, Int) -> Void)?,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        let chunks = records.chunked(into: config.maxBatchSize)
+        var currentBatchSize = config.maxBatchSize
         var completedItems = 0
         let totalItems = records.count
+        var processedCount = 0
         
-        infoLog("runChunkedModifySaves starting", metadata: ["totalRecords": totalItems, "chunks": chunks.count, "maxBatchSize": config.maxBatchSize])
+        infoLog("runChunkedModifySaves starting", metadata: ["totalRecords": totalItems, "maxBatchSize": currentBatchSize])
         
-        runSerial(chunks, label: "save") { chunk, chunkDone in
+        func processNextChunk() {
+            guard processedCount < records.count else {
+                completion(.success(()))
+                return
+            }
+            
+            // Get next chunk with current batch size
+            let remainingCount = records.count - processedCount
+            let chunkSize = min(currentBatchSize, remainingCount)
+            let chunk = Array(records[processedCount..<processedCount + chunkSize])
+            
+            infoLog("Processing chunk", metadata: ["chunkSize": chunk.count, "processedCount": processedCount, "remainingCount": remainingCount, "currentBatchSize": currentBatchSize])
+            
             self.saveChunkWithRetry(
                 chunk: chunk,
                 savePolicy: savePolicy,
@@ -716,16 +729,123 @@ public final class CloudKitManagerBase: NSObject {
                 case .success:
                     self.infoLog("CKModifyRecordsOperation result received (success)", metadata: ["chunkSize": chunk.count, "completedItems": completedItems + chunk.count, "totalItems": totalItems])
                     completedItems += chunk.count
-                    // Call progress callback if provided
+                    processedCount += chunk.count
+                    // Call progress callback if provided (only on success, not during retry)
                     progressCallback?(completedItems, totalItems)
-                    chunkDone(.success(()))
+                    // Continue with next chunk
+                    processNextChunk()
                 case .failure(let error):
-                    self.infoLog("CKModifyRecordsOperation result received (failure)", metadata: ["chunkSize": chunk.count, "error": String(describing: error)])
+                    self.infoLog("CKModifyRecordsOperation result received (failure after retries)", metadata: ["chunkSize": chunk.count, "error": String(describing: error)])
                     self.logCloudKitError("modify save chunk failed", error: error)
-                    chunkDone(.failure(error))
+                    
+                    // Reduce batch size by 50 (minimum 100) on error
+                    let previousBatchSize = currentBatchSize
+                    currentBatchSize = max(100, currentBatchSize - 50)
+                    if currentBatchSize < previousBatchSize {
+                        self.warnLog("Reducing batch size due to error", metadata: [
+                            "previousBatchSize": previousBatchSize,
+                            "newBatchSize": currentBatchSize,
+                            "error": String(describing: error)
+                        ])
+                        // Retry current chunk with reduced batch size (if chunk is larger than new batch size, split it)
+                        if chunk.count > currentBatchSize {
+                            // Split chunk into smaller chunks
+                            let smallerChunks = chunk.chunked(into: currentBatchSize)
+                            self.infoLog("Splitting failed chunk into smaller chunks", metadata: ["originalSize": chunk.count, "newChunks": smallerChunks.count, "newBatchSize": currentBatchSize])
+                            // Process smaller chunks sequentially
+                            var subCompletedItems = 0
+                            let subTotalItems = chunk.count
+                            self.processChunksSequentially(
+                                chunks: smallerChunks,
+                                savePolicy: savePolicy,
+                                progressCallback: nil, // Don't emit progress during retry
+                                completion: { result in
+                                    switch result {
+                                    case .success:
+                                        completedItems += chunk.count
+                                        processedCount += chunk.count
+                                        // Emit progress only after successful retry
+                                        progressCallback?(completedItems, totalItems)
+                                        // Continue with next chunk using reduced batch size
+                                        processNextChunk()
+                                    case .failure(let err):
+                                        completion(.failure(err))
+                                    }
+                                }
+                            )
+                        } else {
+                            // Chunk is already small enough, just retry it once more with same size
+                            // (batch size reduction will apply to next chunks)
+                            self.saveChunkWithRetry(
+                                chunk: chunk,
+                                savePolicy: savePolicy,
+                                maxRetries: 3,
+                                retryCount: 0
+                            ) { retryResult in
+                                switch retryResult {
+                                case .success:
+                                    completedItems += chunk.count
+                                    processedCount += chunk.count
+                                    progressCallback?(completedItems, totalItems)
+                                    processNextChunk()
+                                case .failure(let retryError):
+                                    completion(.failure(retryError))
+                                }
+                            }
+                        }
+                    } else {
+                        // Batch size already at minimum, fail
+                        completion(.failure(error))
+                    }
                 }
             }
-        } completion: { completion($0) }
+        }
+        
+        processNextChunk()
+    }
+    
+    private func processChunksSequentially(
+        chunks: [[CKRecord]],
+        savePolicy: CKModifyRecordsOperation.RecordSavePolicy,
+        progressCallback: ((Int, Int) -> Void)?,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard !chunks.isEmpty else {
+            completion(.success(()))
+            return
+        }
+        
+        var completedItems = 0
+        let totalItems = chunks.reduce(0) { $0 + $1.count }
+        var chunkIndex = 0
+        
+        func processNext() {
+            guard chunkIndex < chunks.count else {
+                completion(.success(()))
+                return
+            }
+            
+            let chunk = chunks[chunkIndex]
+            chunkIndex += 1
+            
+            self.saveChunkWithRetry(
+                chunk: chunk,
+                savePolicy: savePolicy,
+                maxRetries: 3,
+                retryCount: 0
+            ) { result in
+                switch result {
+                case .success:
+                    completedItems += chunk.count
+                    progressCallback?(completedItems, totalItems)
+                    processNext()
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+        }
+        
+        processNext()
     }
     
     private func saveChunkWithRetry(
@@ -879,6 +999,51 @@ public final class CloudKitManagerBase: NSObject {
             switch $0 {
             case .success:
                 self.infoLog("ensureSubscriptions completed", metadata: ["count": specs.count])
+            case .failure:
+                break
+            }
+            completion($0)
+        }
+    }
+    
+    public func deleteSubscriptions(_ subscriptionIDs: [String], completion: @escaping (Result<Void, Error>) -> Void) {
+        guard isCloudKitEnabled else {
+            completion(.success(()))
+            return
+        }
+        
+        guard !subscriptionIDs.isEmpty else {
+            completion(.success(()))
+            return
+        }
+        
+        infoLog(
+            "deleteSubscriptions starting",
+            metadata: [
+                "count": subscriptionIDs.count,
+                "subscriptionIDs": subscriptionIDs.joined(separator: ",")
+            ]
+        )
+        
+        runSerial(subscriptionIDs, label: "delete_subscriptions") { subscriptionID, deleteDone in
+            self.privateDatabase.delete(withSubscriptionID: subscriptionID) { _, error in
+                if let error {
+                    // Ignore "not found" errors - subscription might not exist
+                    if let ckError = error as? CKError, ckError.code == .unknownItem {
+                        self.debugLog("Subscription not found (already deleted)", metadata: ["subscriptionID": subscriptionID])
+                        deleteDone(.success(()))
+                    } else {
+                        self.logCloudKitError("deleteSubscriptions failed", error: error)
+                        deleteDone(.failure(error))
+                    }
+                    return
+                }
+                deleteDone(.success(()))
+            }
+        } completion: {
+            switch $0 {
+            case .success:
+                self.infoLog("deleteSubscriptions completed", metadata: ["count": subscriptionIDs.count])
             case .failure:
                 break
             }

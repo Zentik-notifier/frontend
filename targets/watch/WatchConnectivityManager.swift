@@ -885,24 +885,20 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
             self?.dataStore.setNotificationsReadStatus(ids: ids, isRead: true)
         }
 
-        // Best-effort CloudKit: keep iPhone in sync via CK
-        WatchCloudKit.shared.updateNotificationsReadStatusInCloudKit(
-            notificationIds: ids,
-            readAt: Date()
-        ) { success, updatedCount, error in
-            if let error {
-                LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: "Failed to update read status in CloudKit", metadata: ["count": "\(updatedCount)", "error": error.localizedDescription], source: "Watch")
-            } else if success {
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Updated read status in CloudKit", metadata: ["count": "\(updatedCount)"], source: "Watch")
+        // Best-effort remote updates (REST + CloudKit) via shared handler (batch)
+        Task { [weak self] in
+            let results = await NotificationActionHandler.executeWatchRemoteUpdatesBatch(actionType: "MARK_AS_READ", notificationIds: ids)
+            LoggingSystem.shared.log(
+                level: results.contains(where: { !$0.success }) ? "WARN" : "INFO",
+                tag: "WatchAction",
+                message: "Remote updates completed (best-effort)",
+                metadata: ["count": "\(ids.count)", "type": "MARK_AS_READ"],
+                source: "Watch"
+            )
+            await MainActor.run {
+                self?.performIncrementalSync()
             }
         }
-
-        // Best-effort REST: apply per-notification (small bounded list on watch)
-        for id in ids {
-            performWatchApiRequest(path: "/notifications/watch/\(id)/read", method: "PATCH") { _ in }
-        }
-
-        performIncrementalSync()
     }
 
     /// Execute a notification action from the Watch UI.

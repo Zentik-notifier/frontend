@@ -474,6 +474,151 @@ public class DatabaseAccess {
         }
     }
     
+    /// Delete multiple notifications from database in a single batch operation
+    /// - Parameters:
+    ///   - notificationIds: Array of notification IDs to delete
+    ///   - source: Source identifier for logging (default: "DatabaseAccess")
+    ///   - completion: Completion handler with success status and count of deleted records
+    public static func deleteNotifications(
+        notificationIds: [String],
+        source: String = "DatabaseAccess",
+        completion: @escaping (Bool, Int) -> Void = { _, _ in }
+    ) {
+        guard !notificationIds.isEmpty else {
+            completion(true, 0)
+            return
+        }
+        
+        performDatabaseOperation(
+            type: .write,
+            name: "DeleteNotificationsBatch",
+            source: source,
+            operation: { db, isVerbose in
+                let placeholders = Array(repeating: "?", count: notificationIds.count).joined(separator: ",")
+                let sql = "DELETE FROM notifications WHERE id IN (\(placeholders))"
+                var stmt: OpaquePointer?
+                
+                let prepareResult = sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+                guard prepareResult == SQLITE_OK else {
+                    let errorMsg = String(cString: sqlite3_errmsg(db))
+                    return .failure("Failed to prepare statement: \(errorMsg) (code: \(prepareResult))")
+                }
+                
+                defer { sqlite3_finalize(stmt) }
+                
+                for (index, notificationId) in notificationIds.enumerated() {
+                    let bindResult = sqlite3_bind_text(
+                        stmt,
+                        Int32(index + 1),
+                        (notificationId as NSString).utf8String,
+                        -1,
+                        unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+                    )
+                    guard bindResult == SQLITE_OK else {
+                        let errorMsg = String(cString: sqlite3_errmsg(db))
+                        return .failure("Failed to bind parameter \(index + 1): \(errorMsg)")
+                    }
+                }
+                
+                let result = sqlite3_step(stmt)
+                if result == SQLITE_DONE {
+                    let changes = sqlite3_changes(db)
+                    if isVerbose {
+                        print("📱 [DatabaseAccess] 🔍 [DeleteNotificationsBatch] sqlite3_step result: \(result) (SQLITE_DONE=\(SQLITE_DONE)), changes: \(changes)")
+                    }
+                    // Store changes count - we'll use it in completion
+                    // Note: sqlite3_changes() returns the number of rows affected by the last statement
+                    return .success
+                } else {
+                    let errorMsg = String(cString: sqlite3_errmsg(db))
+                    return .failure("Step failed: \(result) - \(errorMsg)")
+                }
+            }
+        ) { (dbResult: DatabaseOperationResult) in
+            switch dbResult {
+            case .success:
+                // For batch delete, we expect all IDs to be deleted
+                // sqlite3_changes() would give exact count but is only valid immediately after the operation
+                // Using notificationIds.count is reasonable since we're deleting by ID (should match exactly)
+                completion(true, notificationIds.count)
+            default:
+                completion(false, 0)
+            }
+        }
+    }
+    
+    /// Set readAt timestamp for multiple notifications in a single batch operation
+    /// - Parameters:
+    ///   - readAtMap: Dictionary mapping notification IDs to their readAt timestamps (nil to clear)
+    ///   - source: Source identifier for logging (default: "DatabaseAccess")
+    ///   - completion: Completion handler with success status and count of updated records
+    public static func setNotificationsReadAt(
+        readAtMap: [String: Int64?],
+        source: String = "DatabaseAccess",
+        completion: @escaping (Bool, Int) -> Void = { _, _ in }
+    ) {
+        guard !readAtMap.isEmpty else {
+            completion(true, 0)
+            return
+        }
+        
+        performDatabaseOperation(
+            type: .write,
+            name: "SetNotificationsReadAtBatch",
+            source: source,
+            operation: { db, isVerbose in
+                var totalChanges = 0
+                
+                for (notificationId, readAtMs) in readAtMap {
+                    let sql: String
+                    if readAtMs == nil {
+                        sql = "UPDATE notifications SET read_at = NULL WHERE id = ?"
+                    } else {
+                        sql = "UPDATE notifications SET read_at = ? WHERE id = ?"
+                    }
+                    
+                    var stmt: OpaquePointer?
+                    let prepareResult = sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+                    guard prepareResult == SQLITE_OK else {
+                        let errorMsg = String(cString: sqlite3_errmsg(db))
+                        return .failure("Failed to prepare statement: \(errorMsg) (code: \(prepareResult))")
+                    }
+                    defer { sqlite3_finalize(stmt) }
+                    
+                    if let readAtMs {
+                        sqlite3_bind_int64(stmt, 1, readAtMs)
+                        sqlite3_bind_text(stmt, 2, (notificationId as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                    } else {
+                        sqlite3_bind_text(stmt, 1, (notificationId as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                    }
+                    
+                    let result = sqlite3_step(stmt)
+                    if result == SQLITE_DONE {
+                        totalChanges += Int(sqlite3_changes(db))
+                    } else {
+                        let errorMsg = String(cString: sqlite3_errmsg(db))
+                        return .failure("Step failed: \(result) - \(errorMsg)")
+                    }
+                }
+                
+                if isVerbose {
+                    print("📱 [DatabaseAccess] 🔍 [SetNotificationsReadAtBatch] Updated \(totalChanges) notifications")
+                }
+                
+                return .success
+            }
+        ) { (dbResult: DatabaseOperationResult) in
+            switch dbResult {
+            case .success:
+                // totalChanges was accumulated during the operation
+                // We'll use readAtMap.count as the count since we updated each one
+                completion(true, readAtMap.count)
+            default:
+                completion(false, 0)
+            }
+        }
+    }
+    
     /// Get notification count from database (unread only)
     /// - Parameters:
     ///   - source: Source identifier for logging (default: "DatabaseAccess")

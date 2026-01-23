@@ -9,6 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import iosBridgeService from '@/services/ios-bridge';
 import { settingsService } from '@/services/settings-service';
 import { notificationKeys } from './notifications/useNotificationQueries';
+import type { CloudKitSyncProgressEvent } from '@/types/cloudkit-sync-events';
 
 const { CloudKitSyncBridge } = NativeModules;
 
@@ -66,6 +67,33 @@ export function useCloudKitEvents() {
         queryClient.invalidateQueries({ queryKey: ['app-state'] });
       } catch (error) {
         console.error('[CloudKitEvents] ❌ Error handling notification deletion:', error);
+      }
+    };
+
+    const handleNotificationsBatchDeleted = async (event: { notificationIds: string[]; count: number }) => {
+      console.log('[CloudKitEvents] cloudKitNotificationsBatchDeleted', {
+        count: event.count,
+        idsPreview: event.notificationIds.slice(0, 5),
+        appState: AppState.currentState,
+        ts: Date.now(),
+      });
+      if (isDebugEnabled()) {
+        console.log(`[CloudKitEvents] Batch notifications deleted: ${event.count} notifications`);
+      }
+
+      try {
+        // Invalidate React Query to refresh UI immediately
+        // Invalidate all notification queries since we don't know which specific ones were deleted
+        queryClient.invalidateQueries({ queryKey: notificationKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: notificationKeys.stats() });
+        queryClient.invalidateQueries({ queryKey: ['app-state'] });
+        
+        // Also invalidate individual notification details if needed
+        event.notificationIds.forEach((notificationId) => {
+          queryClient.invalidateQueries({ queryKey: notificationKeys.detail(notificationId) });
+        });
+      } catch (error) {
+        console.error('[CloudKitEvents] ❌ Error handling batch notification deletion:', error);
       }
     };
 
@@ -162,20 +190,20 @@ export function useCloudKitEvents() {
       }
     };
 
-    const handleSyncProgress = async (event: {
-      step?: 'zone_creation' | 'schema_initialization' | 'sync_notifications' | 'sync_buckets';
-      currentItem: number;
-      totalItems: number;
-      itemType: 'notification' | 'bucket' | '';
-      phase: 'starting' | 'syncing' | 'completed';
-    }) => {
+    const handleSyncProgress = async (event: CloudKitSyncProgressEvent) => {
       const step = event.step || 'unknown';
       if (isDebugEnabled()) {
         console.log(`[CloudKitEvents] Sync progress [${step}]: ${event.currentItem}/${event.totalItems} ${event.itemType} (${event.phase})`);
       }
       
       // You can update UI here, e.g., show progress bar
-      // Example: updateProgressBar(event.currentItem, event.totalItems, event.itemType, event.step);
+      // Progress bar should be shown ONLY during:
+      // - sync_buckets: uploading/syncing phases
+      // - sync_notifications: uploading/syncing phases
+      // 
+      // Label should show count during:
+      // - sync_buckets: found phase ("18 buckets found")
+      // - sync_notifications: found phase ("1542 notifications found")
     };
 
     const handleNotificationsBatchUpdated = async (event: { notificationIds: string[]; count: number }) => {
@@ -210,6 +238,7 @@ export function useCloudKitEvents() {
     const subscription3 = eventEmitter.addListener('cloudKitRecordChanged', handleRecordChanged);
     const subscription4 = eventEmitter.addListener('cloudKitSyncProgress', handleSyncProgress);
     const subscription5 = eventEmitter.addListener('cloudKitNotificationsBatchUpdated', handleNotificationsBatchUpdated);
+    const subscription6 = eventEmitter.addListener('cloudKitNotificationsBatchDeleted', handleNotificationsBatchDeleted);
     
     return () => {
       subscription1.remove();
@@ -217,6 +246,7 @@ export function useCloudKitEvents() {
       subscription3.remove();
       subscription4.remove();
       subscription5.remove();
+      subscription6.remove();
     };
   }, [queryClient]);
 }

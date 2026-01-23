@@ -349,6 +349,41 @@ class WatchDataStore {
         saveCache(cache)
     }
     
+    func deleteNotificationsFromCache(ids: [String]) {
+        guard !ids.isEmpty else { return }
+        let idSet = Set(ids)
+        var cache = loadCache()
+        
+        // Count unread notifications that will be deleted
+        let unreadToDelete = cache.notifications.filter { idSet.contains($0.id) && !$0.isRead }.count
+        
+        // Remove all matching notifications in batch
+        cache.notifications.removeAll(where: { idSet.contains($0.id) })
+        
+        // Update unread count
+        if unreadToDelete > 0 {
+            cache.unreadCount = max(0, cache.unreadCount - unreadToDelete)
+        }
+        
+        // Recompute bucket unread counts
+        var unreadByBucket: [String: Int] = [:]
+        for n in cache.notifications where !n.isRead {
+            unreadByBucket[n.bucketId, default: 0] += 1
+        }
+        cache.buckets = cache.buckets.map { bucket in
+            CachedBucket(
+                id: bucket.id,
+                name: bucket.name,
+                unreadCount: unreadByBucket[bucket.id] ?? 0,
+                color: bucket.color,
+                iconUrl: bucket.iconUrl
+            )
+        }
+        
+        cache.lastUpdate = Date()
+        saveCache(cache)
+    }
+    
     // MARK: - Update Cache
 
     /// Replace notifications in cache from CloudKit fetch (keeps existing buckets).
