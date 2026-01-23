@@ -320,6 +320,12 @@ if [ -d "$SHARED_SOURCE" ]; then
         # Exclude CloudKitSyncBridge.swift (React Native bridge, not needed on Watch)
         # Start cutting out the monolithic CloudKitManager.swift from the watch target.
         copy_shared_files "$WATCH_DIR" "Watch" "CloudKitSyncBridge.swift|CloudKitManager.swift|PhoneCloudKit.swift" "${SHARED_FILES[@]}"
+
+        # Ensure NotificationActionHandler is available for WatchExtension builds.
+        # Some build steps rely on it being present in targets/watch.
+        if [ -f "$SHARED_SOURCE/NotificationActionHandler.swift" ]; then
+            cp -f "$SHARED_SOURCE/NotificationActionHandler.swift" "$WATCH_DIR/NotificationActionHandler.swift"
+        fi
         
         print_success "Watch target synced"
     else

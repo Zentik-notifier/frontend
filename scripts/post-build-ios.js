@@ -97,7 +97,7 @@ if (fs.existsSync(sharedFilesDir)) {
     { path: path.join(iosDir, 'ZentikDev'), name: 'iOS App (ZentikDev)', exclude: ['CloudKitManager.swift'] },
     { path: path.join(iosDir, 'ZentikNotificationService'), name: 'Notification Service Extension', exclude: ['CloudKitSyncBridge.swift', 'CloudKitManager.swift'] },
     { path: path.join(iosDir, 'ZentikNotificationContentExtension'), name: 'Notification Content Extension', exclude: ['CloudKitSyncBridge.swift', 'CloudKitManager.swift'] },
-    { path: watchTargetDir, name: 'Watch Target', exclude: ['NotificationActionHandler.swift', 'CloudKitSyncBridge.swift', 'CloudKitManager.swift', 'PhoneCloudKit.swift'] },
+    { path: watchTargetDir, name: 'Watch Target', exclude: ['CloudKitSyncBridge.swift', 'CloudKitManager.swift', 'PhoneCloudKit.swift'] },
     { path: path.join(__dirname, '..', 'targets', 'widget'), name: 'Widget Target', exclude: ['NotificationActionHandler.swift', 'CloudKitSyncBridge.swift', 'CloudKitManager.swift'] }
   ];
   
