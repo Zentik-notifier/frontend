@@ -490,9 +490,12 @@ class CloudKitSyncBridge: RCTEventEmitter {
       case .failure(let error):
         reject("SYNC_FAILED", error.localizedDescription, error)
       case .success(let changes):
-        // Apply minimal changes to SQLite (readAt + deletes) and emit events.
-        // This ensures watch actions propagate even if JS listeners weren't registered
-        // at the time a push arrived.
+        // Process changes in batch to avoid blocking and reduce event spam
+        var notificationIds: [String] = []
+        var bucketIds: [String] = []
+        var deletedNotificationIds: [String] = []
+        
+        // First pass: apply database changes and collect IDs
         for change in changes {
           switch change {
           case .changed(let record):
@@ -509,6 +512,10 @@ class CloudKitSyncBridge: RCTEventEmitter {
                 readAtMs: readAtMs,
                 source: "CloudKitSyncBridge"
               )
+              notificationIds.append(id)
+            } else if recordType == PhoneCloudKit.Defaults.bucketRecordType,
+                      let id = record["id"] as? String {
+              bucketIds.append(id)
             }
 
             CloudKitSyncBridge.notifyRecordChanged(
@@ -518,14 +525,6 @@ class CloudKitSyncBridge: RCTEventEmitter {
               recordData: recordData
             )
 
-            if recordType == PhoneCloudKit.Defaults.notificationRecordType,
-               let id = record["id"] as? String {
-              CloudKitSyncBridge.notifyNotificationUpdated(id)
-            } else if recordType == PhoneCloudKit.Defaults.bucketRecordType,
-                      let id = record["id"] as? String {
-              CloudKitSyncBridge.notifyBucketUpdated(id)
-            }
-
           case .deleted(let recordID, let recordType):
             let recordName = recordID.recordName
             let resolvedType = recordType ?? self.inferRecordType(from: recordName)
@@ -533,6 +532,7 @@ class CloudKitSyncBridge: RCTEventEmitter {
             if recordName.hasPrefix("Notification-"),
                let id = self.stripPrefix("Notification-", from: recordName) {
               DatabaseAccess.deleteNotification(notificationId: id, source: "CloudKitSyncBridge")
+              deletedNotificationIds.append(id)
             }
 
             CloudKitSyncBridge.notifyRecordChanged(
@@ -541,13 +541,18 @@ class CloudKitSyncBridge: RCTEventEmitter {
               reason: "incremental_deleted",
               recordData: nil
             )
-
-            if recordName.hasPrefix("Notification-"), let id = self.stripPrefix("Notification-", from: recordName) {
-              CloudKitSyncBridge.notifyNotificationDeleted(id)
-            } else if recordName.hasPrefix("Bucket-"), let id = self.stripPrefix("Bucket-", from: recordName) {
-              CloudKitSyncBridge.notifyBucketDeleted(id)
-            }
           }
+        }
+        
+        // Second pass: notify in batch to reduce event spam
+        for id in notificationIds {
+          CloudKitSyncBridge.notifyNotificationUpdated(id)
+        }
+        for id in bucketIds {
+          CloudKitSyncBridge.notifyBucketUpdated(id)
+        }
+        for id in deletedNotificationIds {
+          CloudKitSyncBridge.notifyNotificationDeleted(id)
         }
 
         resolve(["success": true, "updatedCount": changes.count])

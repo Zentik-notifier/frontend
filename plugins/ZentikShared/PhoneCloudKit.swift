@@ -1,5 +1,8 @@
 import Foundation
 import CloudKit
+#if os(iOS)
+import WatchConnectivity
+#endif
 
 #if os(iOS)
 
@@ -45,6 +48,33 @@ public final class PhoneCloudKit {
             return
         }
         LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: message, source: "PhoneCloudKit")
+    }
+    
+    /// Helper to notify sync progress - uses CloudKitSyncBridge if available, otherwise NotificationCenter
+    private func notifySyncProgress(currentItem: Int, totalItems: Int, itemType: String, phase: String, step: String = "") {
+        let dict: [String: Any] = [
+            "currentItem": currentItem,
+            "totalItems": totalItems,
+            "itemType": itemType,
+            "phase": phase,
+            "step": step
+        ]
+        
+        // Try to use CloudKitSyncBridge if available (main app)
+        if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
+            let selector = NSSelectorFromString("notifySyncProgressWithDictionary:")
+            if bridgeClass.responds(to: selector) {
+                _ = bridgeClass.perform(selector, with: dict)
+                return
+            }
+        }
+        
+        // Fallback to NotificationCenter (for extensions)
+        NotificationCenter.default.post(
+            name: NSNotification.Name("CloudKitSyncProgress"),
+            object: nil,
+            userInfo: dict
+        )
     }
 
     private var lastSyncTimestampKey: String {
@@ -189,7 +219,7 @@ public final class PhoneCloudKit {
     // MARK: - Modify (batch-only)
 
     public func save(records: [CKRecord], completion: @escaping (Result<Void, Error>) -> Void) {
-        core.save(records: records, completion: completion)
+        core.save(records: records, progressCallback: nil, completion: completion)
     }
 
     public func delete(recordIDs: [CKRecord.ID], completion: @escaping (Result<Void, Error>) -> Void) {
@@ -285,27 +315,21 @@ public final class PhoneCloudKit {
             return
         }
 
-        let recordIDs = notificationIds.map { self.notificationRecordID($0) }
+        // Create records directly with known recordIDs - no fetch needed
+        // CloudKit will merge with existing records when using .changedKeys savePolicy
+        let recordsToSave: [CKRecord] = notificationIds.map { notificationId in
+            let recordID = self.notificationRecordID(notificationId)
+            let record = CKRecord(recordType: Defaults.notificationRecordType, recordID: recordID)
+            record["readAt"] = readAt
+            return record
+        }
 
-        core.fetchRecords(recordIDs: recordIDs) { fetchResult in
-            switch fetchResult {
+        self.core.save(records: recordsToSave, savePolicy: .changedKeys) { saveResult in
+            switch saveResult {
             case .failure(let error):
                 completion(false, error)
-            case .success(let recordsById):
-                let recordsToSave: [CKRecord] = recordIDs.compactMap { recordID in
-                    guard let record = recordsById[recordID] else { return nil }
-                    record["readAt"] = readAt
-                    return record
-                }
-
-                self.core.save(records: recordsToSave) { saveResult in
-                    switch saveResult {
-                    case .failure(let error):
-                        completion(false, error)
-                    case .success:
-                        completion(true, nil)
-                    }
-                }
+            case .success:
+                completion(true, nil)
             }
         }
     }
@@ -447,6 +471,16 @@ public final class PhoneCloudKit {
         group.enter()
         DatabaseAccess.getAllBuckets(source: "PhoneCloudKit") { buckets in
             self.infoLog("Buckets phase starting", metadata: ["localBuckets": buckets.count])
+            
+            // Notify sync starting
+            self.notifySyncProgress(
+                currentItem: 0,
+                totalItems: buckets.count,
+                itemType: "bucket",
+                phase: "starting",
+                step: "sync_buckets"
+            )
+            
             let records: [CKRecord] = buckets.map { bucket in
                 let recordID = self.bucketRecordID(bucket.id)
                 let record = CKRecord(recordType: Defaults.bucketRecordType, recordID: recordID)
@@ -457,11 +491,31 @@ public final class PhoneCloudKit {
                 return record
             }
 
-            self.core.save(records: records) { result in
+            self.core.save(
+                records: records,
+                progressCallback: { completed, total in
+                    // Notify progress for each batch saved
+                    self.notifySyncProgress(
+                        currentItem: completed,
+                        totalItems: total,
+                        itemType: "bucket",
+                        phase: "syncing",
+                        step: "sync_buckets"
+                    )
+                }
+            ) { result in
                 switch result {
                 case .success:
                     syncedBuckets = records.count
                     self.infoLog("Buckets phase completed", metadata: ["synced": syncedBuckets])
+                    // Notify buckets phase completed
+                    self.notifySyncProgress(
+                        currentItem: syncedBuckets,
+                        totalItems: syncedBuckets,
+                        itemType: "bucket",
+                        phase: "completed",
+                        step: "sync_buckets"
+                    )
                 case .failure(let error):
                     errorOut = error
                     self.errorLog("Buckets phase failed", metadata: ["error": String(describing: error)])
@@ -495,9 +549,26 @@ public final class PhoneCloudKit {
 
                 guard !filtered.isEmpty else {
                     self.infoLog("Notifications phase completed (nothing to sync)")
+                    // Notify no notifications to sync
+                    self.notifySyncProgress(
+                        currentItem: 0,
+                        totalItems: 0,
+                        itemType: "notification",
+                        phase: "completed",
+                        step: "sync_notifications"
+                    )
                     group.leave()
                     return
                 }
+                
+                // Notify sync starting
+                self.notifySyncProgress(
+                    currentItem: 0,
+                    totalItems: filtered.count,
+                    itemType: "notification",
+                    phase: "starting",
+                    step: "sync_notifications"
+                )
 
                 let ids = filtered.map { $0.id }
                 DatabaseAccess.fetchReadAtTimestamps(notificationIds: ids, source: "PhoneCloudKit") { readAtMap in
@@ -543,7 +614,19 @@ public final class PhoneCloudKit {
                         return record
                     }
 
-                    self.core.save(records: records) { result in
+                    self.core.save(
+                        records: records,
+                        progressCallback: { completed, total in
+                            // Notify progress for each batch saved
+                            self.notifySyncProgress(
+                                currentItem: completed,
+                                totalItems: total,
+                                itemType: "notification",
+                                phase: "syncing",
+                                step: "sync_notifications"
+                            )
+                        }
+                    ) { result in
                         switch result {
                         case .success:
                             syncedNotifications = records.count
@@ -555,6 +638,15 @@ public final class PhoneCloudKit {
                                     "synced": syncedNotifications,
                                     "filteredLocal": filtered.count
                                 ]
+                            )
+                            
+                            // Notify notifications phase completed
+                            self.notifySyncProgress(
+                                currentItem: syncedNotifications,
+                                totalItems: syncedNotifications,
+                                itemType: "notification",
+                                phase: "completed",
+                                step: "sync_notifications"
                             )
 
                             if let keepLimit = CloudKitManagerBase.cloudKitNotificationLimit {
@@ -588,6 +680,10 @@ public final class PhoneCloudKit {
                     "bucketsSynced": syncedBuckets
                 ]
             )
+            
+            // Notify watch to perform full sync
+            self.notifyWatchToFullSync()
+            
             completion(
                 true,
                 nil,
@@ -619,6 +715,34 @@ public final class PhoneCloudKit {
     private func resetLastSyncDate() {
         UserDefaults.standard.removeObject(forKey: lastSyncTimestampKey)
         UserDefaults.standard.synchronize()
+    }
+    
+    /// Notify watch to perform full sync after iPhone completes its sync
+    private func notifyWatchToFullSync() {
+        #if os(iOS)
+        guard WCSession.isSupported() else {
+            debugLog("WatchConnectivity not supported, skipping watch notification")
+            return
+        }
+        
+        let session = WCSession.default
+        guard session.activationState == .activated, session.isReachable || session.isPaired else {
+            debugLog("Watch session not available, skipping watch notification")
+            return
+        }
+        
+        // Send message to watch to trigger full sync
+        let message: [String: Any] = [
+            "type": "triggerFullSync",
+            "timestamp": Date().timeIntervalSince1970
+        ]
+        
+        session.sendMessage(message, replyHandler: { reply in
+            self.infoLog("Watch acknowledged full sync request", metadata: ["reply": "\(reply)"])
+        }, errorHandler: { error in
+            self.warnLog("Failed to notify watch to full sync", metadata: ["error": error.localizedDescription])
+        })
+        #endif
     }
 
     private func bootstrapFullSyncAfterZoneCreation() {

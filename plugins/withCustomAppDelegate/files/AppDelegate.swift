@@ -33,6 +33,13 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate, WCS
   // Keep reference to Expo's original notification delegate
   private var expoNotificationDelegate: UNUserNotificationCenterDelegate?
   private var wcSession: WCSession?
+  
+  // Batch processing for CloudKit notifications to avoid blocking
+  private static let cloudKitNotificationQueue = DispatchQueue(label: "com.zentik.cloudkit.notifications", qos: .utility)
+  private static var pendingCloudKitNotifications: [CKNotification] = []
+  private static var cloudKitNotificationTimer: Timer?
+  private static let cloudKitNotificationDebounceInterval: TimeInterval = 0.3 // 300ms
+  private static let cloudKitNotificationLock = NSLock()
 
   // WC is intentionally restricted to:
   // - iPhone -> Watch: settings (applicationContext/sendMessage)
@@ -86,8 +93,35 @@ FirebaseApp.configure()
       name: NSNotification.Name("SendWatchTokenSettings"),
       object: nil
     )
+    
+    // Listen for CloudKit sync progress from extensions and forward to CloudKitSyncBridge
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleCloudKitSyncProgress(_:)),
+      name: NSNotification.Name("CloudKitSyncProgress"),
+      object: nil
+    )
 
     return result
+  }
+  
+  @objc private func handleCloudKitSyncProgress(_ notification: Notification) {
+    guard let userInfo = notification.userInfo,
+          let currentItem = userInfo["currentItem"] as? Int,
+          let totalItems = userInfo["totalItems"] as? Int,
+          let itemType = userInfo["itemType"] as? String,
+          let phase = userInfo["phase"] as? String else {
+      return
+    }
+    
+    let step = userInfo["step"] as? String ?? ""
+    CloudKitSyncBridge.notifySyncProgress(
+      currentItem: currentItem,
+      totalItems: totalItems,
+      itemType: itemType,
+      phase: phase,
+      step: step
+    )
   }
   
   @objc private func handleSendWatchTokenSettings(_ notification: Notification) {
@@ -572,74 +606,120 @@ FirebaseApp.configure()
       return
     }
 
-    // Prefer per-record fetch when possible, then notify React.
-    if let queryNotification = ckNotification as? CKQueryNotification,
-       let recordID = queryNotification.recordID {
-      PhoneCloudKit.shared.fetchRecord(recordID: recordID) { result in
-        switch result {
-        case .failure(let error):
-          LoggingSystem.shared.log(
-            level: "ERROR",
-            tag: "CloudKit",
-            message: "Failed to fetch record after push",
-            metadata: ["error": error.localizedDescription, "recordName": recordID.recordName],
-            source: "AppDelegate"
-          )
-
-          // Still notify React so it can refresh.
-          let fallbackId = Self.extractZentikId(fromRecordName: recordID.recordName)
-          CloudKitSyncBridge.notifyRecordChanged(
-            recordType: "Unknown",
-            recordId: fallbackId,
-            reason: "push_fetch_failed",
-            recordData: nil
-          )
-          completionHandler(.failed)
-
-        case .success(let record):
-          guard let record else {
-            let fallbackId = Self.extractZentikId(fromRecordName: recordID.recordName)
-            CloudKitSyncBridge.notifyRecordChanged(
-              recordType: "Unknown",
-              recordId: fallbackId,
-              reason: "push_record_missing",
-              recordData: nil
-            )
-            completionHandler(.noData)
-            return
-          }
-
-          let recordType = record.recordType
-          let id = (record["id"] as? String) ?? Self.extractZentikId(fromRecordName: recordID.recordName)
-
-          CloudKitSyncBridge.notifyRecordChanged(
-            recordType: recordType,
-            recordId: id,
-            reason: "push",
-            recordData: nil
-          )
-
-          // Keep existing RN listeners working.
-          if recordType == PhoneCloudKit.Defaults.notificationRecordType {
-            CloudKitSyncBridge.notifyNotificationUpdated(id)
-          } else if recordType == PhoneCloudKit.Defaults.bucketRecordType {
-            CloudKitSyncBridge.notifyBucketUpdated(id)
-          }
-
-          completionHandler(.newData)
-        }
+    // Batch process notifications to avoid blocking when many arrive at once
+    Self.cloudKitNotificationLock.lock()
+    Self.pendingCloudKitNotifications.append(ckNotification)
+    let currentCount = Self.pendingCloudKitNotifications.count
+    Self.cloudKitNotificationLock.unlock()
+    
+    // Cancel existing timer
+    Self.cloudKitNotificationTimer?.invalidate()
+    Self.cloudKitNotificationTimer = nil
+    
+    // If we have many notifications, process immediately
+    if currentCount >= 10 {
+      Self.processBatchedCloudKitNotifications(completionHandler: completionHandler)
+    } else {
+      // Schedule debounced batch processing
+      Self.cloudKitNotificationTimer = Timer.scheduledTimer(withTimeInterval: Self.cloudKitNotificationDebounceInterval, repeats: false) { _ in
+        Self.processBatchedCloudKitNotifications(completionHandler: completionHandler)
       }
+    }
+  }
+  
+  private static func processBatchedCloudKitNotifications(completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+    cloudKitNotificationLock.lock()
+    let notifications = pendingCloudKitNotifications
+    pendingCloudKitNotifications.removeAll()
+    cloudKitNotificationLock.unlock()
+    
+    cloudKitNotificationTimer?.invalidate()
+    cloudKitNotificationTimer = nil
+    
+    guard !notifications.isEmpty else {
+      completionHandler(.noData)
       return
     }
-
-    // For zone-level notifications, we don't have a recordID.
-    CloudKitSyncBridge.notifyRecordChanged(
-      recordType: "Zone",
-      recordId: ckNotification.subscriptionID ?? "unknown",
-      reason: "push_zone",
-      recordData: nil
-    )
-    completionHandler(.newData)
+    
+    // Process on background queue to avoid blocking main thread
+    cloudKitNotificationQueue.async {
+      let recordIDs = notifications.compactMap { notification -> CKRecord.ID? in
+        if let queryNotification = notification as? CKQueryNotification {
+          return queryNotification.recordID
+        }
+        return nil
+      }
+      
+      // Fetch all records in batch
+      if !recordIDs.isEmpty {
+        PhoneCloudKit.shared.fetchRecords(recordIDs: recordIDs) { result in
+          switch result {
+          case .failure(let error):
+            LoggingSystem.shared.log(
+              level: "ERROR",
+              tag: "CloudKit",
+              message: "Failed to fetch records after push batch",
+              metadata: ["error": error.localizedDescription, "count": "\(recordIDs.count)"],
+              source: "AppDelegate"
+            )
+            // Fallback: notify individual IDs
+            for recordID in recordIDs {
+              let fallbackId = Self.extractZentikId(fromRecordName: recordID.recordName)
+              CloudKitSyncBridge.notifyRecordChanged(
+                recordType: "Unknown",
+                recordId: fallbackId,
+                reason: "push_fetch_failed",
+                recordData: nil
+              )
+            }
+            completionHandler(.failed)
+            
+          case .success(let recordsByID):
+            var notificationIds: [String] = []
+            var bucketIds: [String] = []
+            
+            for (recordID, record) in recordsByID {
+              let recordType = record.recordType
+              let id = (record["id"] as? String) ?? Self.extractZentikId(fromRecordName: recordID.recordName)
+              
+              CloudKitSyncBridge.notifyRecordChanged(
+                recordType: recordType,
+                recordId: id,
+                reason: "push",
+                recordData: nil
+              )
+              
+              if recordType == PhoneCloudKit.Defaults.notificationRecordType {
+                notificationIds.append(id)
+              } else if recordType == PhoneCloudKit.Defaults.bucketRecordType {
+                bucketIds.append(id)
+              }
+            }
+            
+            // Notify in batch
+            for id in notificationIds {
+              CloudKitSyncBridge.notifyNotificationUpdated(id)
+            }
+            for id in bucketIds {
+              CloudKitSyncBridge.notifyBucketUpdated(id)
+            }
+            
+            completionHandler(.newData)
+          }
+        }
+      } else {
+        // Zone-level notifications
+        for notification in notifications {
+          CloudKitSyncBridge.notifyRecordChanged(
+            recordType: "Zone",
+            recordId: notification.subscriptionID ?? "unknown",
+            reason: "push_zone",
+            recordData: nil
+          )
+        }
+        completionHandler(.newData)
+      }
+    }
   }
 
   private static func extractZentikId(fromRecordName recordName: String) -> String {

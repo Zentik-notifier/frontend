@@ -130,6 +130,25 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
         
+        // Handle triggerFullSync message from iPhone
+        if type == "triggerFullSync" {
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "WatchConnectivity",
+                message: "Received full sync request from iPhone",
+                source: "Watch"
+            )
+            
+            // Trigger full sync on watch
+            DispatchQueue.main.async { [weak self] in
+                self?.isFullSyncing = true
+            }
+            requestSync(fullSync: true)
+            
+            replyHandler(["success": true, "message": "Full sync triggered"])
+            return
+        }
+        
         if type == "watchTokenSettings" {
             handleWatchTokenSettings(message: message, replyHandler: replyHandler)
         } else {

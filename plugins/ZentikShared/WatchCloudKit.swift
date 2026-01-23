@@ -431,33 +431,21 @@ public final class WatchCloudKit {
             return
         }
 
-        let recordIDs = notificationIds.map { self.notificationRecordID($0) }
+        // Create records directly with known recordIDs - no fetch needed
+        // CloudKit will merge with existing records when using .changedKeys savePolicy
+        let recordsToSave: [CKRecord] = notificationIds.map { notificationId in
+            let recordID = self.notificationRecordID(notificationId)
+            let record = CKRecord(recordType: Defaults.notificationRecordType, recordID: recordID)
+            record["readAt"] = readAt
+            return record
+        }
 
-        core.fetchRecords(recordIDs: recordIDs) { fetchResult in
-            switch fetchResult {
+        self.core.save(records: recordsToSave, savePolicy: .changedKeys) { saveResult in
+            switch saveResult {
             case .failure(let error):
-                completion(false, 0, error)
-
-            case .success(let recordsByID):
-                let recordsToSave: [CKRecord] = recordIDs.compactMap { recordID in
-                    guard let record = recordsByID[recordID] else { return nil }
-                    record["readAt"] = readAt
-                    return record
-                }
-
-                guard !recordsToSave.isEmpty else {
-                    completion(true, 0, nil)
-                    return
-                }
-
-                self.core.save(records: recordsToSave, savePolicy: .changedKeys) { saveResult in
-                    switch saveResult {
-                    case .failure(let error):
-                        completion(false, recordsToSave.count, error)
-                    case .success:
-                        completion(true, recordsToSave.count, nil)
-                    }
-                }
+                completion(false, recordsToSave.count, error)
+            case .success:
+                completion(true, recordsToSave.count, nil)
             }
         }
     }
@@ -481,7 +469,7 @@ public final class WatchCloudKit {
     // MARK: - Modify (batch-only)
 
     public func save(records: [CKRecord], completion: @escaping (Result<Void, Error>) -> Void) {
-        core.save(records: records, completion: completion)
+        core.save(records: records, progressCallback: nil, completion: completion)
     }
 
     public func delete(recordIDs: [CKRecord.ID], completion: @escaping (Result<Void, Error>) -> Void) {

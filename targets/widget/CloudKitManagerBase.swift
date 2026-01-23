@@ -637,8 +637,13 @@ public final class CloudKitManagerBase: NSObject {
 
     // MARK: - Modify (batch-only)
 
-    public func save(records: [CKRecord], savePolicy: CKModifyRecordsOperation.RecordSavePolicy = .changedKeys, completion: @escaping (Result<Void, Error>) -> Void) {
-        modify(recordsToSave: records, recordIDsToDelete: [], savePolicy: savePolicy, completion: completion)
+    public func save(
+        records: [CKRecord],
+        savePolicy: CKModifyRecordsOperation.RecordSavePolicy = .changedKeys,
+        progressCallback: ((Int, Int) -> Void)? = nil,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        modify(recordsToSave: records, recordIDsToDelete: [], savePolicy: savePolicy, progressCallback: progressCallback, completion: completion)
     }
 
     public func delete(recordIDs: [CKRecord.ID], completion: @escaping (Result<Void, Error>) -> Void) {
@@ -652,6 +657,7 @@ public final class CloudKitManagerBase: NSObject {
         recordsToSave: [CKRecord],
         recordIDsToDelete: [CKRecord.ID],
         savePolicy: CKModifyRecordsOperation.RecordSavePolicy = .changedKeys,
+        progressCallback: ((Int, Int) -> Void)? = nil,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         guard isCloudKitEnabled else {
@@ -661,7 +667,7 @@ public final class CloudKitManagerBase: NSObject {
 
         // CloudKit limit applies to total number of records (save + delete).
         // We keep it simple and safe by chunking saves and deletes into separate operations.
-        runChunkedModifySaves(recordsToSave, savePolicy: savePolicy) { saveResult in
+        runChunkedModifySaves(recordsToSave, savePolicy: savePolicy, progressCallback: progressCallback) { saveResult in
             switch saveResult {
             case .failure(let error):
                 completion(.failure(error))
@@ -678,9 +684,13 @@ public final class CloudKitManagerBase: NSObject {
     private func runChunkedModifySaves(
         _ records: [CKRecord],
         savePolicy: CKModifyRecordsOperation.RecordSavePolicy,
+        progressCallback: ((Int, Int) -> Void)?,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         let chunks = records.chunked(into: config.maxBatchSize)
+        var completedItems = 0
+        let totalItems = records.count
+        
         runSerial(chunks, label: "save") { chunk, chunkDone in
             let op = CKModifyRecordsOperation(recordsToSave: chunk, recordIDsToDelete: nil)
             op.savePolicy = savePolicy
@@ -688,6 +698,9 @@ public final class CloudKitManagerBase: NSObject {
             op.modifyRecordsResultBlock = { result in
                 switch result {
                 case .success:
+                    completedItems += chunk.count
+                    // Call progress callback if provided
+                    progressCallback?(completedItems, totalItems)
                     chunkDone(.success(()))
                 case .failure(let error):
                     self.logCloudKitError("modify save chunk failed", error: error)
