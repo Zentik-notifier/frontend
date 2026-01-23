@@ -643,6 +643,7 @@ public final class CloudKitManagerBase: NSObject {
         progressCallback: ((Int, Int) -> Void)? = nil,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
+        infoLog("save called", metadata: ["recordsCount": records.count, "savePolicy": "\(savePolicy)"])
         modify(recordsToSave: records, recordIDsToDelete: [], savePolicy: savePolicy, progressCallback: progressCallback, completion: completion)
     }
 
@@ -660,7 +661,10 @@ public final class CloudKitManagerBase: NSObject {
         progressCallback: ((Int, Int) -> Void)? = nil,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
+        infoLog("modify called", metadata: ["recordsToSave": recordsToSave.count, "recordIDsToDelete": recordIDsToDelete.count, "isCloudKitEnabled": isCloudKitEnabled])
+        
         guard isCloudKitEnabled else {
+            warnLog("modify skipped (CloudKit disabled)")
             completion(.success(()))
             return
         }
@@ -670,9 +674,17 @@ public final class CloudKitManagerBase: NSObject {
         runChunkedModifySaves(recordsToSave, savePolicy: savePolicy, progressCallback: progressCallback) { saveResult in
             switch saveResult {
             case .failure(let error):
+                self.infoLog("modify save phase failed", metadata: ["error": String(describing: error)])
                 completion(.failure(error))
             case .success:
+                self.infoLog("modify save phase completed, starting delete phase", metadata: ["deletesCount": recordIDsToDelete.count])
                 self.runChunkedModifyDeletes(recordIDsToDelete) { deleteResult in
+                    switch deleteResult {
+                    case .success:
+                        self.infoLog("modify completed (success)")
+                    case .failure(let error):
+                        self.infoLog("modify completed (delete failed)", metadata: ["error": String(describing: error)])
+                    }
                     completion(deleteResult)
                 }
             }
@@ -691,23 +703,30 @@ public final class CloudKitManagerBase: NSObject {
         var completedItems = 0
         let totalItems = records.count
         
+        infoLog("runChunkedModifySaves starting", metadata: ["totalRecords": totalItems, "chunks": chunks.count, "maxBatchSize": config.maxBatchSize])
+        
         runSerial(chunks, label: "save") { chunk, chunkDone in
+            self.infoLog("Creating CKModifyRecordsOperation", metadata: ["chunkSize": chunk.count, "recordTypes": Array(Set(chunk.map { $0.recordType }))])
             let op = CKModifyRecordsOperation(recordsToSave: chunk, recordIDsToDelete: nil)
             op.savePolicy = savePolicy
             op.isAtomic = false
             op.modifyRecordsResultBlock = { result in
                 switch result {
                 case .success:
+                    self.infoLog("CKModifyRecordsOperation result received (success)", metadata: ["chunkSize": chunk.count, "completedItems": completedItems + chunk.count, "totalItems": totalItems])
                     completedItems += chunk.count
                     // Call progress callback if provided
                     progressCallback?(completedItems, totalItems)
                     chunkDone(.success(()))
                 case .failure(let error):
+                    self.infoLog("CKModifyRecordsOperation result received (failure)", metadata: ["chunkSize": chunk.count, "error": String(describing: error)])
                     self.logCloudKitError("modify save chunk failed", error: error)
                     chunkDone(.failure(error))
                 }
             }
+            self.infoLog("Adding CKModifyRecordsOperation to database", metadata: ["chunkSize": chunk.count])
             self.privateDatabase.add(op)
+            self.infoLog("CKModifyRecordsOperation added to database", metadata: ["chunkSize": chunk.count])
         } completion: { completion($0) }
     }
 

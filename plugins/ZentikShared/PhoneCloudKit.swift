@@ -491,9 +491,12 @@ public final class PhoneCloudKit {
                 return record
             }
 
+            self.infoLog("Buckets records created, calling core.save", metadata: ["recordsCount": records.count])
+            
             self.core.save(
                 records: records,
                 progressCallback: { completed, total in
+                    self.infoLog("Buckets save progress", metadata: ["completed": completed, "total": total])
                     // Notify progress for each batch saved
                     self.notifySyncProgress(
                         currentItem: completed,
@@ -504,6 +507,7 @@ public final class PhoneCloudKit {
                     )
                 }
             ) { result in
+                self.infoLog("Buckets save callback invoked")
                 switch result {
                 case .success:
                     syncedBuckets = records.count
@@ -614,9 +618,12 @@ public final class PhoneCloudKit {
                         return record
                     }
 
+                    self.infoLog("Notification records created, calling core.save", metadata: ["recordsCount": records.count])
+                    
                     self.core.save(
                         records: records,
                         progressCallback: { completed, total in
+                            self.infoLog("Notifications save progress", metadata: ["completed": completed, "total": total])
                             // Notify progress for each batch saved
                             self.notifySyncProgress(
                                 currentItem: completed,
@@ -627,6 +634,7 @@ public final class PhoneCloudKit {
                             )
                         }
                     ) { result in
+                        self.infoLog("Notifications save callback invoked")
                         switch result {
                         case .success:
                             syncedNotifications = records.count
