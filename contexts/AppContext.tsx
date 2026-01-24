@@ -575,8 +575,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         // Retry any notifications that failed to send to CloudKit from NSE
         if (hasAuth && Platform.OS === 'ios') {
-          const { iosBridgeService } = await import('@/services/ios-bridge');
-          iosBridgeService.retryNSENotificationsToCloudKit().catch((error) => {
+          const iosBridgeService = (await import('@/services/ios-bridge')).default;
+          iosBridgeService.retryNSENotificationsToCloudKit().catch((error: unknown) => {
             console.warn('[AppContext] Failed to retry NSE notifications to CloudKit:', error);
           });
         }
