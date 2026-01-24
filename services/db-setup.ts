@@ -834,7 +834,7 @@ export async function exportSQLiteDatabaseToFile(): Promise<string> {
     // Get list of all tables
     // Use executeQuery to ensure proper error handling and WAL recovery
     const tables = await executeQuery(async (db) => {
-      return await db.getAllAsync<{ name: string }>(
+      return await db.getAllAsync(
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
       );
     }, 'exportSQLiteDatabaseToFile:getTables');
@@ -845,7 +845,7 @@ export async function exportSQLiteDatabaseToFile(): Promise<string> {
       try {
         // Get table schema - use executeQuery wrapper for safety
         const schemaResult = await executeQuery(async (db) => {
-          return await db.getAllAsync<{ sql: string }>(
+          return await db.getAllAsync(
             `SELECT sql FROM sqlite_master WHERE type='table' AND name=?`,
             [tableName]
           );
@@ -900,9 +900,10 @@ export async function exportSQLiteDatabaseToFile(): Promise<string> {
     try {
       // Use executeQuery wrapper for safety
       const indices = await executeQuery(async (db) => {
-        return await db.getAllAsync<{ name: string; sql: string }>(
-        "SELECT name, sql FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'"
-      );
+        return await db.getAllAsync(
+          "SELECT name, sql FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'"
+        );
+      }, `exportSQLiteDatabaseToFile:getIndices`);
 
       if (indices.length > 0) {
         sqlDump += '-- Indices\n';
