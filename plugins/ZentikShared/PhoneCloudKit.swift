@@ -307,7 +307,9 @@ public final class PhoneCloudKit {
                     record["actions"] = "[]"
                 }
 
-                self.core.save(records: [record]) { saveResult in
+                // Use .allKeys for new notifications to ensure readAt is properly set (even if nil)
+                // This ensures that readAt: nil explicitly overwrites any existing value
+                self.core.save(records: [record], savePolicy: .allKeys) { saveResult in
                     switch saveResult {
                     case .failure(let error):
                         completion(false, error)
@@ -330,21 +332,37 @@ public final class PhoneCloudKit {
             return
         }
 
-        // Create records directly with known recordIDs - no fetch needed
-        // CloudKit will merge with existing records when using .changedKeys savePolicy
-        let recordsToSave: [CKRecord] = notificationIds.map { notificationId in
-            let recordID = self.notificationRecordID(notificationId)
-            let record = CKRecord(recordType: Defaults.notificationRecordType, recordID: recordID)
-            record["readAt"] = readAt
-            return record
-        }
-
-        self.core.save(records: recordsToSave, savePolicy: .changedKeys) { saveResult in
-            switch saveResult {
+        // Ensure zone is ready before saving (prevents silent failures when CloudKit is not initialized)
+        ensureZoneOnlyReady { [weak self] result in
+            guard let self = self else {
+                completion(false, NSError(domain: "PhoneCloudKit", code: -1, userInfo: [NSLocalizedDescriptionKey: "Self deallocated"]))
+                return
+            }
+            
+            switch result {
             case .failure(let error):
+                self.warnLog("updateNotificationsReadStatusInCloudKit failed (ensureZone)", metadata: ["error": String(describing: error), "notificationIds": "\(notificationIds.count)"])
                 completion(false, error)
             case .success:
-                completion(true, nil)
+                // Create records directly with known recordIDs - no fetch needed
+                // CloudKit will merge with existing records when using .changedKeys savePolicy
+                let recordsToSave: [CKRecord] = notificationIds.map { notificationId in
+                    let recordID = self.notificationRecordID(notificationId)
+                    let record = CKRecord(recordType: Defaults.notificationRecordType, recordID: recordID)
+                    record["readAt"] = readAt
+                    return record
+                }
+
+                self.core.save(records: recordsToSave, savePolicy: .changedKeys) { saveResult in
+                    switch saveResult {
+                    case .failure(let error):
+                        self.warnLog("updateNotificationsReadStatusInCloudKit save failed", metadata: ["error": String(describing: error), "notificationIds": "\(notificationIds.count)"])
+                        completion(false, error)
+                    case .success:
+                        self.infoLog("updateNotificationsReadStatusInCloudKit completed", metadata: ["notificationIds": "\(notificationIds.count)", "readAt": readAt != nil ? "set" : "nil"])
+                        completion(true, nil)
+                    }
+                }
             }
         }
     }

@@ -245,7 +245,47 @@ export async function executeQuery<T>(
           }
         }
         
-        return await queueDbOperation(() => operation(db));
+        try {
+          return await queueDbOperation(() => operation(db));
+        } catch (operationError: any) {
+          // Se è un errore WAL/pagein, prova a fare checkpoint e riprova
+          const errorMsg = operationError?.message || String(operationError);
+          if (errorMsg.includes('WAL') || 
+              errorMsg.includes('pagein') || 
+              errorMsg.includes('Invalid argument') ||
+              errorMsg.includes('FS pagein') ||
+              errorMsg.includes('cluster_pagein')) {
+            console.warn(`[executeQuery] WAL/pagein error detected in ${operationName}, attempting checkpoint...`, {
+              error: errorMsg,
+              attempt: attempt + 1
+            });
+            try {
+              // Prova a fare checkpoint per riparare il WAL
+              await db.execAsync('PRAGMA wal_checkpoint(TRUNCATE)');
+              // Riprova dopo checkpoint (solo se non è l'ultimo tentativo)
+              if (attempt < retryCount) {
+                await new Promise(resolve => setTimeout(resolve, 200 * (attempt + 1)));
+                continue;
+              }
+            } catch (checkpointError: any) {
+              console.error(`[executeQuery] Checkpoint failed in ${operationName}:`, checkpointError?.message);
+              // Se il checkpoint fallisce, potrebbe essere corruzione grave
+              // Prova a chiudere e riaprire il database
+              if (attempt < retryCount) {
+                try {
+                  await closeSharedCacheDb();
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                  // Il prossimo tentativo riaprirà il database
+                } catch (closeError) {
+                  console.error(`[executeQuery] Failed to close database:`, closeError);
+                }
+                continue;
+              }
+            }
+          }
+          // Rilancia l'errore per gestione normale
+          throw operationError;
+        }
       }
     } catch (error: any) {
       lastError = error;
@@ -792,19 +832,24 @@ export async function exportSQLiteDatabaseToFile(): Promise<string> {
     sqlDump += 'PRAGMA foreign_keys=OFF;\n\n';
 
     // Get list of all tables
-    const tables = await db.getAllAsync<{ name: string }>(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-    );
+    // Use executeQuery to ensure proper error handling and WAL recovery
+    const tables = await executeQuery(async (db) => {
+      return await db.getAllAsync<{ name: string }>(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+      );
+    }, 'exportSQLiteDatabaseToFile:getTables');
 
     for (const table of tables) {
       const tableName = table.name;
 
       try {
-        // Get table schema
-        const schemaResult = await db.getAllAsync<{ sql: string }>(
-          `SELECT sql FROM sqlite_master WHERE type='table' AND name=?`,
-          [tableName]
-        );
+        // Get table schema - use executeQuery wrapper for safety
+        const schemaResult = await executeQuery(async (db) => {
+          return await db.getAllAsync<{ sql: string }>(
+            `SELECT sql FROM sqlite_master WHERE type='table' AND name=?`,
+            [tableName]
+          );
+        }, `exportSQLiteDatabaseToFile:getSchema:${tableName}`);
 
         if (schemaResult.length > 0 && schemaResult[0].sql) {
           sqlDump += `-- Table: ${tableName}\n`;
@@ -820,7 +865,10 @@ export async function exportSQLiteDatabaseToFile(): Promise<string> {
       // Get all rows from table (best-effort per table)
       let rows: any[] = [];
       try {
-        rows = await db.getAllAsync(`SELECT * FROM ${tableName}`);
+        // Use executeQuery wrapper for safety
+        rows = await executeQuery(async (db) => {
+          return await db.getAllAsync(`SELECT * FROM ${tableName}`);
+        }, `exportSQLiteDatabaseToFile:getRows:${tableName}`);
       } catch (rowsError: any) {
         console.warn('[DB] ⚠️ Failed to export rows for table (skipping data):', tableName, rowsError?.message);
         sqlDump += `-- ⚠️ Failed to export rows for table: ${tableName} (${rowsError?.message || rowsError})\n\n`;
@@ -850,7 +898,9 @@ export async function exportSQLiteDatabaseToFile(): Promise<string> {
 
     // Get indices (best-effort)
     try {
-      const indices = await db.getAllAsync<{ name: string; sql: string }>(
+      // Use executeQuery wrapper for safety
+      const indices = await executeQuery(async (db) => {
+        return await db.getAllAsync<{ name: string; sql: string }>(
         "SELECT name, sql FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'"
       );
 
