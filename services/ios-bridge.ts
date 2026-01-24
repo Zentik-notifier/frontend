@@ -540,6 +540,33 @@ class IosBridgeService {
   }
 
   /**
+   * Update all CloudKit notification records that don't have readAt set
+   * This is useful for initializing or fixing records that are missing the readAt field
+   * 
+   * @param readAtTimestamp Optional timestamp (in milliseconds since epoch) to set for readAt.
+   *                        If undefined, sets readAt to nil (unread).
+   *                        If provided, sets all records to that timestamp (e.g., to mark all as read).
+   */
+  async updateAllNotificationsWithoutReadAt(
+    readAtTimestamp?: number
+  ): Promise<{ success: boolean; count: number }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return { success: false, count: 0 };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.updateAllNotificationsWithoutReadAt(
+        readAtTimestamp ? readAtTimestamp : undefined
+      );
+      console.log('[CloudKit] Updated notifications without readAt:', result.count);
+      return { success: result.success || false, count: result.count || 0 };
+    } catch (error) {
+      console.error('[CloudKit] Failed to update notifications without readAt:', error);
+      return { success: false, count: 0 };
+    }
+  }
+
+  /**
    * Trigger full sync with verification
    * Resets sync timestamp, performs complete sync, and verifies counts
    * Useful for debugging and ensuring all data is synced

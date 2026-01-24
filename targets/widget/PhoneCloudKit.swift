@@ -1356,6 +1356,111 @@ public final class PhoneCloudKit {
     }
 
     // MARK: - Verification helpers
+    
+    /// Update all CloudKit notification records that don't have readAt set
+    /// This is useful for initializing or fixing records that are missing the readAt field
+    /// 
+    /// - Parameters:
+    ///   - readAtValue: The value to set for readAt. If nil, explicitly sets readAt to nil (unread).
+    ///                  If provided, sets all records to that timestamp (e.g., to mark all as read).
+    ///   - completion: Called with the count of updated records and any error
+    public func updateAllNotificationsWithoutReadAt(
+        readAtValue: Date? = nil,
+        completion: @escaping (Int, Error?) -> Void
+    ) {
+        guard isCloudKitEnabled else {
+            completion(0, nil)
+            return
+        }
+        
+        infoLog("updateAllNotificationsWithoutReadAt starting", metadata: [
+            "readAtValue": readAtValue != nil ? "set" : "nil"
+        ])
+        
+        ensureZoneOnlyReady { [weak self] result in
+            guard let self = self else {
+                completion(0, NSError(domain: "PhoneCloudKit", code: -1, userInfo: [NSLocalizedDescriptionKey: "Self deallocated"]))
+                return
+            }
+            
+            switch result {
+            case .failure(let error):
+                self.warnLog("updateAllNotificationsWithoutReadAt failed (ensureZone)", metadata: ["error": error.localizedDescription])
+                completion(0, error)
+            case .success:
+                // Query all notifications from CloudKit
+                // Note: CloudKit doesn't support direct "field is nil" predicates,
+                // so we fetch all and filter client-side
+                self.core.queryRecords(
+                    recordType: Defaults.notificationRecordType,
+                    predicate: NSPredicate(value: true),
+                    sortDescriptors: [],
+                    resultsLimit: nil,
+                    desiredKeys: ["id", "readAt"] // Only fetch what we need
+                ) { queryResult in
+                    switch queryResult {
+                    case .failure(let error):
+                        self.warnLog("updateAllNotificationsWithoutReadAt query failed", metadata: ["error": error.localizedDescription])
+                        completion(0, error)
+                    case .success(let records):
+                        // Filter records that don't have readAt set
+                        // A record doesn't have readAt if:
+                        // 1. The field is missing (nil in CKRecord)
+                        // 2. The field exists but is nil
+                        let recordsWithoutReadAt = records.filter { record in
+                            let currentReadAt = record["readAt"] as? Date
+                            // If we want to set to nil, include records that are nil or missing
+                            // If we want to set to a value, only include records that are nil or missing
+                            if readAtValue == nil {
+                                return currentReadAt == nil
+                            } else {
+                                return currentReadAt == nil
+                            }
+                        }
+                        
+                        guard !recordsWithoutReadAt.isEmpty else {
+                            self.infoLog("updateAllNotificationsWithoutReadAt: no records to update", metadata: ["totalRecords": records.count])
+                            completion(0, nil)
+                            return
+                        }
+                        
+                        self.infoLog("updateAllNotificationsWithoutReadAt: found records to update", metadata: [
+                            "totalRecords": records.count,
+                            "recordsToUpdate": recordsWithoutReadAt.count
+                        ])
+                        
+                        // Create update records with only readAt field changed
+                        // This uses .changedKeys savePolicy to only update readAt
+                        let recordsToSave: [CKRecord] = recordsWithoutReadAt.map { record in
+                            // Create a new record with the same ID (CloudKit will merge)
+                            let recordID = record.recordID
+                            let updateRecord = CKRecord(recordType: Defaults.notificationRecordType, recordID: recordID)
+                            updateRecord["readAt"] = readAtValue
+                            return updateRecord
+                        }
+                        
+                        // Save in batch (CloudKitManagerBase handles chunking automatically)
+                        self.core.save(records: recordsToSave, savePolicy: .changedKeys) { saveResult in
+                            switch saveResult {
+                            case .failure(let error):
+                                self.warnLog("updateAllNotificationsWithoutReadAt save failed", metadata: [
+                                    "error": error.localizedDescription,
+                                    "count": recordsToSave.count
+                                ])
+                                completion(0, error)
+                            case .success:
+                                self.infoLog("updateAllNotificationsWithoutReadAt completed", metadata: [
+                                    "updatedCount": recordsToSave.count,
+                                    "readAtValue": readAtValue != nil ? "set" : "nil"
+                                ])
+                                completion(recordsToSave.count, nil)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     public func fetchAllNotificationsFromCloudKit(completion: @escaping ([[String: Any]], Error?) -> Void) {
         infoLog("fetchAllNotificationsFromCloudKit starting")
