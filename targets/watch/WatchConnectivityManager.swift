@@ -154,11 +154,32 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
                 source: "Watch"
             )
             
-            // Trigger full sync on watch
-            DispatchQueue.main.async { [weak self] in
-                self?.isFullSyncing = true
+            // Immediately disable subscriptions to prevent receiving individual events during full sync
+            WatchCloudKit.shared.disableSubscriptions { result in
+                switch result {
+                case .failure(let error):
+                    LoggingSystem.shared.log(
+                        level: "WARN",
+                        tag: "WatchConnectivity",
+                        message: "Failed to disable subscriptions before full sync (non-fatal)",
+                        metadata: ["error": error.localizedDescription],
+                        source: "Watch"
+                    )
+                case .success:
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "WatchConnectivity",
+                        message: "Subscriptions disabled before full sync",
+                        source: "Watch"
+                    )
+                }
+                
+                // Trigger full sync on watch
+                DispatchQueue.main.async { [weak self] in
+                    self?.isFullSyncing = true
+                }
+                self.requestSync(fullSync: true)
             }
-            requestSync(fullSync: true)
             
             replyHandler(["success": true, "message": "Full sync triggered"])
             return
@@ -172,8 +193,45 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     }
     
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        if let type = applicationContext["type"] as? String, type == "watchTokenSettings" {
-            handleWatchTokenSettings(message: applicationContext, replyHandler: { _ in })
+        if let type = applicationContext["type"] as? String {
+            if type == "watchTokenSettings" {
+                handleWatchTokenSettings(message: applicationContext, replyHandler: { _ in })
+            } else if type == "triggerFullSync" {
+                // Handle full sync request from iPhone (works in background via applicationContext)
+                LoggingSystem.shared.log(
+                    level: "INFO",
+                    tag: "WatchConnectivity",
+                    message: "Received full sync request from iPhone (via applicationContext)",
+                    source: "Watch"
+                )
+                
+                // Immediately disable subscriptions to prevent receiving individual events during full sync
+                WatchCloudKit.shared.disableSubscriptions { result in
+                    switch result {
+                    case .failure(let error):
+                        LoggingSystem.shared.log(
+                            level: "WARN",
+                            tag: "WatchConnectivity",
+                            message: "Failed to disable subscriptions before full sync (non-fatal)",
+                            metadata: ["error": error.localizedDescription],
+                            source: "Watch"
+                        )
+                    case .success:
+                        LoggingSystem.shared.log(
+                            level: "INFO",
+                            tag: "WatchConnectivity",
+                            message: "Subscriptions disabled before full sync",
+                            source: "Watch"
+                        )
+                    }
+                    
+                    // Trigger full sync on watch
+                    DispatchQueue.main.async { [weak self] in
+                        self?.isFullSyncing = true
+                    }
+                    self.requestSync(fullSync: true)
+                }
+            }
         }
     }
     
@@ -203,11 +261,56 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     }
     
     @objc private func appDidBecomeActive() {
-        // Perform incremental sync when app becomes active (to catch up on missed updates)
-        // But throttle syncs to avoid excessive calls and potential crashes
-        // CloudKit subscriptions with shouldSendContentAvailable should work in foreground,
-        // but we do a throttled sync to ensure we're up to date
-        performIncrementalSync()
+        // Check if iPhone did a full sync while watch was in background
+        // If iPhone's last full sync is more recent than watch's last full sync,
+        // perform full sync instead of incremental to avoid processing hundreds of individual events
+        let sharedDefaults = UserDefaults(suiteName: "group.com.apocaliss92.zentik")
+        let iphoneLastFullSync = sharedDefaults?.double(forKey: "iphone_last_fullsync_timestamp") ?? 0
+        let watchLastFullSync = sharedDefaults?.double(forKey: "watch_last_fullsync_timestamp") ?? 0
+        
+        if iphoneLastFullSync > watchLastFullSync && iphoneLastFullSync > 0 {
+            // iPhone did full sync more recently than watch
+            // Disable subscriptions immediately to prevent receiving individual events
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "WatchConnectivity",
+                message: "iPhone did full sync while watch was in background, performing full sync instead of incremental",
+                metadata: [
+                    "iphone_last_fullsync": iphoneLastFullSync,
+                    "watch_last_fullsync": watchLastFullSync
+                ],
+                source: "Watch"
+            )
+            
+            WatchCloudKit.shared.disableSubscriptions { [weak self] result in
+                switch result {
+                case .failure(let error):
+                    LoggingSystem.shared.log(
+                        level: "WARN",
+                        tag: "WatchConnectivity",
+                        message: "Failed to disable subscriptions before full sync (non-fatal)",
+                        metadata: ["error": error.localizedDescription],
+                        source: "Watch"
+                    )
+                case .success:
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "WatchConnectivity",
+                        message: "Subscriptions disabled before full sync",
+                        source: "Watch"
+                    )
+                }
+                
+                // Perform full sync instead of incremental
+                DispatchQueue.main.async { [weak self] in
+                    self?.isFullSyncing = true
+                }
+                self?.requestSync(fullSync: true)
+            }
+        } else {
+            // Normal incremental sync
+            performIncrementalSync()
+        }
     }
     
     @objc private func appWillResignActive() {

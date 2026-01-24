@@ -2424,8 +2424,14 @@ class NotificationService: UNNotificationServiceExtension {
     ) { success, error in
       if success {
         print("📱 [NotificationService] ✅ Notification saved to CloudKit: \(notificationId)")
+        // Track last successfully sent notification ID in shared UserDefaults
+        // This allows the main app to retry any notifications that failed to send
+        let sharedDefaults = UserDefaults(suiteName: "group.com.apocaliss92.zentik")
+        sharedDefaults?.set(notificationId, forKey: "lastNSENotificationSentToCloudKit")
+        sharedDefaults?.set(createdAt.timeIntervalSince1970, forKey: "lastNSENotificationSentTimestamp")
       } else {
         print("📱 [NotificationService] ⚠️ Failed to save notification to CloudKit: \(error?.localizedDescription ?? "Unknown error")")
+        // Don't update the cursor if save failed - we'll retry on app startup
       }
     }
   }

@@ -1024,6 +1024,12 @@ public final class PhoneCloudKit {
                         self.infoLog("Subscriptions restarted")
                     }
                     
+                    // Save timestamp of iPhone full sync completion in shared UserDefaults
+                    // This allows watch to detect if iPhone did full sync while watch was in background
+                    let sharedDefaults = UserDefaults(suiteName: "group.com.apocaliss92.zentik")
+                    sharedDefaults?.set(Date().timeIntervalSince1970, forKey: "iphone_last_fullsync_timestamp")
+                    sharedDefaults?.synchronize()
+                    
                     // Notify watch to perform full sync
                     self.notifyWatchToFullSync()
                     
@@ -1118,6 +1124,7 @@ public final class PhoneCloudKit {
     }
     
     /// Notify watch to perform full sync after iPhone completes its sync
+    /// Works in both foreground and background using sendMessage + updateApplicationContext
     private func notifyWatchToFullSync() {
         #if os(iOS)
         guard WCSession.isSupported() else {
@@ -1126,22 +1133,38 @@ public final class PhoneCloudKit {
         }
         
         let session = WCSession.default
-        guard session.activationState == .activated, session.isReachable || session.isPaired else {
+        guard session.activationState == .activated, session.isPaired else {
             debugLog("Watch session not available, skipping watch notification")
             return
         }
         
-        // Send message to watch to trigger full sync
+        // Prepare message to send to watch
         let message: [String: Any] = [
             "type": "triggerFullSync",
             "timestamp": Date().timeIntervalSince1970
         ]
         
-        session.sendMessage(message, replyHandler: { reply in
-            self.infoLog("Watch acknowledged full sync request", metadata: ["reply": "\(reply)"])
-        }, errorHandler: { error in
-            self.warnLog("Failed to notify watch to full sync", metadata: ["error": error.localizedDescription])
-        })
+        // Always update application context first (works in background)
+        // This ensures the watch receives the notification even if it's not reachable
+        do {
+            try session.updateApplicationContext(message)
+            self.infoLog("Updated application context with full sync request")
+        } catch {
+            self.warnLog("Failed to update application context", metadata: ["error": error.localizedDescription])
+        }
+        
+        // If watch is reachable, send message directly for immediate confirmation
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: { reply in
+                self.infoLog("Watch acknowledged full sync request", metadata: ["reply": "\(reply)"])
+            }, errorHandler: { error in
+                self.warnLog("Failed to send message to watch (non-fatal, context was updated)", metadata: ["error": error.localizedDescription])
+            })
+        } else {
+            // Watch is not reachable, but we've updated the context
+            // The watch will receive it when it becomes active
+            self.infoLog("Watch not reachable, full sync request queued in application context")
+        }
         #endif
     }
 
@@ -1159,6 +1182,122 @@ public final class PhoneCloudKit {
                 completion(nil)
             case .success(let records):
                 completion(records.first?["createdAt"] as? Date)
+            }
+        }
+    }
+    
+    /// Retry sending notifications to CloudKit that were saved by NSE but failed to send
+    /// This is called at app startup to ensure all notifications are synced to CloudKit
+    public func retryNSENotificationsToCloudKit(completion: @escaping (Int, Error?) -> Void) {
+        guard isCloudKitEnabled else {
+            completion(0, nil)
+            return
+        }
+        
+        // Get last successfully sent notification ID from shared UserDefaults
+        let sharedDefaults = UserDefaults(suiteName: "group.com.apocaliss92.zentik")
+        guard let lastSentNotificationId = sharedDefaults?.string(forKey: "lastNSENotificationSentToCloudKit"),
+              let lastSentTimestamp = sharedDefaults?.double(forKey: "lastNSENotificationSentTimestamp"),
+              lastSentTimestamp > 0 else {
+            // No cursor found - this is the first time or NSE never sent anything
+            // Don't retry everything, just return
+            infoLog("No NSE cursor found, skipping retry")
+            completion(0, nil)
+            return
+        }
+        
+        let lastSentDate = Date(timeIntervalSince1970: lastSentTimestamp)
+        infoLog("Retrying NSE notifications", metadata: [
+            "lastSentNotificationId": lastSentNotificationId,
+            "lastSentTimestamp": "\(lastSentTimestamp)"
+        ])
+        
+        // Get all notifications from database that were created after the last sent one
+        DatabaseAccess.getRecentNotifications(limit: 10000, unreadOnly: false, source: "PhoneCloudKit") { notifications in
+            // Filter notifications created after the last sent one
+            let notificationsToRetry = notifications.filter { notif in
+                notif.createdAtDate > lastSentDate || (notif.createdAtDate == lastSentDate && notif.id != lastSentNotificationId)
+            }
+            
+            guard !notificationsToRetry.isEmpty else {
+                self.infoLog("No notifications to retry from NSE")
+                completion(0, nil)
+                return
+            }
+            
+            self.infoLog("Found notifications to retry from NSE", metadata: ["count": "\(notificationsToRetry.count)"])
+            
+            // Send notifications to CloudKit in batches
+            self.ensureZoneOnlyReady { result in
+                switch result {
+                case .failure(let error):
+                    self.errorLog("Failed to ensure zone for NSE retry", metadata: ["error": String(describing: error)])
+                    completion(0, error)
+                case .success:
+                    let dateFormatter = ISO8601DateFormatter()
+                    dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    
+                    // Get readAt timestamps for all notifications
+                    let ids = notificationsToRetry.map { $0.id }
+                    DatabaseAccess.fetchReadAtTimestamps(notificationIds: ids, source: "PhoneCloudKit") { readAtMap in
+                        let records: [CKRecord] = notificationsToRetry.map { notif in
+                            let recordID = self.notificationRecordID(notif.id)
+                            let record = CKRecord(recordType: Defaults.notificationRecordType, recordID: recordID)
+                            record["id"] = notif.id
+                            record["bucketId"] = notif.bucketId
+                            record["title"] = notif.title
+                            record["body"] = notif.body
+                            record["subtitle"] = notif.subtitle
+                            record["createdAt"] = notif.createdAtDate
+                            
+                            if let readAtStr = readAtMap[notif.id] {
+                                if let ms = Double(readAtStr) {
+                                    record["readAt"] = Date(timeIntervalSince1970: ms / 1000.0)
+                                } else if let parsed = dateFormatter.date(from: readAtStr) {
+                                    record["readAt"] = parsed
+                                }
+                            } else {
+                                record["readAt"] = nil
+                            }
+                            
+                            let attachmentsDict = NotificationParser.serializeAttachments(notif.attachments)
+                            if let data = try? JSONSerialization.data(withJSONObject: attachmentsDict),
+                               let string = String(data: data, encoding: .utf8) {
+                                record["attachments"] = string
+                            } else {
+                                record["attachments"] = "[]"
+                            }
+                            
+                            let actionsDict = NotificationParser.serializeActions(notif.actions)
+                            if let data = try? JSONSerialization.data(withJSONObject: actionsDict),
+                               let string = String(data: data, encoding: .utf8) {
+                                record["actions"] = string
+                            } else {
+                                record["actions"] = "[]"
+                            }
+                            
+                            return record
+                        }
+                        
+                        // Save all records to CloudKit
+                        self.core.save(records: records, savePolicy: .allKeys) { saveResult in
+                            switch saveResult {
+                            case .failure(let error):
+                                self.errorLog("Failed to retry NSE notifications to CloudKit", metadata: ["error": String(describing: error), "count": "\(records.count)"])
+                                completion(0, error)
+                            case .success:
+                                // Update cursor to the most recent notification
+                                if let mostRecent = notificationsToRetry.max(by: { $0.createdAtDate < $1.createdAtDate }) {
+                                    sharedDefaults?.set(mostRecent.id, forKey: "lastNSENotificationSentToCloudKit")
+                                    sharedDefaults?.set(mostRecent.createdAtDate.timeIntervalSince1970, forKey: "lastNSENotificationSentTimestamp")
+                                }
+                                
+                                self.infoLog("Successfully retried NSE notifications to CloudKit", metadata: ["count": "\(records.count)"])
+                                completion(records.count, nil)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

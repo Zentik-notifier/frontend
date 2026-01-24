@@ -34,7 +34,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { Alert, AppState } from "react-native";
+import { Alert, AppState, Platform } from "react-native";
 import { registerTranslation } from "react-native-paper-dates";
 import { useSettings } from "../hooks/useSettings";
 import { settingsRepository } from "../services/settings-repository";
@@ -572,6 +572,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           skipNetwork: shouldSkipNetwork,
           onRotateDeviceKeys: hasAuth ? push.registerDevice : undefined,
         });
+
+        // Retry any notifications that failed to send to CloudKit from NSE
+        if (hasAuth && Platform.OS === 'ios') {
+          const { iosBridgeService } = await import('@/services/ios-bridge');
+          iosBridgeService.retryNSENotificationsToCloudKit().catch((error) => {
+            console.warn('[AppContext] Failed to retry NSE notifications to CloudKit:', error);
+          });
+        }
 
         if (hasAuth && userId) {
           await connectionStatus.checkForUpdates();

@@ -521,6 +521,25 @@ class IosBridgeService {
   }
 
   /**
+   * Retry sending notifications to CloudKit that were saved by NSE but failed to send
+   * This is called at app startup to ensure all notifications are synced to CloudKit
+   */
+  async retryNSENotificationsToCloudKit(): Promise<{ success: boolean; count: number }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return { success: false, count: 0 };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.retryNSENotificationsToCloudKit();
+      console.log('[CloudKit] Retried NSE notifications to CloudKit:', result.count);
+      return { success: result.success || false, count: result.count || 0 };
+    } catch (error) {
+      console.error('[CloudKit] Failed to retry NSE notifications to CloudKit:', error);
+      return { success: false, count: 0 };
+    }
+  }
+
+  /**
    * Trigger full sync with verification
    * Resets sync timestamp, performs complete sync, and verifies counts
    * Useful for debugging and ensuring all data is synced

@@ -47,6 +47,13 @@ public final class WatchCloudKit {
             .init(id: Defaults.bucketSubscriptionID, recordType: Defaults.bucketRecordType)
         ]
     }
+    
+    /// Disable CloudKit subscriptions to prevent receiving individual events
+    /// Used before full sync to avoid processing hundreds of individual events
+    public func disableSubscriptions(completion: @escaping (Result<Void, Error>) -> Void) {
+        let subscriptionIDs = [Defaults.notificationSubscriptionID, Defaults.bucketSubscriptionID]
+        core.deleteSubscriptions(subscriptionIDs, completion: completion)
+    }
 
     // MARK: - Incremental
 
@@ -544,6 +551,12 @@ public final class WatchCloudKit {
                         }
                         
                         UserDefaults.standard.set(true, forKey: CloudKitManagerBase.cloudKitInitialSyncCompletedKey)
+                        
+                        // Save timestamp of watch full sync completion in shared UserDefaults
+                        // This allows watch to compare with iPhone's last full sync timestamp
+                        let sharedDefaults = UserDefaults(suiteName: "group.com.apocaliss92.zentik")
+                        sharedDefaults?.set(Date().timeIntervalSince1970, forKey: "watch_last_fullsync_timestamp")
+                        sharedDefaults?.synchronize()
                         
                         // EVENT 13: FullSync completed
                         self.notifySyncProgress(

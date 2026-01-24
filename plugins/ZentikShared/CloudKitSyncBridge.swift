@@ -1120,6 +1120,30 @@ class CloudKitSyncBridge: RCTEventEmitter {
   }
   
   /**
+   * Retry sending notifications to CloudKit that were saved by NSE but failed to send
+   * This is called at app startup to ensure all notifications are synced to CloudKit
+   */
+  @objc
+  func retryNSENotificationsToCloudKit(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    PhoneCloudKit.shared.retryNSENotificationsToCloudKit { count, error in
+      if let error = error {
+        self.errorLog("Failed to retry NSE notifications", metadata: ["error": error.localizedDescription])
+        reject("RETRY_FAILED", error.localizedDescription, error)
+      } else {
+        self.infoLog("Retried NSE notifications to CloudKit", metadata: ["count": "\(count)"])
+        resolve(["success": true, "count": count])
+      }
+    }
+    #else
+    reject("NOT_SUPPORTED", "retryNSENotificationsToCloudKit is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
    * Send Watch token and server address to Watch app
    */
   @objc
