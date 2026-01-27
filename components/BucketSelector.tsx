@@ -1,5 +1,6 @@
 import { useNotificationsState } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
+import { UserRole, useGetMeQuery } from "@/generated/gql-operations-generated";
 import React, { useMemo } from "react";
 import BucketIcon from "./BucketIcon";
 import Selector, {
@@ -24,10 +25,15 @@ export default function BucketSelector({
 }: BucketSelectorProps) {
   const { t } = useI18n();
   const { data: appState } = useNotificationsState();
+  const { data: meData } = useGetMeQuery();
 
   const bucketOptions = useMemo(() => {
+    const isAdmin = meData?.me?.role === UserRole.Admin;
     const buckets = (appState?.buckets || []).filter(
-      (bucket) => !bucket.isOrphan && !bucket.isProtected
+      (bucket) =>
+        !bucket.isOrphan &&
+        !bucket.isProtected &&
+        (!bucket.isPublic || isAdmin)
     );
     const options: SelectorOption[] = [];
 

@@ -13,6 +13,7 @@ import {
   useRegisterMutation,
 } from "@/generated/gql-operations-generated";
 import { useMarkAllAsRead } from "@/hooks/notifications/useNotificationMutations";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAppLog } from "@/hooks/useAppLog";
 import { useChangelogs } from "@/hooks/useChangelogs";
 import { useCleanup } from "@/hooks/useCleanup";
@@ -128,6 +129,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const push = usePushNotifications(versions);
   const connectionStatus = useConnectionStatus(push);
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const checkAndSetLocale = async () => {
@@ -580,6 +582,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             console.warn('[AppContext] Failed to retry NSE notifications to CloudKit:', error);
           });
         }
+
+        // Invalidate app-state cache to force refetch and ensure unread count is correct
+        queryClient.invalidateQueries({ queryKey: ['app-state'] });
+        console.log('[AppContext] Invalidated app-state cache to refresh unread count');
 
         if (hasAuth && userId) {
           await connectionStatus.checkForUpdates();

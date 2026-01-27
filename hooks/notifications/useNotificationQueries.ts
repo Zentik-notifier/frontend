@@ -213,8 +213,20 @@ export function useNotificationsState(
                 const cachedNotifications = await getAllNotificationsFromCache();
                 const cachedBuckets = await getAllBuckets();
 
+                console.log('[useNotificationsState] Loaded from cache:', {
+                    notificationsCount: cachedNotifications.length,
+                    bucketsCount: cachedBuckets.length
+                });
+
                 // Calculate stats from cache
                 const cachedStats = await getNotificationStats([]);
+                
+                console.log('[useNotificationsState] Calculated stats:', {
+                    totalCount: cachedStats.totalCount,
+                    unreadCount: cachedStats.unreadCount,
+                    readCount: cachedStats.readCount,
+                    byBucketCount: cachedStats.byBucket?.length || 0
+                });
 
                 // Build buckets with stats from cache
                 const cachedBucketsWithStats: BucketWithStats[] = cachedBuckets.map((bucket) => {
@@ -295,8 +307,8 @@ export function useNotificationsState(
         enabled: true, // ✅ Always enabled - data is essential for the app
         refetchInterval: realtime ? (refetchInterval || 5000) : refetchInterval,
         refetchOnWindowFocus: false, // ✅ Disable auto-refetch on focus to prevent conflicts with Watch sync
-        refetchOnMount: false, // ✅ Only fetch on initial mount
-        staleTime: forceFullDetails ? 0 : 30000, // ✅ 30 seconds stale time for normal use
+        refetchOnMount: true, // ✅ Refetch on mount to ensure fresh data (fixes unread count issue)
+        staleTime: forceFullDetails ? 0 : 0, // ✅ Consider stale immediately to force refetch if needed
         gcTime: Infinity, // ✅ Keep in cache forever (until app restart)
     });
 

@@ -1,5 +1,6 @@
 import { useNotificationsState } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
+import { UserRole, useGetMeQuery } from "@/generated/gql-operations-generated";
 import React, { useMemo } from "react";
 import BucketIcon from "./BucketIcon";
 import Multiselect, { MultiselectOption } from "./ui/Multiselect";
@@ -19,10 +20,15 @@ export default function MultiBucketSelector({
 }: MultiBucketSelectorProps) {
   const { t } = useI18n();
   const { data: appState } = useNotificationsState();
+  const { data: meData } = useGetMeQuery();
 
   const bucketOptions = useMemo(() => {
+    const isAdmin = meData?.me?.role === UserRole.Admin;
     const buckets = (appState?.buckets || []).filter(
-      (bucket) => !bucket.isOrphan && !bucket.isProtected
+      (bucket) =>
+        !bucket.isOrphan &&
+        !bucket.isProtected &&
+        (!bucket.isPublic || isAdmin)
     );
     const options: MultiselectOption[] = [];
 
@@ -37,7 +43,7 @@ export default function MultiBucketSelector({
     });
 
     return options;
-  }, [appState?.buckets]);
+  }, [appState?.buckets, meData?.me?.role]);
 
   return (
     <Multiselect

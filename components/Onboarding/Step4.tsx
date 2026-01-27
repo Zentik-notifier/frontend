@@ -2,6 +2,7 @@ import BucketSelector from "@/components/BucketSelector";
 import { BucketPresetSelector } from "@/components/BucketPresetSelector";
 import { useNotificationsState } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
+import { UserRole, useGetMeQuery } from "@/generated/gql-operations-generated";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
 import { useAppLog } from "@/hooks/useAppLog";
 import React, { memo, useCallback, useEffect, useState } from "react";
@@ -46,10 +47,14 @@ const Step4 = memo(({ push }: Step4Props) => {
     setStep4TemplateIconUrl: setTemplateIconUrl,
   } = useOnboarding();
 
-  // Get buckets from app state (same as BucketSelector)
   const { data: appState } = useNotificationsState();
+  const { data: meData } = useGetMeQuery();
+  const isAdmin = meData?.me?.role === UserRole.Admin;
   const availableBuckets = (appState?.buckets || []).filter(
-    (bucket) => !bucket.isOrphan && !bucket.isProtected
+    (bucket) =>
+      !bucket.isOrphan &&
+      !bucket.isProtected &&
+      (!bucket.isPublic || isAdmin)
   );
 
   // Check device registration using usepush

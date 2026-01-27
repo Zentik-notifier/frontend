@@ -656,6 +656,14 @@ export async function getNotificationStats(
 
         await tx.done;
 
+        console.log('[getNotificationStats] Calculated stats (IndexedDB):', {
+          totalCount,
+          unreadCount,
+          readCount: totalCount - unreadCount,
+          withAttachmentsCount,
+          byBucketCount: bucketMap.size
+        });
+
         if (totalCount === 0) {
           return {
             totalCount: 0,
@@ -712,7 +720,12 @@ export async function getNotificationStats(
         let overallStats;
         try {
           overallStats = await db.getFirstAsync(overallStatsQuery, params);
-          // console.log('[getNotificationStats] Overall stats result:', overallStats);
+          console.log('[getNotificationStats] Overall stats result (SQLite):', {
+            total_count: overallStats?.total_count || 0,
+            unread_count: overallStats?.unread_count || 0,
+            read_count: overallStats?.read_count || 0,
+            with_attachments_count: overallStats?.with_attachments_count || 0
+          });
         } catch (error: any) {
           console.error(`[getNotificationStats] Overall stats query failed: code ${error?.code} | message ${error?.message}`);
           throw error;
@@ -886,6 +899,15 @@ export async function getUnreadCountsByBucket(): Promise<Map<string, number>> {
         await tx.done;
         return countMap;
       } else {
+        // First, get total unread count for debugging
+        const totalUnreadResult = await db.getAllAsync(
+          `SELECT COUNT(*) as total_unread 
+           FROM notifications 
+           WHERE read_at IS NULL`
+        );
+        const totalUnread = totalUnreadResult[0]?.total_unread || 0;
+        console.log('[getUnreadCountsByBucket] Total unread notifications in DB:', totalUnread);
+
         const results = await db.getAllAsync(
           `SELECT bucket_id, COUNT(*) as count 
            FROM notifications 
@@ -898,6 +920,7 @@ export async function getUnreadCountsByBucket(): Promise<Map<string, number>> {
           countMap.set(row.bucket_id, row.count);
         });
 
+        console.log('[getUnreadCountsByBucket] Unread counts by bucket:', Array.from(countMap.entries()));
         return countMap;
       }
     } catch (error) {
