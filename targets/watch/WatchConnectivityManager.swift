@@ -147,6 +147,10 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         
         // Handle triggerFullSync message from iPhone
         if type == "triggerFullSync" {
+            if WatchExtensionDelegate.isInBackground {
+                replyHandler(["success": true, "message": "Full sync deferred (background)"])
+                return
+            }
             LoggingSystem.shared.log(
                 level: "INFO",
                 tag: "WatchConnectivity",
@@ -197,6 +201,9 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
             if type == "watchTokenSettings" {
                 handleWatchTokenSettings(message: applicationContext, replyHandler: { _ in })
             } else if type == "triggerFullSync" {
+                if WatchExtensionDelegate.isInBackground {
+                    return
+                }
                 // Handle full sync request from iPhone (works in background via applicationContext)
                 LoggingSystem.shared.log(
                     level: "INFO",

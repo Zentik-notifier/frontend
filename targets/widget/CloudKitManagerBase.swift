@@ -862,6 +862,10 @@ public final class CloudKitManagerBase: NSObject {
         op.modifyRecordsResultBlock = { result in
             switch result {
             case .success:
+                self.infoLog("CKModifyRecordsOperation completed successfully", metadata: [
+                    "chunkSize": chunk.count,
+                    "retryCount": retryCount
+                ])
                 completion(.success(()))
             case .failure(let error):
                 // Check if it's a retryable error

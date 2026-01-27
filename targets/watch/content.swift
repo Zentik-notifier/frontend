@@ -1945,13 +1945,23 @@ struct LogsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    sendLogsToiPhone()
+                Menu {
+                    Button {
+                        sendLogsToiPhone()
+                    } label: {
+                        Label("Send logs", systemImage: "paperplane")
+                    }
+                    .disabled(isSendingLogs)
+                    Button(role: .destructive) {
+                        clearLogs()
+                    } label: {
+                        Label("Cancella logs", systemImage: "trash")
+                    }
                 } label: {
                     if isSendingLogs {
                         ProgressView()
                     } else {
-                        Image(systemName: "paperplane")
+                        Image(systemName: "ellipsis.circle")
                     }
                 }
                 .disabled(isSendingLogs)
@@ -1995,6 +2005,13 @@ struct LogsView: View {
                 }
                 self.showSendResultAlert = true
             }
+        }
+    }
+
+    private func clearLogs() {
+        LoggingSystem.shared.clearAllLogs()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            loadLogs()
         }
     }
 }
