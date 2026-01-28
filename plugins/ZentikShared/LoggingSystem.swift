@@ -265,7 +265,6 @@ public class LoggingSystem {
             let data = try JSONEncoder().encode(existingLogs)
             try data.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
 
-            print("[LoggingSystem] ✅ Wrote \(logs.count) logs to \(source).json")
         } catch {
             print("[LoggingSystem] ⚠️ Failed to write logs to file for \(source): \(error)")
         }

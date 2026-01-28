@@ -16,7 +16,6 @@ export const setBadgeCount = async (count: number): Promise<void> => {
         }
         const now = Date.now();
         if (!lastBadgeSyncLog || lastBadgeSyncLog.count !== count || (now - lastBadgeSyncLog.ts) > 2000) {
-            console.log(`[BadgeSync] Badge count synced: ${count}`);
             lastBadgeSyncLog = { count, ts: now };
         }
     } catch (error) {

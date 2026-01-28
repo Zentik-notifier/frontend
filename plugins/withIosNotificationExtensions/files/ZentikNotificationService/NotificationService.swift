@@ -30,12 +30,6 @@ class NotificationService: UNNotificationServiceExtension {
     _ request: UNNotificationRequest,
     withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
   ) {
-    print("📱 [NotificationService] ========== NOTIFICATION RECEIVED ==========")
-    print("📱 [NotificationService] Request identifier: \(request.identifier)")
-    print("📱 [NotificationService] Title: \(request.content.title)")
-    print("📱 [NotificationService] Body: \(request.content.body)")
-    print("📱 [NotificationService] UserInfo: \(request.content.userInfo)")
-    
     // Log notification payload
     let notificationId = request.identifier
     var payloadMeta: [String: Any] = [
@@ -73,7 +67,6 @@ class NotificationService: UNNotificationServiceExtension {
       if let userInfo = bestAttemptContent.userInfo as? [String: Any],
          let selfDownloadFlag = userInfo["selfDownload"] as? Bool,
          selfDownloadFlag {
-        print("📱 [NotificationService] 🔄 selfDownload flag detected - fetching message from backend...")
         handleSelfDownloadNotification(request: request, content: bestAttemptContent, contentHandler: contentHandler)
         return
       }
@@ -99,11 +92,7 @@ class NotificationService: UNNotificationServiceExtension {
 
         // Check if this notification has media attachments first
         if self.hasMediaAttachments(content: bestAttemptContent) {
-          print("📱 [NotificationService] Media attachments detected, starting download...")
           self.downloadMediaAttachments(content: bestAttemptContent) {
-            print(
-              "📱 [NotificationService] Media processing completed, applying Communication Style...")
-
             // Always call _handleChatMessage() even if media download failed
             // The communication protocol should work regardless of media download status
             // because bucket icon is always available locally
@@ -111,14 +100,11 @@ class NotificationService: UNNotificationServiceExtension {
             return
           }
         } else {
-          print("📱 [NotificationService] No media attachments, applying Communication Style...")
-
           self._handleChatMessage()
           return
         }
       }
     } else {
-      print("📱 [NotificationService] ❌ Failed to create mutable content")
       contentHandler(request.content)
     }
   }
@@ -170,10 +156,7 @@ class NotificationService: UNNotificationServiceExtension {
 
         // Check if this notification has media attachments first
         if self.hasMediaAttachments(content: content) {
-          print("📱 [NotificationService] (selfDownload) Media attachments detected, starting download...")
           self.downloadMediaAttachments(content: content) {
-            print("📱 [NotificationService] (selfDownload) Media processing completed, applying Communication Style...")
-
             // Always call _handleChatMessage() even if media download failed
             // The communication protocol should work regardless of media download status
             // because bucket icon is always available locally
@@ -181,8 +164,6 @@ class NotificationService: UNNotificationServiceExtension {
             return
           }
         } else {
-          print("📱 [NotificationService] (selfDownload) No media attachments, applying Communication Style...")
-
           self._handleChatMessage()
           return
         }
@@ -193,25 +174,12 @@ class NotificationService: UNNotificationServiceExtension {
   // MARK: - Communication Notifications (INSendMessageIntent)
   
   func _handleChatMessage() {
-    print("📱 [NotificationService] 🎭 Starting Communication Style processing...")
-    guard let content = bestAttemptContent else {
-      print("📱 [NotificationService] 🎭 ❌ bestAttemptContent is nil, cannot apply Communication Style")
-      return
-    }
-
-    guard let contentHandler = contentHandler else {
-      print("📱 [NotificationService] 🎭 ❌ contentHandler is nil, cannot apply Communication Style")
-      return
-    }
-
+    guard let content = bestAttemptContent else { return }
+    guard let contentHandler = contentHandler else { return }
     guard var userInfo = content.userInfo as? [String: Any] else {
-      print("📱 [NotificationService] 🎭 ❌ No userInfo found, skipping Communication Style")
-      // Still deliver notification even without Communication Style
       contentHandler(content)
       return
     }
-    
-    print("📱 [NotificationService] 🎭 ✅ All prerequisites met, proceeding with Communication Style")
 
     // Normalize UUIDs (handle stripped format)
     // Helper to get and normalize
@@ -251,15 +219,10 @@ class NotificationService: UNNotificationServiceExtension {
     if fallback.applied {
       content.title = fallback.title
       content.body = fallback.body
-      print("📱 [NotificationService] 🧩 Applied title/body fallback. title='\(content.title)' body='\(content.body)'")
     }
-    
-    print("📱 [NotificationService] 🎭 UserInfo keys: \(userInfo.keys.sorted())")
-    if let bid = normalizedBid { print("📱 [NotificationService] 🎭 Normalized Bucket ID: \(bid)") }
 
     // Check if skipSendMessageIntent is true
     if let skipSendMessageIntent = userInfo["skipSendMessageIntent"] as? Bool, skipSendMessageIntent {
-      print("📱 [NotificationService] 🎭 skipSendMessageIntent=true, skipping Communication Style")
       
       // Log skipped communication style
       let notificationId = self.currentRequestIdentifier ?? "unknown"
@@ -273,13 +236,8 @@ class NotificationService: UNNotificationServiceExtension {
         ]
       )
       
-      // Deliver notification
       contentHandler(content)
-      
-      // Flush logs immediately before extension terminates
-      print("📱 [NotificationService] 🎯 Processing complete, flushing logs before exit")
       LoggingSystem.shared.flushLogs()
-      
       return
     }
 
@@ -319,9 +277,7 @@ class NotificationService: UNNotificationServiceExtension {
       )
         
       if senderAvatarImageData != nil {
-        print("📱 [NotificationService] 🎭 ✅ Using bucket icon from fileSystem (bucketId: \(bucketId), foundInCache: \(iconFoundInCache))")
-      } else {
-        print("📱 [NotificationService] 🎭 ⚠️ Bucket icon not available (bucketId: \(bucketId), foundInCache: \(iconFoundInCache), hasIconUrlInPayload: \(iconUrlFromPayload != nil), cachePath: \(iconCachePath ?? "nil"))")
+        print("📱 [NotificationService] 🎭 Communication style with avatar (bucketId: \(bucketId))")
       }
       
       // Log avatar configuration with detailed icon information
@@ -382,19 +338,9 @@ class NotificationService: UNNotificationServiceExtension {
       suggestionType: .none
     )
 
-    // Prepare message content: if subtitle exists, prepend it to the body
-    print("📱 [NotificationService] 🎭 📝 Original content.subtitle: '\(content.subtitle)'")
-    print("📱 [NotificationService] 🎭 📝 Original content.body: '\(content.body)'")
-    print("📱 [NotificationService] 🎭 📝 Subtitle isEmpty: \(content.subtitle.isEmpty)")
-    
     // IMPORTANT: Modify content.body directly BEFORE creating the intent
-    // because content.updating(from:) will use the content's body, not the intent's content
     if !content.subtitle.isEmpty {
       content.body = "\(content.subtitle)\n\(content.body)"
-      print("📱 [NotificationService] 🎭 ✅ Modified content.body to include subtitle with newline")
-      print("📱 [NotificationService] 🎭 📝 New content.body: '\(content.body)'")
-    } else {
-      print("📱 [NotificationService] 🎭 ⚠️ Subtitle is empty, using body only")
     }
 
     // the actual message. We use the OS to send us ourselves a message.
@@ -411,8 +357,6 @@ class NotificationService: UNNotificationServiceExtension {
       attachments: []
     )
     
-    print("📱 [NotificationService] 🎭 📝 Final intent content: '\(incomingMessagingIntent.content ?? "nil")')")
-
     // Apply image only if we have one (if preference forces app icon, we leave it nil)
     if let senderAvatar = senderAvatar {
       incomingMessagingIntent.setImage(senderAvatar, forParameterNamed: \.sender)
@@ -426,15 +370,6 @@ class NotificationService: UNNotificationServiceExtension {
       // we now update / patch / convert our attempt to a communication notification.
       bestAttemptContent =
         try content.updating(from: incomingMessagingIntent) as? UNMutableNotificationContent
-
-      // IMPORTANT: Ensure notification is delivered to paired Apple Watch
-      // By default, iOS notifications with communication style are shown on watch
-      // We just need to make sure the payload is preserved
-      if let bestContent = bestAttemptContent {
-        print("📱 [NotificationService] ⌚️ Notification ready for delivery to iOS and watchOS")
-        print("📱 [NotificationService] ⌚️ Category: \(bestContent.categoryIdentifier)")
-        print("📱 [NotificationService] ⌚️ UserInfo keys: \(bestContent.userInfo.keys.map { String(describing: $0) }.joined(separator: ", "))")
-      }
 
       // everything went alright, we are ready to display our notification.
       contentHandler(bestAttemptContent!)
@@ -457,13 +392,9 @@ class NotificationService: UNNotificationServiceExtension {
         ]
       )
       
-      // Flush logs immediately before extension terminates
-      print("📱 [NotificationService] 🎯 Processing complete, flushing logs before exit")
       LoggingSystem.shared.flushLogs()
-      
     } catch let error {
-      print("error \(error)")
-      
+      print("📱 [NotificationService] ❌ Communication style error: \(error)")
       // Log communication style error
       let notificationId = self.currentRequestIdentifier ?? "unknown"
       logToDatabase(
@@ -476,8 +407,6 @@ class NotificationService: UNNotificationServiceExtension {
         ]
       )
       
-      // Flush logs immediately before extension terminates (error case)
-      print("📱 [NotificationService] 🎯 Error occurred, flushing logs before exit")
       LoggingSystem.shared.flushLogs()
     }
   }
@@ -486,8 +415,6 @@ class NotificationService: UNNotificationServiceExtension {
 
   private func decryptNotificationContent(content: UNMutableNotificationContent) {
     guard let userInfo = content.userInfo as? [String: Any] else { return }
-
-    print("📱 [NotificationService] 🔍 Raw userInfo before decryption: \(userInfo)")
 
     // Preserve public fields from payload root (nid, bid, mid, dty, act)
     var updated = content.userInfo as? [String: Any] ?? [:]
@@ -509,13 +436,10 @@ class NotificationService: UNNotificationServiceExtension {
     let encryptedData = (userInfo["enc"] as? String) ?? (userInfo["e"] as? String)
     
     if let enc = encryptedData, let jsonString = decryptValue(enc) {
-      print("📱 [NotificationService] 🔓 Decrypted blob content: \(jsonString)")
-      
+      print("📱 [NotificationService] 🔓 Payload decrypted")
       if let data = jsonString.data(using: .utf8),
         let sensitive = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
       {
-        print("📱 [NotificationService] 🔍 Parsed decrypted sensitive object keys: \(sensitive.keys.sorted())")
-        
         // Extract sensitive fields from decrypted blob (tit, bdy, stl, att, tap, act)
         if let title = sensitive["tit"] as? String { content.title = title }
         if let body = sensitive["bdy"] as? String { content.body = body }
@@ -587,8 +511,6 @@ class NotificationService: UNNotificationServiceExtension {
       }
     } else {
       // Non-encrypted path: sensitive fields are in payload root
-      print("📱 [NotificationService] 📄 Non-encrypted payload, reading from root")
-      
       // Preserve public fields (nid, bid, mid, dty are already in updated from above)
       // Extract sensitive fields from payload root (tit, bdy, stl, att, tap, act)
       if let title = userInfo["tit"] as? String { content.title = title }
@@ -658,10 +580,7 @@ class NotificationService: UNNotificationServiceExtension {
     request: UNNotificationRequest,
     content: UNMutableNotificationContent
   ) async {
-    guard var userInfo = content.userInfo as? [String: Any] else {
-      print("📱 [NotificationService] (selfDownload) ❌ Missing userInfo, skipping backend fetch")
-      return
-    }
+    guard var userInfo = content.userInfo as? [String: Any] else { return }
 
     // Extract normalized notificationId from payload (nid/n) or fallback to request identifier
     let rawNotificationId = (userInfo["nid"] as? String)
@@ -688,7 +607,6 @@ class NotificationService: UNNotificationServiceExtension {
         ]
       )
     } catch {
-      print("📱 [NotificationService] (selfDownload) ❌ Failed to enrich from backend: \(error.localizedDescription)")
       logToDatabase(
         level: "error",
         tag: "SelfDownload",
@@ -859,7 +777,6 @@ class NotificationService: UNNotificationServiceExtension {
 
   private func decryptValue(_ encryptedValue: String) -> String? {
     guard let privateKey = getPrivateKey() else {
-      print("📱 [NotificationService] ❌ Private key not found")
       logToDatabase(
         level: "error",
         tag: "Decryption",
@@ -877,7 +794,6 @@ class NotificationService: UNNotificationServiceExtension {
         .padding(toLength: ((encryptedValue.count + 3) / 4) * 4, withPad: "=", startingAt: 0)
 
       guard let data = Data(base64Encoded: base64Value) else {
-        print("📱 [NotificationService] ❌ Invalid base64 payload")
         logToDatabase(
           level: "error",
           tag: "Decryption",
@@ -892,18 +808,12 @@ class NotificationService: UNNotificationServiceExtension {
           let ivB64 = json["i"],
           let encryptedPayloadB64 = json["p"],
           let tagB64 = json["t"]
-        else {
-          print("📱 [NotificationService] ❌ Missing encryption envelope fields")
-          return nil
-        }
+        else { return nil }
         guard let encryptedKey = Data(base64Encoded: encryptedKeyB64),
           let iv = Data(base64Encoded: ivB64),
           let encryptedPayload = Data(base64Encoded: encryptedPayloadB64),
           let tag = Data(base64Encoded: tagB64)
-        else {
-          print("📱 [NotificationService] ❌ Invalid base64 encoding")
-          return nil
-        }
+        else { return nil }
         let decryptedKey = try decryptAESKey(encryptedKey: encryptedKey, privateKey: privateKey)
         let decryptedPayload = try decryptAESPayload(
           encryptedPayload: encryptedPayload,
@@ -913,15 +823,12 @@ class NotificationService: UNNotificationServiceExtension {
         )
         return String(data: decryptedPayload, encoding: .utf8)
       } else {
-        // Legacy RSA direct payload
         if let plaintext = try? decryptRSAPayload(encryptedPayload: data, privateKey: privateKey) {
           return String(data: plaintext, encoding: .utf8)
         }
-        print("📱 [NotificationService] ❌ Unsupported encrypted payload format")
         return nil
       }
     } catch {
-      print("📱 [NotificationService] ❌ Decryption failed: \(error)")
       logToDatabase(
         level: "error",
         tag: "Decryption",
@@ -964,10 +871,6 @@ class NotificationService: UNNotificationServiceExtension {
     let accessGroup = KeychainAccess.getKeychainAccessGroup()
     let bundleIdentifier = KeychainAccess.getMainBundleIdentifier()
 
-    print("📱 [NotificationService] 🔍 Looking for private key with bundle: \(bundleIdentifier)")
-    print("📱 [NotificationService] 🔍 Access group: \(accessGroup)")
-    print("📱 [NotificationService] 🔍 Current bundle ID: \(Bundle.main.bundleIdentifier ?? "nil")")
-
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: "zentik-private-key",
@@ -978,10 +881,7 @@ class NotificationService: UNNotificationServiceExtension {
     ]
     var result: AnyObject?
     let status = SecItemCopyMatching(query as CFDictionary, &result)
-    guard status == errSecSuccess, let keyData = result as? Data else {
-      print("📱 [NotificationService] ❌ Failed to retrieve private key: \(status)")
-      return nil
-    }
+    guard status == errSecSuccess, let keyData = result as? Data else { return nil }
     // Convert stored value to PEM string (handle JSON-wrapped string and \n escapes)
     var pemString: String
     if let jsonString = try? JSONSerialization.jsonObject(
@@ -1008,10 +908,7 @@ class NotificationService: UNNotificationServiceExtension {
       .replacingOccurrences(of: "-----BEGIN PRIVATE KEY-----", with: "")
       .replacingOccurrences(of: "-----END PRIVATE KEY-----", with: "")
       .replacingOccurrences(of: "\\s", with: "", options: .regularExpression)
-    guard let keyData = Data(base64Encoded: pkcs8) else {
-      print("📱 [NotificationService] ❌ Invalid PEM format")
-      return nil
-    }
+    guard let keyData = Data(base64Encoded: pkcs8) else { return nil }
     // Try to extract RSAPrivateKey DER from PKCS#8 PrivateKeyInfo
     let rsaDer = extractRSAPrivateKeyFromPKCS8(keyData) ?? keyData
     let attributes: [String: Any] = [
@@ -1027,14 +924,7 @@ class NotificationService: UNNotificationServiceExtension {
         attributes as CFDictionary,
         &error
       )
-    else {
-      if let error = error?.takeRetainedValue() {
-        print("📱 [NotificationService] ❌ Failed to create SecKey: \(error)")
-      } else {
-        print("📱 [NotificationService] ❌ Failed to create SecKey: unknown error")
-      }
-      return nil
-    }
+    else { return nil }
     return privateKey
   }
 
@@ -1107,9 +997,6 @@ class NotificationService: UNNotificationServiceExtension {
   }
 
   override func serviceExtensionTimeWillExpire() {
-    print("📱 [NotificationService] Service extension time will expire")
-    
-    // Flush any pending logs before extension terminates
     LoggingSystem.shared.flushLogs()
     
     if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {
@@ -1123,21 +1010,15 @@ class NotificationService: UNNotificationServiceExtension {
     content: UNMutableNotificationContent, completion: @escaping () -> Void
   ) {
     guard let userInfo = content.userInfo as? [String: Any] else {
-      print("📱 [NotificationService] No userInfo found for actions")
       completion()
       return
     }
 
     var actions: [[String: Any]] = []
-
-    // Support both old and new abbreviated keys (after decryption, actions are already merged in "actions")
     if let actionsArray = userInfo["actions"] as? [[String: Any]] {
       actions = actionsArray
-      print("📱 [NotificationService] Actions data: \(actions)")
     } else if let actionsArray = (userInfo["act"] as? [[String: Any]]) ?? (userInfo["a"] as? [[String: Any]]) {
-      // Fallback to abbreviated key if "actions" not available
       actions = actionsArray
-      print("📱 [NotificationService] Actions data (abbreviated key): \(actions)")
     }
 
     if !actions.isEmpty {
@@ -1191,30 +1072,14 @@ class NotificationService: UNNotificationServiceExtension {
         normalizedActions.append(normalized)
       }
 
-      print("📱 [NotificationService] 🔍 Original actions: \(actions.count), filtered for buttons: \(buttonActions.count)")
-      
-      // Register notification category with filtered actions for watchOS compatibility
-      // This excludes NAVIGATE/OPEN_NOTIFICATION from appearing as notification buttons
       registerDynamicCategory(with: buttonActions)
-      
-      // Use DYNAMIC category
       content.categoryIdentifier = "DYNAMIC"
-      
-      print("📱 [NotificationService] 🎭 Registered DYNAMIC category with \(buttonActions.count) actions")
-      
-      // Add ALL normalized actions (including NAVIGATE/OPEN_NOTIFICATION) to userInfo for NCE
-      // NCE can display NAVIGATE/OPEN_NOTIFICATION actions in its custom UI
       var mutableUserInfo = content.userInfo as? [String: Any] ?? [:]
       mutableUserInfo["actions"] = normalizedActions
       mutableUserInfo["hasActions"] = !normalizedActions.isEmpty
-      
       content.userInfo = mutableUserInfo
-      print("📱 [NotificationService] ⌚️ All actions (including NAVIGATE) added to userInfo for NCE custom UI")
-      
     } else {
-      // Use DYNAMIC category even without actions for NCE custom content
       content.categoryIdentifier = "DYNAMIC"
-      print("📱 [NotificationService] 🎭 Using DYNAMIC category (no actions)")
     }
     
     completion()
@@ -1227,14 +1092,10 @@ class NotificationService: UNNotificationServiceExtension {
       return false
     }
 
-    // Check new format: array of strings ["IMAGE:url", "VIDEO:url"]
     if let attachmentStrings = userInfo["att"] as? [String], !attachmentStrings.isEmpty {
-      print("📱 [NotificationService] Found attachments as string array (new format)")
       return true
     }
-    // Check if attachmentData was created from att during decryption
     if let attachmentData = userInfo["attachmentData"] as? [[String: Any]], !attachmentData.isEmpty {
-      print("📱 [NotificationService] Found attachments in attachmentData")
       return true
     }
 
@@ -1277,57 +1138,27 @@ class NotificationService: UNNotificationServiceExtension {
 
     var mediaAttachments = extractMediaAttachments(from: userInfo)
     guard !mediaAttachments.isEmpty else {
-      print("📱 [NotificationService] No media attachments found")
       completion()
       return
     }
 
-    print("📱 [NotificationService] Found \(mediaAttachments.count) media attachments")
-
-    // Allow ICONs to be attached for normal notification display
-    // The expansion will be controlled by the category (myNotificationCategoryIconOnly)
-    print("📱 [NotificationService] Proceeding with media download and attachment")
-
-    // The NotificationService ALWAYS downloads only the first media by priority
-    // The Content Extension will handle expanded mode if active
-
-    // Sort media by priority: IMAGE -> GIF -> VIDEO -> AUDIO -> ICON (ICONs last to avoid expansion)
     mediaAttachments.sort { a, b in
       let p1 = getCompactPriority(a.mediaType)
       let p2 = getCompactPriority(b.mediaType)
       return p1 < p2
     }
 
-    print("📱 [NotificationService] NSE mode: downloading first media by priority")
-    print(
-      "📱 [NotificationService] Priority order: IMAGE(1) -> GIF(2) -> VIDEO(3) -> AUDIO(4) -> ICON(5)"
-    )
-    print("📱 [NotificationService] After sorting:")
-    for (index, item) in mediaAttachments.enumerated() {
-      let priority = getCompactPriority(item.mediaType)
-      print("📱 [NotificationService]   [\(index)] \(item.mediaType) (priority: \(priority))")
-    }
-    print(
-      "📱 [NotificationService] Selected media: \(mediaAttachments[0].mediaType) with priority \(getCompactPriority(mediaAttachments[0].mediaType))"
-    )
-
-    // Select only ONE media by priority for attachment (ICONs already filtered out)
     let selectedItem: MediaAttachment = mediaAttachments.first!
-    print("📱 [NotificationService] 🎯 Selected for NSE attachment: \(selectedItem.mediaType)")
 
     // Download only the selected media
     let notificationId = self.currentRequestIdentifier ?? UUID().uuidString
     downloadMediaAttachment(mediaItem: selectedItem, notificationId: notificationId) { [weak self] attachment in
       guard let self = self else {
-        // If self is nil, still call completion to ensure _handleChatMessage() is called
-        print("📱 [NotificationService] ⚠️ Self is nil in downloadMediaAttachment completion, calling completion anyway")
         completion()
         return
       }
       if let attachment = attachment {
         content.attachments = [attachment]
-        print(
-          "📱 [NotificationService] ✅ Media downloaded for compact view: \(selectedItem.mediaType)")
 
         // Log successful media download
         self.logToDatabase(
@@ -1341,11 +1172,7 @@ class NotificationService: UNNotificationServiceExtension {
           ]
         )
         
-        // self.downloadIconsToSharedCache(from: userInfo)
       } else {
-        print("📱 [NotificationService] ❌ Failed to download selected media, continuing with Communication Style anyway")
-        print("📱 [NotificationService] ℹ️ Communication Style will still be applied - bucket icon is available locally")
-        
         // Log media download failure
         self.logToDatabase(
           level: "error",
@@ -1362,10 +1189,6 @@ class NotificationService: UNNotificationServiceExtension {
         // Set error flag in shared metadata for Content Extension to handle
         self.setDownloadErrorFlag(for: selectedItem)
       }
-      // Always call completion to ensure _handleChatMessage() is called
-      // Even if media download failed, communication protocol should still work
-      // because bucket icon is always available locally
-      print("📱 [NotificationService] 📞 Calling completion to proceed with Communication Style")
       completion()
     }
   }
@@ -1380,55 +1203,28 @@ class NotificationService: UNNotificationServiceExtension {
   private func extractMediaAttachments(from userInfo: [String: Any]) -> [MediaAttachment] {
     var mediaAttachments: [MediaAttachment] = []
 
-    // Handle new format: array of strings ["IMAGE:url", "VIDEO:url"]
     if let attachmentStrings = userInfo["att"] as? [String] {
-      print("📱 [NotificationService] Extracting attachments from string array (new format)")
-      for (index, attachmentString) in attachmentStrings.enumerated() {
+      for attachmentString in attachmentStrings {
         let parts = attachmentString.split(separator: ":", maxSplits: 1)
         if parts.count == 2 {
           let mediaType = String(parts[0])
           let url = String(parts[1])
-          
-          // Filter out icons: they should never be used as attachments in NSE
-          if mediaType.uppercased() == "ICON" {
-            print("📱 [NotificationService] 🚫 Filtered out ICON attachment [\(index)]: \(url)")
-            continue
-          }
-          
-          let priority = getCompactPriority(mediaType)
+          if mediaType.uppercased() == "ICON" { continue }
           mediaAttachments.append(MediaAttachment(mediaType: mediaType, url: url, name: nil))
-          
-          print(
-            "📱 [NotificationService] 📎 Found attachment [\(index)]: \(mediaType) (priority: \(priority)) - \(url)"
-          )
         }
       }
     }
-    
-    // Handle attachmentData created from att during decryption
+
     if let attachmentData = userInfo["attachmentData"] as? [[String: Any]] {
-      print("📱 [NotificationService] Extracting attachments from attachmentData")
-      for (index, attachment) in attachmentData.enumerated() {
+      for attachment in attachmentData {
         if let mediaType = attachment["mediaType"] as? String,
           let url = attachment["url"] as? String
         {
-          // Filter out icons: they should never be used as attachments in NSE
-          if mediaType.uppercased() == "ICON" {
-            print("📱 [NotificationService] 🚫 Filtered out ICON attachment [\(index)]: \(url)")
-            continue
-          }
-          
+          if mediaType.uppercased() == "ICON" { continue }
           let name = attachment["name"] as? String
           let originalFileName = attachment["originalFileName"] as? String
-
-          // Use originalFileName if available, otherwise name
           let fileName = originalFileName ?? name
-          let priority = getCompactPriority(mediaType)
           mediaAttachments.append(MediaAttachment(mediaType: mediaType, url: url, name: fileName))
-
-          print(
-            "📱 [NotificationService] 📎 Found attachment [\(index)]: \(mediaType) (priority: \(priority)) - \(fileName ?? "no name")"
-          )
         }
       }
     }
@@ -1467,7 +1263,6 @@ class NotificationService: UNNotificationServiceExtension {
     completion: @escaping (UNNotificationAttachment?) -> Void
   ) {
     guard let url = URL(string: mediaItem.url) else {
-      print("📱 [NotificationService] Invalid URL: \(mediaItem.url)")
 
       // Generate error image for invalid URL
       let errorMessage = "Invalid URL: \(mediaItem.url)"
@@ -1529,8 +1324,6 @@ class NotificationService: UNNotificationServiceExtension {
         ]
       }
     default:
-      print("📱 [NotificationService] Unsupported media type: \(mediaItem.mediaType)")
-
       // Generate error image for unsupported media type
       let errorMessage = "Unsupported media type: \(mediaItem.mediaType)"
       if let errorAttachment = self.createErrorAttachment(message: errorMessage) {
@@ -1571,8 +1364,6 @@ class NotificationService: UNNotificationServiceExtension {
             ? typeCandidate
             : (FileManager.default.fileExists(atPath: rootCandidate.path) ? rootCandidate : nil))
         if let candidateUrl {
-          print("📱 [NotificationService] ⚡️ Found cached media from SQLite: \(candidateUrl.path)")
-
           do {
             // Create attachment from a temp copy to avoid any system move/lock on the shared file
             let tmpAttachmentUrl = FileManager.default.temporaryDirectory.appendingPathComponent(
@@ -1591,11 +1382,7 @@ class NotificationService: UNNotificationServiceExtension {
             self.markMediaAsCompleted(mediaItem, success: true, isNewDownload: false)
             completion(attachment)
             return
-          } catch {
-            print(
-              "📱 [NotificationService] ⚠️ Failed to create attachment from cached file, will redownload: \(error)"
-            )
-          }
+          } catch {}
         }
       }
     }
@@ -1604,11 +1391,8 @@ class NotificationService: UNNotificationServiceExtension {
     session.configuration.timeoutIntervalForRequest = 15.0
 
     let task = session.downloadTask(with: url) { downloadedUrl, response, error in
-      // Check for network errors first
       if let error = error {
         let errorDescription = error.localizedDescription
-        print("📱 [NotificationService] Download network error: \(errorDescription)")
-
         // Mark media as failed in database so NCE can detect the error
         self.markMediaAsCompleted(
           mediaItem, success: false, isNewDownload: true,
@@ -1623,11 +1407,8 @@ class NotificationService: UNNotificationServiceExtension {
         return
       }
 
-      // Check HTTP status codes
       if let httpResponse = response as? HTTPURLResponse {
         let statusCode = httpResponse.statusCode
-        print("📱 [NotificationService] HTTP Status Code: \(statusCode)")
-
         if statusCode < 200 || statusCode >= 300 {
           let errorMessage: String
           switch statusCode {
@@ -1646,9 +1427,6 @@ class NotificationService: UNNotificationServiceExtension {
           default:
             errorMessage = "HTTP Error (\(statusCode))"
           }
-
-          print("📱 [NotificationService] HTTP error: \(errorMessage)")
-
           // Mark media as failed in database so NCE can detect the error
           self.markMediaAsCompleted(
             mediaItem, success: false, isNewDownload: true, errorCode: errorMessage)
@@ -1663,11 +1441,8 @@ class NotificationService: UNNotificationServiceExtension {
         }
       }
 
-      // Check if we have a valid downloaded file
       guard let downloadedUrl = downloadedUrl else {
         let errorMessage = "No file downloaded"
-        print("📱 [NotificationService] Download error: \(errorMessage)")
-
         // Mark media as failed in database so NCE can detect the error
         self.markMediaAsCompleted(
           mediaItem, success: false, isNewDownload: true, errorCode: errorMessage)
@@ -1689,8 +1464,6 @@ class NotificationService: UNNotificationServiceExtension {
 
         if downloadedFileSize == 0 {
           let errorMessage = "Downloaded file is empty (0 bytes)"
-          print("📱 [NotificationService] Download error: \(errorMessage)")
-
           // Generate error image for empty file
           if let errorAttachment = self.createErrorAttachment(message: errorMessage) {
             completion(errorAttachment)
@@ -1709,8 +1482,6 @@ class NotificationService: UNNotificationServiceExtension {
           {
 
             let errorMessage = "Server returned error page instead of media"
-            print("📱 [NotificationService] Download error: \(errorMessage) - Content: \(content)")
-
             // Generate error image for error page
             if let errorAttachment = self.createErrorAttachment(message: errorMessage) {
               completion(errorAttachment)
@@ -1720,8 +1491,6 @@ class NotificationService: UNNotificationServiceExtension {
             return
           }
         }
-
-        print("📱 [NotificationService] Downloaded file size: \(downloadedFileSize) bytes")
 
         // Save the media in the app's cache folder to make it accessible
         let cacheDirectory = MediaAccess.getSharedMediaCacheDirectory()
@@ -1743,19 +1512,8 @@ class NotificationService: UNNotificationServiceExtension {
         try FileManager.default.createDirectory(
           at: typeDirectory, withIntermediateDirectories: true, attributes: nil)
 
-        // Remove existing file if it exists to avoid copy conflicts
         if FileManager.default.fileExists(atPath: cacheFileUrl.path) {
-          do {
-            let attrs = try FileManager.default.attributesOfItem(atPath: cacheFileUrl.path)
-            let oldSize = (attrs[.size] as? NSNumber)?.int64Value ?? -1
-            print(
-              "📱 [NotificationService] 🔎 Pre-existing file before overwrite: path=\(cacheFileUrl.path) size=\(oldSize)"
-            )
-          } catch {
-            print("📱 [NotificationService] ⚠️ Failed to read pre-existing file attributes: \(error)")
-          }
-          try FileManager.default.removeItem(at: cacheFileUrl)
-          print("📱 [NotificationService] 🗑️ Removed existing file: \(filename)")
+          try? FileManager.default.removeItem(at: cacheFileUrl)
         }
 
         // Copy the file from the temporary directory to the cache (byte-for-byte via Data)
@@ -1765,45 +1523,21 @@ class NotificationService: UNNotificationServiceExtension {
         do {
           try FileManager.default.setAttributes(
             [.protectionKey: FileProtectionType.none], ofItemAtPath: cacheFileUrl.path)
-        } catch {
-          print("📱 [NotificationService] ⚠️ Failed to set file protection to none: \(error)")
-        }
+        } catch {}
         do {
           var rv = URLResourceValues()
           rv.isExcludedFromBackup = true
           var mutableUrl = cacheFileUrl
           try mutableUrl.setResourceValues(rv)
-        } catch {
-          print("📱 [NotificationService] ⚠️ Failed to set isExcludedFromBackup: \(error)")
-        }
-        // Verify saved file for compact view path
-        let compactExists = FileManager.default.fileExists(atPath: cacheFileUrl.path)
-        var compactSize: Int64 = -1
-        if compactExists {
-          do {
-            let attrs = try FileManager.default.attributesOfItem(atPath: cacheFileUrl.path)
-            if let size = attrs[.size] as? NSNumber {
-              compactSize = size.int64Value
-            }
-          } catch {
-            print("📱 [NotificationService] ⚠️ Failed to read compact file attributes: \(error)")
-          }
-        }
-        print(
-          "📱 [NotificationService] 🔎 Compact file verification: exists=\(compactExists) path=\(cacheFileUrl.path) size=\(compactSize)"
-        )
+        } catch {}
 
         // Validate file size before creating attachment
         let fileAttributes = try FileManager.default.attributesOfItem(atPath: cacheFileUrl.path)
         let fileSize = fileAttributes[FileAttributeKey.size] as? Int64 ?? 0
         let fileSizeMB = Double(fileSize) / (1024.0 * 1024.0)
 
-        // Check iOS attachment size limits
         let maxSizeMB = self.getMaxAttachmentSize(for: mediaItem.mediaType)
         if fileSizeMB > maxSizeMB {
-          print(
-            "📱 [NotificationService] ❌ File too large: \(String(format: "%.2f", fileSizeMB))MB > \(maxSizeMB)MB limit for \(mediaItem.mediaType)"
-          )
           // Remove the file since it's too large
           try? FileManager.default.removeItem(at: cacheFileUrl)
 
@@ -1837,10 +1571,6 @@ class NotificationService: UNNotificationServiceExtension {
           return
         }
 
-        print(
-          "📱 [NotificationService] ✅ File size valid: \(String(format: "%.2f", fileSizeMB))MB (limit: \(maxSizeMB)MB)"
-        )
-
         // Create attachment from a temp copy to avoid any system move/lock on the shared file
         let tmpAttachmentUrl = FileManager.default.temporaryDirectory.appendingPathComponent(
           filename)
@@ -1861,20 +1591,12 @@ class NotificationService: UNNotificationServiceExtension {
           url: tmpAttachmentUrl,
           options: attachmentOptions as? [String: Any]
         )
-
-        print(
-          "📱 [NotificationService] ✅ Created \(identifier) attachment and saved to cache: \(cacheFileUrl.path)"
-        )
-        print("📱 [NotificationService] 📁 File saved with name: \(filename)")
-        
         // Mark as completed in shared metadata (set isDownloading=false and update size)
         self.markMediaAsCompleted(mediaItem, success: true, isNewDownload: true)
         completion(attachment)
 
       } catch {
         let errorDescription = error.localizedDescription
-        print("📱 [NotificationService] Attachment creation error: \(errorDescription)")
-
         // Generate error image for attachment creation failure
         let errorMessage = errorDescription
         if let errorAttachment = self.createErrorAttachment(message: errorMessage) {
@@ -1901,10 +1623,7 @@ class NotificationService: UNNotificationServiceExtension {
     UIGraphicsBeginImageContextWithOptions(size, false, 0.0)
     defer { UIGraphicsEndImageContext() }
 
-    guard let context = UIGraphicsGetCurrentContext() else {
-      print("📱 [NotificationService] ❌ Failed to create graphics context for error image")
-      return nil
-    }
+    guard let context = UIGraphicsGetCurrentContext() else { return nil }
 
     // Background
     context.setFillColor(UIColor.systemRed.withAlphaComponent(0.1).cgColor)
@@ -1962,27 +1681,18 @@ class NotificationService: UNNotificationServiceExtension {
     )
     messageText.draw(in: messageRect, withAttributes: messageAttributes)
 
-    // Get the image
     guard let image = UIGraphicsGetImageFromCurrentImageContext(),
       let imageData = image.pngData()
-    else {
-      print("📱 [NotificationService] ❌ Failed to generate error image data")
-      return nil
-    }
+    else { return nil }
 
-    // Save to temporary file
     let tempDir = FileManager.default.temporaryDirectory
     let errorImageURL = tempDir.appendingPathComponent(
       "notification_error_\(Int(Date().timeIntervalSince1970 * 1000)).png")
 
     do {
       try imageData.write(to: errorImageURL)
-      print("📱 [NotificationService] ✅ Generated error image: \(errorImageURL.path)")
       return errorImageURL
-    } catch {
-      print("📱 [NotificationService] ❌ Failed to save error image: \(error)")
-      return nil
-    }
+    } catch { return nil }
   }
 
   /**
@@ -1994,17 +1704,12 @@ class NotificationService: UNNotificationServiceExtension {
     }
 
     do {
-      let attachment = try UNNotificationAttachment(
+      return try UNNotificationAttachment(
         identifier: "zentik-error",
         url: imageURL,
         options: [UNNotificationAttachmentOptionsTypeHintKey: "public.png"]
       )
-      print("📱 [NotificationService] ✅ Created error attachment")
-      return attachment
-    } catch {
-      print("📱 [NotificationService] ❌ Failed to create error attachment: \(error)")
-      return nil
-    }
+    } catch { return nil }
   }
 
 
@@ -2012,21 +1717,10 @@ class NotificationService: UNNotificationServiceExtension {
   // MARK: - Badge Count Management
 
   private func updateBadgeCount(content: UNMutableNotificationContent) {
-    print("📱 [NotificationService] 🔢 Updating badge count...")
-
-    // Get current badge count from keychain
     let currentCount = KeychainAccess.getBadgeCountFromKeychain()
     let newCount = currentCount + 1
-
-    print("📱 [NotificationService] 🔢 Current badge count: \(currentCount), new count: \(newCount)")
-
-    // Update the notification badge
     content.badge = NSNumber(value: newCount)
-
-    // Save new count to keychain for app synchronization
     KeychainAccess.saveBadgeCountToKeychain(count: newCount)
-
-    print("📱 [NotificationService] ✅ Badge count updated to \(newCount)")
   }
 
 
@@ -2083,10 +1777,6 @@ class NotificationService: UNNotificationServiceExtension {
     }
     if let errorCode { fields["error_code"] = errorCode }
     if let notificationId { fields["notification_id"] = notificationId }
-
-    print(
-      "📱 [NotificationService] 📊 Marking media as completed: success=\(success), errorCode=\(errorCode ?? "nil")"
-    )
     MediaAccess.upsertCacheItem(url: mediaAttachment.url, mediaType: mediaAttachment.mediaType, fields: fields)
   }
 
@@ -2131,36 +1821,14 @@ class NotificationService: UNNotificationServiceExtension {
   // MARK: - Save Notification to SQLite
   
   private func saveNotificationToDatabase(content: UNMutableNotificationContent) {
-    guard let userInfo = content.userInfo as? [String: Any] else {
-      print("📱 [NotificationService] ⚠️ No userInfo available for saving notification")
-      return
-    }
-    
-    // Extract required fields: prefer bid from userInfo, fallback to threadIdentifier
-    // notificationId: prefer nid from userInfo (real notification ID), fallback to request identifier
+    guard let userInfo = content.userInfo as? [String: Any] else { return }
+
     let notificationId = (userInfo["nid"] as? String) ?? (self.currentRequestIdentifier ?? UUID().uuidString)
-    guard let bucketId = (userInfo["bid"] as? String) ?? (content.threadIdentifier as? String) else {
-      print("📱 [NotificationService] ⚠️ Missing bucketId (bid and threadIdentifier)")
-      return
-    }
-    
-    let dbPath = getDbPath()
-    var db: OpaquePointer?
-    
-    if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE, nil) != SQLITE_OK {
-      print("📱 [NotificationService] ❌ Failed to open DB for saving notification")
-      return
-    }
-    defer { sqlite3_close(db) }
-    
-    // Build NotificationFragment JSON
+    guard let bucketId = (userInfo["bid"] as? String) ?? (content.threadIdentifier as? String) else { return }
+
     let now = ISO8601DateFormatter().string(from: Date())
-    
-    // Build message object
     let deliveryTypeForDB = userInfo["dty"] as? String ?? "NORMAL"
-    // messageId: prefer mid from userInfo (real message ID), fallback to new UUID
     let messageId = (userInfo["mid"] as? String) ?? UUID().uuidString
-    print("📱 [NotificationService] 💾 Saving to DB - notificationId: \(notificationId), messageId: \(messageId), deliveryType: \(deliveryTypeForDB)")
     
     var messageObj: [String: Any] = [
       "__typename": "Message",
@@ -2180,9 +1848,7 @@ class NotificationService: UNNotificationServiceExtension {
     // Check both "att" (raw format) and "attachmentData" (processed by decryption)
     var attachments: [[String: Any]] = []
     
-    // First check attachmentData (created during decryption from "att")
     if let attachmentData = userInfo["attachmentData"] as? [[String: Any]] {
-      print("📱 [NotificationService] 💾 Found \(attachmentData.count) attachments in attachmentData")
       attachments = attachmentData.compactMap { attachment -> [String: Any]? in
         guard let mediaType = attachment["mediaType"] as? String,
               let url = attachment["url"] as? String else {
@@ -2199,9 +1865,7 @@ class NotificationService: UNNotificationServiceExtension {
       }
     }
     
-    // Fallback to "att" string array format if attachmentData not available
     if attachments.isEmpty, let attachmentStrings = userInfo["att"] as? [String] {
-      print("📱 [NotificationService] 💾 Found \(attachmentStrings.count) attachments in 'att' format")
       attachments = attachmentStrings.compactMap { item -> [String: Any]? in
         let parts = item.split(separator: ":", maxSplits: 1)
         if parts.count == 2 {
@@ -2217,8 +1881,6 @@ class NotificationService: UNNotificationServiceExtension {
         return nil
       }
     }
-    
-    print("📱 [NotificationService] 💾 Saving \(attachments.count) attachments to DB")
     messageObj["attachments"] = attachments
     
     // Add tapAction
@@ -2267,15 +1929,7 @@ class NotificationService: UNNotificationServiceExtension {
       messageObj["actions"] = []
     }
     
-    // Load bucket from database to get real name, color, and iconUrl
     let bucketInfo = DatabaseAccess.getBucketById(bucketId: bucketId, source: "NSE")
-    
-    if let bucketInfo = bucketInfo {
-      print("📱 [NotificationService] ✅ Loaded bucket from DB: name=\(bucketInfo.name), color=\(bucketInfo.color ?? "nil"), iconUrl=\(bucketInfo.iconUrl ?? "nil")")
-    } else {
-      print("📱 [NotificationService] ⚠️ Bucket not found in database: \(bucketId), using defaults")
-    }
-    
     // Add bucket with real data from database, or use defaults if not found
     messageObj["bucket"] = [
       "__typename": "Bucket",
@@ -2304,66 +1958,67 @@ class NotificationService: UNNotificationServiceExtension {
     
     // Convert to JSON string
     guard let jsonData = try? JSONSerialization.data(withJSONObject: notificationFragment),
-          let jsonString = String(data: jsonData, encoding: .utf8) else {
-      print("📱 [NotificationService] ❌ Failed to serialize notification fragment")
-      return
-    }
+          let jsonString = String(data: jsonData, encoding: .utf8) else { return }
     
-    // Determine has_attachments based on saved attachments array
     let hasAttachments = attachments.isEmpty ? 0 : 1
-    
-    // Insert into database
-    let sql = """
-      INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, has_attachments, fragment)
-      VALUES (?, ?, ?, ?, ?, ?)
-    """
-    
-    var stmt: OpaquePointer?
-    if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
-      print("📱 [NotificationService] ❌ Failed to prepare statement for notification insert")
-      return
-    }
-    defer { sqlite3_finalize(stmt) }
-    
-    sqlite3_bind_text(stmt, 1, (notificationId as NSString).utf8String, -1, SQLITE_TRANSIENT)
-    sqlite3_bind_text(stmt, 2, (now as NSString).utf8String, -1, SQLITE_TRANSIENT)
-    sqlite3_bind_null(stmt, 3) // read_at is null for new notifications
-    sqlite3_bind_text(stmt, 4, (bucketId as NSString).utf8String, -1, SQLITE_TRANSIENT)
-    sqlite3_bind_int(stmt, 5, Int32(hasAttachments))
-    sqlite3_bind_text(stmt, 6, (jsonString as NSString).utf8String, -1, SQLITE_TRANSIENT)
-    
-    if sqlite3_step(stmt) == SQLITE_DONE {
-      print("📱 [NotificationService] ✅ Notification saved to database: \(notificationId)")
-      
-      // Save to CloudKit for Watch synchronization
-      let dateFormatter = ISO8601DateFormatter()
-      dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-      
-      self.saveNotificationToCloudKit(
-        notificationId: notificationId,
-        bucketId: bucketId,
-        title: content.title,
-        body: content.body,
-        subtitle: content.subtitle.isEmpty ? nil : content.subtitle,
-        createdAt: dateFormatter.date(from: now) ?? Date(),
-        readAt: nil, // New notifications are unread
-        attachments: attachments.map { attachment -> [String: Any] in
-          var dict: [String: Any] = [
-            "mediaType": (attachment["mediaType"] as? String ?? "IMAGE").uppercased()
-          ]
-          if let url = attachment["url"] as? String {
-            dict["url"] = url
-          }
-          if let name = attachment["name"] as? String {
-            dict["name"] = name
-          }
-          return dict
-        },
-        actions: (messageObj["actions"] as? [[String: Any]]) ?? []
-      )
-    } else {
-      print("📱 [NotificationService] ❌ Failed to save notification to database")
-    }
+    let bucketIconUrl: String? = bucketInfo?.iconUrl
+
+    DatabaseAccess.performDatabaseOperation(
+      type: .write,
+      name: "InsertNotification",
+      source: "NSE",
+      verboseLogging: false,
+      operation: { db, _ in
+        let sql = """
+          INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, bucket_icon_url, has_attachments, fragment)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+          return .failure(String(cString: sqlite3_errmsg(db)))
+        }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, (notificationId as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 2, (now as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_null(stmt, 3)
+        sqlite3_bind_text(stmt, 4, (bucketId as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        if let url = bucketIconUrl {
+          sqlite3_bind_text(stmt, 5, (url as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        } else {
+          sqlite3_bind_null(stmt, 5)
+        }
+        sqlite3_bind_int(stmt, 6, Int32(hasAttachments))
+        sqlite3_bind_text(stmt, 7, (jsonString as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        if sqlite3_step(stmt) == SQLITE_DONE {
+          return .success
+        }
+        return .failure(String(cString: sqlite3_errmsg(db)))
+      },
+      completion: { [weak self] result in
+        guard case .success = result else { return }
+        print("📱 [NotificationService] 💾 Notification saved to database: \(notificationId)")
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        self?.saveNotificationToCloudKit(
+          notificationId: notificationId,
+          bucketId: bucketId,
+          title: content.title,
+          body: content.body,
+          subtitle: content.subtitle.isEmpty ? nil : content.subtitle,
+          createdAt: dateFormatter.date(from: now) ?? Date(),
+          readAt: nil,
+          attachments: attachments.map { attachment -> [String: Any] in
+            var dict: [String: Any] = [
+              "mediaType": (attachment["mediaType"] as? String ?? "IMAGE").uppercased()
+            ]
+            if let url = attachment["url"] as? String { dict["url"] = url }
+            if let name = attachment["name"] as? String { dict["name"] = name }
+            return dict
+          },
+          actions: (messageObj["actions"] as? [[String: Any]]) ?? []
+        )
+      }
+    )
   }
   
   // MARK: - CloudKit Sync
@@ -2379,14 +2034,8 @@ class NotificationService: UNNotificationServiceExtension {
     attachments: [[String: Any]],
     actions: [[String: Any]]
   ) {
-    // Check if CloudKit is enabled before saving
-    guard PhoneCloudKit.shared.isCloudKitEnabled else {
-      print("📱 [NotificationService] ⚠️ CloudKit is disabled, skipping CloudKit save for notification: \(notificationId)")
-      return
-    }
-    
-    print("📱 [NotificationService] ☁️ CloudKit enabled, saving notification to CloudKit: \(notificationId)")
-    
+    guard PhoneCloudKit.shared.isCloudKitEnabled else { return }
+
     // Convert actions to CloudKit format
     let cloudKitActions = actions.map { action -> [String: Any] in
       var dict: [String: Any] = [
@@ -2423,15 +2072,12 @@ class NotificationService: UNNotificationServiceExtension {
       actions: cloudKitActions
     ) { success, error in
       if success {
-        print("📱 [NotificationService] ✅ Notification saved to CloudKit: \(notificationId)")
+        print("📱 [NotificationService] 💾 Notification saved to CloudKit: \(notificationId)")
         // Track last successfully sent notification ID in shared UserDefaults
         // This allows the main app to retry any notifications that failed to send
         let sharedDefaults = UserDefaults(suiteName: "group.com.apocaliss92.zentik")
         sharedDefaults?.set(notificationId, forKey: "lastNSENotificationSentToCloudKit")
         sharedDefaults?.set(createdAt.timeIntervalSince1970, forKey: "lastNSENotificationSentTimestamp")
-      } else {
-        print("📱 [NotificationService] ⚠️ Failed to save notification to CloudKit: \(error?.localizedDescription ?? "Unknown error")")
-        // Don't update the cursor if save failed - we'll retry on app startup
       }
     }
   }
@@ -2444,10 +2090,7 @@ class NotificationService: UNNotificationServiceExtension {
     do {
       try data.write(to: fileURL)
       return fileURL
-    } catch {
-      print("📱 [NotificationService] ❌ Failed to write temp file: \(error)")
-      return nil
-    }
+    } catch { return nil }
   }
 
 
@@ -2487,19 +2130,15 @@ class NotificationService: UNNotificationServiceExtension {
           : iconName
         icon = UNNotificationActionIcon(systemImageName: actualIconName)
       }
-      
-      print("📱 [NotificationService] 🔧 Creating action: \(actionId) - \(title)\(icon != nil ? " [icon]" : "")")
       return UNNotificationAction(identifier: actionId, title: title, options: options, icon: icon)
     }
-    
+
     let category = UNNotificationCategory(
       identifier: "DYNAMIC",
       actions: notificationActions,
       intentIdentifiers: [],
       options: []
     )
-    
     UNUserNotificationCenter.current().setNotificationCategories([category])
-    print("📱 [NotificationService] ✅ Registered category 'DYNAMIC' with \(notificationActions.count) actions")
   }
 }

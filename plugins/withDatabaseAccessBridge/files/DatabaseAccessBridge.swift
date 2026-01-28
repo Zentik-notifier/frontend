@@ -258,7 +258,7 @@ class DatabaseAccessBridge: NSObject {
   // MARK: - Settings Operations
   
   /**
-   * Get a setting value from app_settings table
+   * Get a setting value from app_settings table (KV store, shared lock)
    */
   @objc
   func getSettingValue(
@@ -266,21 +266,17 @@ class DatabaseAccessBridge: NSObject {
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
-    if let value = DatabaseAccess.getSettingValue(key: key) {
-      resolve([
-        "key": key,
-        "value": value
-      ])
-    } else {
-      resolve([
-        "key": key,
-        "value": NSNull()
-      ])
+    DatabaseAccess.getSettingValue(key: key) { value in
+      if let value = value {
+        resolve(["key": key, "value": value])
+      } else {
+        resolve(["key": key, "value": NSNull()])
+      }
     }
   }
   
   /**
-   * Set a setting value in app_settings table
+   * Set a setting value in app_settings table (KV store, shared lock)
    */
   @objc
   func setSettingValue(
@@ -289,20 +285,17 @@ class DatabaseAccessBridge: NSObject {
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
-    let success = DatabaseAccess.setSettingValue(key: key, value: value)
-    
-    if success {
-      resolve([
-        "success": true,
-        "key": key
-      ])
-    } else {
-      reject("SET_SETTING_FAILED", "Failed to set setting value", nil)
+    DatabaseAccess.setSettingValue(key: key, value: value) { success in
+      if success {
+        resolve(["success": true, "key": key])
+      } else {
+        reject("SET_SETTING_FAILED", "Failed to set setting value", nil)
+      }
     }
   }
   
   /**
-   * Remove a setting value from app_settings table
+   * Remove a setting value from app_settings table (KV store, shared lock)
    */
   @objc
   func removeSettingValue(
@@ -310,15 +303,60 @@ class DatabaseAccessBridge: NSObject {
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
-    let success = DatabaseAccess.removeSettingValue(key: key)
-    
-    if success {
-      resolve([
-        "success": true,
-        "key": key
-      ])
-    } else {
-      reject("REMOVE_SETTING_FAILED", "Failed to remove setting value", nil)
+    DatabaseAccess.removeSettingValue(key: key) { success in
+      if success {
+        resolve(["success": true, "key": key])
+      } else {
+        reject("REMOVE_SETTING_FAILED", "Failed to remove setting value", nil)
+      }
+    }
+  }
+  
+  /**
+   * Get all keys from app_settings table (KV store, shared lock)
+   */
+  @objc
+  func getAllSettingKeys(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    DatabaseAccess.getAllSettingKeys { keys in
+      resolve(["keys": keys])
+    }
+  }
+  
+  /**
+   * Run PRAGMA quick_check under lock. For integrity check on iOS.
+   */
+  @objc
+  func runIntegrityCheck(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    DatabaseAccess.runIntegrityCheck(source: "RNBridge") { ok in
+      if ok {
+        resolve(["ok": true])
+      } else {
+        reject("INTEGRITY_CHECK_FAILED", "PRAGMA quick_check failed", nil)
+      }
+    }
+  }
+  
+  /**
+   * Ensure shared cache.db exists with full schema (tables, indexes, migrations).
+   * Idempotent; call once at app startup on iOS before using cache via bridge.
+   */
+  @objc
+  func ensureCacheDbInitialized(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    DatabaseAccess.ensureSharedCacheDbInitialized(source: "RNBridge") { success in
+      if success {
+        resolve(["success": true])
+      } else {
+        reject("INIT_FAILED", "Failed to initialize shared cache database", nil)
+      }
     }
   }
   
@@ -336,6 +374,39 @@ class DatabaseAccessBridge: NSObject {
       ])
     } else {
       reject("DB_PATH_NOT_FOUND", "Failed to get database path", nil)
+    }
+  }
+  
+  /**
+   * Get lock file path in App Group (for debugging). All cache.db access uses this lock.
+   * Logs are not in cache.db; they are in JSON files under shared_media_cache/logs.
+   */
+  @objc
+  func getSharedCacheLockPath(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    if let lockPath = DatabaseAccess.getSharedCacheLockPath() {
+      resolve([
+        "path": lockPath
+      ])
+    } else {
+      reject("LOCK_PATH_NOT_FOUND", "Failed to get shared cache lock path", nil)
+    }
+  }
+  
+  /**
+   * Get total notification count (read + unread)
+   */
+  @objc
+  func getTotalNotificationCount(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    DatabaseAccess.getTotalNotificationCount(source: "RNBridge") { count in
+      resolve([
+        "count": count
+      ])
     }
   }
   

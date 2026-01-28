@@ -263,14 +263,6 @@ class SettingsService {
 
   async initialize(): Promise<void> {
     try {
-      console.log('[SettingsService] 🚀 Initializing...', {
-        platform: Platform.OS,
-        isDevice: Device.isDevice,
-        bundleIdentifier,
-        keychainAccessGroup: KEYCHAIN_ACCESS_GROUP,
-        defaultApiUrl: DEFAULT_API_URL,
-      });
-
       await this.initializeDatabase();
 
       await Promise.all([
@@ -285,7 +277,6 @@ class SettingsService {
         await this.saveApiEndpoint(DEFAULT_API_URL);
       }
 
-      console.log('[SettingsService] Settings loaded successfully');
       this.initializedSubject.next(true);
     } catch (error) {
       console.error('Failed to initialize SettingsService:', error);

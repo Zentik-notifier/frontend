@@ -720,12 +720,6 @@ export async function getNotificationStats(
         let overallStats;
         try {
           overallStats = await db.getFirstAsync(overallStatsQuery, params);
-          console.log('[getNotificationStats] Overall stats result (SQLite):', {
-            total_count: overallStats?.total_count || 0,
-            unread_count: overallStats?.unread_count || 0,
-            read_count: overallStats?.read_count || 0,
-            with_attachments_count: overallStats?.with_attachments_count || 0
-          });
         } catch (error: any) {
           console.error(`[getNotificationStats] Overall stats query failed: code ${error?.code} | message ${error?.message}`);
           throw error;

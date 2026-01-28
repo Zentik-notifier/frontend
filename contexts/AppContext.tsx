@@ -463,7 +463,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const funct = async () => {
       try {
-        console.log("[AppInit] started");
 
         // subscriptionsEnabledVar(true);
         const [accessToken, refreshToken, storedLastUserId] = await Promise.all(
@@ -472,13 +471,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             Promise.resolve(settingsService.getAuthData().refreshToken),
             Promise.resolve(settingsService.getAuthData().lastUserId),
           ]
-        );
-        console.log(
-          `[AppInit] tokens found: accessToken: ${
-            !accessToken ? "false" : "true"
-          } refreshToken: ${
-            !refreshToken ? "false" : "true"
-          } storedLastUserId: ${!storedLastUserId ? "false" : "true"}`
         );
         setLastUserId(storedLastUserId);
         if (accessToken && refreshToken) {

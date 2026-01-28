@@ -3,13 +3,6 @@ import { settingsService } from './settings-service';
 
 const { WidgetReloadBridge, DatabaseAccessBridge, CloudKitSyncBridge } = NativeModules;
 
-// Debug: log available bridges
-console.log('[IosBridge] Available bridges:', {
-  WidgetReloadBridge: !!WidgetReloadBridge,
-  DatabaseAccessBridge: !!DatabaseAccessBridge,
-  CloudKitSyncBridge: !!CloudKitSyncBridge,
-});
-
 const isIOS = Platform.OS === 'ios';
 
 const isCloudKitDebugEnabled = () => settingsService.getSettings().cloudKitDebug === true;
@@ -307,6 +300,53 @@ class IosBridgeService {
     }
   }
 
+  /**
+   * Get lock file path in App Group (for debugging). Logs are in JSON files, not in cache.db.
+   */
+  async dbGetSharedCacheLockPath(): Promise<{ path: string }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    const result = await DatabaseAccessBridge.getSharedCacheLockPath();
+    return result;
+  }
+
+  /**
+   * Get total notification count (read + unread)
+   */
+  async dbGetTotalNotificationCount(): Promise<{ count: number }> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    return await DatabaseAccessBridge.getTotalNotificationCount();
+  }
+
+  /**
+   * Ensure shared cache.db exists with full schema (tables, indexes, migrations).
+   * Idempotent; call once at app startup on iOS before using cache via bridge.
+   */
+  async dbEnsureCacheDbInitialized(): Promise<void> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    await DatabaseAccessBridge.ensureCacheDbInitialized();
+  }
+
+  /**
+   * Run PRAGMA quick_check under lock (integrity check). For recovery flows on iOS.
+   */
+  async dbRunIntegrityCheck(): Promise<boolean> {
+    if (!isIOS || !DatabaseAccessBridge) {
+      throw new Error('Database access is only available on iOS');
+    }
+
+    await DatabaseAccessBridge.runIntegrityCheck();
+    return true;
+  }
+
   // ========== Generic SQL Operations ==========
 
   /**
@@ -320,7 +360,6 @@ class IosBridgeService {
 
     try {
       const results = await DatabaseAccessBridge.executeQuery(sql, params);
-      console.log('[DatabaseAccess] Query executed, rows:', results.length);
       return results;
     } catch (error) {
       console.error('[DatabaseAccess] Failed to execute query:', error);
@@ -342,7 +381,6 @@ class IosBridgeService {
 
     try {
       const result = await DatabaseAccessBridge.executeUpdate(sql, params);
-      console.log('[DatabaseAccess] Update executed, changes:', result.changes);
       return result;
     } catch (error) {
       console.error('[DatabaseAccess] Failed to execute update:', error);

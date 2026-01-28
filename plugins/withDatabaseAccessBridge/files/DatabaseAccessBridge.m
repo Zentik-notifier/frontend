@@ -119,10 +119,50 @@ RCT_EXTERN_METHOD(
 )
 
 /**
+ * Get all keys from app_settings table (KV store)
+ */
+RCT_EXTERN_METHOD(
+  getAllSettingKeys:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+/**
+ * Run PRAGMA quick_check under lock (integrity check).
+ */
+RCT_EXTERN_METHOD(
+  runIntegrityCheck:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+/**
+ * Ensure shared cache.db exists with full schema. Idempotent; call at app startup on iOS.
+ */
+RCT_EXTERN_METHOD(
+  ensureCacheDbInitialized:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+/**
  * Get database path (for debugging purposes)
  */
 RCT_EXTERN_METHOD(
   getDbPath:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+/**
+ * Get lock file path in App Group. Logs are in JSON files, not in cache.db.
+ */
+RCT_EXTERN_METHOD(
+  getSharedCacheLockPath:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+/**
+ * Get total notification count (read + unread)
+ */
+RCT_EXTERN_METHOD(
+  getTotalNotificationCount:(RCTPromiseResolveBlock)resolve
   rejecter:(RCTPromiseRejectBlock)reject
 )
 

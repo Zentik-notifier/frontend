@@ -437,7 +437,6 @@ class MediaCacheService {
      */
     public setFilesystemPermission(hasPermission: boolean): void {
         this.hasFilesystemPermission = hasPermission;
-        console.log('[MediaCache] Filesystem permission status:', hasPermission);
     }
 
     /**
@@ -463,7 +462,6 @@ class MediaCacheService {
             }
 
             await this.loadMetadata();
-            console.log('[MediaCache] Media metadata loaded, items count:', Object.keys(this.metadata).length);
 
             // Queue thumbnail generation for all media that are downloaded but missing thumbnails
             if (!isWeb) {

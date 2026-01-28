@@ -1114,7 +1114,7 @@ public class NotificationActionHandler {
                         }
                         
                         // Write to database (settings repository)
-                        let success = DatabaseAccess.setSettingValue(key: "auth_pendingNavigationIntent", value: jsonString)
+                        let success = DatabaseAccess.setSettingValueSync(key: "auth_pendingNavigationIntent", value: jsonString)
                         
                         if success {
                             // Log to database for tracking

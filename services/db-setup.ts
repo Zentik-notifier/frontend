@@ -1,5 +1,12 @@
-import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
+
+export interface ISharedCacheDb {
+  getFirstAsync<T = any>(sql: string, params?: any[]): Promise<T | undefined>;
+  getAllAsync<T = any>(sql: string, params?: any[]): Promise<T[]>;
+  runAsync(sql: string, params?: any[]): Promise<{ changes: number }>;
+  execAsync(sql: string): Promise<void>;
+  closeAsync(): Promise<void>;
+}
 import { Platform } from 'react-native';
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { NotificationFragment } from '@/generated/gql-operations-generated';
@@ -137,10 +144,42 @@ async function waitForIndexedDB(timeoutMs: number = 10000, intervalMs: number = 
   });
 }
 
-let dbPromise: Promise<SQLiteDatabase> | null = null;
+let dbPromise: Promise<ISharedCacheDb> | null = null;
 let webDbPromise: Promise<IDBPDatabase<WebStorageDB>> | null = null;
-let dbInstance: SQLiteDatabase | null = null;
+let dbInstance: ISharedCacheDb | null = null;
 let isClosing = false; // Flag to prevent operations during database close
+
+let iosBridgeDbPromise: Promise<ISharedCacheDb> | null = null;
+
+type IosBridge = {
+  dbExecuteQuery: (sql: string, params?: any[]) => Promise<any[]>;
+  dbExecuteUpdate: (sql: string, params?: any[]) => Promise<{ success: boolean; changes: number }>;
+};
+
+function createBridgeCacheDbAdapter(bridge: IosBridge): ISharedCacheDb {
+  return {
+    getFirstAsync: async <T = any>(sql: string, params?: any[]): Promise<T | undefined> => {
+      const rows = await bridge.dbExecuteQuery(sql, params ?? []);
+      return (rows[0] as T) ?? undefined;
+    },
+    getAllAsync: async <T = any>(sql: string, params?: any[]): Promise<T[]> => {
+      return (await bridge.dbExecuteQuery(sql, params ?? [])) as T[];
+    },
+    runAsync: async (sql: string, params?: any[]): Promise<{ changes: number }> => {
+      const r = await bridge.dbExecuteUpdate(sql, params ?? []);
+      return { changes: r.changes };
+    },
+    execAsync: async (sql: string): Promise<void> => {
+      const s = sql.trim().toUpperCase();
+      if (s.startsWith('PRAGMA') || s.startsWith('SELECT')) {
+        await bridge.dbExecuteQuery(sql, []);
+      } else {
+        await bridge.dbExecuteUpdate(sql, []);
+      }
+    },
+    closeAsync: async () => {},
+  };
+}
 
 // Prevent concurrent database operations
 let dbOperationQueue: Promise<any> = Promise.resolve();
@@ -189,7 +228,7 @@ export function queueDbOperation<T>(operation: () => Promise<T>): Promise<T> {
  * Validate database integrity before operations
  * Prevents crashes from corrupted database files (FS pagein errors)
  */
-async function validateDatabase(db: SQLiteDatabase): Promise<boolean> {
+async function validateDatabase(db: ISharedCacheDb): Promise<boolean> {
   try {
     // Quick integrity check - try to read a simple pragma
     await db.execAsync('PRAGMA quick_check');
@@ -373,15 +412,24 @@ export async function executeQuery<T>(
   throw new Error(`Database operation failed: ${operationName}`);
 }
 
-export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
+export async function openSharedCacheDb(): Promise<ISharedCacheDb> {
+  if (Platform.OS === 'web') {
+    return {} as ISharedCacheDb;
+  }
+
+  if (Platform.OS === 'ios') {
+    if (iosBridgeDbPromise) return iosBridgeDbPromise;
+    iosBridgeDbPromise = (async () => {
+      const iosBridge = (await import('./ios-bridge')).default;
+      await iosBridge.dbEnsureCacheDbInitialized();
+      return createBridgeCacheDbAdapter(iosBridge);
+    })();
+    return iosBridgeDbPromise;
+  }
+
   if (dbInstance && !isClosing) return dbInstance;
   if (dbPromise && !isClosing) return dbPromise;
 
-  if (Platform.OS === 'web') {
-    return {} as SQLiteDatabase;
-  }
-
-  // Reset closing flag when opening database
   isClosing = false;
 
   dbPromise = (async () => {
@@ -414,7 +462,8 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
       console.warn('[DB] File check failed (non-fatal):', fileCheckError?.message);
     }
     
-    const db = await openDatabaseAsync('cache.db', undefined, directory);
+    const { openDatabaseAsync } = await import('expo-sqlite');
+    const db = (await openDatabaseAsync('cache.db', undefined, directory)) as ISharedCacheDb;
 
     // Database configuration optimized for iOS stability and concurrent access
     // WAL mode allows multiple concurrent readers (NCE, NSE, main app)

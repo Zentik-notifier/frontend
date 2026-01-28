@@ -115,26 +115,16 @@ export default function RootLayout() {
   });
   const [settingsReady, setSettingsReady] = useState(false);
 
-  useEffect(() => {
-    console.log("[RootLayout] Loaded");
-  }, []);
 
   useEffect(() => {
     if (!loaded) return;
 
-    // Initialize core services
     installConsoleLoggerBridge();
-    console.log("[LayoutInit] Console logger bridge installed");
-    
-    // Open database (errors are handled centrally in db-setup / recovery service)
     openSharedCacheDb().catch((error: any) => {
       console.error('[RootLayout] Failed to open database:', error);
     });
     openWebStorageDb().catch();
-    console.log("[LayoutInit] DB opened");
 
-    // Wait for settings service to be ready
-    console.log("[LayoutInit] Waiting for settings service...");
     const subscription = settingsService.isInitialized$.subscribe(
       (initialized) => {
         if (initialized) {

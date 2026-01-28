@@ -299,7 +299,6 @@ export async function enableDbAutoBackupTask(options?: { intervalSeconds?: numbe
       await BackgroundFetch.registerTaskAsync(DB_AUTO_BACKUP_TASK, {
         minimumInterval: intervalSeconds,
       });
-      console.debug('[Tasks] ✅ DB auto-backup registered');
     } catch {
       console.debug('[Tasks] ℹ️ DB auto-backup already registered or not supported');
     }
@@ -333,14 +332,6 @@ export async function enablePushBackgroundTasks(options?: {
       return;
     }
 
-    // Helpful diagnostics: if a task isn't defined, registerTaskAsync will never work.
-    const definitions = {
-      [NOTIFICATION_REFRESH_TASK]: TaskManager.isTaskDefined(NOTIFICATION_REFRESH_TASK),
-      [CHANGELOG_CHECK_TASK]: TaskManager.isTaskDefined(CHANGELOG_CHECK_TASK),
-      [NO_PUSH_CHECK_TASK]: TaskManager.isTaskDefined(NO_PUSH_CHECK_TASK),
-    };
-    console.debug('[Tasks] Push tasks definitions:', definitions);
-
     const registerWithLog = async (taskName: string, minimumInterval: number) => {
       if (!TaskManager.isTaskDefined(taskName)) {
         console.warn(`[Tasks] Cannot register '${taskName}': task is not defined`);
@@ -349,7 +340,6 @@ export async function enablePushBackgroundTasks(options?: {
 
       try {
         await BackgroundFetch.registerTaskAsync(taskName, { minimumInterval });
-        console.debug(`[Tasks] ✅ ${taskName} registered`, { minimumInterval });
       } catch (e) {
         console.debug(`[Tasks] ℹ️ ${taskName} already registered or not supported`, e);
       }
@@ -357,15 +347,12 @@ export async function enablePushBackgroundTasks(options?: {
 
     try {
       await BackgroundFetch.unregisterTaskAsync(NOTIFICATION_REFRESH_TASK);
-      console.debug(`[Tasks] Unregistered ${NOTIFICATION_REFRESH_TASK}`);
     } catch {}
     try {
       await BackgroundFetch.unregisterTaskAsync(CHANGELOG_CHECK_TASK);
-      console.debug(`[Tasks] Unregistered ${CHANGELOG_CHECK_TASK}`);
     } catch {}
     try {
       await BackgroundFetch.unregisterTaskAsync(NO_PUSH_CHECK_TASK);
-      console.debug(`[Tasks] Unregistered ${NO_PUSH_CHECK_TASK}`);
     } catch {}
 
     await registerWithLog(NOTIFICATION_REFRESH_TASK, notificationsRefreshMinimumInterval);

@@ -39,30 +39,231 @@ public class DatabaseAccess {
     private static let DB_BUSY_TIMEOUT: Int32 = 5000  // 5 seconds busy timeout
     private static let DB_MAX_RETRIES: Int = 5  // Max 5 retry attempts
     
-    // MARK: - Database Path
+    // MARK: - Database Path & Lock (App Group / userGroup)
+    
+    /// Paths for shared cache and lock inside the App Group container.
+    /// Logs are not in cache.db: LoggingSystem writes to JSON files under `logsDirectoryPath()`.
+    public enum SharedCachePaths {
+        /// App Group identifier (e.g. group.com.apocaliss92.zentik)
+        public static func appGroupId() -> String? {
+            let id = KeychainAccess.getMainBundleIdentifier()
+            return id.isEmpty ? nil : "group.\(id)"
+        }
+        
+        /// App Group container base URL
+        public static func containerURL() -> URL? {
+            guard let id = appGroupId() else { return nil }
+            return FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id)
+        }
+        
+        /// cache.db path inside container: shared_media_cache/cache.db
+        public static func dbPath() -> String? {
+            containerURL()?.appendingPathComponent("shared_media_cache/cache.db").path
+        }
+        
+        /// Lock file path in App Group, same directory as cache.db. All DB access must use this lock.
+        public static func lockPath() -> String? {
+            dbPath().map { $0 + ".lock" }
+        }
+        
+        /// Logs directory in App Group (JSON files only). Logs are not stored in cache.db.
+        public static func logsDirectoryPath() -> String? {
+            containerURL()?.appendingPathComponent("shared_media_cache/logs").path
+        }
+    }
     
     /// Get database path in App Group shared container
     public static func getDbPath() -> String? {
-        let mainBundleId = KeychainAccess.getMainBundleIdentifier()
-        let appGroupId = "group.\(mainBundleId)"
-        
-        guard let sharedContainerURL = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: appGroupId
-        ) else {
-            return nil
-        }
-        
-        // Database is in shared_media_cache subdirectory (matches TypeScript db-setup.ts)
-        let dbPath = sharedContainerURL.appendingPathComponent("shared_media_cache/cache.db").path
-        return dbPath
+        SharedCachePaths.dbPath()
     }
     
-    // MARK: - File Locking for Cross-Process Synchronization
+    /// Get lock file path in App Group (for debugging / consistency). All access uses this lock.
+    public static func getSharedCacheLockPath() -> String? {
+        SharedCachePaths.lockPath()
+    }
     
-    /// Acquire file lock to prevent concurrent access from different SQLite instances
+    // MARK: - Initialization (schema aligned with db-setup.ts)
+    
+    private static let SCHEMA_INIT_MAX_RETRIES = 3
+    private static let SCHEMA_INIT_RETRY_DELAY: TimeInterval = 0.15
+
+    /// Ensures shared cache.db exists with full schema (tables, indexes, migrations).
+    /// Idempotent: safe to call at app startup; matches React openSharedCacheDb logic.
+    /// Retries on "table is locked" / SQLITE_BUSY up to SCHEMA_INIT_MAX_RETRIES.
+    /// Logs are not in cache.db: LoggingSystem writes to JSON files in shared_media_cache/logs.
+    /// - Parameters:
+    ///   - source: Caller identifier for logging (e.g. "RNBridge")
+    ///   - completion: Called with true on success, false on failure
+    public static func ensureSharedCacheDbInitialized(
+        source: String = "Unknown",
+        completion: @escaping (Bool) -> Void
+    ) {
+        var attempt = 0
+        func trySchemaInit() {
+            performDatabaseOperation(
+                type: .write,
+                name: "EnsureInitialized",
+                source: source,
+                verboseLogging: false,
+                operation: { db, _ in
+                runExec(db, "PRAGMA journal_mode=WAL") &&
+                runExec(db, "PRAGMA foreign_keys=ON") &&
+                runExec(db, "PRAGMA busy_timeout=5000") &&
+                runExec(db, "PRAGMA wal_autocheckpoint=1000") &&
+                runExec(db, """
+                    CREATE TABLE IF NOT EXISTS cache_item (
+                        key TEXT PRIMARY KEY,
+                        url TEXT NOT NULL,
+                        media_type TEXT NOT NULL,
+                        local_path TEXT,
+                        local_thumb_path TEXT,
+                        generating_thumbnail INTEGER NOT NULL DEFAULT 0 CHECK (generating_thumbnail IN (0,1)),
+                        timestamp INTEGER NOT NULL,
+                        size INTEGER NOT NULL,
+                        original_file_name TEXT,
+                        downloaded_at INTEGER NOT NULL,
+                        notification_date INTEGER,
+                        notification_id TEXT,
+                        is_downloading INTEGER NOT NULL DEFAULT 0 CHECK (is_downloading IN (0,1)),
+                        is_permanent_failure INTEGER NOT NULL DEFAULT 0 CHECK (is_permanent_failure IN (0,1)),
+                        is_user_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_user_deleted IN (0,1)),
+                        error_code TEXT
+                    );
+                    """) &&
+                runExec(db, "CREATE INDEX IF NOT EXISTS idx_cache_item_downloaded_at ON cache_item(downloaded_at)") &&
+                runExec(db, "CREATE INDEX IF NOT EXISTS idx_cache_item_notification_date ON cache_item(notification_date)") &&
+                runExec(db, "CREATE INDEX IF NOT EXISTS idx_cache_item_media_type ON cache_item(media_type)") &&
+                runExec(db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_cache_item_key ON cache_item(key)") &&
+                runExec(db, "CREATE INDEX IF NOT EXISTS idx_cache_item_timestamp ON cache_item(timestamp)") &&
+                runExec(db, "CREATE INDEX IF NOT EXISTS idx_cache_item_is_downloading ON cache_item(is_downloading)") &&
+                runExec(db, "CREATE INDEX IF NOT EXISTS idx_cache_item_generating_thumbnail ON cache_item(generating_thumbnail)") &&
+                runExec(db, """
+                    CREATE TABLE IF NOT EXISTS notifications (
+                        id TEXT PRIMARY KEY,
+                        created_at TEXT NOT NULL,
+                        read_at TEXT,
+                        bucket_id TEXT NOT NULL,
+                        bucket_icon_url TEXT,
+                        has_attachments INTEGER NOT NULL DEFAULT 0 CHECK (has_attachments IN (0,1)),
+                        fragment TEXT NOT NULL
+                    );
+                    """) &&
+                runExec(db, "CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at)") &&
+                runExec(db, "CREATE INDEX IF NOT EXISTS idx_notifications_read_at ON notifications(read_at)") &&
+                runExec(db, "CREATE INDEX IF NOT EXISTS idx_notifications_bucket_id ON notifications(bucket_id)") &&
+                runExec(db, "CREATE INDEX IF NOT EXISTS idx_notifications_has_attachments ON notifications(has_attachments)") &&
+                runExec(db, """
+                    CREATE TABLE IF NOT EXISTS buckets (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        icon TEXT,
+                        description TEXT,
+                        fragment TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        synced_at INTEGER NOT NULL
+                    );
+                    """) &&
+                runExec(db, "CREATE INDEX IF NOT EXISTS idx_buckets_updated_at ON buckets(updated_at)") &&
+                runExec(db, "CREATE INDEX IF NOT EXISTS idx_buckets_synced_at ON buckets(synced_at)") &&
+                runExec(db, """
+                    CREATE TABLE IF NOT EXISTS deleted_notifications (
+                        id TEXT PRIMARY KEY,
+                        deleted_at INTEGER NOT NULL,
+                        retry_count INTEGER NOT NULL DEFAULT 0,
+                        last_retry_at INTEGER
+                    );
+                    """) &&
+                runExec(db, "CREATE INDEX IF NOT EXISTS idx_deleted_notifications_deleted_at ON deleted_notifications(deleted_at)") &&
+                runExec(db, """
+                    CREATE TABLE IF NOT EXISTS app_settings (
+                        key TEXT PRIMARY KEY NOT NULL,
+                        value TEXT NOT NULL,
+                        updated_at INTEGER NOT NULL
+                    );
+                    """) &&
+                runExecOptional(db, "ALTER TABLE cache_item ADD COLUMN notification_id TEXT") &&
+                runExecOptional(db, "ALTER TABLE notifications ADD COLUMN bucket_icon_url TEXT") &&
+                runExecOptional(db, "ALTER TABLE buckets ADD COLUMN icon TEXT") &&
+                runExecOptional(db, "ALTER TABLE buckets ADD COLUMN description TEXT") &&
+                runExecOptional(db, "ALTER TABLE buckets ADD COLUMN synced_at INTEGER NOT NULL DEFAULT 0")
+                    ? .success : .failure("Schema initialization failed")
+            },
+            completion: { (result: DatabaseOperationResult) in
+                switch result {
+                case .success:
+                    completion(true)
+                default:
+                    attempt += 1
+                    if attempt < SCHEMA_INIT_MAX_RETRIES {
+                        dbQueue.asyncAfter(deadline: .now() + SCHEMA_INIT_RETRY_DELAY) { trySchemaInit() }
+                    } else {
+                        completion(false)
+                    }
+                }
+            }
+        )
+        }
+        trySchemaInit()
+    }
+    
+    /// Runs PRAGMA quick_check under lock. Call from bridge for integrity check on iOS.
+    public static func runIntegrityCheck(source: String = "Unknown", completion: @escaping (Bool) -> Void) {
+        performDatabaseOperation(
+            type: .read,
+            name: "IntegrityCheck",
+            source: source,
+            verboseLogging: false,
+            operation: { db, _ in
+                runExec(db, "PRAGMA quick_check") ? .success : .failure("PRAGMA quick_check failed")
+            },
+            completion: { (result: DatabaseOperationResult) in
+                let successBool: Bool
+                switch result {
+                case .success: successBool = true
+                default: successBool = false
+                }
+                completion(successBool)
+            }
+        )
+    }
+    
+    private static func runExec(_ db: OpaquePointer?, _ sql: String) -> Bool {
+        guard let db = db else { return false }
+        var errMsg: UnsafeMutablePointer<CChar>?
+        let result = sql.withCString { cSql in
+            sqlite3_exec(db, cSql, nil, nil, &errMsg)
+        }
+        if result != SQLITE_OK, let msg = errMsg {
+            let s = String(cString: msg)
+            sqlite3_free(errMsg)
+            if !s.contains("duplicate column name") {
+                print("📱 [DatabaseAccess] exec failed: \(s)")
+            }
+        }
+        return result == SQLITE_OK
+    }
+    
+    private static func runExecOptional(_ db: OpaquePointer?, _ sql: String) -> Bool {
+        guard let db = db else { return false }
+        var errMsg: UnsafeMutablePointer<CChar>?
+        let result = sql.withCString { cSql in
+            sqlite3_exec(db, cSql, nil, nil, &errMsg)
+        }
+        if result == SQLITE_OK { return true }
+        if let msg = errMsg {
+            let s = String(cString: msg)
+            sqlite3_free(errMsg)
+            if s.contains("duplicate column name") { return true }
+        }
+        return result == SQLITE_OK
+    }
+    
+    // MARK: - File Locking for Cross-Process Synchronization (App Group)
+    
+    /// Acquire file lock in App Group. path must be SharedCachePaths.dbPath() so lock is at SharedCachePaths.lockPath().
     private static func acquireLock(for path: String, type: DatabaseOperationType, verbose: Bool = false) -> Bool {
         return lockQueue.sync {
-            let lockPath = path + ".lock"
+            let lockPath = SharedCachePaths.lockPath() ?? (path + ".lock")
             
             // Create lock file if it doesn't exist
             if !FileManager.default.fileExists(atPath: lockPath) {
@@ -1085,136 +1286,161 @@ public class DatabaseAccess {
         }
     }
     
-    // MARK: - Settings Repository Operations
+    // MARK: - Settings / KV Repository Operations (use shared lock via performDatabaseOperation)
     
-    /// Get a setting value from app_settings table
-    /// - Parameter key: The setting key to retrieve
-    /// - Returns: The setting value as a string, or nil if not found
-    public static func getSettingValue(key: String) -> String? {
-        guard let dbPath = getDbPath() else {
-            print("📱 [DatabaseAccess] ❌ Failed to get database path")
-            return nil
-        }
-        
-        var db: OpaquePointer?
-        guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
-            print("📱 [DatabaseAccess] ❌ Failed to open database for reading setting: \(key)")
-            return nil
-        }
-        defer { sqlite3_close(db) }
-        
-        let sql = "SELECT value FROM app_settings WHERE key = ? LIMIT 1"
-        var stmt: OpaquePointer?
-        
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            print("📱 [DatabaseAccess] ❌ Failed to prepare SELECT statement for key: \(key)")
-            return nil
-        }
-        defer { sqlite3_finalize(stmt) }
-        
-        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
-        
-        if sqlite3_step(stmt) == SQLITE_ROW {
-            if let cString = sqlite3_column_text(stmt, 0) {
-                let value = String(cString: cString)
-                if CloudKitManagerBase.isCloudKitDebugEnabled() {
-                    print("📱 [DatabaseAccess] ✅ Retrieved setting '\(key)': \(value)")
+    /// Get a value from app_settings table (key-value store). Uses shared DB lock.
+    public static func getSettingValue(key: String, completion: @escaping (String?) -> Void) {
+        var captured: String?
+        performDatabaseOperation(
+            type: .read,
+            name: "KVGet",
+            source: "RNBridge",
+            verboseLogging: false,
+            operation: { db, _ in
+                let sql = "SELECT value FROM app_settings WHERE key = ? LIMIT 1"
+                var stmt: OpaquePointer?
+                guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                    return .failure(String(cString: sqlite3_errmsg(db)))
                 }
-                return value
+                defer { sqlite3_finalize(stmt) }
+                sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                if sqlite3_step(stmt) == SQLITE_ROW, let cString = sqlite3_column_text(stmt, 0) {
+                    captured = String(cString: cString)
+                }
+                return .success
+            },
+            completion: { (dbResult: DatabaseOperationResult) in
+                switch dbResult {
+                case .success: completion(captured)
+                default: completion(nil)
+                }
             }
-        }
-
-        if CloudKitManagerBase.isCloudKitDebugEnabled() {
-            print("📱 [DatabaseAccess] ℹ️ Setting '\(key)' not found")
-        }
-        return nil
+        )
     }
     
-    /// Set a setting value in app_settings table
-    /// - Parameters:
-    ///   - key: The setting key
-    ///   - value: The setting value
-    /// - Returns: True if successful, false otherwise
-    @discardableResult
-    public static func setSettingValue(key: String, value: String) -> Bool {
-        guard let dbPath = getDbPath() else {
-            print("📱 [DatabaseAccess] ❌ Failed to get database path")
-            return false
-        }
-        
-        var db: OpaquePointer?
-        guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
-            print("📱 [DatabaseAccess] ❌ Failed to open database for writing setting: \(key)")
-            return false
-        }
-        defer { sqlite3_close(db) }
-        
+    /// Set a value in app_settings table (key-value store). Uses shared DB lock.
+    public static func setSettingValue(key: String, value: String, completion: @escaping (Bool) -> Void) {
         let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-        let sql = """
-            INSERT INTO app_settings (key, value, updated_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-            """
-        
-        var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            print("📱 [DatabaseAccess] ❌ Failed to prepare INSERT statement for key: \(key)")
-            return false
-        }
-        defer { sqlite3_finalize(stmt) }
-        
-        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
-        sqlite3_bind_text(stmt, 2, (value as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
-        sqlite3_bind_int64(stmt, 3, timestamp)
-        
-        if sqlite3_step(stmt) == SQLITE_DONE {
-            if CloudKitManagerBase.isCloudKitDebugEnabled() {
-                print("📱 [DatabaseAccess] ✅ Saved setting '\(key)': \(value)")
+        performDatabaseOperation(
+            type: .write,
+            name: "KVSet",
+            source: "RNBridge",
+            verboseLogging: false,
+            operation: { db, _ in
+                let sql = """
+                    INSERT INTO app_settings (key, value, updated_at)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+                    """
+                var stmt: OpaquePointer?
+                guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                    return .failure(String(cString: sqlite3_errmsg(db)))
+                }
+                defer { sqlite3_finalize(stmt) }
+                sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 2, (value as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_int64(stmt, 3, timestamp)
+                return sqlite3_step(stmt) == SQLITE_DONE ? .success : .failure(String(cString: sqlite3_errmsg(db)))
+            },
+            completion: { (dbResult: DatabaseOperationResult) in
+                switch dbResult {
+                case .success: completion(true)
+                default: completion(false)
+                }
             }
-            return true
-        } else {
-            let errorMsg = String(cString: sqlite3_errmsg(db))
-            print("📱 [DatabaseAccess] ❌ Failed to save setting '\(key)': \(errorMsg)")
-            return false
-        }
+        )
     }
     
-    /// Remove a setting value from app_settings table
-    /// - Parameter key: The setting key to remove
-    /// - Returns: True if successful, false otherwise
-    @discardableResult
-    public static func removeSettingValue(key: String) -> Bool {
-        guard let dbPath = getDbPath() else {
-            print("📱 [DatabaseAccess] ❌ Failed to get database path")
-            return false
+    /// Remove a value from app_settings table. Uses shared DB lock.
+    public static func removeSettingValue(key: String, completion: @escaping (Bool) -> Void) {
+        performDatabaseOperation(
+            type: .write,
+            name: "KVRemove",
+            source: "RNBridge",
+            verboseLogging: false,
+            operation: { db, _ in
+                let sql = "DELETE FROM app_settings WHERE key = ?"
+                var stmt: OpaquePointer?
+                guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                    return .failure(String(cString: sqlite3_errmsg(db)))
+                }
+                defer { sqlite3_finalize(stmt) }
+                sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                return sqlite3_step(stmt) == SQLITE_DONE ? .success : .failure(String(cString: sqlite3_errmsg(db)))
+            },
+            completion: { (dbResult: DatabaseOperationResult) in
+                switch dbResult {
+                case .success: completion(true)
+                default: completion(false)
+                }
+            }
+        )
+    }
+    
+    /// Get all keys from app_settings table. Uses shared DB lock.
+    public static func getAllSettingKeys(completion: @escaping ([String]) -> Void) {
+        var keys: [String] = []
+        performDatabaseOperation(
+            type: .read,
+            name: "KVGetAllKeys",
+            source: "RNBridge",
+            verboseLogging: false,
+            operation: { db, _ in
+                let sql = "SELECT key FROM app_settings ORDER BY key"
+                var stmt: OpaquePointer?
+                guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                    return .failure(String(cString: sqlite3_errmsg(db)))
+                }
+                defer { sqlite3_finalize(stmt) }
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    if let cString = sqlite3_column_text(stmt, 0) {
+                        keys.append(String(cString: cString))
+                    }
+                }
+                return .success
+            },
+            completion: { (dbResult: DatabaseOperationResult) in
+                switch dbResult {
+                case .success: completion(keys)
+                default: completion([])
+                }
+            }
+        )
+    }
+    
+    /// Synchronous wrappers for callers that cannot use completion (e.g. KeychainAccess, NotificationActionHandler).
+    /// Prefer the completion-based API from React Native to avoid blocking.
+    public static func getSettingValueSync(key: String) -> String? {
+        var result: String?
+        let sem = DispatchSemaphore(value: 0)
+        getSettingValue(key: key) { value in
+            result = value
+            sem.signal()
         }
-        
-        var db: OpaquePointer?
-        guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
-            print("📱 [DatabaseAccess] ❌ Failed to open database for removing setting: \(key)")
-            return false
+        sem.wait()
+        return result
+    }
+    
+    public static func setSettingValueSync(key: String, value: String) -> Bool {
+        var success = false
+        let sem = DispatchSemaphore(value: 0)
+        setSettingValue(key: key, value: value) { ok in
+            success = ok
+            sem.signal()
         }
-        defer { sqlite3_close(db) }
-        
-        let sql = "DELETE FROM app_settings WHERE key = ?"
-        var stmt: OpaquePointer?
-        
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            print("📱 [DatabaseAccess] ❌ Failed to prepare DELETE statement for key: \(key)")
-            return false
+        sem.wait()
+        return success
+    }
+    
+    public static func removeSettingValueSync(key: String) -> Bool {
+        var success = false
+        let sem = DispatchSemaphore(value: 0)
+        removeSettingValue(key: key) { ok in
+            success = ok
+            sem.signal()
         }
-        defer { sqlite3_finalize(stmt) }
-        
-        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
-        
-        if sqlite3_step(stmt) == SQLITE_DONE {
-            print("📱 [DatabaseAccess] ✅ Removed setting '\(key)'")
-            return true
-        } else {
-            let errorMsg = String(cString: sqlite3_errmsg(db))
-            print("📱 [DatabaseAccess] ❌ Failed to remove setting '\(key)': \(errorMsg)")
-            return false
-        }
+        sem.wait()
+        return success
     }
     
     // MARK: - Widget Bucket Operations

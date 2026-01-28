@@ -52,7 +52,7 @@ public class KeychainAccess {
     /// Get API endpoint from SQLite database (replaces keychain storage)
     public static func getApiEndpoint() -> String? {
         print("🔑 [KeychainAccess] 📍 Getting API endpoint from database...")
-        let value = DatabaseAccess.getSettingValue(key: "auth_apiEndpoint")
+        let value = DatabaseAccess.getSettingValueSync(key: "auth_apiEndpoint")
         if let endpoint = value {
             print("🔑 [KeychainAccess] ✅ API endpoint found: \(endpoint)")
         } else {
@@ -537,7 +537,7 @@ public class KeychainAccess {
     
     /// Get badge count from SQLite database (replaces keychain storage)
     public static func getBadgeCountFromKeychain() -> Int {
-        guard let countString = DatabaseAccess.getSettingValue(key: "auth_badgeCount"),
+        guard let countString = DatabaseAccess.getSettingValueSync(key: "auth_badgeCount"),
               let count = Int(countString) else {
             if CloudKitManagerBase.isCloudKitDebugEnabled() {
                 print("🔑 [KeychainAccess] ℹ️ No badge count found in database, returning 0")
@@ -553,7 +553,7 @@ public class KeychainAccess {
     
     /// Save badge count to SQLite database (replaces keychain storage)
     public static func saveBadgeCountToKeychain(count: Int) {
-        let success = DatabaseAccess.setSettingValue(key: "auth_badgeCount", value: String(count))
+        let success = DatabaseAccess.setSettingValueSync(key: "auth_badgeCount", value: String(count))
 
         if CloudKitManagerBase.isCloudKitDebugEnabled() {
             if success {
@@ -595,7 +595,7 @@ public class KeychainAccess {
                 throw NSError(domain: "KeychainError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to convert intent to JSON string"])
             }
             
-            let success = DatabaseAccess.setSettingValue(key: "auth_pendingNavigationIntent", value: jsonString)
+            let success = DatabaseAccess.setSettingValueSync(key: "auth_pendingNavigationIntent", value: jsonString)
             
             if success {
                 print("🔑 [KeychainAccess] ✅ Stored pending navigation intent in database (service: \(service))")
@@ -612,7 +612,7 @@ public class KeychainAccess {
     /// - Parameter service: Service identifier (ignored, kept for compatibility)
     /// - Returns: Intent data dictionary or nil if not found
     public static func getIntentFromKeychain(service: String) -> [String: Any]? {
-        guard let jsonString = DatabaseAccess.getSettingValue(key: "auth_pendingNavigationIntent"),
+        guard let jsonString = DatabaseAccess.getSettingValueSync(key: "auth_pendingNavigationIntent"),
               let jsonData = jsonString.data(using: .utf8) else {
             print("🔑 [KeychainAccess] ℹ️ No pending navigation intent found in database (service: \(service))")
             return nil
@@ -631,7 +631,7 @@ public class KeychainAccess {
     /// Clear intent data from SQLite database (replaces keychain storage)
     /// - Parameter service: Service identifier (ignored, kept for compatibility)
     public static func clearIntentFromKeychain(service: String) {
-        let success = DatabaseAccess.removeSettingValue(key: "auth_pendingNavigationIntent")
+        let success = DatabaseAccess.removeSettingValueSync(key: "auth_pendingNavigationIntent")
         
         if success {
             print("🔑 [KeychainAccess] ✅ Cleared pending navigation intent from database (service: \(service))")

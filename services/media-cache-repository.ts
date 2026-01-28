@@ -1,8 +1,7 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
 import type { IDBPDatabase } from 'idb';
 import { Platform } from 'react-native';
 import { File } from 'expo-file-system';
-import { openWebStorageDb, openSharedCacheDb } from './db-setup';
+import { openWebStorageDb, openSharedCacheDb, type ISharedCacheDb } from './db-setup';
 import type { WebStorageDB } from './db-setup';
 import type { CacheItem } from './media-cache-service';
 import { getSharedMediaCacheDirectoryAsync } from '@/utils/shared-cache';
@@ -19,7 +18,7 @@ export type MediaItem = {
  */
 
 export class MediaCacheRepository {
-  private db: SQLiteDatabase | IDBPDatabase<WebStorageDB> | null = null;
+  private db: ISharedCacheDb | IDBPDatabase<WebStorageDB> | null = null;
   private initialized = false;
   private objectUrlCache = new Map<string, string>();
 
@@ -106,14 +105,14 @@ export class MediaCacheRepository {
     return this.db as IDBPDatabase<WebStorageDB>;
   }
 
-  private getSQLiteDb(): SQLiteDatabase {
+  private getSQLiteDb(): ISharedCacheDb {
     if (!this.db) {
       throw new Error('Database not initialized. Call initialize() first.');
     }
     if (this.isWeb()) {
       throw new Error('SQLite database can only be used on mobile platforms');
     }
-    return this.db as SQLiteDatabase;
+    return this.db as ISharedCacheDb;
   }
 
   async upsertCacheItem(item: CacheItem): Promise<void> {

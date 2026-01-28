@@ -1916,22 +1916,27 @@ struct LogsView: View {
         Group {
             if isLoading {
                 VStack(spacing: 16) {
+                    Spacer(minLength: 0)
                     ProgressView()
                         .scaleEffect(1.2)
                     Text("Loading logs...")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                    Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if logs.isEmpty {
                 VStack(spacing: 12) {
+                    Spacer(minLength: 0)
                     Image(systemName: "doc.text")
                         .font(.system(size: 40))
                         .foregroundColor(.secondary)
                     Text("No logs available")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                    Spacer(minLength: 0)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding()
             } else {
                 List {
@@ -1941,28 +1946,33 @@ struct LogsView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("Logs")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
+                if isSendingLogs {
+                    ProgressView()
+                        .scaleEffect(0.9)
+                } else {
                     Button {
-                        sendLogsToiPhone()
+                        loadLogs()
                     } label: {
-                        Label("Send logs", systemImage: "paperplane")
+                        Image(systemName: "arrow.clockwise")
                     }
-                    .disabled(isSendingLogs)
-                    Button(role: .destructive) {
-                        clearLogs()
-                    } label: {
-                        Label("Cancella logs", systemImage: "trash")
-                    }
+                }
+            }
+            ToolbarItemGroup(placement: .bottomBar) {
+                Button(role: .destructive) {
+                    clearLogs()
                 } label: {
-                    if isSendingLogs {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "ellipsis.circle")
-                    }
+                    Image(systemName: "trash")
+                }
+                Spacer()
+                Button {
+                    sendLogsToiPhone()
+                } label: {
+                    Image(systemName: "paperplane")
                 }
                 .disabled(isSendingLogs)
             }

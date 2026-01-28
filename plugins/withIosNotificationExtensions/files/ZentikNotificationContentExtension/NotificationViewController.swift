@@ -107,8 +107,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        print("📱 [ContentExtension] viewDidLoad - Initializing")
-        
         // Clean up any residual observers from previous instances
         cleanupAllObservers()
         
@@ -124,12 +122,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     // MARK: - UNNotificationContentExtension
     
     func didReceive(_ notification: UNNotification) {
-        print("📱 [ContentExtension] ========== NOTIFICATION RECEIVED ==========")
-        print("📱 [ContentExtension] Title: \(notification.request.content.title)")
-        print("📱 [ContentExtension] Body: \(notification.request.content.body)")
-        print("📱 [ContentExtension] Category: \(notification.request.content.categoryIdentifier)")
-        print("📱 [ContentExtension] Attachments count: \(notification.request.content.attachments.count)")
-        
         // Reset footer state for new notification
         isFooterHiddenForError = false
         
@@ -198,22 +190,16 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             metadata: initMeta
         )
         
-        // Log category and actions data received
-        print("📱 [ContentExtension] 🎭 Category received: '\(categoryId)'")
         if let actionsData = (notification.request.content.userInfo["actions"] as? [[String: Any]]) ?? (notification.request.content.userInfo["act"] as? [[String: Any]]) ?? (notification.request.content.userInfo["a"] as? [[String: Any]]) {
-            print("📱 [ContentExtension] 🎭 Raw actions data received: \(actionsData)")
         } else {
-            print("📱 [ContentExtension] 🎭 No actions data in userInfo")
         }
         
         if let actionsData = (notification.request.content.userInfo["actions"] as? [[String: Any]]) ?? (notification.request.content.userInfo["act"] as? [[String: Any]]) ?? (notification.request.content.userInfo["a"] as? [[String: Any]]) {
-            print("📱 [ContentExtension] 🎭 Processing \(actionsData.count) actions for dynamic category")
             
             let notificationActions = actionsData.compactMap { actionData -> UNNotificationAction? in
                 let normalized = NotificationActionHandler.normalizeAction(actionData, notificationId: notificationId)
                 guard let type = normalized?["type"] as? String,
                       let value = normalized?["value"] as? String else {
-                    print("📱 [ContentExtension] ⚠️ Invalid action data (missing type/value): \(actionData)")
                     
                     logToDatabase(
                         level: "WARN",
@@ -244,7 +230,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                     icon = UNNotificationActionIcon(systemImageName: actualIconName)
                 }
                 
-                print("📱 [ContentExtension] 🎭 Created dynamic action: \(actionId) - \(title) [type:\(type), value:\(value), destructive:\(destructive), auth:\(authRequired)]")
                 
                 return UNNotificationAction(
                     identifier: actionId,
@@ -254,22 +239,17 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 )
             }
             
-            print("📱 [ContentExtension] 🎭 Successfully created \(notificationActions.count) actions from \(actionsData.count) action data items")
             
             // Inject actions into extension context
             if !notificationActions.isEmpty {
                 extensionContext?.notificationActions = notificationActions
-                print("📱 [ContentExtension] 🎭 Injected \(notificationActions.count) dynamic actions into NCE")
                 
                 // Log all action identifiers for debugging
                 let actionIdentifiers = notificationActions.map { $0.identifier }.joined(separator: ", ")
-                print("📱 [ContentExtension] 🎭 Action identifiers: [\(actionIdentifiers)]")
             } else {
-                print("📱 [ContentExtension] ⚠️ No valid actions to inject (all actions filtered out)")
                 
                 // Reset actions when there are no valid actions
                 extensionContext?.notificationActions = []
-                print("📱 [ContentExtension] 🔄 Reset notification actions (no valid actions)")
                 
                 logToDatabase(
                     level: "WARN",
@@ -283,11 +263,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 )
             }
         } else {
-            print("📱 [ContentExtension] ℹ️ No actions data in userInfo for category: \(categoryId)")
             
             // Reset actions when there are no actions in userInfo
             extensionContext?.notificationActions = []
-            print("📱 [ContentExtension] 🔄 Reset notification actions (no actions in userInfo)")
         }
         
         // Store notification texts
@@ -302,8 +280,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             if parts.count >= 2 {
                 notificationSubtitleText = parts[0]
                 notificationBodyText = parts.dropFirst().joined(separator: "\n")
-                print("📱 [ContentExtension] 📝 Extracted subtitle from body: '\(notificationSubtitleText)'")
-                print("📱 [ContentExtension] 📝 Remaining body: '\(notificationBodyText)'")
             } else {
                 notificationSubtitleText = notification.request.content.subtitle
                 notificationBodyText = rawBody
@@ -348,8 +324,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Prefer attachmentData (already processed by NSE), fallback to att (raw string array)
         if let processedAttachmentData = notification.request.content.userInfo["attachmentData"] as? [[String: Any]] {
             attachmentData = processedAttachmentData
-            print("📱 [ContentExtension] AttachmentData count (processed by NSE): \(attachmentData.count)")
-            print("📱 [ContentExtension] AttachmentData content: \(attachmentData)")
         } else if let attachmentStrings = notification.request.content.userInfo["att"] as? [String] {
             // Convert raw string array to object array
             attachmentData = attachmentStrings.compactMap { item -> [String: Any]? in
@@ -359,18 +333,13 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 }
                 return nil
             }
-            print("📱 [ContentExtension] AttachmentData count (from att): \(attachmentData.count)")
-            print("📱 [ContentExtension] AttachmentData content: \(attachmentData)")
         } else {
-            print("📱 [ContentExtension] ❌ No attachmentData found in userInfo")
             attachmentData = []
         }
         
                 // Content Extension is ALWAYS in expanded mode
         // Compact mode is handled by NotificationService alone
         isExpandedMode = true
-        print("📱 [ContentExtension] View bounds: \(view.bounds)")
-        print("📱 [ContentExtension] Mode: EXPANDED (Content Extension always expanded)")
         
         // Setup expanded mode
         setupExpandedMode()
@@ -379,28 +348,20 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     }
     
     func didReceive(_ response: UNNotificationResponse, completionHandler completion: @escaping (UNNotificationContentExtensionResponseOption) -> Void) {
-        print("📱 [ContentExtension] ========== ACTION RESPONSE RECEIVED ==========")
-        print("📱 [ContentExtension] Action identifier: \(response.actionIdentifier)")
-        print("📱 [ContentExtension] Notification ID: \(response.notification.request.identifier)")
-        print("📱 [ContentExtension] Category: \(response.notification.request.content.categoryIdentifier)")
         
         let userInfo = response.notification.request.content.userInfo
         // Use nid from userInfo (new format), fallback to notificationId (old format), then request.identifier
         // Normalize just in case NSE didn't run or failed
         let rawNid = (userInfo["nid"] as? String) ?? (userInfo["n"] as? String) ?? (userInfo["notificationId"] as? String)
         let notificationId = SharedUtils.normalizeUUID(rawNid) ?? response.notification.request.identifier
-        print("📱 [ContentExtension] UserInfo keys: \(userInfo.keys.map { String(describing: $0) }.joined(separator: ", "))")
         
         // Check if actions data is available in userInfo
         if let actionsData = userInfo["actions"] as? [[String: Any]] {
-            print("📱 [ContentExtension] 🎭 Actions available in userInfo: \(actionsData.count) actions")
         } else {
-            print("📱 [ContentExtension] 🎭 No actions found in userInfo")
         }
         
         // Check if this is a dynamic action
         let isDynamicAction = response.actionIdentifier.hasPrefix("action_")
-        print("📱 [ContentExtension] 🎭 Is dynamic action: \(isDynamicAction)")
         
         // Find the action details from userInfo
         var actionDetails: [String: Any] = [
@@ -447,7 +408,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         )
         
         // Close UI immediately to prevent blocking
-        print("📱 [ContentExtension] 🚀 Dismissing extension UI immediately")
         completion(.dismiss)
 
         // Execute action in background without blocking UI
@@ -495,7 +455,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             // for iconName in appIconNames {
             //     if let appIcon = UIImage(named: iconName) {
             //         fallbackImage = appIcon
-            //         print("📱 [ContentExtension] ✅ Found app icon: \(iconName)")
             //         break
             //     }
             // }
@@ -506,7 +465,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             // } else {
             //     // Hide icon completely if no app icon is available
             //     iconView.isHidden = true
-            //     print("📱 [ContentExtension] ⚠️ No icon available, hiding icon view")
             // }
         // }
 
@@ -613,11 +571,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
 
     // MARK: - Dynamic Header Setup with Auto Layout
     private func adjustHeaderLineCounts() {
-        print("📱 [ContentExtension] 🔧 adjustHeaderLineCounts() called")
         guard let titleLabel = headerTitleLabel,
               let subtitleLabel = headerSubtitleLabel,
               let bodyLabel = headerBodyLabel else { 
-            print("📱 [ContentExtension] ❌ adjustHeaderLineCounts() - labels not available")
             return 
         }
 
@@ -643,19 +599,13 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Imposta numberOfLines = 0 per auto-sizing (già fatto in setupUI)
         // Questo permette alle label di crescere in base al contenuto
         
-        print("📱 [ContentExtension] Header auto-sizing enabled - availableWidth: \(availableWidth)")
     }
     
 
     
     private func setupExpandedMode() {
-        print("📱 [ContentExtension] Setting up EXPANDED mode")
-        print("📱 [ContentExtension] AttachmentData count: \(attachmentData.count)")
-        print("📱 [ContentExtension] Attachments count: \(attachments.count)")
-        
         // Use attachmentData (all media) instead of attachments (only NSE downloaded media)
         if attachmentData.isEmpty {
-            print("📱 [ContentExtension] ⚠️ No attachment data available - showing header only")
             // Show only header when no attachments are available
             headerTitleLabel?.text = notificationTitleText
             headerSubtitleLabel?.text = notificationSubtitleText
@@ -677,54 +627,48 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             // Host can ignore smaller increases; enforce via a min bump for header-only
             let minHeaderOnlyHeight: CGFloat = expected
             preferredContentSize = CGSize(width: view.bounds.width, height: minHeaderOnlyHeight)
-            print("📱 [ContentExtension] Preferred size (header-only): \(preferredContentSize)")
             return
         }
-        
-        print("📱 [ContentExtension] Using attachmentData with \(attachmentData.count) items instead of \(attachments.count) NSE attachments")
-        
-        // Continue with normal expanded mode setup
-        
-        // Aggiorna header (testi + icona) dopo didReceive
+
+        // Header (text + icon) shown immediately so first frame has no delay
         headerTitleLabel?.text = notificationTitleText
         headerSubtitleLabel?.text = notificationSubtitleText
         headerSubtitleLabel?.isHidden = notificationSubtitleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         headerBodyLabel?.text = normalizeLineSeparators(notificationBodyText)
         refreshHeaderIcon()
 
-        // Footer selector mostrato solo se esistono almeno 2 media non-ICON e non-AUDIO e non è stato nascosto per errore
-        let nonIconItemsCount = attachmentData.filter { (item) in
-            let t = (item["mediaType"] as? String ?? "").uppercased()
-            return t != "ICON" && t != "AUDIO"
-        }.count
-        if nonIconItemsCount > 1 && !isFooterHiddenForError {
-            setupMediaSelectorFromData()
-        } else {
-            hideFooterCompletely()
-        }
-        
-        // Se ci sono solo ICON e AUDIO, o nessun media disponibile, non espandere con contenuto gigante: mostra placeholder compatto
         let hasNonIcon = attachmentData.contains { item in
             let t = (item["mediaType"] as? String ?? "").uppercased()
             return t != "ICON" && t != "AUDIO"
         }
-
         if hasNonIcon {
-            // Se esiste un solo media non-ICON, comportati come nel caso icon/audio-only per il footer
-            let count = nonIconMediaCount()
-            if count <= 1 { hideFooterCompletely() }
-            
-            // Imposta altezza iniziale con header visibile immediatamente
             let headerHeight = headerViewHeight()
-            let mediaHeight: CGFloat = 200 // Placeholder finché media non carica
+            let mediaHeight: CGFloat = 200
             preferredContentSize = CGSize(width: view.bounds.width, height: headerHeight + mediaHeight)
             mediaHeightConstraint?.constant = mediaHeight
-            
-            // Display first non-ICON media from attachmentData (async, non blocca UI)
-            let firstNonIconIndex = findFirstNonIconMediaIndex()
-            selectedMediaIndex = firstNonIconIndex
-            displayMediaFromSharedCache(at: firstNonIconIndex)
-        } else {
+        }
+
+        // Defer media setup to next run loop so header + icon appear immediately
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let nonIconItemsCount = self.attachmentData.filter { (item) in
+                let t = (item["mediaType"] as? String ?? "").uppercased()
+                return t != "ICON" && t != "AUDIO"
+            }.count
+            if nonIconItemsCount > 1 && !self.isFooterHiddenForError {
+                self.setupMediaSelectorFromData()
+            } else {
+                self.hideFooterCompletely()
+            }
+            if hasNonIcon {
+                let count = self.nonIconMediaCount()
+                if count <= 1 { self.hideFooterCompletely() }
+                let firstNonIconIndex = self.findFirstNonIconMediaIndex()
+                self.selectedMediaIndex = firstNonIconIndex
+                self.displayMediaFromSharedCache(at: firstNonIconIndex)
+            }
+        }
+        if !hasNonIcon {
             // Solo ICON/AUDIO: mostra solo header. Mantieni un contenitore media minimo per far rispettare l'altezza dinamica dall'host
             mediaContainerView?.isHidden = false
             mediaContainerView?.backgroundColor = .clear
@@ -740,7 +684,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             // Usa il massimo tra misurato e atteso, favorendo l'espansione quando serve
             let target = max(measured, expected)
             preferredContentSize = CGSize(width: view.bounds.width, height: target)
-            print("📱 [ContentExtension] Showing header-only mode (only ICON/AUDIO). Preferred size: \(preferredContentSize)")
             return
         }
     }
@@ -752,21 +695,16 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         if let userInfo = currentNotificationUserInfo {
             let rawBucketId = (userInfo["bid"] as? String) ?? (userInfo["bucketId"] as? String)
             if let bucketId = SharedUtils.normalizeUUID(rawBucketId) {
-                print("📱 [ContentExtension] 🎭 Getting bucket icon for bucketId: \(bucketId)")
-                
-                // Use default color #007AFF, icon retrieved from fileSystem
                 if let bucketIconData = MediaAccess.getBucketIconFromSharedCache(
                     bucketId: bucketId,
-                    bucketName: nil, // No longer needed - icon retrieved from fileSystem
-                    bucketColor: "#007AFF", // Default color
-                    iconUrl: nil // No longer needed - icon retrieved from fileSystem
+                    bucketName: nil,
+                    bucketColor: "#007AFF",
+                    iconUrl: nil
                 ),
                    let bucketIcon = UIImage(data: bucketIconData) {
                     imageView.image = bucketIcon
                     imageView.isHidden = false
-                    print("📱 [ContentExtension] 🎭 ✅ Using bucket icon from fileSystem")
-                } else {
-                    print("📱 [ContentExtension] 🎭 ⚠️ Failed to get bucket icon from fileSystem")
+                    print("📱 [ContentExtension] 🎭 Communication style with avatar (bucketId: \(bucketId))")
                 }
             }
         }
@@ -788,8 +726,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             self.mediaHeightConstraint?.constant = targetHeight
             self.view.layoutIfNeeded()
         }, completion: nil)
-        
-        print("📱 [ContentExtension] 🔧 Adjusted preferred/media height: viewer=\(targetHeight)")
     }
 
     private func headerViewHeight() -> CGFloat {
@@ -812,8 +748,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         // Aggiungi un piccolo padding per sicurezza (evita troncamenti)
         let finalHeight = max(56, calculatedSize.height + 8)
-        
-        print("📱 [ContentExtension] headerViewHeight -> width: \(availableWidth), calculated: \(calculatedSize.height), final: \(finalHeight)")
         return finalHeight
     }
 
@@ -853,7 +787,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         if nonIconCount <= 1 {
             isFooterHiddenForError = true
             hideFooterCompletely()
-            print("📱 [ContentExtension] 🗑️ Removed footer due to single media condition")
         }
     }
 
@@ -902,7 +835,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     
     
     private func setupMediaSelectorFromData() {
-        print("📱 [ContentExtension] Setting up media selector from attachmentData with \(attachmentData.count) items")
         
         // Remove existing selector if any
         mediaSelectorView?.removeFromSuperview()
@@ -937,7 +869,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         selectorContainer.addSubview(scrollView)
         mediaSelectorView = scrollView
         
-        print("📱 [ContentExtension] Created media selector from data with background")
         
         // Setup constraints for scroll view (accounting for icon width)
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -973,11 +904,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             // Skip ICON and AUDIO media types - they shouldn't appear in the selector
             let mediaTypeString = attachmentDataItem["mediaType"] as? String ?? "UNKNOWN"
             if mediaTypeString.uppercased() == "ICON" {
-                print("📱 [ContentExtension] Skipping ICON attachment at index \(index) from media selector")
                 continue
             }
             if mediaTypeString.uppercased() == "AUDIO" {
-                print("📱 [ContentExtension] Skipping AUDIO attachment at index \(index) from media selector")
                 continue
             }
             
@@ -999,7 +928,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             mediaThumbnails.append(button)
             xOffset += thumbnailSize + spacing
             
-            print("📱 [ContentExtension] Created thumbnail \(index) from data at x: \(xOffset - thumbnailSize - spacing)")
         }
         
         scrollView.contentSize = CGSize(width: xOffset, height: 80)
@@ -1077,11 +1005,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     
     @objc private func thumbnailTappedFromData(_ sender: UIButton) {
         let index = sender.tag
-        print("📱 [ContentExtension] Thumbnail from data tapped: \(index)")
         
         // Check if we're already displaying this media
         if selectedMediaIndex == index {
-            print("📱 [ContentExtension] Same media already selected (\(index)), skipping refresh")
             return
         }
         
@@ -1099,7 +1025,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     
     
     private func downloadAndDisplayMedia(from url: URL, mediaType: MediaType) {
-        print("📱 [ContentExtension] Downloading media: \(mediaType)")
         
         // Cancel any existing download
         currentDownloadTask?.cancel()
@@ -1123,12 +1048,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         do {
             try FileManager.default.createDirectory(at: typeDirectory, withIntermediateDirectories: true, attributes: nil)
         } catch {
-            print("📱 [ContentExtension] ⚠️ Failed to create type directory: \(error)")
         }
         
-        print("📱 [ContentExtension] Original URL: \(url.absoluteString)")
-        print("📱 [ContentExtension] Original extension: \(url.pathExtension)")
-        print("📱 [ContentExtension] Target shared filename: \(safeFileName)")
         
         // Download media
         let task = URLSession.shared.downloadTask(with: url) { [weak self] tempURL, response, error in
@@ -1141,7 +1062,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             
             // Check for network errors first
             if let error = error {
-                print("📱 [ContentExtension] Download failed with error: \(error.localizedDescription)")
                 let errorMessage = "Download failed: \(error.localizedDescription)"
                 DispatchQueue.main.async {
                     self.hideFooterIfSingleMedia()
@@ -1159,7 +1079,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             // Check HTTP status codes
             if let httpResponse = response as? HTTPURLResponse {
                 let statusCode = httpResponse.statusCode
-                print("📱 [ContentExtension] HTTP Status Code: \(statusCode)")
                 
                 if statusCode < 200 || statusCode >= 300 {
                     // Use same error message format as NotificationService for consistency
@@ -1181,7 +1100,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                         statusMessage = "HTTP Error (\(statusCode))"
                     }
                     let errorMessage = "Download failed: \(statusMessage)"
-                    print("📱 [ContentExtension] HTTP error: \(errorMessage)")
                     
                     DispatchQueue.main.async {
                         self.hideFooterIfSingleMedia()
@@ -1200,7 +1118,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             // Check if we have a valid downloaded file
             guard let tempURL = tempURL else {
                 let errorMessage = "Download failed: No data received"
-                print("📱 [ContentExtension] Download error: \(errorMessage)")
                 DispatchQueue.main.async {
                     self.hideFooterIfSingleMedia()
                     self.showMediaError(
@@ -1219,7 +1136,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 let data = try Data(contentsOf: tempURL)
                 let fileSize = data.count
                 
-                print("📱 [ContentExtension] Downloaded file size: \(fileSize) bytes")
                 
                 // Validate file size based on media type
                 var minSize: Int
@@ -1236,7 +1152,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 
                 if fileSize < minSize {
                     let errorMessage = "Download failed: File too small (\(fileSize) bytes)"
-                    print("📱 [ContentExtension] ❌ \(errorMessage)")
                     DispatchQueue.main.async {
                         self.hideFooterIfSingleMedia()
                         self.showMediaError(
@@ -1255,8 +1170,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                     let dataString = String(data: data.prefix(512), encoding: .utf8) ?? ""
                     if dataString.lowercased().contains("<html") || dataString.lowercased().contains("<!doctype") {
                         let errorMessage = "Downloaded file appears to be an error page, not media content"
-                        print("📱 [ContentExtension] ❌ \(errorMessage)")
-                        print("📱 [ContentExtension] 📄 File content preview: \(dataString.prefix(200))")
                         DispatchQueue.main.async {
                             self.hideFooterIfSingleMedia()
                             self.showMediaError(
@@ -1271,7 +1184,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                     }
                 }
                 
-                print("📱 [ContentExtension] ✅ File validation passed, persisting to shared cache")
                 
                 // Persist file in shared cache
                 if FileManager.default.fileExists(atPath: sharedFileURL.path) {
@@ -1301,7 +1213,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 ])
 
                 DispatchQueue.main.async {
-                    print("📱 [ContentExtension] ✅ Media downloaded to shared cache: \(sharedFileURL.lastPathComponent)")
                     // Display from shared cache path
                     switch mediaType {
                     case .image, .gif:
@@ -1313,7 +1224,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                     }
                 }
             } catch {
-                print("📱 [ContentExtension] File operation failed: \(error)")
                 DispatchQueue.main.async {
                     // Remove footer if only one non-ICON media
                     self.hideFooterIfSingleMedia()
@@ -1392,14 +1302,12 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             indicator.heightAnchor.constraint(equalToConstant: 80)
         ])
         
-        print("📱 [ContentExtension] 🔄 Showing media loading indicator")
     }
     
     private func hideMediaLoadingIndicator() {
         mediaLoadingIndicator?.stopAnimating()
         mediaLoadingIndicator?.removeFromSuperview()
         mediaLoadingIndicator = nil
-        print("📱 [ContentExtension] ✅ Hidden media loading indicator")
     }
     
     private func showMediaError(_ message: String, allowRetry: Bool = false, retryAction: (() -> Void)? = nil) {
@@ -1454,7 +1362,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             
             // Add retry button action
             retryButton.addAction(UIAction { _ in
-                print("📱 [ContentExtension] 🔄 Retry button tapped")
                 retryAction()
             }, for: .touchUpInside)
             
@@ -1480,7 +1387,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         let errorHeight: CGFloat = 200
         adjustPreferredHeight(forContentSize: CGSize(width: view.bounds.width, height: errorHeight))
         
-        print("📱 [ContentExtension] ❌ Showing media error: \(message) (retry: \(allowRetry))")
     }
     
     private func hideMediaError() {
@@ -1490,26 +1396,22 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 subview.removeFromSuperview()
             }
         }
-        print("📱 [ContentExtension] ✅ Hidden media error view")
     }
     
     private func retryCurrentMediaDownload() {
         guard attachmentData.indices.contains(selectedMediaIndex) else {
-            print("📱 [ContentExtension] ❌ Invalid selectedMediaIndex for retry: \(selectedMediaIndex)")
             return
         }
         
         let attachmentDataItem = attachmentData[selectedMediaIndex]
         guard let urlString = attachmentDataItem["url"] as? String,
               let url = URL(string: urlString) else {
-            print("📱 [ContentExtension] ❌ Invalid URL for retry")
             return
         }
         
         let mediaTypeString = attachmentDataItem["mediaType"] as? String ?? "IMAGE"
         let mediaType = getMediaTypeFromString(mediaTypeString)
         
-        print("📱 [ContentExtension] 🔄 Retrying download for media at index \(selectedMediaIndex): \(mediaTypeString)")
         
         // Clear error flag in shared metadata first
         clearMediaErrorFlag(url: urlString, mediaType: mediaTypeString)
@@ -1608,14 +1510,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             messageLabel.bottomAnchor.constraint(equalTo: infoView.bottomAnchor, constant: -20)
         ])
         
-        print("📱 [ContentExtension] 🔊 Showing audio limitation message")
     }
     
     private func displayImage(from url: URL) {
-        print("📱 [ContentExtension] Displaying image/gif")
         
         guard let container = mediaContainerView else {
-            print("📱 [ContentExtension] ❌ No media container available")
             return
         }
         
@@ -1626,12 +1525,10 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         // Start accessing security-scoped resource
         let accessGranted = url.startAccessingSecurityScopedResource()
-        print("📱 [ContentExtension] Image security-scoped access: \(accessGranted)")
         
         if let data = try? Data(contentsOf: url),
            let image = UIImage(data: data) {
             
-            print("📱 [ContentExtension] ✅ Image loaded successfully: \(image.size)")
             
             // For GIFs, prefer WKWebView for accurate playback speed
             if url.pathExtension.lowercased() == "gif" {
@@ -1696,7 +1593,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 
                 // Load HTML with data URL
                 wv.loadHTMLString(htmlContent, baseURL: nil)
-                print("📱 [ContentExtension] ✅ GIF loaded in centered WKWebView with data URL")
                 // Adjust height to image intrinsic aspect
                 adjustPreferredHeight(forContentSize: image.size)
                 return
@@ -1706,7 +1602,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 adjustPreferredHeight(forContentSize: image.size)
             }
         } else {
-            print("📱 [ContentExtension] ❌ Failed to load image data")
             
             // Hide footer and show error with retry button for single media
             hideFooterIfSingleMedia()
@@ -1720,7 +1615,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 let errorMessage = errorCheck.hasError && errorCheck.errorMessage != nil ? 
                     "Download failed: \(errorCheck.errorMessage!)" : "Download failed: Unable to load image"
                 
-                print("📱 [ContentExtension] ❌ Image error - URL: \(urlString), Error: \(errorMessage)")
                 
                 // Show error message with retry button
                 showMediaError(errorMessage, allowRetry: true, retryAction: { [weak self] in
@@ -1747,14 +1641,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             imgView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
         ])
         
-        print("📱 [ContentExtension] ✅ Image view setup completed")
     }
     
         private func displayVideo(from url: URL) {
-        print("📱 [ContentExtension] Displaying video")
         
         guard let container = mediaContainerView else {
-            print("📱 [ContentExtension] ❌ No media container available")
             return
         }
         
@@ -1764,10 +1655,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             let fileSize = resourceValues.fileSize ?? 0
             let isRegularFile = resourceValues.isRegularFile ?? false
             
-            print("📱 [ContentExtension] 📏 Video file validation - Size: \(fileSize) bytes, isRegularFile: \(isRegularFile)")
             
             if !isRegularFile {
-                print("📱 [ContentExtension] ❌ File is not a regular file")
                 showMediaError("Video file is not accessible", allowRetry: true, retryAction: { [weak self] in
                     self?.retryCurrentMediaDownload()
                 })
@@ -1775,7 +1664,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             }
             
             if fileSize < 1024 { // Less than 1KB is likely corrupted
-                print("📱 [ContentExtension] ❌ Video file too small (\(fileSize) bytes), likely corrupted")
                 
                 // Check if there's a specific error recorded in database
                 if let urlString = attachmentData[selectedMediaIndex]["url"] as? String,
@@ -1784,7 +1672,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                     let errorCheck = MediaAccess.hasMediaDownloadError(url: urlString, mediaType: mediaTypeString)
                     
                     if errorCheck.hasError && errorCheck.errorMessage != nil {
-                        print("📱 [ContentExtension] 🔍 Found specific error in database: \(errorCheck.errorMessage!)")
                         showMediaError("Download failed: \(errorCheck.errorMessage!)", allowRetry: true, retryAction: { [weak self] in
                             self?.retryCurrentMediaDownload()
                         })
@@ -1799,9 +1686,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 return
             }
             
-            print("📱 [ContentExtension] ✅ Video file validation passed")
         } catch {
-            print("📱 [ContentExtension] ❌ Failed to validate video file: \(error)")
             showMediaError("Cannot access video file: \(error.localizedDescription)", allowRetry: true, retryAction: { [weak self] in
                 self?.retryCurrentMediaDownload()
             })
@@ -1810,7 +1695,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         // Start accessing security-scoped resource
         let accessGranted = url.startAccessingSecurityScopedResource()
-        print("📱 [ContentExtension] Security-scoped resource access: \(accessGranted)")
         
         // Clean up any existing player and observers before creating new one
         cleanupAllObservers()
@@ -1829,7 +1713,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Ensure layer frame is updated after layout
         DispatchQueue.main.async {
             layer.frame = container.bounds
-            print("📱 [ContentExtension] 🎬 Updated player layer frame: \(layer.frame)")
         }
         
         // Add loading indicator
@@ -1855,27 +1738,22 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Setup autoplay
         setupAutoplay()
         
-        print("📱 [ContentExtension] ✅ Video player setup completed")
 
         // Adjust height using video natural size
         adjustPreferredHeightForVideo(url: url)
     }
     
     private func displayAudio(from url: URL) {
-        print("📱 [ContentExtension] Displaying audio from: \(url.path)")
         
         guard let container = mediaContainerView else {
-            print("📱 [ContentExtension] ❌ No media container available")
             return
         }
         
         // Start accessing security-scoped resource
         let accessGranted = url.startAccessingSecurityScopedResource()
-        print("📱 [ContentExtension] Audio security-scoped access: \(accessGranted)")
         
         // Verify file exists and is readable
         guard FileManager.default.fileExists(atPath: url.path) else {
-            print("📱 [ContentExtension] ❌ Audio file does not exist at path: \(url.path)")
             hideFooterIfSingleMedia()
             showMediaError("Audio file not found")
             return
@@ -1885,92 +1763,61 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         do {
             let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
             if let fileSize = attributes[.size] as? Int {
-                print("📱 [ContentExtension] Audio file size: \(fileSize) bytes")
             }
-            print("📱 [ContentExtension] Audio file extension: \(url.pathExtension)")
         } catch {
-            print("📱 [ContentExtension] ⚠️ Could not get file attributes: \(error)")
         }
         
         // Note: Notification Content Extensions have severe limitations on audio session management
         // We'll try to setup audio session but won't fail if it doesn't work
-        print("📱 [ContentExtension] ⚠️ Note: Audio playback in Notification Content Extensions has limitations")
         
         do {
             let audioSession = AVAudioSession.sharedInstance()
-            print("📱 [ContentExtension] Current audio session category: \(audioSession.category)")
-            print("📱 [ContentExtension] Current audio session mode: \(audioSession.mode)")
-            print("📱 [ContentExtension] Audio session is active: \(audioSession.isOtherAudioPlaying)")
-            print("📱 [ContentExtension] Audio session output volume: \(audioSession.outputVolume)")
             
             // Try different audio session configurations for Notification Content Extensions
             // First try playback category with mix with others option
             try audioSession.setCategory(.playback, mode: .default, options: [.mixWithOthers, .allowAirPlay])
             try audioSession.setActive(true, options: [])
             
-            print("📱 [ContentExtension] ✅ Audio session configured with playback category")
-            print("📱 [ContentExtension] Audio session now active: \(!audioSession.isOtherAudioPlaying)")
-            print("📱 [ContentExtension] Audio session route: \(audioSession.currentRoute.outputs.first?.portName ?? "Unknown")")
         } catch {
-            print("📱 [ContentExtension] ⚠️ Playback category failed, trying ambient: \(error)")
             do {
                 // Fallback to ambient category
                 let audioSession = AVAudioSession.sharedInstance()
                 try audioSession.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
                 try audioSession.setActive(true, options: [])
-                print("📱 [ContentExtension] ✅ Audio session configured with ambient category (fallback)")
             } catch {
-                print("📱 [ContentExtension] ⚠️ Audio session setup failed completely: \(error)")
-                print("📱 [ContentExtension] Proceeding with audio playback attempt anyway...")
             }
         }
         
         // Create player with explicit asset
-        print("📱 [ContentExtension] Creating AVURLAsset from URL: \(url)")
         let asset = AVURLAsset(url: url)
         
         // Check asset properties synchronously
-        print("📱 [ContentExtension] Asset URL: \(asset.url.absoluteString)")
-        print("📱 [ContentExtension] Asset duration: \(CMTimeGetSeconds(asset.duration))")
-        print("📱 [ContentExtension] Asset is playable: \(asset.isPlayable)")
-        print("📱 [ContentExtension] Asset is readable: \(asset.isReadable)")
-        print("📱 [ContentExtension] Asset has protected content: \(asset.hasProtectedContent)")
         
         // Load asset properties asynchronously for more details
         asset.loadValuesAsynchronously(forKeys: ["duration", "tracks", "playable"]) {
             DispatchQueue.main.async {
                 var error: NSError?
                 let status = asset.statusOfValue(forKey: "duration", error: &error)
-                print("📱 [ContentExtension] Asset duration status: \(status.rawValue)")
                 if let error = error {
-                    print("📱 [ContentExtension] ❌ Asset duration loading error: \(error)")
                 }
                 
                 let tracksStatus = asset.statusOfValue(forKey: "tracks", error: &error)
-                print("📱 [ContentExtension] Asset tracks status: \(tracksStatus.rawValue)")
                 if let error = error {
-                    print("📱 [ContentExtension] ❌ Asset tracks loading error: \(error)")
                 } else {
                     let audioTracks = asset.tracks(withMediaType: .audio)
-                    print("📱 [ContentExtension] Audio tracks found: \(audioTracks.count)")
                     for (index, track) in audioTracks.enumerated() {
-                        print("📱 [ContentExtension] Track \(index): enabled=\(track.isEnabled), playable=\(track.isPlayable)")
-                        print("📱 [ContentExtension] Track \(index) format: \(track.mediaType)")
                     }
                 }
             }
         }
         
         let playerItem = AVPlayerItem(asset: asset)
-        print("📱 [ContentExtension] Created AVPlayerItem, status: \(playerItem.status.rawValue)")
         
         // Clean up any existing player and observers before creating new one
         cleanupAllObservers()
         
         player = AVPlayer(playerItem: playerItem)
         
-        print("📱 [ContentExtension] Created audio player with asset")
-        print("📱 [ContentExtension] Player status: \(player?.status.rawValue ?? -1)")
         
         // Check if we should attempt audio playback or show info message
         // Due to iOS limitations, audio in Notification Content Extensions is very restricted
@@ -1984,7 +1831,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             // Setup autoplay with audio-specific handling
             setupAudioAutoplay()
             
-            print("📱 [ContentExtension] ✅ Audio player setup completed")
         } else {
             // Show informative message instead of failing
             showAudioLimitationMessage()
@@ -1993,7 +1839,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     
     // MARK: - Media Controls
     
-        private func setupVideoControls() {
+    private func setupVideoControls() {
         guard let container = mediaContainerView else { return }
         
         // Create controls container
@@ -2160,29 +2006,23 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     
         private func setupTimeObserver() {
         guard let currentPlayer = player else { 
-            print("📱 [ContentExtension] No player available for time observer setup")
             return 
         }
         
         // Remove existing observer from the SAME player instance that created it
         if let token = timeObserverToken, let observerPlayer = timeObserverPlayer {
-            print("📱 [ContentExtension] Removing existing time observer from correct player")
             // Only remove if it's the same player instance
             if observerPlayer === currentPlayer {
                 do {
                     observerPlayer.removeTimeObserver(token)
-                    print("📱 [ContentExtension] ✅ Successfully removed time observer")
                 } catch {
-                    print("📱 [ContentExtension] ⚠️ Failed to remove time observer: \(error)")
                 }
             } else {
-                print("📱 [ContentExtension] ⚠️ Different player instance, not removing observer")
             }
             timeObserverToken = nil
             timeObserverPlayer = nil
         }
         
-        print("📱 [ContentExtension] Setting up new time observer")
         
         // Add periodic observer
         let interval = CMTime(seconds: 0.5, preferredTimescale: 600)
@@ -2205,7 +2045,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Save reference to the player that created the observer
         timeObserverPlayer = currentPlayer
         
-        print("📱 [ContentExtension] ✅ Time observer setup completed for player instance")
     }
 
     @objc private func togglePlayPause() {
@@ -2232,20 +2071,15 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     
     private func setupAutoplay() {
         guard let currentPlayer = player else { 
-            print("📱 [ContentExtension] No player available for autoplay setup")
             return 
         }
         
-        print("📱 [ContentExtension] Setting up autoplay")
         
         // Remove existing status observer if any (safety check)
         if isObservingPlayerStatus, let observed = observedPlayerForStatus {
-            print("📱 [ContentExtension] Removing existing AVPlayer status observer before adding new one")
             do {
                 observed.removeObserver(self, forKeyPath: "status")
-                print("📱 [ContentExtension] ✅ Removed existing AVPlayer status observer")
             } catch {
-                print("📱 [ContentExtension] ⚠️ Failed to remove existing AVPlayer observer: \(error)")
             }
             isObservingPlayerStatus = false
             observedPlayerForStatus = nil
@@ -2253,12 +2087,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         // Remove existing PlayerItem observer if any
         if isObservingPlayerItemStatus, let itemObserved = observedPlayerItemForStatus {
-            print("📱 [ContentExtension] Removing existing AVPlayerItem status observer before adding new one")
             do {
                 itemObserved.removeObserver(self, forKeyPath: "status")
-                print("📱 [ContentExtension] ✅ Removed existing AVPlayerItem status observer")
             } catch {
-                print("📱 [ContentExtension] ⚠️ Failed to remove existing AVPlayerItem observer: \(error)")
             }
             isObservingPlayerItemStatus = false
             observedPlayerItemForStatus = nil
@@ -2268,7 +2099,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         currentPlayer.addObserver(self, forKeyPath: "status", options: [.new], context: nil)
         isObservingPlayerStatus = true
         observedPlayerForStatus = currentPlayer
-        print("📱 [ContentExtension] Added status observer to current player")
         
         // Remove existing notification observer
         NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
@@ -2280,20 +2110,16 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             name: .AVPlayerItemDidPlayToEndTime,
             object: currentPlayer.currentItem
         )
-        print("📱 [ContentExtension] Added playback completion observer")
     }
     
     private func setupAudioAutoplay() {
         guard let currentPlayer = player else { 
-            print("📱 [ContentExtension] No player available for audio autoplay setup")
             return 
         }
         
-        print("📱 [ContentExtension] Setting up audio autoplay")
         
         // Remove existing status observer if any (safety check)
         if isObservingPlayerStatus, let observed = observedPlayerForStatus {
-            print("📱 [ContentExtension] Removing existing status observer before adding new one")
             observed.removeObserver(self, forKeyPath: "status")
             isObservingPlayerStatus = false
             observedPlayerForStatus = nil
@@ -2302,13 +2128,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Add status observer for audio
         currentPlayer.addObserver(self, forKeyPath: "status", options: [.new], context: nil)
         isObservingPlayerStatus = true
-        print("📱 [ContentExtension] Added status observer to audio player")
         
         // Add specific observers for audio debugging
         if let playerItem = currentPlayer.currentItem {
             // Remove existing observer first
             if isObservingPlayerItemStatus, let itemObserved = observedPlayerItemForStatus {
-                print("📱 [ContentExtension] Removing existing PlayerItem status observer before adding new one")
                 itemObserved.removeObserver(self, forKeyPath: "status")
                 observedPlayerItemForStatus = nil
             }
@@ -2316,20 +2140,15 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             playerItem.addObserver(self, forKeyPath: "status", options: [.new], context: nil)
             isObservingPlayerItemStatus = true
             observedPlayerItemForStatus = playerItem
-            print("📱 [ContentExtension] Added status observer to audio player item")
             
             // Log audio asset information
             let asset = playerItem.asset
-            print("📱 [ContentExtension] Audio asset duration: \(CMTimeGetSeconds(asset.duration))")
-            print("📱 [ContentExtension] Audio asset playable: \(asset.isPlayable)")
             
             // Check audio tracks
             asset.loadValuesAsynchronously(forKeys: ["tracks"]) {
                 DispatchQueue.main.async {
                     let tracks = asset.tracks(withMediaType: .audio)
-                    print("📱 [ContentExtension] Audio tracks count: \(tracks.count)")
                     for (index, track) in tracks.enumerated() {
-                        print("📱 [ContentExtension] Audio track \(index): enabled=\(track.isEnabled), playable=\(track.isPlayable)")
                     }
                 }
             }
@@ -2345,18 +2164,15 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             name: .AVPlayerItemDidPlayToEndTime,
             object: currentPlayer.currentItem
         )
-        print("📱 [ContentExtension] Added audio playback completion observer")
         
         // Try to play immediately if ready
         if currentPlayer.status == .readyToPlay {
-            print("📱 [ContentExtension] Audio player already ready, starting playback")
             currentPlayer.play()
         } else {
             // Set a timeout to fallback to info message if player doesn't become ready
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
                 guard let self = self, let player = self.player else { return }
                 if player.status == .failed || player.status == .unknown {
-                    print("📱 [ContentExtension] Audio player failed to load after timeout, showing info message")
                     self.showAudioLimitationMessage()
                 }
             }
@@ -2368,49 +2184,32 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             if let player = object as? AVPlayer {
                 let statusString = player.status == .readyToPlay ? "readyToPlay" : 
                                  player.status == .failed ? "failed" : "unknown"
-                print("📱 [ContentExtension] AVPlayer status changed: \(player.status.rawValue) (\(statusString))")
                 
                 if player.status == .readyToPlay {
-                    print("📱 [ContentExtension] Player ready, starting autoplay")
-                    print("📱 [ContentExtension] Player rate: \(player.rate)")
-                    print("📱 [ContentExtension] Player current time: \(CMTimeGetSeconds(player.currentTime()))")
-                    print("📱 [ContentExtension] Player volume: \(player.volume)")
                     
                     // Ensure volume is set to maximum
                     player.volume = 1.0
                     
                     // Check audio session state before playing
                     let audioSession = AVAudioSession.sharedInstance()
-                    print("📱 [ContentExtension] Before play - Audio session category: \(audioSession.category)")
-                    print("📱 [ContentExtension] Before play - Audio session active: \(!audioSession.isOtherAudioPlaying)")
-                    print("📱 [ContentExtension] Before play - System volume: \(audioSession.outputVolume)")
                     
                     player.play()
                     
                     // Check if playback actually started
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        print("📱 [ContentExtension] After play attempt - Player rate: \(player.rate)")
-                        print("📱 [ContentExtension] After play attempt - Player timeControlStatus: \(player.timeControlStatus.rawValue)")
                         if player.rate == 0 {
-                            print("📱 [ContentExtension] ⚠️ Player rate is still 0, playback may not have started")
                         }
                     }
                     
                     loadingIndicator?.stopAnimating()
                     loadingIndicator?.removeFromSuperview()
                 } else if player.status == .failed {
-                    print("📱 [ContentExtension] ❌ Player failed!")
                     
                     var errorMetadata: [String: Any] = [:]
                     if let error = player.error {
-                        print("📱 [ContentExtension] Player error: \(error)")
-                        print("📱 [ContentExtension] Player error description: \(error.localizedDescription)")
                         errorMetadata["error"] = error.localizedDescription
                         
                         if let nsError = error as NSError? {
-                            print("📱 [ContentExtension] Player error domain: \(nsError.domain)")
-                            print("📱 [ContentExtension] Player error code: \(nsError.code)")
-                            print("📱 [ContentExtension] Player error userInfo: \(nsError.userInfo)")
                             errorMetadata["domain"] = nsError.domain
                             errorMetadata["code"] = nsError.code
                         }
@@ -2432,7 +2231,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                         let fileExtension = asset.url.pathExtension.lowercased()
                         let audioExtensions = ["mp3", "m4a", "aac", "wav", "mp4"]
                         if audioExtensions.contains(fileExtension) {
-                            print("📱 [ContentExtension] Audio playback failed (\(fileExtension)), showing limitation message")
                             showAudioLimitationMessage()
                         } else {
                             self.hideFooterIfSingleMedia()
@@ -2446,28 +2244,16 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             } else if let playerItem = object as? AVPlayerItem {
                 let statusString = playerItem.status == .readyToPlay ? "readyToPlay" : 
                                  playerItem.status == .failed ? "failed" : "unknown"
-                print("📱 [ContentExtension] AVPlayerItem status changed: \(playerItem.status.rawValue) (\(statusString))")
                 
                 if playerItem.status == .readyToPlay {
-                    print("📱 [ContentExtension] PlayerItem ready!")
-                    print("📱 [ContentExtension] PlayerItem duration: \(CMTimeGetSeconds(playerItem.duration))")
-                    print("📱 [ContentExtension] PlayerItem playback likely to keep up: \(playerItem.isPlaybackLikelyToKeepUp)")
-                    print("📱 [ContentExtension] PlayerItem playback buffer empty: \(playerItem.isPlaybackBufferEmpty)")
-                    print("📱 [ContentExtension] PlayerItem playback buffer full: \(playerItem.isPlaybackBufferFull)")
                     // Player should already be playing from AVPlayer observer
                 } else if playerItem.status == .failed {
-                    print("📱 [ContentExtension] ❌ PlayerItem failed!")
                     
                     var errorMetadata: [String: Any] = [:]
                     if let error = playerItem.error {
-                        print("📱 [ContentExtension] PlayerItem error: \(error)")
-                        print("📱 [ContentExtension] PlayerItem error description: \(error.localizedDescription)")
                         errorMetadata["error"] = error.localizedDescription
                         
                         if let nsError = error as NSError? {
-                            print("📱 [ContentExtension] PlayerItem error domain: \(nsError.domain)")
-                            print("📱 [ContentExtension] PlayerItem error code: \(nsError.code)")
-                            print("📱 [ContentExtension] PlayerItem error userInfo: \(nsError.userInfo)")
                             errorMetadata["domain"] = nsError.domain
                             errorMetadata["code"] = nsError.code
                         }
@@ -2485,7 +2271,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                         let fileExtension = asset.url.pathExtension.lowercased()
                         let audioExtensions = ["mp3", "m4a", "aac", "wav", "mp4"]
                         if audioExtensions.contains(fileExtension) {
-                            print("📱 [ContentExtension] Audio PlayerItem failed (\(fileExtension)), showing limitation message")
                             showAudioLimitationMessage()
                         } else {
                             self.hideFooterIfSingleMedia()
@@ -2501,7 +2286,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     }
     
     @objc private func playerDidFinishPlaying() {
-        print("📱 [ContentExtension] Media finished, looping")
         player?.seek(to: .zero)
         player?.play()
     }
@@ -2516,15 +2300,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 if observerPlayer === player {
                     do {
                         observerPlayer.removeTimeObserver(token)
-                        print("📱 [ContentExtension] ✅ Force removed time observer from correct player")
                     } catch {
-                        print("📱 [ContentExtension] ⚠️ Force cleanup failed for time observer: \(error)")
                     }
                 } else {
-                    print("📱 [ContentExtension] ⚠️ Time observer was from different player instance, skipping removal")
                 }
             } else {
-                print("📱 [ContentExtension] ⚠️ Time observer token exists but no player reference")
             }
             // Always reset the token and player reference
             timeObserverToken = nil
@@ -2537,12 +2317,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             if observed === currentPlayer {
                 do {
                     observed.removeObserver(self, forKeyPath: "status")
-                    print("📱 [ContentExtension] ✅ Removed status observer from current player")
                 } catch {
-                    print("📱 [ContentExtension] ⚠️ Failed to remove status observer: \(error)")
                 }
             } else {
-                print("📱 [ContentExtension] ⚠️ Status observer was from different player instance, skipping removal")
             }
             
             // Try to remove any remaining observers from current player item
@@ -2551,12 +2328,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 if itemObserved === currentItem {
                     do {
                         currentItem.removeObserver(self, forKeyPath: "status")
-                        print("📱 [ContentExtension] ✅ Removed item status observer")
                     } catch {
-                        print("📱 [ContentExtension] ⚠️ Failed to remove item status observer: \(error)")
                     }
                 } else {
-                    print("📱 [ContentExtension] ⚠️ Item status observer was from different item instance, skipping removal")
                 }
             }
         }
@@ -2570,18 +2344,15 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Remove notification observers
         NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
         
-        print("📱 [ContentExtension] ✅ Force cleanup completed")
     }
     
     private func cleanupCurrentMedia() {
         // Prevent multiple cleanup calls
         guard !isCleaningUp else {
-            print("📱 [ContentExtension] ⚠️ Cleanup already in progress, skipping")
             return
         }
         
         isCleaningUp = true
-        print("📱 [ContentExtension] Cleaning up current media")
 
         // Stop player
         player?.pause()
@@ -2591,7 +2362,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         if timeObserverToken != nil || isObservingPlayerStatus || isObservingPlayerItemStatus {
             cleanupAllObservers()
         } else {
-            print("📱 [ContentExtension] ⚠️ Observers already cleaned up, skipping")
         }
         
         // Cleanup UI components
@@ -2603,11 +2373,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Reset cleanup flag
         isCleaningUp = false
         
-        print("📱 [ContentExtension] ✅ Media cleanup completed")
     }
     
     private func cleanupUIComponents() {
-        print("📱 [ContentExtension] Cleaning up UI components")
         
         // Remove UI
         playerLayer?.removeFromSuperlayer()
@@ -2643,7 +2411,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         audioInfoView?.removeFromSuperview()
         audioInfoView = nil
         
-        print("📱 [ContentExtension] ✅ UI components cleanup completed")
     }
     
     // MARK: - Helpers
@@ -2690,9 +2457,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
             }
             try AVAudioSession.sharedInstance().setActive(true)
-            print("📱 [ContentExtension] Audio session configured for \(type)")
         } catch {
-            print("📱 [ContentExtension] Failed to setup audio session: \(error)")
         }
     }
     
@@ -2711,7 +2476,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     // MARK: - Deinit
     
     deinit {
-        print("📱 [ContentExtension] Deinitializing")
         
         // Flush any pending logs before deinitialization
         LoggingSystem.shared.flushLogs()
@@ -2722,12 +2486,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             if observerPlayer === player {
                 do {
                     observerPlayer.removeTimeObserver(token)
-                    print("📱 [ContentExtension] Removed time observer in deinit")
                 } catch {
-                    print("📱 [ContentExtension] Error removing time observer in deinit: \(error)")
                 }
             } else {
-                print("📱 [ContentExtension] Different player instance in deinit, skipping time observer removal")
             }
         }
         
@@ -2736,12 +2497,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             if observed === currentPlayer {
                 do {
                     currentPlayer.removeObserver(self, forKeyPath: "status")
-                    print("📱 [ContentExtension] Removed status observer in deinit")
                 } catch {
-                    print("📱 [ContentExtension] Error removing status observer in deinit: \(error)")
                 }
             } else {
-                print("📱 [ContentExtension] Different player instance in deinit, skipping status observer removal")
             }
         }
         
@@ -2750,17 +2508,13 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             if itemObserved === currentItem {
                 do {
                     currentItem.removeObserver(self, forKeyPath: "status")
-                    print("📱 [ContentExtension] Removed item status observer in deinit")
                 } catch {
-                    print("📱 [ContentExtension] Error removing item status observer in deinit: \(error)")
                 }
             } else {
-                print("📱 [ContentExtension] Different item instance in deinit, skipping item observer removal")
             }
         }
         
         NotificationCenter.default.removeObserver(self)
-        print("📱 [ContentExtension] Removed all notification observers")
         
         // Reset observer flags after cleanup to prevent double cleanup in future calls
         timeObserverToken = nil
@@ -2775,14 +2529,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         cleanupUIComponents()
         player = nil
         
-        print("📱 [ContentExtension] ✅ Deinit completed")
     }
     
     private func showErrorMessage(_ message: String, withRetry: Bool = false, retryAction: (() -> Void)? = nil) {
-        print("📱 [ContentExtension] 🚫 Showing error: \(message), withRetry: \(withRetry)")
         
         guard let container = mediaContainerView else {
-            print("📱 [ContentExtension] ❌ No media container available for error message")
             return
         }
         
@@ -2837,7 +2588,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             
             // Add retry button action
             retryButton.addAction(UIAction { _ in
-                print("📱 [ContentExtension] 🔄 Retry button tapped for video")
                 retryAction()
             }, for: .touchUpInside)
             
@@ -2949,12 +2699,10 @@ extension NotificationViewController {
     }
     
     @objc func mediaPlay() {
-        print("📱 [ContentExtension] Media play button pressed")
         player?.play()
     }
     
     @objc func mediaPause() {
-        print("📱 [ContentExtension] Media pause button pressed")
         player?.pause()
     }
 }
@@ -2964,7 +2712,6 @@ extension NotificationViewController {
 extension NotificationViewController {
 
     private func handleNotificationActionInBackground(response: UNNotificationResponse) {
-        print("📱 [ContentExtension] 🎬 Handling notification action in background...")
 
         let actionIdentifier = response.actionIdentifier
         let userInfo = response.notification.request.content.userInfo
@@ -2974,7 +2721,6 @@ extension NotificationViewController {
         let notificationId = extractNotificationId(from: userInfo, fallback: response.notification.request.identifier) ?? response.notification.request.identifier
         
         guard !notificationId.isEmpty else {
-            print("📱 [ContentExtension] ❌ No notification ID found")
             return
         }
 
@@ -2989,7 +2735,6 @@ extension NotificationViewController {
     }
 
     private func handleNotificationAction(response: UNNotificationResponse, completion: @escaping (Bool) -> Void) {
-        print("📱 [ContentExtension] 🎬 Handling notification action...")
         
         let actionIdentifier = response.actionIdentifier
         let userInfo = response.notification.request.content.userInfo
@@ -2999,7 +2744,6 @@ extension NotificationViewController {
         let notificationId = extractNotificationId(from: userInfo, fallback: response.notification.request.identifier) ?? response.notification.request.identifier
         
         guard !notificationId.isEmpty else {
-            print("📱 [ContentExtension] ❌ No notification ID found")
             completion(false)
             return
         }
@@ -3015,11 +2759,9 @@ extension NotificationViewController {
     }
 
     private func handleDefaultTapActionInBackground(userInfo: [AnyHashable: Any], notificationId: String) {
-        print("📱 [ContentExtension] 🔔 Handling default tap action in background for notification: \(notificationId)")
 
         // Check if there's a custom tapAction defined
         if let tapAction = extractTapAction(from: userInfo) {
-            print("📱 [ContentExtension] 🎯 Found custom tapAction: \(tapAction)")
 
             executeActionInBackground(action: tapAction, notificationId: notificationId)
         } else {
@@ -3030,7 +2772,6 @@ extension NotificationViewController {
                 "timestamp": ISO8601DateFormatter().string(from: Date())
             ]
             storeNavigationIntent(data: navigationData)
-            print("📱 [ContentExtension] 📂 Stored default open notification intent in background")
 
             // Note: UI is already dismissed, no need to call extensionContext methods
         }
@@ -3052,11 +2793,9 @@ extension NotificationViewController {
     }
     
     private func handleDefaultTapAction(userInfo: [AnyHashable: Any], notificationId: String, completion: @escaping (Bool) -> Void) {
-        print("📱 [ContentExtension] 🔔 Handling default tap action for notification: \(notificationId)")
         
         // Check if there's a custom tapAction defined
         if let tapAction = extractTapAction(from: userInfo) {
-            print("📱 [ContentExtension] 🎯 Found custom tapAction: \(tapAction)")
             
             executeAction(action: tapAction, notificationId: notificationId, completion: completion)
         } else {
@@ -3067,7 +2806,6 @@ extension NotificationViewController {
                 "timestamp": ISO8601DateFormatter().string(from: Date())
             ]
             storeNavigationIntent(data: navigationData)
-            print("📱 [ContentExtension] 📂 Stored default open notification intent")
 
             // Use the system default action to open the host app.
             // This is more reliable than dismissing the extension and then trying to open a deep link.
@@ -3080,50 +2818,41 @@ extension NotificationViewController {
     }
     
     @objc private func headerTapped() {
-        print("📱 [ContentExtension] 👆 Header tapped - triggering default tap action")
         
         // Get current notification data
         guard let userInfo = currentNotificationUserInfo else {
-            print("📱 [ContentExtension] ❌ No notification data available for header tap")
             return
         }
         // Use nid from userInfo (new format), fallback to notificationId (old format), then request identifier
         let notificationId = extractNotificationId(from: userInfo, fallback: currentNotificationRequestIdentifier) ?? currentNotificationRequestIdentifier ?? ""
         guard !notificationId.isEmpty else {
-            print("📱 [ContentExtension] ❌ No notification ID found for header tap")
             return
         }
         
         // Call handleDefaultTapAction with a dummy completion
         handleDefaultTapAction(userInfo: userInfo, notificationId: notificationId) { success in
-            print("📱 [ContentExtension] ✅ Header tap action completed with success: \(success)")
         }
     }
     
     @objc private func mediaContainerTapped() {
-        print("📱 [ContentExtension] 👆 Media container tapped - triggering default tap action")
         
         // Don't trigger tap action if video player is active (let video controls work)
         if player != nil {
-            print("📱 [ContentExtension] 🎬 Video player active, ignoring media container tap")
             return
         }
         
         // Get current notification data
         guard let userInfo = currentNotificationUserInfo else {
-            print("📱 [ContentExtension] ❌ No notification data available for media container tap")
             return
         }
         // Use nid from userInfo (new format), fallback to notificationId (old format), then request identifier
         let notificationId = extractNotificationId(from: userInfo, fallback: currentNotificationRequestIdentifier) ?? currentNotificationRequestIdentifier ?? ""
         guard !notificationId.isEmpty else {
-            print("📱 [ContentExtension] ❌ No notification ID found for media container tap")
             return
         }
         
         // Call handleDefaultTapAction with a dummy completion
         handleDefaultTapAction(userInfo: userInfo, notificationId: notificationId) { success in
-            print("📱 [ContentExtension] ✅ Media container tap action completed with success: \(success)")
         }
     }
     
@@ -3132,11 +2861,9 @@ extension NotificationViewController {
     }
     
     private func handleCustomActionInBackground(actionIdentifier: String, userInfo: [AnyHashable: Any], notificationId: String) {
-        print("📱 [ContentExtension] 🎯 Handling custom action in background: \(actionIdentifier)")
 
         // Find the matching action in the payload
         guard let action = findMatchingAction(actionIdentifier: actionIdentifier, userInfo: userInfo) else {
-            print("📱 [ContentExtension] ❌ No matching action found for identifier: \(actionIdentifier)")
             return
         }
 
@@ -3144,11 +2871,9 @@ extension NotificationViewController {
     }
 
     private func handleCustomAction(actionIdentifier: String, userInfo: [AnyHashable: Any], notificationId: String, completion: @escaping (Bool) -> Void) {
-        print("📱 [ContentExtension] 🎯 Handling custom action: \(actionIdentifier)")
 
         // Find the matching action in the payload
         guard let action = findMatchingAction(actionIdentifier: actionIdentifier, userInfo: userInfo) else {
-            print("📱 [ContentExtension] ❌ No matching action found for identifier: \(actionIdentifier)")
             completion(false)
             return
         }
@@ -3164,13 +2889,11 @@ extension NotificationViewController {
         guard let normalized = NotificationActionHandler.normalizeAction(action, notificationId: notificationId),
               let type = normalized["type"] as? String,
               let value = normalized["value"] as? String else {
-            print("📱 [ContentExtension] ❌ Invalid action format")
             completion(false)
             return
         }
         
         guard let userInfo = currentNotificationUserInfo else {
-            print("📱 [ContentExtension] ❌ No notification userInfo available")
             completion(false)
             return
         }
@@ -3199,7 +2922,6 @@ extension NotificationViewController {
 
                     // For navigation actions, open the app after storing the intent
                     if isNavigationAction {
-                        print("📱 [ContentExtension] 🚀 Opening app for navigation action: \(type)")
                         DispatchQueue.main.async {
                             // Use default action to open the host app so it can consume the stored intent.
                             self?.extensionContext?.performNotificationDefaultAction()
@@ -3207,7 +2929,6 @@ extension NotificationViewController {
                     }
                     completion(true)
                 case .failure(let error):
-                    print("📱 [ContentExtension] ❌ Action failed: \(error)")
                     completion(false)
                 }
             }
@@ -3215,22 +2936,18 @@ extension NotificationViewController {
     }
 
     private func executeActionInBackground(action: [String: Any], notificationId: String) {
-        print("📱 [ContentExtension] 🔍 Executing action in background. Keys: \(action.keys), Action: \(action)")
         
         // Extract action type and value from action dictionary
         guard let normalized = NotificationActionHandler.normalizeAction(action, notificationId: notificationId),
               let type = normalized["type"] as? String,
               let value = normalized["value"] as? String else {
-            print("📱 [ContentExtension] ❌ Invalid action format in background. Action data: \(action)")
             return
         }
 
         guard let userInfo = currentNotificationUserInfo else {
-            print("📱 [ContentExtension] ❌ No notification userInfo available in background")
             return
         }
 
-        print("📱 [ContentExtension] 🚀 Executing action in background: \(type) with value: \(value)")
 
         // Check if this is a navigation action that requires opening the app
         let isNavigationAction = (type == "NAVIGATE" || type == "OPEN_NOTIFICATION")
@@ -3246,11 +2963,9 @@ extension NotificationViewController {
             onComplete: { [weak self] result in
                 switch result {
                 case .success:
-                    print("📱 [ContentExtension] ✅ Action completed successfully in background: \(type)")
                     
                     // For navigation actions, open the app after storing the intent
                     if isNavigationAction {
-                        print("📱 [ContentExtension] 🚀 Opening app for navigation action in background: \(type)")
                         DispatchQueue.main.async {
                             // Use default action to open the host app so it can consume the stored intent.
                             self?.extensionContext?.performNotificationDefaultAction()
@@ -3258,7 +2973,8 @@ extension NotificationViewController {
                     }
                     
                 case .failure(let error):
-                    print("📱 [ContentExtension] ❌ Action failed in background: \(error)")
+                    _ = error
+                    break
                 }
             }
         )
@@ -3272,9 +2988,7 @@ extension NotificationViewController {
     private func storeNavigationIntent(data: [String: Any]) {
         do {
             try KeychainAccess.storeIntentInKeychain(data: data, service: "zentik-pending-navigation")
-            print("📱 [ContentExtension] 💾 Stored navigation intent in keychain: \(data)")
         } catch {
-            print("📱 [ContentExtension] ❌ Failed to store navigation intent in keychain: \(error)")
             
             logToDatabase(
                 level: "ERROR",
@@ -3292,7 +3006,6 @@ extension NotificationViewController {
 extension NotificationViewController {
     
     private func executeBackgroundCall(method: String, url: String) async throws {
-        print("📱 [ContentExtension] 📞 Executing background call: \(method) \(url)")
         
         guard let requestUrl = URL(string: url) else {
             throw NSError(domain: "BackgroundCallError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
@@ -3305,7 +3018,6 @@ extension NotificationViewController {
         let (data, response) = try await URLSession.shared.data(for: request)
         
         if let httpResponse = response as? HTTPURLResponse {
-            print("📱 [ContentExtension] 📥 Background call response: \(httpResponse.statusCode)")
             if httpResponse.statusCode >= 400 {
                 let responseString = String(data: data, encoding: .utf8) ?? "Unknown error"
                 throw NSError(domain: "BackgroundCallError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode): \(responseString)"])
@@ -3322,23 +3034,18 @@ extension NotificationViewController {
     
     private func displayMediaFromSharedCache(at index: Int) {
         guard attachmentData.indices.contains(index) else {
-            print("📱 [ContentExtension] Invalid attachmentData index: \(index)")
             return
         }
         
         let attachmentDataItem = attachmentData[index]
-        print("📱 [ContentExtension] Displaying media from shared cache at index \(index)")
         
         guard let urlString = attachmentDataItem["url"] as? String else {
-            print("📱 [ContentExtension] Invalid URL in attachmentData")
             return
         }
         
         let mediaTypeString = attachmentDataItem["mediaType"] as? String ?? "IMAGE"
         let mediaType = getMediaTypeFromString(mediaTypeString)
         
-        print("📱 [ContentExtension] Media type: \(mediaTypeString), URL: \(urlString)")
-        print("📱 [ContentExtension] Selected media index: \(selectedMediaIndex), Requested index: \(index)")
         
         // Clean up previous media
         cleanupCurrentMedia()
@@ -3352,7 +3059,6 @@ extension NotificationViewController {
             
             // Try to load from shared cache first
             if let cachedPath = self.getCachedMediaPath(url: urlString, mediaType: mediaTypeString) {
-                print("📱 [ContentExtension] ✅ Found media in shared cache: \(cachedPath)")
                 let cachedURL = URL(fileURLWithPath: cachedPath)
                 
                 DispatchQueue.main.async {
@@ -3368,12 +3074,9 @@ extension NotificationViewController {
                     }
                 }
             } else {
-                print("📱 [ContentExtension] ❌ Media not found in file system cache")
                 
                 // NCE should download media directly
-                print("📱 [ContentExtension] 🌐 Starting direct download by NCE")
                 guard let originalURL = URL(string: urlString) else {
-                    print("📱 [ContentExtension] Invalid URL: \(urlString)")
                     DispatchQueue.main.async {
                         self.hideMediaLoadingIndicator()
                     }
@@ -3438,7 +3141,6 @@ extension NotificationViewController {
             selectedMediaIndex = idx
         }
         
-        print("📱 [ContentExtension] 🔄 Manual download started for: \(typePart) - \(urlPart)")
     }
     
     
@@ -3449,77 +3151,59 @@ extension NotificationViewController {
         let typeDirectory = sharedCacheDirectory.appendingPathComponent(mediaType.uppercased())
         let filePath = typeDirectory.appendingPathComponent(filename).path
         
-        print("📱 [ContentExtension] 🔍 Checking cached file: \(filePath)")
-        print("📱 [ContentExtension] 📁 Cache directory: \(sharedCacheDirectory.path)")
-        print("📱 [ContentExtension] 📄 Generated filename: \(filename)")
-        print("📱 [ContentExtension] 🔗 URL hash: \(MediaAccess.generateLongHash(url: url))")
         
         // Check if directory exists
         if !FileManager.default.fileExists(atPath: typeDirectory.path) {
-            print("📱 [ContentExtension] 📁 Type directory doesn't exist: \(typeDirectory.path)")
             // Try to create it
             do {
                 try FileManager.default.createDirectory(at: typeDirectory, withIntermediateDirectories: true, attributes: nil)
-                print("📱 [ContentExtension] ✅ Created type directory: \(typeDirectory.path)")
             } catch {
-                print("📱 [ContentExtension] ❌ Failed to create type directory: \(error)")
             }
         }
         
         if FileManager.default.fileExists(atPath: filePath) {
-            print("📱 [ContentExtension] ✅ Found cached file: \(filePath)")
             
             // Verify file size
             do {
                 let attributes = try FileManager.default.attributesOfItem(atPath: filePath)
                 if let fileSize = attributes[.size] as? Int64 {
-                    print("📱 [ContentExtension] 📏 File size: \(fileSize) bytes")
                     if fileSize > 0 {
                         return filePath
                     } else {
-                        print("📱 [ContentExtension] ⚠️ File exists but is empty, removing it")
                         try? FileManager.default.removeItem(atPath: filePath)
                         return nil
                     }
                 }
             } catch {
-                print("📱 [ContentExtension] ⚠️ Could not read file attributes: \(error)")
             }
             
             return filePath
         } else {
-            print("📱 [ContentExtension] ❌ Cached file not found: \(filePath)")
             
             // For ICON media type, also try with .jpg extension (in case it was resized and converted)
             if mediaType.uppercased() == "ICON" {
                 let baseFilename = (typeDirectory.appendingPathComponent(filename).lastPathComponent as NSString).deletingPathExtension
                 let jpegPath = typeDirectory.appendingPathComponent("\(baseFilename).jpg").path
                 
-                print("📱 [ContentExtension] 🔍 Trying JPEG version for icon: \(jpegPath)")
                 
                 if FileManager.default.fileExists(atPath: jpegPath) {
-                    print("📱 [ContentExtension] ✅ Found JPEG icon: \(jpegPath)")
                     
                     // Verify JPEG file size
                     do {
                         let attributes = try FileManager.default.attributesOfItem(atPath: jpegPath)
                         if let fileSize = attributes[.size] as? Int64 {
-                            print("📱 [ContentExtension] 📏 JPEG file size: \(fileSize) bytes")
                             if fileSize > 0 {
                                 return jpegPath
                             } else {
-                                print("📱 [ContentExtension] ⚠️ JPEG file exists but is empty, removing it")
                                 try? FileManager.default.removeItem(atPath: jpegPath)
                                 return nil
                             }
                         }
                     } catch {
-                        print("📱 [ContentExtension] ⚠️ Could not read JPEG file attributes: \(error)")
                     }
                     
                     return jpegPath
                 } else {
-                    print("📱 [ContentExtension] ❌ JPEG icon also not found: \(jpegPath)")
                 }
             }
         }
@@ -3530,7 +3214,6 @@ extension NotificationViewController {
     private func pollForMediaCompletion(url: String, mediaType: String, originalMediaType: MediaType, attempt: Int = 1) {
         // Timeout after 30 attempts (15 seconds)
         if attempt > 30 {
-            print("📱 [ContentExtension] ⚠️ Polling timeout reached after \(attempt) attempts")
             self.hideMediaLoadingIndicator()
             self.hideFooterIfSingleMedia()
             self.showMediaError(
@@ -3546,23 +3229,19 @@ extension NotificationViewController {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             guard let self = self else { return }
             
-            print("📱 [ContentExtension] 🔍 Polling attempt \(attempt)/30 for media: \(url)")
             
             // Check if media is still the currently selected one
             guard self.attachmentData.indices.contains(self.selectedMediaIndex) else {
-                print("📱 [ContentExtension] ⚠️ Media index changed during polling, stopping")
                 return
             }
             
             let currentMedia = self.attachmentData[self.selectedMediaIndex]
             guard let currentUrl = currentMedia["url"] as? String,
                   currentUrl == url else {
-                print("📱 [ContentExtension] ⚠️ Different media selected during polling, stopping")
                 return
             }
             
             if let cachedPath = self.getCachedMediaPath(url: url, mediaType: mediaType) {
-                print("📱 [ContentExtension] ✅ Media download completed, displaying from cache")
                 self.hideMediaLoadingIndicator()
                 
                 let cachedURL = URL(fileURLWithPath: cachedPath)
@@ -3579,13 +3258,11 @@ extension NotificationViewController {
                 let isDownloading = MediaAccess.isMediaDownloading(url: url, mediaType: mediaType)
                 let errorCheck = MediaAccess.hasMediaDownloadError(url: url, mediaType: mediaType)
                 
-                print("📱 [ContentExtension] Polling states - Downloading: \(isDownloading), HasError: \(errorCheck.hasError)")
                 
                 if isDownloading {
                     // Still downloading, continue polling
                     self.pollForMediaCompletion(url: url, mediaType: mediaType, originalMediaType: originalMediaType, attempt: attempt + 1)
                 } else if errorCheck.hasError {
-                    print("📱 [ContentExtension] ❌ Download failed with error: \(errorCheck.errorMessage ?? "Unknown error")")
                     self.hideMediaLoadingIndicator()
                     
                     // Remove footer if only one non-ICON media (same logic as displayMediaFromSharedCache)
@@ -3600,7 +3277,6 @@ extension NotificationViewController {
                     )
                 } else {
                     // Download completed but no file found, fallback to direct download
-                    print("📱 [ContentExtension] ⚠️ Download completed but no file found, falling back to direct download")
                     self.hideMediaLoadingIndicator()
                     guard let originalURL = URL(string: url) else { return }
                     self.downloadAndDisplayMedia(from: originalURL, mediaType: originalMediaType)
@@ -3612,7 +3288,6 @@ extension NotificationViewController {
     // MARK: - Icon Loading from Shared Cache
     
     private func loadIconFromSharedCache(iconUrl: String, iconImageView: UIImageView) {
-        print("📱 [ContentExtension] Loading bucket icon from shared cache: \(iconUrl)")
         
         // Ensure icon is visible since we have an ICON attachment
         iconImageView.isHidden = false
@@ -3625,40 +3300,32 @@ extension NotificationViewController {
         
         // Check if icon exists in shared cache
         if FileManager.default.fileExists(atPath: cachedIconPath.path) {
-            print("📱 [ContentExtension] ✅ Found icon in shared cache: \(cachedIconPath.path)")
             
             if let data = try? Data(contentsOf: cachedIconPath),
                let image = UIImage(data: data) {
                 DispatchQueue.main.async {
                     iconImageView.image = image
-                    print("📱 [ContentExtension] ✅ Bucket icon loaded from shared cache (possibly resized)")
                 }
                 return
             } else {
-                print("📱 [ContentExtension] ⚠️ Failed to load icon data from shared cache")
             }
         } else {
-            print("📱 [ContentExtension] 📁 Icon not found in shared cache: \(cachedIconPath.path)")
             
             // Try with .jpg extension in case it was converted during resize
             let baseFilename = (cachedIconPath.lastPathComponent as NSString).deletingPathExtension
             let jpegIconPath = cachedIconPath.deletingLastPathComponent().appendingPathComponent("\(baseFilename).jpg")
             
             if FileManager.default.fileExists(atPath: jpegIconPath.path) {
-                print("📱 [ContentExtension] ✅ Found JPEG icon in shared cache: \(jpegIconPath.path)")
                 
                 if let data = try? Data(contentsOf: jpegIconPath),
                    let image = UIImage(data: data) {
                     DispatchQueue.main.async {
                         iconImageView.image = image
-                        print("📱 [ContentExtension] ✅ Bucket icon loaded from shared cache (JPEG format)")
                     }
                     return
                 } else {
-                    print("📱 [ContentExtension] ⚠️ Failed to load JPEG icon data from shared cache")
                 }
             } else {
-                print("📱 [ContentExtension] 📁 JPEG icon also not found: \(jpegIconPath.path)")
             }
         }
         
@@ -3668,7 +3335,6 @@ extension NotificationViewController {
     
     private func downloadIconDirectly(iconUrl: String, iconImageView: UIImageView) {
         guard let url = URL(string: iconUrl) else {
-            print("📱 [ContentExtension] ❌ Invalid icon URL: \(iconUrl)")
             // Since we have an ICON attachment, show a placeholder instead of hiding
             iconImageView.image = UIImage(systemName: "photo")
             iconImageView.tintColor = .systemGray
@@ -3676,20 +3342,16 @@ extension NotificationViewController {
             return
         }
         
-        print("📱 [ContentExtension] 📥 Downloading icon directly: \(iconUrl)")
         
         URLSession.shared.dataTask(with: url) { data, response, error in
             DispatchQueue.main.async {
                 if let data = data, let image = UIImage(data: data) {
                     iconImageView.image = image
-                    print("📱 [ContentExtension] ✅ Bucket icon loaded via direct download")
                 } else {
-                    print("📱 [ContentExtension] ❌ Failed to load bucket icon: \(error?.localizedDescription ?? "Unknown error")")
                     // Since we have an ICON attachment, show a placeholder instead of hiding
                     iconImageView.image = UIImage(systemName: "photo")
                     iconImageView.tintColor = .systemGray
                     iconImageView.isHidden = false
-                    print("📱 [ContentExtension] ⚠️ Showing placeholder icon for failed ICON attachment")
                 }
             }
         }.resume()

@@ -1,7 +1,6 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
 import type { IDBPDatabase } from 'idb';
 import { Platform } from 'react-native';
-import { openWebStorageDb, openSharedCacheDb } from './db-setup';
+import { openWebStorageDb, openSharedCacheDb, type ISharedCacheDb } from './db-setup';
 import type { WebStorageDB } from './db-setup';
 
 export interface SettingsItem {
@@ -16,7 +15,7 @@ export interface SettingsItem {
  * Initializes the appropriate database automatically based on platform
  */
 export class SettingsRepository {
-  private db: SQLiteDatabase | IDBPDatabase<WebStorageDB> | null = null;
+  private db: ISharedCacheDb | IDBPDatabase<WebStorageDB> | null = null;
   private initialized = false;
 
   constructor() {
@@ -86,7 +85,7 @@ export class SettingsRepository {
   private async createTablesIfNeeded(): Promise<void> {
     if (this.isWeb() || !this.db) return;
 
-    const sqliteDb = this.db as SQLiteDatabase;
+    const sqliteDb = this.db as ISharedCacheDb;
     await sqliteDb.execAsync(`
       CREATE TABLE IF NOT EXISTS app_settings (
         key TEXT PRIMARY KEY NOT NULL,
@@ -108,7 +107,7 @@ export class SettingsRepository {
         const result = await webDb.get('keyvalue', `app_setting:${key}`);
         return result || null;
       } else {
-        const sqliteDb = this.db as SQLiteDatabase;
+        const sqliteDb = this.db as ISharedCacheDb;
         const result = await sqliteDb.getFirstAsync<{ value: string }>(
           'SELECT value FROM app_settings WHERE key = ?',
           [key]
@@ -140,7 +139,7 @@ export class SettingsRepository {
           const webDb = this.db as IDBPDatabase<WebStorageDB>;
           await webDb.put('keyvalue', value, `app_setting:${key}`);
         } else {
-          const sqliteDb = this.db as SQLiteDatabase;
+          const sqliteDb = this.db as ISharedCacheDb;
           await sqliteDb.runAsync(
             'INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)',
             [key, value, Date.now()]
@@ -184,7 +183,7 @@ export class SettingsRepository {
         const webDb = this.db as IDBPDatabase<WebStorageDB>;
         await webDb.delete('keyvalue', `app_setting:${key}`);
       } else {
-        const sqliteDb = this.db as SQLiteDatabase;
+        const sqliteDb = this.db as ISharedCacheDb;
         await sqliteDb.runAsync(
           'DELETE FROM app_settings WHERE key = ?',
           [key]
@@ -220,7 +219,7 @@ export class SettingsRepository {
         
         return settingsMap;
       } else {
-        const sqliteDb = this.db as SQLiteDatabase;
+        const sqliteDb = this.db as ISharedCacheDb;
         const results = await sqliteDb.getAllAsync<SettingsItem>(
           'SELECT key, value FROM app_settings'
         );
@@ -255,7 +254,7 @@ export class SettingsRepository {
           }
         }
       } else {
-        const sqliteDb = this.db as SQLiteDatabase;
+        const sqliteDb = this.db as ISharedCacheDb;
         await sqliteDb.runAsync('DELETE FROM app_settings');
       }
     } catch (error) {
@@ -270,7 +269,7 @@ export class SettingsRepository {
   async close(): Promise<void> {
     if (!this.isWeb() && this.db) {
       try {
-        const sqliteDb = this.db as SQLiteDatabase;
+        const sqliteDb = this.db as ISharedCacheDb;
         await sqliteDb.closeAsync();
       } catch (error) {
         console.error('[SettingsRepository] Failed to close database:', error);

@@ -64,34 +64,13 @@ public class MediaAccess {
     
     // MARK: - Cache Item Operations
     
-    /// Insert or update cache item in database
+    /// Insert or update cache item in database (runs under DatabaseAccess lock)
     public static func upsertCacheItem(url: String, mediaType: String, fields: [String: Any]) {
-        guard let dbPath = DatabaseAccess.getDbPath() else {
-            print("📱 [MediaAccess] ⚠️ DB path not available")
-            return
-        }
-        
-        guard FileManager.default.fileExists(atPath: dbPath) else {
-            print("📱 [MediaAccess] ⚠️ DB not found, skipping upsert")
-            return
-        }
-        
-        var db: OpaquePointer?
-        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE, nil) != SQLITE_OK {
-            print("📱 [MediaAccess] ❌ Failed to open DB at \(dbPath)")
-            return
-        }
-        defer { sqlite3_close(db) }
-        
         let key = "\(mediaType.uppercased())_\(url)"
-        
-        // Build fields with defaults
         var allFields = fields
         allFields["key"] = key
         allFields["url"] = url
         allFields["media_type"] = mediaType.uppercased()
-        
-        // Apply defaults for NOT NULL columns
         let nowMs = Int(Date().timeIntervalSince1970 * 1000)
         if allFields["generating_thumbnail"] == nil { allFields["generating_thumbnail"] = 0 }
         if allFields["timestamp"] == nil { allFields["timestamp"] = nowMs }
@@ -100,88 +79,73 @@ public class MediaAccess {
         if allFields["is_downloading"] == nil { allFields["is_downloading"] = 0 }
         if allFields["is_permanent_failure"] == nil { allFields["is_permanent_failure"] = 0 }
         if allFields["is_user_deleted"] == nil { allFields["is_user_deleted"] = 0 }
-        
         let columns = [
             "key", "url", "local_path", "local_thumb_path", "generating_thumbnail", "timestamp", "size",
             "media_type", "original_file_name", "downloaded_at", "notification_date", "notification_id",
             "is_downloading", "is_permanent_failure", "is_user_deleted", "error_code"
         ]
-        
         let placeholders = Array(repeating: "?", count: columns.count).joined(separator: ",")
         let sql = """
         INSERT INTO cache_item (\(columns.joined(separator: ","))) VALUES (\(placeholders))
         ON CONFLICT(key) DO UPDATE SET
-        url=excluded.url,
-        local_path=excluded.local_path,
-        local_thumb_path=excluded.local_thumb_path,
-        generating_thumbnail=excluded.generating_thumbnail,
-        timestamp=excluded.timestamp,
-        size=excluded.size,
-        media_type=excluded.media_type,
-        original_file_name=excluded.original_file_name,
-        downloaded_at=excluded.downloaded_at,
-        notification_date=excluded.notification_date,
-        notification_id=excluded.notification_id,
-        is_downloading=excluded.is_downloading,
-        is_permanent_failure=excluded.is_permanent_failure,
-        is_user_deleted=excluded.is_user_deleted,
+        url=excluded.url, local_path=excluded.local_path, local_thumb_path=excluded.local_thumb_path,
+        generating_thumbnail=excluded.generating_thumbnail, timestamp=excluded.timestamp, size=excluded.size,
+        media_type=excluded.media_type, original_file_name=excluded.original_file_name,
+        downloaded_at=excluded.downloaded_at, notification_date=excluded.notification_date,
+        notification_id=excluded.notification_id, is_downloading=excluded.is_downloading,
+        is_permanent_failure=excluded.is_permanent_failure, is_user_deleted=excluded.is_user_deleted,
         error_code=excluded.error_code;
         """
-        
-        var stmt: OpaquePointer?
-        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
-            print("📱 [MediaAccess] ❌ Failed to prepare UPSERT: \(String(cString: sqlite3_errmsg(db)))")
-            return
-        }
-        defer { sqlite3_finalize(stmt) }
-        
-        func bind(_ idx: Int32, _ value: Any?) {
-            if value == nil {
-                sqlite3_bind_null(stmt, idx)
-                return
-            }
-            switch value {
-            case let v as String:
-                sqlite3_bind_text(stmt, idx, (v as NSString).utf8String, -1, SQLITE_TRANSIENT)
-            case let v as Int:
-                sqlite3_bind_int64(stmt, idx, Int64(v))
-            case let v as Int64:
-                sqlite3_bind_int64(stmt, idx, v)
-            case let v as Bool:
-                sqlite3_bind_int(stmt, idx, v ? 1 : 0)
-            default:
-                sqlite3_bind_null(stmt, idx)
-            }
-        }
-        
         let values: [Any?] = [
-            allFields["key"],
-            allFields["url"],
-            allFields["local_path"],
-            allFields["local_thumb_path"],
-            allFields["generating_thumbnail"],
-            allFields["timestamp"],
-            allFields["size"],
-            allFields["media_type"],
-            allFields["original_file_name"],
-            allFields["downloaded_at"],
-            allFields["notification_date"],
-            allFields["notification_id"],
-            allFields["is_downloading"],
-            allFields["is_permanent_failure"],
-            allFields["is_user_deleted"],
-            allFields["error_code"]
+            allFields["key"], allFields["url"], allFields["local_path"], allFields["local_thumb_path"],
+            allFields["generating_thumbnail"], allFields["timestamp"], allFields["size"],
+            allFields["media_type"], allFields["original_file_name"], allFields["downloaded_at"],
+            allFields["notification_date"], allFields["notification_id"], allFields["is_downloading"],
+            allFields["is_permanent_failure"], allFields["is_user_deleted"], allFields["error_code"]
         ]
-        
-        for (i, v) in values.enumerated() {
-            bind(Int32(i + 1), v)
-        }
-        
-        if sqlite3_step(stmt) != SQLITE_DONE {
-            print("📱 [MediaAccess] ❌ UPSERT failed: \(String(cString: sqlite3_errmsg(db)))")
-        } else {
-            print("📱 [MediaAccess] ✅ UPSERT successful for key: \(key)")
-        }
+        let sem = DispatchSemaphore(value: 0)
+        DatabaseAccess.performDatabaseOperation(
+            type: .write,
+            name: "UpsertCacheItem",
+            source: "MediaAccess",
+            verboseLogging: false,
+            operation: { db, _ in
+                var stmt: OpaquePointer?
+                guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                    return .failure(String(cString: sqlite3_errmsg(db)))
+                }
+                defer { sqlite3_finalize(stmt) }
+                for (i, v) in values.enumerated() {
+                    let idx = Int32(i + 1)
+                    if v == nil {
+                        sqlite3_bind_null(stmt, idx)
+                    } else if let s = v as? String {
+                        sqlite3_bind_text(stmt, idx, (s as NSString).utf8String, -1, SQLITE_TRANSIENT)
+                    } else if let n = v as? Int {
+                        sqlite3_bind_int64(stmt, idx, Int64(n))
+                    } else if let n = v as? Int64 {
+                        sqlite3_bind_int64(stmt, idx, n)
+                    } else if let b = v as? Bool {
+                        sqlite3_bind_int(stmt, idx, b ? 1 : 0)
+                    } else {
+                        sqlite3_bind_null(stmt, idx)
+                    }
+                }
+                if sqlite3_step(stmt) == SQLITE_DONE {
+                    return .success
+                }
+                return .failure(String(cString: sqlite3_errmsg(db)))
+            },
+            completion: { result in
+                if case .success = result {
+                    print("📱 [MediaAccess] ✅ UPSERT successful for key: \(key)")
+                } else {
+                    print("📱 [MediaAccess] ❌ UPSERT failed for key: \(key)")
+                }
+                sem.signal()
+            }
+        )
+        sem.wait()
     }
     
     /// Check if media exists in cache

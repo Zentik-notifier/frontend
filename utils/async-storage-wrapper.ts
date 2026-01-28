@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import BaseAsyncStorage from 'expo-sqlite/kv-store';
 import * as Device from 'expo-device';
 import * as Keychain from 'react-native-keychain';
@@ -6,6 +6,9 @@ import { openWebStorageDb } from '../services/db-setup';
 
 export type KeyValuePair = [string, string];
 type StorageOptions = { secret?: boolean };
+
+const { DatabaseAccessBridge } = NativeModules;
+const useBridgeKV = (Platform.OS === 'ios' || Platform.OS === 'macos') && DatabaseAccessBridge;
 
 const bundleIdentifier = process.env.EXPO_PUBLIC_APP_VARIANT === 'development'
   ? 'com.apocaliss92.zentik.dev'
@@ -97,6 +100,26 @@ class WebStorageIndexedDB {
 
 const WebStorage = new WebStorageIndexedDB();
 
+const bridgeKV = useBridgeKV
+  ? {
+      async setItem(key: string, value: string): Promise<void> {
+        await DatabaseAccessBridge.setSettingValue(key, value);
+      },
+      async getItem(key: string): Promise<string | null> {
+        const res = await DatabaseAccessBridge.getSettingValue(key);
+        const v = res?.value;
+        return v != null ? String(v) : null;
+      },
+      async removeItem(key: string): Promise<void> {
+        await DatabaseAccessBridge.removeSettingValue(key);
+      },
+      async getAllKeys(): Promise<string[]> {
+        const res = await DatabaseAccessBridge.getAllSettingKeys();
+        return Array.isArray(res?.keys) ? res.keys : [];
+      },
+    }
+  : null;
+
 const NativeStorage = {
   async setItem(key: string, value: string, options?: StorageOptions): Promise<void> {
     if ((Platform.OS === 'ios' || Platform.OS === 'macos') && options?.secret) {
@@ -107,6 +130,7 @@ const NativeStorage = {
       await Keychain.setGenericPassword(key, value, setOptions);
       return;
     }
+    if (bridgeKV) return bridgeKV.setItem(key, value);
     return BaseAsyncStorage.setItem(key, value);
   },
   async getItem(key: string, options?: StorageOptions): Promise<string | null> {
@@ -122,6 +146,7 @@ const NativeStorage = {
         return null;
       }
     }
+    if (bridgeKV) return bridgeKV.getItem(key);
     return BaseAsyncStorage.getItem(key);
   },
   async removeItem(key: string, options?: StorageOptions): Promise<void> {
@@ -135,9 +160,15 @@ const NativeStorage = {
       } catch { }
       return;
     }
+    if (bridgeKV) return bridgeKV.removeItem(key);
     return BaseAsyncStorage.removeItem(key);
   },
   async clear(): Promise<void> {
+    if (bridgeKV) {
+      const keys = await bridgeKV.getAllKeys();
+      for (const k of keys) await bridgeKV.removeItem(k);
+      return;
+    }
     if (typeof (BaseAsyncStorage as any).clear === 'function') {
       return (BaseAsyncStorage as any).clear();
     }
@@ -145,38 +176,41 @@ const NativeStorage = {
     await NativeStorage.multiRemove(keys);
   },
   async getAllKeys(): Promise<string[]> {
+    if (bridgeKV) return bridgeKV.getAllKeys();
     if (typeof (BaseAsyncStorage as any).getAllKeys === 'function') {
       return (BaseAsyncStorage as any).getAllKeys();
     }
     return [];
   },
   async multiSet(entries: KeyValuePair[], options?: StorageOptions): Promise<void> {
-    if (typeof (BaseAsyncStorage as any).multiSet === 'function') {
-      if (!options?.secret) return (BaseAsyncStorage as any).multiSet(entries);
-    }
     if ((Platform.OS === 'ios' || Platform.OS === 'macos') && options?.secret) {
       for (const [k, v] of entries) {
         await NativeStorage.setItem(k, v, options);
       }
-    } else {
-      for (const [k, v] of entries) {
-        await BaseAsyncStorage.setItem(k, v);
-      }
+      return;
     }
+    if (bridgeKV) {
+      for (const [k, v] of entries) await bridgeKV.setItem(k, v);
+      return;
+    }
+    if (typeof (BaseAsyncStorage as any).multiSet === 'function') {
+      return (BaseAsyncStorage as any).multiSet(entries);
+    }
+    for (const [k, v] of entries) await BaseAsyncStorage.setItem(k, v);
   },
   async multiRemove(keys: string[], options?: StorageOptions): Promise<void> {
-    if (typeof (BaseAsyncStorage as any).multiRemove === 'function') {
-      if (!options?.secret) return (BaseAsyncStorage as any).multiRemove(keys);
-    }
     if ((Platform.OS === 'ios' || Platform.OS === 'macos') && options?.secret) {
-      for (const k of keys) {
-        await NativeStorage.removeItem(k, options);
-      }
-    } else {
-      for (const k of keys) {
-        await BaseAsyncStorage.removeItem(k);
-      }
+      for (const k of keys) await NativeStorage.removeItem(k, options);
+      return;
     }
+    if (bridgeKV) {
+      for (const k of keys) await bridgeKV.removeItem(k);
+      return;
+    }
+    if (typeof (BaseAsyncStorage as any).multiRemove === 'function') {
+      return (BaseAsyncStorage as any).multiRemove(keys);
+    }
+    for (const k of keys) await BaseAsyncStorage.removeItem(k);
   },
 };
 
