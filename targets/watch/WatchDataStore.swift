@@ -486,6 +486,21 @@ class WatchDataStore {
 
         cache.lastUpdate = Date()
         saveCache(cache)
+        
+        // Update watch's last notification timestamp in shared UserDefaults
+        // This allows comparison with iPhone's last notification timestamp
+        if let latestNotification = cache.notifications.max(by: { 
+            let date1 = parseCreatedAt($0.createdAt)
+            let date2 = parseCreatedAt($1.createdAt)
+            return date1 < date2
+        }) {
+            let latestCreatedAt = parseCreatedAt(latestNotification.createdAt)
+            if latestCreatedAt != .distantPast {
+                let sharedDefaults = UserDefaults(suiteName: "group.com.apocaliss92.zentik")
+                sharedDefaults?.set(latestCreatedAt.timeIntervalSince1970, forKey: "watch_last_notification_timestamp")
+                sharedDefaults?.synchronize()
+            }
+        }
     }
     
     /**
@@ -628,6 +643,21 @@ class WatchDataStore {
         
         // Save the new cache (COMPLETE OVERWRITE of file)
         saveCache(cache)
+        
+        // Update watch's last notification timestamp in shared UserDefaults
+        // This allows comparison with iPhone's last notification timestamp
+        if let latestNotification = cache.notifications.max(by: { 
+            let date1 = parseCreatedAt($0.createdAt)
+            let date2 = parseCreatedAt($1.createdAt)
+            return date1 < date2
+        }) {
+            let latestCreatedAt = parseCreatedAt(latestNotification.createdAt)
+            if latestCreatedAt != .distantPast {
+                let sharedDefaults = UserDefaults(suiteName: "group.com.apocaliss92.zentik")
+                sharedDefaults?.set(latestCreatedAt.timeIntervalSince1970, forKey: "watch_last_notification_timestamp")
+                sharedDefaults?.synchronize()
+            }
+        }
     }
     
     // MARK: - Local Operations

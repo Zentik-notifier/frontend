@@ -337,6 +337,18 @@ export const useCleanup = () => {
                             } else {
                                 console.log('[Cleanup] Initial sync not completed yet, will be triggered by schema initialization');
                             }
+
+                            // Step 4: Push to CloudKit any notifications saved by NSE that didn't make it (no cursor or after cursor)
+                            try {
+                                const retryResult = await iosBridgeService.retryNSENotificationsToCloudKit();
+                                if (retryResult.count > 0) {
+                                    console.log(`[Cleanup] ✓ NSE retry to CloudKit: pushed ${retryResult.count} notification(s)`);
+                                    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+                                    queryClient.invalidateQueries({ queryKey: ['app-state'] });
+                                }
+                            } catch (error) {
+                                console.warn('[Cleanup] ⚠️ NSE retry to CloudKit failed:', error);
+                            }
                         } catch (error) {
                             console.error('[Cleanup] Error during CloudKit operations:', error);
                             // Don't throw - this is not critical for cleanup

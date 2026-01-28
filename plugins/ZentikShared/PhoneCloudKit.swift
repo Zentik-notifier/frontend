@@ -309,12 +309,37 @@ public final class PhoneCloudKit {
 
                 // Use .allKeys for new notifications to ensure readAt is properly set (even if nil)
                 // This ensures that readAt: nil explicitly overwrites any existing value
+                self.infoLog("Calling core.save for notification", metadata: [
+                    "notificationId": notificationId,
+                    "bucketId": bucketId,
+                    "title": title,
+                    "hasSubtitle": subtitle != nil,
+                    "attachmentsCount": attachments.count,
+                    "actionsCount": actions.count
+                ])
                 self.core.save(records: [record], savePolicy: .allKeys) { saveResult in
+                    self.infoLog("core.save completion invoked for notification", metadata: ["notificationId": notificationId])
+                    var success = false
+                    var errorOut: Error?
                     switch saveResult {
                     case .failure(let error):
-                        completion(false, error)
+                        self.errorLog("core.save failed for notification", metadata: [
+                            "notificationId": notificationId,
+                            "error": String(describing: error)
+                        ])
+                        errorOut = error
                     case .success:
-                        completion(true, nil)
+                        self.infoLog("core.save succeeded for notification", metadata: [
+                            "notificationId": notificationId
+                        ])
+                        let sharedDefaults = UserDefaults(suiteName: self.core.config.appGroupIdentifier)
+                        sharedDefaults?.set(notificationId, forKey: "lastNSENotificationSentToCloudKit")
+                        sharedDefaults?.set(createdAt.timeIntervalSince1970, forKey: "lastNSENotificationSentTimestamp")
+                        sharedDefaults?.synchronize()
+                        success = true
+                    }
+                    DispatchQueue.main.async {
+                        completion(success, errorOut)
                     }
                 }
             }
@@ -1026,7 +1051,7 @@ public final class PhoneCloudKit {
                     
                     // Save timestamp of iPhone full sync completion in shared UserDefaults
                     // This allows watch to detect if iPhone did full sync while watch was in background
-                    let sharedDefaults = UserDefaults(suiteName: "group.com.apocaliss92.zentik")
+                    let sharedDefaults = UserDefaults(suiteName: self.core.config.appGroupIdentifier)
                     sharedDefaults?.set(Date().timeIntervalSince1970, forKey: "iphone_last_fullsync_timestamp")
                     sharedDefaults?.synchronize()
                     
@@ -1194,29 +1219,29 @@ public final class PhoneCloudKit {
             return
         }
         
-        // Get last successfully sent notification ID from shared UserDefaults
-        let sharedDefaults = UserDefaults(suiteName: "group.com.apocaliss92.zentik")
-        guard let lastSentNotificationId = sharedDefaults?.string(forKey: "lastNSENotificationSentToCloudKit"),
-              let lastSentTimestamp = sharedDefaults?.double(forKey: "lastNSENotificationSentTimestamp"),
-              lastSentTimestamp > 0 else {
-            // No cursor found - this is the first time or NSE never sent anything
-            // Don't retry everything, just return
-            infoLog("No NSE cursor found, skipping retry")
-            completion(0, nil)
-            return
+        let sharedDefaults = UserDefaults(suiteName: core.config.appGroupIdentifier)
+        let lastSentNotificationId = sharedDefaults?.string(forKey: "lastNSENotificationSentToCloudKit")
+        let lastSentTimestamp = sharedDefaults?.double(forKey: "lastNSENotificationSentTimestamp")
+        let lastSentDate: Date
+        if let ts = lastSentTimestamp, ts > 0 {
+            lastSentDate = Date(timeIntervalSince1970: ts)
+            infoLog("Retrying NSE notifications (cursor found)", metadata: [
+                "lastSentNotificationId": lastSentNotificationId ?? "",
+                "lastSentTimestamp": "\(ts)"
+            ])
+        } else {
+            lastSentDate = Date().addingTimeInterval(-24 * 3600)
+            infoLog("No NSE cursor found, pushing recent notifications from DB (last 24h)")
         }
         
-        let lastSentDate = Date(timeIntervalSince1970: lastSentTimestamp)
-        infoLog("Retrying NSE notifications", metadata: [
-            "lastSentNotificationId": lastSentNotificationId,
-            "lastSentTimestamp": "\(lastSentTimestamp)"
-        ])
-        
-        // Get all notifications from database that were created after the last sent one
         DatabaseAccess.getRecentNotifications(limit: 10000, unreadOnly: false, source: "PhoneCloudKit") { notifications in
-            // Filter notifications created after the last sent one
-            let notificationsToRetry = notifications.filter { notif in
-                notif.createdAtDate > lastSentDate || (notif.createdAtDate == lastSentDate && notif.id != lastSentNotificationId)
+            let notificationsToRetry: [WidgetNotification]
+            if let lastId = lastSentNotificationId, lastSentTimestamp ?? 0 > 0 {
+                notificationsToRetry = notifications.filter { notif in
+                    notif.createdAtDate > lastSentDate || (notif.createdAtDate == lastSentDate && notif.id != lastId)
+                }
+            } else {
+                notificationsToRetry = notifications.filter { notif in notif.createdAtDate > lastSentDate }
             }
             
             guard !notificationsToRetry.isEmpty else {

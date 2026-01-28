@@ -196,8 +196,9 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
         }
     }
     
-    // MARK: - Remote Notifications (CloudKit)
-    
+    // MARK: - Remote Notifications
+    // Two sources: (1) CloudKit push (CKNotification) when iPhone app pushes to CK; (2) Mirrored notification from iPhone (same APNs payload, our userInfo keys "n","b", etc.) in willPresent/didReceive.
+
     func didReceiveRemoteNotification(_ userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (WKBackgroundFetchResult) -> Void) {
         if WatchExtensionDelegate.isInBackground {
             completionHandler(.noData)
@@ -316,20 +317,22 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
                 completionHandler([])
             }
         } else {
-            // For non-CloudKit notifications, show them normally
-            print("⌚ [WatchExtensionDelegate] 📢 Non-CloudKit notification - showing normally")
+            // Mirrored app notification (payload from iPhone, not CloudKit): userInfo contains our keys (e.g. "n", "b", "m", "title").
+            // Intercept here to e.g. save to Watch DB so the notification appears in the Watch app list.
+            // Example: if let notificationId = userInfo["n"] as? String, let bucketId = userInfo["b"] as? String { ... save to DB ... }
+            print("⌚ [WatchExtensionDelegate] 📢 Mirrored app notification (non-CloudKit) - showing normally")
             completionHandler([.banner, .sound, .badge])
         }
     }
     
-    /// Called when user interacts with a notification
+    /// Called when user interacts with a notification (tap, action). Same interception point for mirrored app payload.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         print("⌚ [WatchExtensionDelegate] 👆 User interacted with notification")
         
         let userInfo = response.notification.request.content.userInfo
         
-        // Handle notification interaction if needed
-        // For CloudKit notifications, we might want to navigate to specific content
+        // Handle notification interaction if needed (e.g. open detail, run action).
+        // For mirrored app notifications, userInfo has "n" (notificationId), "b" (bucketId), "m" (messageId), etc.
         
         completionHandler()
     }

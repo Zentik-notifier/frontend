@@ -80,29 +80,25 @@ class NotificationService: UNNotificationServiceExtension {
       // Update badge count before setting up actions (fast operation)
       updateBadgeCount(content: bestAttemptContent)
       
-      // Save notification to SQLite database in background (non-blocking)
-      // This allows contentHandler to be called immediately without waiting for DB write
-      DispatchQueue.global(qos: .utility).async { [weak self] in
-        self?.saveNotificationToDatabase(content: bestAttemptContent)
-      }
-      
-      // Setup custom actions in a synchronized manner
-      setupNotificationActions(content: bestAttemptContent) { [weak self] in
+      // Save to DB only. CloudKit save in NSE is disabled (unreliable: CK completion often never fires in NSE).
+      // Watch receives the notification via system mirroring from iPhone; we can intercept it in Watch delegate.
+      let proceedToShow: () -> Void = { [weak self] in
         guard let self = self else { return }
-
-        // Check if this notification has media attachments first
-        if self.hasMediaAttachments(content: bestAttemptContent) {
-          self.downloadMediaAttachments(content: bestAttemptContent) {
-            // Always call _handleChatMessage() even if media download failed
-            // The communication protocol should work regardless of media download status
-            // because bucket icon is always available locally
-            self._handleChatMessage()
-            return
+        DispatchQueue.main.async {
+          self.setupNotificationActions(content: bestAttemptContent) { [weak self] in
+            guard let self = self else { return }
+            if self.hasMediaAttachments(content: bestAttemptContent) {
+              self.downloadMediaAttachments(content: bestAttemptContent) {
+                self._handleChatMessage()
+              }
+            } else {
+              self._handleChatMessage()
+            }
           }
-        } else {
-          self._handleChatMessage()
-          return
         }
+      }
+      DispatchQueue.global(qos: .utility).async { [weak self] in
+        self?.saveNotificationToDatabase(content: bestAttemptContent, whenDone: proceedToShow)
       }
     } else {
       contentHandler(request.content)
@@ -1820,11 +1816,17 @@ class NotificationService: UNNotificationServiceExtension {
   
   // MARK: - Save Notification to SQLite
   
-  private func saveNotificationToDatabase(content: UNMutableNotificationContent) {
-    guard let userInfo = content.userInfo as? [String: Any] else { return }
+  private func saveNotificationToDatabase(content: UNMutableNotificationContent, whenDone: (() -> Void)? = nil) {
+    guard let userInfo = content.userInfo as? [String: Any] else {
+      whenDone?()
+      return
+    }
 
     let notificationId = (userInfo["nid"] as? String) ?? (self.currentRequestIdentifier ?? UUID().uuidString)
-    guard let bucketId = (userInfo["bid"] as? String) ?? (content.threadIdentifier as? String) else { return }
+    guard let bucketId = (userInfo["bid"] as? String) ?? (content.threadIdentifier as? String) else {
+      whenDone?()
+      return
+    }
 
     let now = ISO8601DateFormatter().string(from: Date())
     let deliveryTypeForDB = userInfo["dty"] as? String ?? "NORMAL"
@@ -1958,7 +1960,10 @@ class NotificationService: UNNotificationServiceExtension {
     
     // Convert to JSON string
     guard let jsonData = try? JSONSerialization.data(withJSONObject: notificationFragment),
-          let jsonString = String(data: jsonData, encoding: .utf8) else { return }
+          let jsonString = String(data: jsonData, encoding: .utf8) else {
+      whenDone?()
+      return
+    }
     
     let hasAttachments = attachments.isEmpty ? 0 : 1
     let bucketIconUrl: String? = bucketInfo?.iconUrl
@@ -1995,33 +2000,26 @@ class NotificationService: UNNotificationServiceExtension {
         return .failure(String(cString: sqlite3_errmsg(db)))
       },
       completion: { [weak self] result in
-        guard case .success = result else { return }
+        guard case .success = result else {
+          whenDone?()
+          return
+        }
         print("📱 [NotificationService] 💾 Notification saved to database: \(notificationId)")
-        let dateFormatter = ISO8601DateFormatter()
-        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        self?.saveNotificationToCloudKit(
-          notificationId: notificationId,
-          bucketId: bucketId,
-          title: content.title,
-          body: content.body,
-          subtitle: content.subtitle.isEmpty ? nil : content.subtitle,
-          createdAt: dateFormatter.date(from: now) ?? Date(),
-          readAt: nil,
-          attachments: attachments.map { attachment -> [String: Any] in
-            var dict: [String: Any] = [
-              "mediaType": (attachment["mediaType"] as? String ?? "IMAGE").uppercased()
-            ]
-            if let url = attachment["url"] as? String { dict["url"] = url }
-            if let name = attachment["name"] as? String { dict["name"] = name }
-            return dict
-          },
-          actions: (messageObj["actions"] as? [[String: Any]]) ?? []
-        )
+        // CloudKit flow disabled: NSE is not reliable for waiting on CK (completion often never fires).
+        // App main process pushes to CloudKit on launch via retryNSENotificationsToCloudKit.
+        whenDone?()
+        // --- DISABLED: CloudKit save in NSE (unreliable)
+        // let dateFormatter = ISO8601DateFormatter()
+        // dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        // var doneCalled = false
+        // let callWhenDoneOnce: () -> Void = { guard !doneCalled else { return }; doneCalled = true; whenDone?() }
+        // DispatchQueue.main.asyncAfter(deadline: .now() + NotificationService.cloudKitWaitTimeout) { callWhenDoneOnce() }
+        // self?.saveNotificationToCloudKit(notificationId: notificationId, bucketId: bucketId, title: content.title, ...)
       }
     )
   }
   
-  // MARK: - CloudKit Sync
+  // MARK: - CloudKit Sync (DISABLED in NSE – unreliable; app main process pushes via retryNSENotificationsToCloudKit)
   
   private func saveNotificationToCloudKit(
     notificationId: String,
@@ -2032,19 +2030,42 @@ class NotificationService: UNNotificationServiceExtension {
     createdAt: Date,
     readAt: Date?,
     attachments: [[String: Any]],
-    actions: [[String: Any]]
+    actions: [[String: Any]],
+    whenCloudKitDone: (() -> Void)? = nil
   ) {
-    guard PhoneCloudKit.shared.isCloudKitEnabled else { return }
+    guard PhoneCloudKit.shared.isCloudKitEnabled else {
+      print("📱 [NotificationService] ⚠️ CloudKit is disabled, skipping save for notification: \(notificationId)")
+      whenCloudKitDone?()
+      return
+    }
+    print("📱 [NotificationService] ☁️ Saving to CloudKit: notificationId=\(notificationId) bucketId=\(bucketId) title=\(title)")
 
     // Convert actions to CloudKit format
+    // Actions are already normalized (with "type" instead of "t") from messageObj processing
     let cloudKitActions = actions.map { action -> [String: Any] in
+      // Support both normalized format (from messageObj) and raw format (fallback)
+      var actionType: String
+      if let type = action["type"] as? String {
+        actionType = type.uppercased()
+      } else if let t = action["t"] as? Int {
+        // Fallback: convert numeric type to string
+        actionType = NotificationActionType.stringFrom(int: t) ?? "CUSTOM"
+      } else {
+        actionType = "CUSTOM"
+      }
+      
       var dict: [String: Any] = [
-        "type": (action["type"] as? String ?? "CUSTOM").uppercased(),
+        "type": actionType,
         "label": (action["title"] as? String) ?? ""
       ]
+      
+      // Support both "value" and "v" for value field
       if let value = action["value"] as? String {
         dict["value"] = value
+      } else if let v = action["v"] as? String {
+        dict["value"] = v
       }
+      
       if let id = action["id"] as? String {
         dict["id"] = id
       }
@@ -2072,15 +2093,20 @@ class NotificationService: UNNotificationServiceExtension {
       actions: cloudKitActions
     ) { success, error in
       if success {
-        print("📱 [NotificationService] 💾 Notification saved to CloudKit: \(notificationId)")
-        // Track last successfully sent notification ID in shared UserDefaults
-        // This allows the main app to retry any notifications that failed to send
-        let sharedDefaults = UserDefaults(suiteName: "group.com.apocaliss92.zentik")
-        sharedDefaults?.set(notificationId, forKey: "lastNSENotificationSentToCloudKit")
-        sharedDefaults?.set(createdAt.timeIntervalSince1970, forKey: "lastNSENotificationSentTimestamp")
+        print("📱 [NotificationService] 💾 Notification saved to CloudKit: \(notificationId), calling whenDone")
+      } else {
+        let errorMessage = error?.localizedDescription ?? "Unknown error"
+        print("📱 [NotificationService] ❌ Failed to save notification to CloudKit: \(notificationId), error: \(errorMessage), calling whenDone")
+        if let ckError = error as? CKError {
+          print("📱 [NotificationService] CloudKit error details: \(ckError.localizedDescription), code: \(ckError.errorCode)")
+        }
       }
+      whenCloudKitDone?()
     }
   }
+
+  /// Time to wait for CloudKit save before showing notification (so Watch can receive it via CK).
+  private static let cloudKitWaitTimeout: TimeInterval = 5.0
 
   
   private func writeTempFile(data: Data, filename: String) -> URL? {
