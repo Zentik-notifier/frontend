@@ -48,7 +48,7 @@ export function LogsListLayout<T>({
   const theme = useTheme();
 
   const renderItem = React.useCallback(
-    ({ item }: { item: LogsListItem<T> }) => {
+    ({ item }: { item: LogsListItem<T> }): React.ReactElement | null => {
       if (item.type === "header") {
         return (
           <View style={styles.timeGroupLabelWrap}>
@@ -63,7 +63,8 @@ export function LogsListLayout<T>({
           </View>
         );
       }
-      return renderLogRow(item as LogsListItemLog<T>);
+      const row = renderLogRow(item as LogsListItemLog<T>);
+      return <>{row}</>;
     },
     [theme.colors.onSurfaceVariant, renderLogRow]
   );
@@ -75,10 +76,16 @@ export function LogsListLayout<T>({
       getItemType={getItemType}
       renderItem={renderItem}
       drawDistance={400}
-      refreshControl={refreshControl}
+      refreshControl={
+        refreshControl as React.ComponentProps<typeof FlashList>["refreshControl"]
+      }
       onEndReached={onEndReached}
       onEndReachedThreshold={0.5}
-      ListFooterComponent={ListFooterComponent}
+      ListFooterComponent={
+        ListFooterComponent as React.ComponentProps<
+          typeof FlashList
+        >["ListFooterComponent"]
+      }
       contentContainerStyle={[styles.listContent, contentContainerStyle]}
     />
   );

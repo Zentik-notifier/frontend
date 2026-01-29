@@ -2622,6 +2622,7 @@ export interface Translation {
   serverLogs: {
     title: string;
     description: string;
+    anonymous: string;
     refresh: string;
     loading: string;
     filterPlaceholder: string;
