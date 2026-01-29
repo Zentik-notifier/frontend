@@ -215,47 +215,50 @@ export default function AppLogs() {
     | { type: "log"; id: string; log: AppLog };
 
   const flatListData = useMemo(() => {
-    const groups: { timeLabel: string; logs: AppLog[] }[] = [];
-    const groupMap = new Map<string, AppLog[]>();
+    const groupOrder: string[] = [];
+    const groupMap = new Map<string, { timeLabel: string; logs: AppLog[] }>();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    filteredLogs.forEach((log) => {
+    for (let i = 0; i < filteredLogs.length; i++) {
+      const log = filteredLogs[i];
       const date = new Date(log.timestamp);
       const minutes = date.getMinutes();
       const roundedMinutes = Math.floor(minutes / 5) * 5;
       date.setMinutes(roundedMinutes, 0, 0);
       const timeKey = date.toISOString();
 
-      const logDate = new Date(log.timestamp);
-      logDate.setHours(0, 0, 0, 0);
-      const isToday = logDate.getTime() === today.getTime();
-      let timeLabel = date.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      if (!isToday) {
-        const dateLabel = date.toLocaleDateString([], {
-          month: "short",
-          day: "numeric",
-        });
-        timeLabel = `${dateLabel}, ${timeLabel}`;
-      }
-
       if (!groupMap.has(timeKey)) {
-        groupMap.set(timeKey, []);
-        groups.push({ timeLabel, logs: groupMap.get(timeKey)! });
+        const logDate = new Date(log.timestamp);
+        logDate.setHours(0, 0, 0, 0);
+        const isToday = logDate.getTime() === today.getTime();
+        let timeLabel = date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        if (!isToday) {
+          const dateLabel = date.toLocaleDateString([], {
+            month: "short",
+            day: "numeric",
+          });
+          timeLabel = `${dateLabel}, ${timeLabel}`;
+        }
+        groupMap.set(timeKey, { timeLabel, logs: [] });
+        groupOrder.push(timeKey);
       }
-      groupMap.get(timeKey)!.push(log);
-    });
+      groupMap.get(timeKey)!.logs.push(log);
+    }
 
     const flat: ListItem[] = [];
-    groups.forEach((g) => {
-      flat.push({ type: "header", id: `h-${g.timeLabel}`, timeLabel: g.timeLabel });
-      g.logs.forEach((log) => {
+    for (let i = 0; i < groupOrder.length; i++) {
+      const timeKey = groupOrder[i];
+      const g = groupMap.get(timeKey)!;
+      flat.push({ type: "header", id: `h-${timeKey}`, timeLabel: g.timeLabel });
+      for (let j = 0; j < g.logs.length; j++) {
+        const log = g.logs[j];
         flat.push({ type: "log", id: log.id, log });
-      });
-    });
+      }
+    }
     return flat;
   }, [filteredLogs]);
 
