@@ -941,6 +941,24 @@ class CloudKitSyncBridge: RCTEventEmitter {
   }
 
   /**
+   * Check if Watch is supported (WCSession.isSupported()).
+   * On macOS Catalyst this is true only when a Watch is paired.
+   * When false, CloudKit section should be hidden and CK must not run.
+   */
+  @objc
+  func isWatchSupported(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    let supported = WCSession.isSupported()
+    resolve(["supported": supported])
+    #else
+    resolve(["supported": false])
+    #endif
+  }
+
+  /**
    * Check if CloudKit debug logging is enabled
    */
   @objc

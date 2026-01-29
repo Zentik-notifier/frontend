@@ -1,8 +1,9 @@
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
+import iosBridgeService from "@/services/ios-bridge";
 import { useSegments } from "expo-router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { Card, Icon, List, Text, useTheme } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
@@ -23,6 +24,12 @@ export default function SettingsSidebar() {
   const { t } = useI18n();
   const { isMobile, isDesktop, isTablet } = useDeviceType();
   const nav = useNavigationUtils();
+  const [isWatchSupported, setIsWatchSupported] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    iosBridgeService.isWatchSupported().then((r) => setIsWatchSupported(r.supported));
+  }, []);
 
   const settingsOptions: SettingsOption[] = [
     {
@@ -43,7 +50,7 @@ export default function SettingsSidebar() {
       onPress: () => nav.navigateToAppSettings(true),
       selectionSegment: "app-settings",
     },
-    ...(Platform.OS === "ios"
+    ...(Platform.OS === "ios" && isWatchSupported
       ? [
           {
             id: "watch-cloud",

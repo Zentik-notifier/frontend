@@ -256,7 +256,7 @@ export default function EventsReview({ hideFilter }: EventsReviewProps) {
                         { color: theme.colors.primary },
                       ]}
                     >
-                      {ev.type}
+                      {t(`eventTypes.${ev.type}` as any)}
                     </Text>
                     {userDisplay !== "-" && (
                       <Text>{` - ${userDisplay}`}</Text>

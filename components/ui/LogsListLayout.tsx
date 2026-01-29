@@ -30,6 +30,7 @@ export interface LogsListLayoutProps<T> {
   onEndReached?: () => void;
   ListFooterComponent?: ReactNode;
   contentContainerStyle?: object;
+  listRef?: React.RefObject<{ scrollToOffset: (params: { offset: number; animated?: boolean }) => void } | null>;
 }
 
 const defaultKeyExtractor = <T,>(item: LogsListItem<T>) => item.id;
@@ -44,6 +45,7 @@ export function LogsListLayout<T>({
   onEndReached,
   ListFooterComponent,
   contentContainerStyle,
+  listRef,
 }: LogsListLayoutProps<T>) {
   const theme = useTheme();
 
@@ -71,6 +73,7 @@ export function LogsListLayout<T>({
 
   return (
     <FlashList
+      ref={listRef as any}
       data={data}
       keyExtractor={keyExtractor}
       getItemType={getItemType}

@@ -394,6 +394,7 @@ export interface Translation {
     title: string;
     description: string;
     iosOnly: string;
+    watchRequired: string;
   };
   compose: {
     messageBuilder: {
@@ -2416,6 +2417,7 @@ export interface Translation {
     LOGOUT: string;
     REGISTER: string;
     PUSH_PASSTHROUGH: string;
+    PUSH_PASSTHROUGH_FAILED: string;
     MESSAGE: string;
     NOTIFICATION: string;
     NOTIFICATION_ACK: string;

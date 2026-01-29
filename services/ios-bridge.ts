@@ -777,6 +777,28 @@ class IosBridgeService {
   }
 
   /**
+   * Check if Watch is supported (WCSession.isSupported()).
+   * On macOS Catalyst this is true only when a Watch is paired.
+   * When false, CloudKit section should be hidden and CK must not run.
+   */
+  async isWatchSupported(): Promise<{ supported: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return { supported: false };
+    }
+    try {
+      const fn = (CloudKitSyncBridge as any).isWatchSupported;
+      if (typeof fn !== 'function') {
+        return { supported: false };
+      }
+      const result = await fn();
+      return { supported: !!result?.supported };
+    } catch (error) {
+      console.error('[CloudKit] Failed to check watch support:', error);
+      return { supported: false };
+    }
+  }
+
+  /**
    * Check if CloudKit is enabled
    */
   async isCloudKitEnabled(): Promise<{ enabled: boolean }> {

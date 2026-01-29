@@ -43,9 +43,9 @@ export default function EventsReviewFiltersModal() {
     () =>
       Object.values(EventType).map((value) => ({
         id: value,
-        name: value,
+        name: t(`eventTypes.${value}` as any),
       })),
-    []
+    [t]
   );
 
   const userOptions = useMemo(() => {

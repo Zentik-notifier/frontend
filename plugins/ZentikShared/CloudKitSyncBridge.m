@@ -52,6 +52,9 @@ RCT_EXTERN_METHOD(setupSubscriptions:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(isCloudKitEnabled:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(isWatchSupported:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(setCloudKitEnabled:(BOOL)enabled
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)

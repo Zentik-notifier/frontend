@@ -92,7 +92,17 @@ public final class PhoneCloudKit {
         core.isCloudKitEnabled
     }
 
+    /// CloudKit must only run when a Watch is supported (paired on Mac). Otherwise CK is disabled.
+    public static var isWatchSupported: Bool {
+        WCSession.isSupported()
+    }
+
     public func ensureReady(completion: @escaping (Result<Void, Error>) -> Void) {
+        guard Self.isWatchSupported else {
+            warnLog("ensureReady skipped (Watch not supported or not paired)")
+            completion(.failure(NSError(domain: "PhoneCloudKit", code: -2, userInfo: [NSLocalizedDescriptionKey: "Watch is not supported or not paired. CloudKit is only available with a paired Apple Watch."])))
+            return
+        }
         core.ensureZoneWithStatus { result in
             switch result {
             case .failure(let error):
@@ -175,6 +185,10 @@ public final class PhoneCloudKit {
     // MARK: - Incremental
 
     public func fetchIncrementalChanges(completion: @escaping (Result<[CloudKitManagerBase.ZoneChange], Error>) -> Void) {
+        guard Self.isWatchSupported else {
+            completion(.failure(NSError(domain: "PhoneCloudKit", code: -2, userInfo: [NSLocalizedDescriptionKey: "Watch not supported or not paired"])))
+            return
+        }
         core.fetchZoneChanges(completion: completion)
     }
 
@@ -488,6 +502,11 @@ public final class PhoneCloudKit {
     // MARK: - Bulk sync (SQLite -> CloudKit)
 
     public func triggerSyncToCloud(completion: @escaping (Bool, Error?, SyncStats?) -> Void) {
+        guard Self.isWatchSupported else {
+            warnLog("triggerSyncToCloud skipped (Watch not supported or not paired)")
+            completion(false, NSError(domain: "PhoneCloudKit", code: -2, userInfo: [NSLocalizedDescriptionKey: "Watch is not supported or not paired. CloudKit is only available with a paired Apple Watch."]), nil)
+            return
+        }
         guard isCloudKitEnabled else {
             warnLog("triggerSyncToCloud skipped (CloudKit disabled)")
             completion(false, nil, nil)
@@ -1559,6 +1578,10 @@ public final class PhoneCloudKit {
     // MARK: - Incremental (events only; no DB apply)
 
     public func syncFromCloudKitIncremental(fullSync: Bool, completion: @escaping (Int, Error?) -> Void) {
+        guard Self.isWatchSupported else {
+            completion(0, NSError(domain: "PhoneCloudKit", code: -2, userInfo: [NSLocalizedDescriptionKey: "Watch not supported or not paired"]))
+            return
+        }
         if fullSync {
             resetIncrementalToken()
         }

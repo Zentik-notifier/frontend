@@ -19,16 +19,23 @@ export function useCloudKitEvents() {
 
   const isDebugEnabled = () => settingsService.getSettings().cloudKitDebug === true;
 
+  const cleanupRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     if (Platform.OS !== 'ios' || !CloudKitSyncBridge) {
       return;
     }
 
-    const eventEmitter = new NativeEventEmitter(CloudKitSyncBridge);
+    let cancelled = false;
+    iosBridgeService.isWatchSupported().then(({ supported }) => {
+      if (cancelled || !supported) return;
+      const eventEmitter = new NativeEventEmitter(CloudKitSyncBridge);
 
-    console.log('[CloudKitEvents] Listener registered');
+      if (isDebugEnabled()) {
+        console.log('[CloudKitEvents] Listener registered');
+      }
 
-    const handleNotificationUpdated = async (event: { notificationId: string }) => {
+      const handleNotificationUpdated = async (event: { notificationId: string }) => {
       console.log('[CloudKitEvents] cloudKitNotificationUpdated', {
         notificationId: event.notificationId,
         appState: AppState.currentState,
@@ -126,11 +133,13 @@ export function useCloudKitEvents() {
 
         // For incremental output events, just invalidate UI caches (SQLite is already updated by native).
         if (isIncrementalOutputEvent) {
-          console.log('[CloudKitEvents] Incremental output event -> invalidate only', {
-            recordType: event.recordType,
-            recordId: event.recordId,
-            reason,
-          });
+          if (isDebugEnabled()) {
+            console.log('[CloudKitEvents] Incremental output event -> invalidate only', {
+              recordType: event.recordType,
+              recordId: event.recordId,
+              reason,
+            });
+          }
           const recordType = event.recordType;
           if (recordType === 'Notifications' || recordType === 'Notification') {
             queryClient.invalidateQueries({ queryKey: notificationKeys.detail(event.recordId) });
@@ -233,20 +242,27 @@ export function useCloudKitEvents() {
       }
     };
 
-    const subscription1 = eventEmitter.addListener('cloudKitNotificationUpdated', handleNotificationUpdated);
-    const subscription2 = eventEmitter.addListener('cloudKitNotificationDeleted', handleNotificationDeleted);
-    const subscription3 = eventEmitter.addListener('cloudKitRecordChanged', handleRecordChanged);
-    const subscription4 = eventEmitter.addListener('cloudKitSyncProgress', handleSyncProgress);
-    const subscription5 = eventEmitter.addListener('cloudKitNotificationsBatchUpdated', handleNotificationsBatchUpdated);
-    const subscription6 = eventEmitter.addListener('cloudKitNotificationsBatchDeleted', handleNotificationsBatchDeleted);
-    
+      const subscription1 = eventEmitter.addListener('cloudKitNotificationUpdated', handleNotificationUpdated);
+      const subscription2 = eventEmitter.addListener('cloudKitNotificationDeleted', handleNotificationDeleted);
+      const subscription3 = eventEmitter.addListener('cloudKitRecordChanged', handleRecordChanged);
+      const subscription4 = eventEmitter.addListener('cloudKitSyncProgress', handleSyncProgress);
+      const subscription5 = eventEmitter.addListener('cloudKitNotificationsBatchUpdated', handleNotificationsBatchUpdated);
+      const subscription6 = eventEmitter.addListener('cloudKitNotificationsBatchDeleted', handleNotificationsBatchDeleted);
+
+      cleanupRef.current = () => {
+        subscription1.remove();
+        subscription2.remove();
+        subscription3.remove();
+        subscription4.remove();
+        subscription5.remove();
+        subscription6.remove();
+        cleanupRef.current = null;
+      };
+    });
+
     return () => {
-      subscription1.remove();
-      subscription2.remove();
-      subscription3.remove();
-      subscription4.remove();
-      subscription5.remove();
-      subscription6.remove();
+      cancelled = true;
+      cleanupRef.current?.();
     };
   }, [queryClient]);
 }

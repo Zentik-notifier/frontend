@@ -70,18 +70,24 @@ export function SettingsWatchCloud() {
     token?: string;
   } | null>(null);
   const [watchTokenLoading, setWatchTokenLoading] = useState(false);
+  const [isWatchSupported, setIsWatchSupported] = useState<boolean | null>(null);
 
   const hasWatchToken = !!watchToken?.id;
 
   useEffect(() => {
-    if (Platform.OS === "ios") {
-      loadCloudKitStatus();
-      loadWatchToken();
-    }
+    if (Platform.OS !== "ios") return;
+    iosBridgeService.isWatchSupported().then((r) => setIsWatchSupported(r.supported));
   }, []);
 
   useEffect(() => {
-    if (Platform.OS !== "ios" || !NativeModules.CloudKitSyncBridge) {
+    if (Platform.OS === "ios" && isWatchSupported === true) {
+      loadCloudKitStatus();
+      loadWatchToken();
+    }
+  }, [isWatchSupported]);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios" || !NativeModules.CloudKitSyncBridge || isWatchSupported !== true) {
       return;
     }
     const eventEmitter = new NativeEventEmitter(
@@ -104,7 +110,7 @@ export function SettingsWatchCloud() {
       handleSyncProgress,
     );
     return () => subscription.remove();
-  }, []);
+  }, [isWatchSupported]);
 
   const loadCloudKitStatus = async () => {
     if (Platform.OS !== "ios") return;
@@ -417,6 +423,28 @@ export function SettingsWatchCloud() {
             </Text>
           </Card.Content>
         </Card>
+      </PaperScrollView>
+    );
+  }
+
+  if (isWatchSupported === false) {
+    return (
+      <PaperScrollView>
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+              {t("settingsWatchCloud.watchRequired")}
+            </Text>
+          </Card.Content>
+        </Card>
+      </PaperScrollView>
+    );
+  }
+
+  if (isWatchSupported === null) {
+    return (
+      <PaperScrollView>
+        <View style={styles.topPadding} />
       </PaperScrollView>
     );
   }

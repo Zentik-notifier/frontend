@@ -7,7 +7,7 @@ import {
 } from "@/services/logger";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Platform,
@@ -51,6 +51,11 @@ export default function AppLogs() {
     logsInBatch: number;
     phase: string;
   } | null>(null);
+  const listRef = useRef<{ scrollToOffset: (params: { offset: number; animated?: boolean }) => void } | null>(null);
+
+  useEffect(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, [query, levelFilters, sourceFilters]);
 
   const loadLogs = useCallback(async () => {
     setIsLoading(true);
@@ -591,6 +596,7 @@ export default function AppLogs() {
       )}
 
       <LogsListLayout<AppLog>
+        listRef={listRef}
         data={flatListData}
         renderLogRow={renderLogRow}
         refreshControl={

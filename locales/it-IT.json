@@ -390,7 +390,8 @@
   "settingsWatchCloud": {
     "title": "Watch e iCloud",
     "description": "Impostazioni Apple Watch e sincronizzazione iCloud (solo iOS)",
-    "iosOnly": "Questa pagina è disponibile solo su iOS."
+    "iosOnly": "Questa pagina è disponibile solo su iOS.",
+    "watchRequired": "Watch e iCloud sono disponibili solo con un Apple Watch associato. Collega un Apple Watch per usare la sincronizzazione CloudKit."
   },
   "compose": {
     "messageBuilder": {
@@ -1266,6 +1267,7 @@
     "LOGOUT": "Logout",
     "REGISTER": "Registrazione",
     "PUSH_PASSTHROUGH": "Notifica Push",
+    "PUSH_PASSTHROUGH_FAILED": "Push Inoltrato Fallito",
     "MESSAGE": "Messaggio",
     "NOTIFICATION": "Notifica",
     "NOTIFICATION_ACK": "Conferma Notifica",
