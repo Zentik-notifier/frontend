@@ -1,10 +1,17 @@
+import CloudKit
+import CoreFoundation
 import Expo
 import FirebaseCore
 import React
 import ReactAppDependencyProvider
 import UserNotifications
-import CloudKit
 import WatchConnectivity
+
+private let darwinNSENotificationSavedCallback: CFNotificationCallback = { _, observer, _, _, _ in
+  guard let obs = observer else { return }
+  let delegate = Unmanaged<AppDelegate>.fromOpaque(obs).takeUnretainedValue()
+  delegate.handleNSENotificationSaved()
+}
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
@@ -102,7 +109,46 @@ FirebaseApp.configure()
       object: nil
     )
 
+    // NSE posts Darwin notification after saving a notification to DB; main app pushes it to CloudKit
+    registerDarwinNSENotificationSavedObserver()
+
     return result
+  }
+
+  private static let darwinNSENotificationSavedName = "com.apocaliss92.zentik.nse.notificationSaved"
+
+  private func registerDarwinNSENotificationSavedObserver() {
+    let name = Self.darwinNSENotificationSavedName as CFString
+    let center = CFNotificationCenterGetDarwinNotifyCenter()
+    let observer = Unmanaged.passUnretained(self).toOpaque()
+    CFNotificationCenterAddObserver(
+      center,
+      observer,
+      darwinNSENotificationSavedCallback,
+      name,
+      nil,
+      .deliverImmediately
+    )
+  }
+
+  fileprivate func handleNSENotificationSaved() {
+    LoggingSystem.shared.log(
+      level: "INFO",
+      tag: "AppDelegate",
+      message: "Darwin notification received (NSE saved notification), forwarding to CloudKit retry",
+      metadata: [:],
+      source: "AppDelegate"
+    )
+    DispatchQueue.main.async { [weak self] in
+      guard PhoneCloudKit.shared.isCloudKitEnabled else { return }
+      PhoneCloudKit.shared.retryNSENotificationsToCloudKit { count, error in
+        if let error = error {
+          print("☁️ [AppDelegate] NSE→CK retry failed: \(error.localizedDescription)")
+        } else if count > 0 {
+          print("☁️ [AppDelegate] NSE→CK retry pushed \(count) notification(s)")
+        }
+      }
+    }
   }
   
   @objc private func handleCloudKitSyncProgress(_ notification: Notification) {

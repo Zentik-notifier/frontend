@@ -91,12 +91,17 @@ class BucketIconCache: ObservableObject {
     }
 }
 
+private struct PendingNotificationOpen: Identifiable {
+    let id: String
+}
+
 struct ContentView: View {
     @StateObject private var connectivityManager = WatchConnectivityManager.shared
     @StateObject private var iconCache = BucketIconCache.shared
     @State private var isInitialLoad: Bool = true
     @State private var lastFetchTime: Date?
     @State private var showTokenReceivedAlert: Bool = false
+    @State private var pendingOpenNotification: PendingNotificationOpen?
     @Environment(\.scenePhase) private var scenePhase
     
     var body: some View {
@@ -114,6 +119,13 @@ struct ContentView: View {
         )
         .environmentObject(iconCache)
         .environmentObject(connectivityManager)
+        .fullScreenCover(item: $pendingOpenNotification) { pending in
+            let bucket = connectivityManager.notifications.first(where: { $0.notification.id == pending.id })
+                .flatMap { nd in connectivityManager.buckets.first(where: { $0.id == nd.notification.bucketId }) }
+            NotificationDetailView(notificationId: pending.id, bucket: bucket)
+                .environmentObject(connectivityManager)
+                .environmentObject(iconCache)
+        }
         .alert("Token Received", isPresented: $showTokenReceivedAlert) {
             Button("OK") {
                 showTokenReceivedAlert = false
@@ -122,16 +134,11 @@ struct ContentView: View {
             Text("Watch token and server settings have been received successfully. You can now execute notification actions directly from the watch.")
         }
         .onAppear {
-            // Clear icon cache on app open to ensure fresh icons
             iconCache.clearCache()
-            
-            // Data is alreadmy loaded from cache in WatchConnectivityManager init
-            // No need to fetch - just mark as loaded
             print("⌚ [ContentView] 📱 App opened - data loaded from cache")
             isInitialLoad = false
             lastFetchTime = Date()
-            
-            // Listen for Watch token settings received notification
+            processPendingNavigationIntent()
             NotificationCenter.default.addObserver(
                 forName: NSNotification.Name("WatchTokenSettingsReceived"),
                 object: nil,
@@ -142,15 +149,40 @@ struct ContentView: View {
             }
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
-            // Detect when app transitions from background to active (foreground)
             if oldPhase == .background && newPhase == .active {
                 print("⌚ [ContentView] 📱→⌚ App returned to foreground from background")
+                processPendingNavigationIntent()
                 checkAndRefreshIfNeeded()
             } else if newPhase == .active && oldPhase != .background {
-                // App opened for the first time or from inactive state
                 print("⌚ [ContentView] 📱→⌚ App became active")
+                processPendingNavigationIntent()
                 checkAndRefreshIfNeeded()
             }
+        }
+    }
+    
+    private func processPendingNavigationIntent(retryDelay: TimeInterval? = nil) {
+        guard let url = DatabaseAccess.SharedCachePaths.containerURL()?.appendingPathComponent("pending_navigation_intent.json") else {
+            return
+        }
+        guard FileManager.default.fileExists(atPath: url.path),
+              let data = try? Data(contentsOf: url),
+              let intent = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let type = intent["type"] as? String,
+              type == "OPEN_NOTIFICATION",
+              let value = intent["value"] as? String,
+              !value.isEmpty else {
+            if retryDelay == nil {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    processPendingNavigationIntent(retryDelay: 0)
+                }
+            }
+            return
+        }
+        try? FileManager.default.removeItem(at: url)
+        connectivityManager.ensureNotificationLoadedFromDisk(id: value)
+        DispatchQueue.main.async {
+            pendingOpenNotification = PendingNotificationOpen(id: value)
         }
     }
     

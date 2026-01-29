@@ -575,6 +575,44 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
     
+    /// Reload notifications and buckets from WatchDataStore (e.g. after extension wrote a new notification).
+    func reloadFromLocalCache() {
+        dataStore.reloadFromDisk()
+        loadCachedData()
+        updateBucketCounts()
+    }
+    
+    /// Ensure a single notification (e.g. from tap) is in the list by reading from disk; list will update automatically later.
+    func ensureNotificationLoadedFromDisk(id: String) {
+        if notifications.contains(where: { $0.notification.id == id }) { return }
+        let cache = dataStore.getCacheFromDisk()
+        guard let cached = cache.notifications.first(where: { $0.id == id }) else { return }
+        let notification = WidgetNotification(
+            id: cached.id,
+            title: cached.title,
+            body: cached.body,
+            subtitle: cached.subtitle,
+            createdAt: cached.createdAt,
+            isRead: cached.isRead,
+            bucketId: cached.bucketId,
+            bucketName: cached.bucketName,
+            bucketColor: cached.bucketColor,
+            bucketIconUrl: cached.bucketIconUrl,
+            attachments: cached.attachments.map { WidgetAttachment(mediaType: $0.mediaType, url: $0.url, name: $0.name) },
+            actions: cached.actions.map { NotificationAction(type: $0.type, label: $0.label, value: $0.value, id: $0.id, url: $0.url, bucketId: $0.bucketId, minutes: $0.minutes) }
+        )
+        var list = notifications
+        list.insert(NotificationData(notification: notification), at: 0)
+        list.sort { a, b in
+            if a.notification.isRead != b.notification.isRead { return !a.notification.isRead && b.notification.isRead }
+            return a.notification.createdAtDate > b.notification.createdAtDate
+        }
+        let maxLimit = WatchSettingsManager.shared.maxNotificationsLimit
+        notifications = Array(list.prefix(maxLimit))
+        unreadCount = notifications.filter { !$0.notification.isRead }.count
+        updateBucketCounts()
+    }
+    
     private func loadCachedData() {
         let cache = dataStore.loadCache()
         

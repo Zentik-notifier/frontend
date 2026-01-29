@@ -140,6 +140,18 @@ class WatchDataStore {
     func loadCache() -> WatchCache {
         cacheQueue.sync { inMemoryCache }
     }
+    
+    /// Reload in-memory cache from disk (e.g. after extension wrote a new notification).
+    func reloadFromDisk() {
+        cacheQueue.sync {
+            inMemoryCache = loadCacheFromDisk()
+        }
+    }
+    
+    /// Read cache from disk without updating in-memory (e.g. to fetch a single notification).
+    func getCacheFromDisk() -> WatchCache {
+        cacheQueue.sync { loadCacheFromDisk() }
+    }
 
     private func loadCacheFromDisk() -> WatchCache {
         guard let filePath = getCacheFilePath() else {
@@ -382,6 +394,116 @@ class WatchDataStore {
         
         cache.lastUpdate = Date()
         saveCache(cache)
+    }
+    
+    /// Add or replace a notification from mirrored payload (user tapped notification on Watch).
+    /// Parses attachmentData/att and actions/a from userInfo; uses local JSON cache only (no SQL).
+    func addOrUpdateNotificationFromMirroredPayload(
+        userInfo: [AnyHashable: Any],
+        title: String,
+        body: String,
+        subtitle: String?
+    ) {
+        let info = (userInfo as? [String: Any]) ?? [:]
+        guard let nid = (info["n"] as? String) ?? (info["nid"] as? String), !nid.isEmpty else { return }
+        let bucketId = (info["b"] as? String) ?? (info["bid"] as? String) ?? "default"
+        let now = ISO8601DateFormatter().string(from: Date())
+        
+        var attachments: [CachedAttachment] = []
+        if let attachmentData = info["attachmentData"] as? [[String: Any]] {
+            attachments = attachmentData.compactMap { att in
+                guard let mediaType = att["mediaType"] as? String else { return nil }
+                return CachedAttachment(
+                    mediaType: mediaType.uppercased(),
+                    url: att["url"] as? String,
+                    name: att["name"] as? String
+                )
+            }
+        }
+        if attachments.isEmpty, let attStrings = info["att"] as? [String] {
+            attachments = attStrings.compactMap { item in
+                let parts = item.split(separator: ":", maxSplits: 1)
+                guard parts.count == 2 else { return nil }
+                return CachedAttachment(
+                    mediaType: String(parts[0]).uppercased(),
+                    url: String(parts[1]),
+                    name: nil
+                )
+            }
+        }
+        
+        var actions: [CachedAction] = []
+        let actionsRaw = (info["actions"] as? [[String: Any]]) ?? (info["a"] as? [[String: Any]]) ?? []
+        for action in actionsRaw {
+            guard let type = (action["type"] as? String) ?? (action["t"] as? Int).flatMap({ NotificationActionType.stringFrom(int: $0) }) else { continue }
+            let value = (action["value"] as? String) ?? (action["v"] as? String)
+            let label = (action["title"] as? String) ?? (action["label"] as? String) ?? ""
+            actions.append(CachedAction(
+                type: type.uppercased(),
+                label: label,
+                value: value,
+                id: action["id"] as? String,
+                url: action["url"] as? String,
+                bucketId: action["bucketId"] as? String,
+                minutes: action["minutes"] as? Int
+            ))
+        }
+        
+        let notification = CachedNotification(
+            id: nid,
+            title: title,
+            body: body,
+            subtitle: subtitle?.isEmpty == true ? nil : subtitle,
+            createdAt: now,
+            isRead: false,
+            bucketId: bucketId,
+            bucketName: nil,
+            bucketColor: nil,
+            bucketIconUrl: nil,
+            attachments: attachments,
+            actions: actions
+        )
+        
+        var cache = loadCache()
+        if let idx = cache.notifications.firstIndex(where: { $0.id == nid }) {
+            cache.notifications.remove(at: idx)
+        }
+        cache.notifications.insert(notification, at: 0)
+        
+        let iso8601Fractional = ISO8601DateFormatter()
+        iso8601Fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let iso8601NoFractional = ISO8601DateFormatter()
+        iso8601NoFractional.formatOptions = [.withInternetDateTime]
+        func parseCreatedAt(_ value: String) -> Date {
+            if let d = iso8601Fractional.date(from: value) { return d }
+            if let d = iso8601NoFractional.date(from: value) { return d }
+            return .distantPast
+        }
+        cache.notifications.sort { n1, n2 in
+            if n1.isRead != n2.isRead { return !n1.isRead && n2.isRead }
+            return parseCreatedAt(n1.createdAt) > parseCreatedAt(n2.createdAt)
+        }
+        let maxLimit = WatchSettingsManager.shared.maxNotificationsLimit
+        if cache.notifications.count > maxLimit {
+            cache.notifications = Array(cache.notifications.prefix(maxLimit))
+        }
+        cache.unreadCount = cache.notifications.filter { !$0.isRead }.count
+        var unreadByBucket: [String: Int] = [:]
+        for n in cache.notifications where !n.isRead {
+            unreadByBucket[n.bucketId, default: 0] += 1
+        }
+        cache.buckets = cache.buckets.map { bucket in
+            CachedBucket(
+                id: bucket.id,
+                name: bucket.name,
+                unreadCount: unreadByBucket[bucket.id] ?? 0,
+                color: bucket.color,
+                iconUrl: bucket.iconUrl
+            )
+        }
+        cache.lastUpdate = Date()
+        saveCache(cache)
+        flushPendingWrites()
     }
     
     // MARK: - Update Cache

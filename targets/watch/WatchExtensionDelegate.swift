@@ -346,26 +346,33 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
     }
     
     /// Called when user interacts with a notification (tap, action). Same interception point for mirrored app payload.
+    /// Saves the notification to WatchDataStore (local JSON cache, no SQL) including attachments and actions, then sets pending navigation intent.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         let userInfo = response.notification.request.content.userInfo
-        let keys = Array(userInfo.keys).map { "\($0)" }.sorted()
-        let n = userInfo["n"] as? String
-        let b = userInfo["b"] as? String
-        let notificationId = userInfo["notificationId"] as? String
-        print("⌚ [WatchExtensionDelegate] 👆 User interacted with notification - keys: \(keys) n=\(n ?? "nil") b=\(b ?? "nil") notificationId=\(notificationId ?? "nil") actionId=\(response.actionIdentifier)")
+        let content = response.notification.request.content
+        let resolvedId = (userInfo["n"] as? String) ?? (userInfo["nid"] as? String) ?? (userInfo["notificationId"] as? String)
+        print("⌚ [WatchExtensionDelegate] 👆 User interacted with notification - n=\(resolvedId ?? "nil") actionId=\(response.actionIdentifier)")
         LoggingSystem.shared.log(
             level: "INFO",
             tag: "Watch",
             message: "Mirrored app notification (didReceive)",
             metadata: [
-                "keys": keys.joined(separator: ","),
-                "n": n ?? "",
-                "b": b ?? "",
-                "notificationId": notificationId ?? "",
+                "n": resolvedId ?? "",
                 "actionIdentifier": response.actionIdentifier
             ],
             source: "WatchExtensionDelegate"
         )
+        WatchDataStore.shared.addOrUpdateNotificationFromMirroredPayload(
+            userInfo: userInfo,
+            title: content.title,
+            body: content.body,
+            subtitle: content.subtitle.isEmpty ? nil : content.subtitle
+        )
+        if let nid = resolvedId, !nid.isEmpty,
+           let intentData = try? JSONSerialization.data(withJSONObject: ["type": "OPEN_NOTIFICATION", "value": nid]),
+           let url = DatabaseAccess.SharedCachePaths.containerURL()?.appendingPathComponent("pending_navigation_intent.json") {
+            try? intentData.write(to: url)
+        }
         completionHandler()
     }
 }

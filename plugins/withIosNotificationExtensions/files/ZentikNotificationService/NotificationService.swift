@@ -1,3 +1,5 @@
+import CloudKit
+import CoreFoundation
 import CryptoKit
 import Intents
 import SQLite3
@@ -6,7 +8,6 @@ import UIKit
 import UniformTypeIdentifiers
 import UserNotifications
 import WatchConnectivity
-import CloudKit
 
 // SQLite helper for Swift bindings
 private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -25,6 +26,9 @@ class NotificationService: UNNotificationServiceExtension {
   private static let DB_OPERATION_TIMEOUT: TimeInterval = 5.0  // Max 5 seconds per operation
   private static let DB_BUSY_TIMEOUT: Int32 = 3000  // 3 seconds busy timeout
   private static let DB_MAX_RETRIES: Int = 3  // Max 3 retry attempts
+
+  /// Darwin notification name: NSE posts this after saving to DB so the main app can push to CloudKit.
+  static let darwinNSENotificationSavedName = "com.apocaliss92.zentik.nse.notificationSaved"
 
   override func didReceive(
     _ request: UNNotificationRequest,
@@ -80,20 +84,18 @@ class NotificationService: UNNotificationServiceExtension {
       // Update badge count before setting up actions (fast operation)
       updateBadgeCount(content: bestAttemptContent)
       
-      // Save to DB only. CloudKit save in NSE is disabled (unreliable: CK completion often never fires in NSE).
+      // Save to DB; CloudKit save in NSE is best effort (fire-and-forget, no timeout). App also pushes via Darwin + retryNSENotificationsToCloudKit.
       // Watch receives the notification via system mirroring from iPhone; we can intercept it in Watch delegate.
       let proceedToShow: () -> Void = { [weak self] in
         guard let self = self else { return }
-        DispatchQueue.main.async {
-          self.setupNotificationActions(content: bestAttemptContent) { [weak self] in
-            guard let self = self else { return }
-            if self.hasMediaAttachments(content: bestAttemptContent) {
-              self.downloadMediaAttachments(content: bestAttemptContent) {
-                self._handleChatMessage()
-              }
-            } else {
+        self.setupNotificationActions(content: bestAttemptContent) { [weak self] in
+          guard let self = self else { return }
+          if self.hasMediaAttachments(content: bestAttemptContent) {
+            self.downloadMediaAttachments(content: bestAttemptContent) {
               self._handleChatMessage()
             }
+          } else {
+            self._handleChatMessage()
           }
         }
       }
@@ -264,7 +266,7 @@ class NotificationService: UNNotificationServiceExtension {
       let iconExistsInCache = FileManager.default.fileExists(atPath: fileURL.path)
       iconFoundInCache = iconExistsInCache
       
-      // Get bucket icon from cache (or download if iconUrl is provided)
+      // Use cache first; download from iconUrl only if not in cache
       senderAvatarImageData = MediaAccess.getBucketIconFromSharedCache(
         bucketId: bucketId,
         bucketName: nil,
@@ -2005,21 +2007,31 @@ class NotificationService: UNNotificationServiceExtension {
           return
         }
         print("📱 [NotificationService] 💾 Notification saved to database: \(notificationId)")
-        // CloudKit flow disabled: NSE is not reliable for waiting on CK (completion often never fires).
-        // App main process pushes to CloudKit on launch via retryNSENotificationsToCloudKit.
+        CFNotificationCenterPostNotification(
+          CFNotificationCenterGetDarwinNotifyCenter(),
+          CFNotificationName(rawValue: NotificationService.darwinNSENotificationSavedName as CFString),
+          nil,
+          nil,
+          true
+        )
         whenDone?()
-        // --- DISABLED: CloudKit save in NSE (unreliable)
-        // let dateFormatter = ISO8601DateFormatter()
-        // dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        // var doneCalled = false
-        // let callWhenDoneOnce: () -> Void = { guard !doneCalled else { return }; doneCalled = true; whenDone?() }
-        // DispatchQueue.main.asyncAfter(deadline: .now() + NotificationService.cloudKitWaitTimeout) { callWhenDoneOnce() }
-        // self?.saveNotificationToCloudKit(notificationId: notificationId, bucketId: bucketId, title: content.title, ...)
+        self?.saveNotificationToCloudKit(
+          notificationId: notificationId,
+          bucketId: bucketId,
+          title: content.title,
+          body: content.body,
+          subtitle: content.subtitle.isEmpty ? nil : content.subtitle,
+          createdAt: Date(),
+          readAt: nil,
+          attachments: attachments,
+          actions: messageObj["actions"] as? [[String: Any]] ?? [],
+          whenCloudKitDone: nil
+        )
       }
     )
   }
   
-  // MARK: - CloudKit Sync (DISABLED in NSE – unreliable; app main process pushes via retryNSENotificationsToCloudKit)
+  // MARK: - CloudKit Sync (best effort from NSE, no timeout; app also pushes via retryNSENotificationsToCloudKit)
   
   private func saveNotificationToCloudKit(
     notificationId: String,
@@ -2105,10 +2117,6 @@ class NotificationService: UNNotificationServiceExtension {
     }
   }
 
-  /// Time to wait for CloudKit save before showing notification (so Watch can receive it via CK).
-  private static let cloudKitWaitTimeout: TimeInterval = 5.0
-
-  
   private func writeTempFile(data: Data, filename: String) -> URL? {
     let tempDir = FileManager.default.temporaryDirectory
     let fileURL = tempDir.appendingPathComponent(filename)
