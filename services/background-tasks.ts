@@ -24,6 +24,7 @@ export const DB_AUTO_BACKUP_TASK = 'zentik-db-auto-backup';
 export const NOTIFICATION_REFRESH_TASK = 'zentik-notifications-refresh';
 export const CHANGELOG_CHECK_TASK = 'zentik-changelog-check';
 export const NO_PUSH_CHECK_TASK = 'zentik-no-push-check';
+export const CLOUDKIT_SYNC_TASK = 'zentik-cloudkit-sync';
 
 const isWeb = Platform.OS === 'web';
 
@@ -281,6 +282,28 @@ if (!isWeb) {
   } catch (e) {
     console.warn('[Tasks] Failed to define NO_PUSH check task:', e);
   }
+
+  try {
+    TaskManager.defineTask(CLOUDKIT_SYNC_TASK, async () => {
+      await runTask(
+        CLOUDKIT_SYNC_TASK,
+        async () => {
+          if (Platform.OS !== 'ios') {
+            return { message: 'CloudKit sync task skipped (not iOS)' };
+          }
+          const { default: iosBridgeService } = await import('@/services/ios-bridge');
+          const result = await iosBridgeService.retryNSENotificationsToCloudKit();
+          return {
+            message: 'CloudKit sync task completed',
+            meta: { pushedCount: result.count, success: result.success },
+          };
+        },
+        'CloudKit sync task started'
+      );
+    });
+  } catch (e) {
+    console.warn('[Tasks] Failed to define CloudKit sync task:', e);
+  }
 }
 
 export async function enableDbAutoBackupTask(options?: { intervalSeconds?: number }): Promise<void> {
@@ -318,12 +341,14 @@ export async function enablePushBackgroundTasks(options?: {
   notificationsRefreshMinimumInterval?: number;
   changelogCheckMinimumInterval?: number;
   noPushCheckMinimumInterval?: number;
+  cloudKitSyncMinimumInterval?: number;
 }): Promise<void> {
   if (isWeb) return;
 
   const notificationsRefreshMinimumInterval = options?.notificationsRefreshMinimumInterval ?? 180;
   const changelogCheckMinimumInterval = options?.changelogCheckMinimumInterval ?? 15;
   const noPushCheckMinimumInterval = options?.noPushCheckMinimumInterval ?? 15;
+  const cloudKitSyncMinimumInterval = options?.cloudKitSyncMinimumInterval ?? 60;
 
   try {
     const status = await BackgroundFetch.getStatusAsync();
@@ -354,10 +379,16 @@ export async function enablePushBackgroundTasks(options?: {
     try {
       await BackgroundFetch.unregisterTaskAsync(NO_PUSH_CHECK_TASK);
     } catch {}
+    try {
+      await BackgroundFetch.unregisterTaskAsync(CLOUDKIT_SYNC_TASK);
+    } catch {}
 
     await registerWithLog(NOTIFICATION_REFRESH_TASK, notificationsRefreshMinimumInterval);
     await registerWithLog(CHANGELOG_CHECK_TASK, changelogCheckMinimumInterval);
     await registerWithLog(NO_PUSH_CHECK_TASK, noPushCheckMinimumInterval);
+    if (Platform.OS === 'ios') {
+      await registerWithLog(CLOUDKIT_SYNC_TASK, cloudKitSyncMinimumInterval);
+    }
   } catch (error) {
     console.error('[Tasks] Error enabling push background tasks:', error);
   }

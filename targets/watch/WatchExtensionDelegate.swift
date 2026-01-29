@@ -279,19 +279,18 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
         }
     }
     
-    // MARK: - UNUserNotificationCenterDelegate (for foreground notifications)
-    
-    /// Called when a notification is delivered while the app is in the foreground
-    /// This allows us to handle CloudKit subscription notifications even when the app is active
+    // MARK: - UNUserNotificationCenterDelegate
+    // On watchOS: willPresent is only called when the app is in foreground (arrival without tap).
+    // When app is in background, the system shows the notification but does not wake the app; we only get didReceive when the user taps.
+
+    /// Called when a notification is delivered while the app is in the foreground (arrival without tap).
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        print("⌚ [WatchExtensionDelegate] 📬 Notification received in foreground")
-        
+        print("⌚ [WatchExtensionDelegate] 📬 willPresent (arrival, app in foreground)")
         let userInfo = notification.request.content.userInfo
-        
         LoggingSystem.shared.log(
             level: "INFO",
             tag: "Watch",
-            message: "Notification received in foreground",
+            message: "Notification arrival (willPresent - app in foreground)",
             metadata: [
                 "userInfoKeys": "\(Array(userInfo.keys))",
                 "identifier": notification.request.identifier
@@ -317,23 +316,56 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
                 completionHandler([])
             }
         } else {
-            // Mirrored app notification (payload from iPhone, not CloudKit): userInfo contains our keys (e.g. "n", "b", "m", "title").
-            // Intercept here to e.g. save to Watch DB so the notification appears in the Watch app list.
-            // Example: if let notificationId = userInfo["n"] as? String, let bucketId = userInfo["b"] as? String { ... save to DB ... }
-            print("⌚ [WatchExtensionDelegate] 📢 Mirrored app notification (non-CloudKit) - showing normally")
+            // Mirrored app notification (payload from iPhone): log keys and main fields to understand how to save it
+            let keys = Array(userInfo.keys).map { "\($0)" }.sorted()
+            let n = userInfo["n"] as? String
+            let b = userInfo["b"] as? String
+            let m = userInfo["m"] as? String
+            let notificationId = userInfo["notificationId"] as? String
+            let title = (notification.request.content.title as String).isEmpty ? (userInfo["title"] as? String) : notification.request.content.title
+            let body = (notification.request.content.body as String).isEmpty ? (userInfo["body"] as? String) : notification.request.content.body
+            print("⌚ [WatchExtensionDelegate] 📢 Mirrored app notification - keys: \(keys)")
+            print("⌚ [WatchExtensionDelegate] 📢 payload: n=\(n ?? "nil") b=\(b ?? "nil") m=\(m ?? "nil") notificationId=\(notificationId ?? "nil") title=\(title ?? "nil") body=\(body ?? "nil")")
+            LoggingSystem.shared.log(
+                level: "INFO",
+                tag: "Watch",
+                message: "Mirrored app notification payload (willPresent)",
+                metadata: [
+                    "keys": keys.joined(separator: ","),
+                    "n": n ?? "",
+                    "b": b ?? "",
+                    "m": m ?? "",
+                    "notificationId": notificationId ?? "",
+                    "title": title ?? "",
+                    "body": (body ?? "").prefix(80).description
+                ],
+                source: "WatchExtensionDelegate"
+            )
             completionHandler([.banner, .sound, .badge])
         }
     }
     
     /// Called when user interacts with a notification (tap, action). Same interception point for mirrored app payload.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        print("⌚ [WatchExtensionDelegate] 👆 User interacted with notification")
-        
         let userInfo = response.notification.request.content.userInfo
-        
-        // Handle notification interaction if needed (e.g. open detail, run action).
-        // For mirrored app notifications, userInfo has "n" (notificationId), "b" (bucketId), "m" (messageId), etc.
-        
+        let keys = Array(userInfo.keys).map { "\($0)" }.sorted()
+        let n = userInfo["n"] as? String
+        let b = userInfo["b"] as? String
+        let notificationId = userInfo["notificationId"] as? String
+        print("⌚ [WatchExtensionDelegate] 👆 User interacted with notification - keys: \(keys) n=\(n ?? "nil") b=\(b ?? "nil") notificationId=\(notificationId ?? "nil") actionId=\(response.actionIdentifier)")
+        LoggingSystem.shared.log(
+            level: "INFO",
+            tag: "Watch",
+            message: "Mirrored app notification (didReceive)",
+            metadata: [
+                "keys": keys.joined(separator: ","),
+                "n": n ?? "",
+                "b": b ?? "",
+                "notificationId": notificationId ?? "",
+                "actionIdentifier": response.actionIdentifier
+            ],
+            source: "WatchExtensionDelegate"
+        )
         completionHandler()
     }
 }
