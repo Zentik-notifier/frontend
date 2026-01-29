@@ -19,11 +19,15 @@ import {
   NativeEventEmitter,
   NativeModules,
 } from "react-native";
-import { FlashList } from "@shopify/flash-list";
 import { Icon, Surface, Text, useTheme } from "react-native-paper";
-import CopyButton from "./ui/CopyButton";
 import PaperScrollView from "./ui/PaperScrollView";
 import Multiselect from "./ui/Multiselect";
+import LogRowCollapsible from "./ui/LogRowCollapsible";
+import {
+  LogsListLayout,
+  type LogsListItem,
+  type LogsListItemLog,
+} from "./ui/LogsListLayout";
 import { Directory } from "@/utils/filesystem-wrapper";
 
 export default function AppLogs() {
@@ -209,12 +213,7 @@ export default function AppLogs() {
     });
   }, [logs, query, levelFilters, sourceFilters]);
 
-  // Group logs by 5-minute intervals, then flatten for FlashList (one row per header or log)
-  type ListItem =
-    | { type: "header"; id: string; timeLabel: string }
-    | { type: "log"; id: string; log: AppLog };
-
-  const flatListData = useMemo(() => {
+  const flatListData = useMemo((): LogsListItem<AppLog>[] => {
     const groupOrder: string[] = [];
     const groupMap = new Map<string, { timeLabel: string; logs: AppLog[] }>();
     const today = new Date();
@@ -249,7 +248,7 @@ export default function AppLogs() {
       groupMap.get(timeKey)!.logs.push(log);
     }
 
-    const flat: ListItem[] = [];
+    const flat: LogsListItem<AppLog>[] = [];
     for (let i = 0; i < groupOrder.length; i++) {
       const timeKey = groupOrder[i];
       const g = groupMap.get(timeKey)!;
@@ -262,112 +261,88 @@ export default function AppLogs() {
     return flat;
   }, [filteredLogs]);
 
-  const renderFlashItem = useCallback(
-    ({ item }: { item: ListItem }) => {
-      if (item.type === "header") {
-        return (
-          <View style={styles.timeGroupLabelWrap}>
-            <Text style={[styles.timeGroupLabel, { color: theme.colors.onSurfaceVariant }]}>
-              {item.timeLabel}
-            </Text>
-          </View>
-        );
-      }
+  const renderLogRow = useCallback(
+    (item: LogsListItemLog<AppLog>) => {
       const log = item.log;
       const isExpanded = expandedLogId === log.id;
-      const headerLine = `${new Date(log.timestamp).toLocaleString()} (${log.level.toUpperCase()})${log.tag ? ` - [${log.tag}]` : ""}`;
+      const headerLine = `${new Date(log.timestamp).toLocaleString()} (${log.level.toUpperCase()}) - [${log.source ?? ""}]${log.tag ? ` [${log.tag}]` : ""}`;
       return (
-        <View
-          style={[
-            styles.logItem,
-            styles.logItemColumn,
-            { borderBottomColor: theme.colors.surfaceVariant },
-          ]}
-        >
-          {isExpanded && (
-            <View
-              style={[
-                styles.logDetailBlock,
-                {
-                  backgroundColor: theme.colors.surfaceVariant,
-                  borderColor: theme.colors.outline,
-                },
-              ]}
-            >
-              <View style={styles.logDetailBlockHeader}>
-                <Text
-                  selectable
-                  style={[
-                    styles.logDetailHeaderLine,
-                    { color: theme.colors.onSurfaceVariant },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {headerLine}
-                </Text>
-                <CopyButton
-                  text={JSON.stringify(log, null, 2)}
-                  size={18}
-                  compact
-                  style={styles.logDetailCopyBtn}
-                />
+        <View style={styles.logItem}>
+          <LogRowCollapsible
+            id={log.id}
+            isExpanded={isExpanded}
+            onToggle={() => toggleLogExpand(log.id)}
+            headerLine={headerLine}
+            jsonObject={log}
+            expandOpensDown
+            summaryContent={
+              <View style={styles.logSummary}>
+                <View style={styles.logPillsRow}>
+                  {log.source ? (
+                    <View
+                      style={[
+                        styles.logPill,
+                        { backgroundColor: theme.colors.surfaceVariant },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.logPillText,
+                          { color: theme.colors.onSurfaceVariant },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {log.source}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {log.tag ? (
+                    <View
+                      style={[
+                        styles.logPill,
+                        { backgroundColor: theme.colors.secondaryContainer },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.logPillText,
+                          { color: theme.colors.onSecondaryContainer },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {log.tag}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <View style={styles.logLine}>
+                  <View
+                    style={[
+                      styles.levelIndicator,
+                      { backgroundColor: levelToColor[log.level] ?? theme.colors.onSurfaceVariant },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.logText,
+                      {
+                        fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+                        color: theme.colors.onSurface,
+                      },
+                    ]}
+                    numberOfLines={isExpanded ? undefined : 2}
+                  >
+                    {log.message}
+                  </Text>
+                </View>
               </View>
-              <TextInput
-                value={JSON.stringify(log, null, 2)}
-                multiline
-                editable={false}
-                scrollEnabled
-                style={[
-                  styles.metadataInputCompact,
-                  {
-                    backgroundColor: theme.colors.surface,
-                    borderColor: theme.colors.outline,
-                    color: theme.colors.onSurface,
-                  },
-                ]}
-              />
-            </View>
-          )}
-          <TouchableOpacity
-            onPress={() => toggleLogExpand(log.id)}
-            activeOpacity={0.7}
-            style={styles.logRowTouchable}
-          >
-            <View style={styles.logLine}>
-              <View
-                style={[
-                  styles.levelIndicator,
-                  { backgroundColor: levelToColor[log.level] ?? theme.colors.onSurfaceVariant },
-                ]}
-              />
-              <Text
-                style={[
-                  styles.logText,
-                  {
-                    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-                    color: theme.colors.onSurface,
-                  },
-                ]}
-                numberOfLines={isExpanded ? undefined : 2}
-              >
-                {log.source ? `[${log.source}] ` : ""}
-                {log.message}
-              </Text>
-              <Icon
-                source={isExpanded ? "chevron-up" : "chevron-down"}
-                size={20}
-                color={theme.colors.onSurfaceVariant}
-              />
-            </View>
-          </TouchableOpacity>
+            }
+          />
         </View>
       );
     },
-    [theme.colors, levelToColor, expandedLogId, toggleLogExpand, t]
+    [theme.colors, levelToColor, expandedLogId, toggleLogExpand]
   );
-
-  const getItemType = useCallback((item: ListItem) => item.type, []);
-  const keyExtractor = useCallback((item: ListItem) => item.id, []);
 
   const handleExportLogs = useCallback(async () => {
     try {
@@ -615,12 +590,9 @@ export default function AppLogs() {
         </Surface>
       )}
 
-      <FlashList
+      <LogsListLayout<AppLog>
         data={flatListData}
-        keyExtractor={keyExtractor}
-        renderItem={renderFlashItem}
-        getItemType={getItemType}
-        drawDistance={400}
+        renderLogRow={renderLogRow}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -629,7 +601,6 @@ export default function AppLogs() {
             tintColor={theme.colors.primary}
           />
         }
-        contentContainerStyle={styles.listContent}
       />
     </PaperScrollView>
   );
@@ -684,9 +655,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
   },
-  listContent: {
-    paddingVertical: 8,
-  },
   loadingContainer: {
     flex: 1,
     alignItems: "center",
@@ -698,62 +666,35 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   logItem: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
   },
-  logItemColumn: {
-    flexDirection: "column-reverse",
+  logSummary: {
+    gap: 4,
   },
-  logDetailBlockHeader: {
+  logPillsRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 0,
-    paddingVertical: 0,
+    flexWrap: "wrap",
+    gap: 4,
   },
-  logDetailHeaderLine: {
-    fontSize: 12,
-    fontWeight: "600",
-    lineHeight: 14,
-    flex: 1,
-    marginRight: 6,
+  logPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
   },
-  logDetailCopyBtn: {
-    marginLeft: "auto",
-  },
-  metadataInputCompact: {
-    borderRadius: 4,
-    borderWidth: 1,
-    maxHeight: 180,
-    minHeight: 48,
-    fontFamily: "monospace",
+  logPillText: {
     fontSize: 11,
-    lineHeight: 16,
-    padding: 4,
-    textAlignVertical: "top",
-  },
-  logRowTouchable: {
-    marginHorizontal: -10,
-    marginVertical: -6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    fontWeight: "600",
   },
   logLine: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-  },
-  logDetailBlock: {
-    marginTop: 4,
-    padding: 6,
-    borderRadius: 6,
-    borderWidth: 1,
+    gap: 6,
   },
   levelIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
   logText: {
     flex: 1,
@@ -865,14 +806,5 @@ const styles = StyleSheet.create({
   },
   logGroup: {
     marginBottom: 16,
-  },
-  timeGroupLabelWrap: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  timeGroupLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    opacity: 0.7,
   },
 });

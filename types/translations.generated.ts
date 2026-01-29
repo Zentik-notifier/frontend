@@ -390,6 +390,11 @@ export interface Translation {
       notificationsInfo: string;
     };
   };
+  settingsWatchCloud: {
+    title: string;
+    description: string;
+    iosOnly: string;
+  };
   compose: {
     messageBuilder: {
       createMessage: string;

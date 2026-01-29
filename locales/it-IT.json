@@ -387,6 +387,11 @@
       "resetCache": "Reset Cache"
     }
   },
+  "settingsWatchCloud": {
+    "title": "Watch e iCloud",
+    "description": "Impostazioni Apple Watch e sincronizzazione iCloud (solo iOS)",
+    "iosOnly": "Questa pagina è disponibile solo su iOS."
+  },
   "compose": {
     "messageBuilder": {
       "createMessage": "Crea Messaggio",
@@ -2614,6 +2619,7 @@
   "serverLogs": {
     "title": "Log del Server",
     "description": "Visualizza e gestisci i log del server memorizzati nel database PostgreSQL.",
+    "anonymous": "anonimo",
     "refresh": "Aggiorna",
     "loading": "Caricamento log del server...",
     "filterPlaceholder": "Filtra log per testo, livello, contesto",

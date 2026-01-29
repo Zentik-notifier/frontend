@@ -116,6 +116,14 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToWatchCloudSettings: () => {
+            if (isMobile) {
+                router.push(`/(phone)/(settings)/watch-cloud`);
+            } else {
+                router.push(`/(desktop)/(settings)/watch-cloud`);
+            }
+        },
+
         navigateToUserProfile: () => {
             if (isMobile) {
                 router.push(`/(phone)/(settings)/user/profile`);

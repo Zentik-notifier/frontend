@@ -3,7 +3,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useSegments } from "expo-router";
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { Card, Icon, List, Text, useTheme } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
 
@@ -43,6 +43,19 @@ export default function SettingsSidebar() {
       onPress: () => nav.navigateToAppSettings(true),
       selectionSegment: "app-settings",
     },
+    ...(Platform.OS === "ios"
+      ? [
+          {
+            id: "watch-cloud",
+            title: t("settingsWatchCloud.title"),
+            description: t("settingsWatchCloud.description"),
+            icon: "cloud",
+            iconColor: "#6366F1", // Indigo
+            onPress: nav.navigateToWatchCloudSettings,
+            selectionSegment: "watch-cloud",
+          },
+        ]
+      : []),
     {
       id: "notifications-settings",
       title: t("notifications.title"),

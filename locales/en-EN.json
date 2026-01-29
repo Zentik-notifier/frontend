@@ -387,6 +387,11 @@
       "notificationsInfo": "{{count}} notifications"
     }
   },
+  "settingsWatchCloud": {
+    "title": "Watch & iCloud",
+    "description": "Apple Watch and iCloud sync settings (iOS only)",
+    "iosOnly": "This page is available on iOS only."
+  },
   "compose": {
     "messageBuilder": {
       "createMessage": "Create Message",
@@ -2614,6 +2619,7 @@
   "serverLogs": {
     "title": "Server Logs",
     "description": "View and manage server log files",
+    "anonymous": "anonymous",
     "refresh": "Refresh",
     "loading": "Loading server logs...",
     "filterPlaceholder": "Filter logs by text, level, context",

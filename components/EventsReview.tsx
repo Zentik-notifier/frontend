@@ -9,42 +9,20 @@ import { uniqBy } from "lodash";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
-  Modal,
-  ScrollView,
+  RefreshControl,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { FAB, Icon, Portal, Text, useTheme } from "react-native-paper";
 import EventsReviewFiltersModal from "./EventsReviewFiltersModal";
 import PaperScrollView from "./ui/PaperScrollView";
-
-function mappedObjectIdPlaceholder(type: EventType): string {
-  switch (type) {
-    case EventType.PushPassthrough:
-      return "systemTokenId";
-    case EventType.Notification:
-      return "notificationId";
-    case EventType.NotificationAck:
-      return "notificationId";
-    case EventType.BucketSharing:
-    case EventType.BucketUnsharing:
-      return "bucketId";
-    case EventType.DeviceRegister:
-    case EventType.DeviceUnregister:
-      return "-";
-    // New system token request events
-    case (EventType as any).SystemTokenRequestCreated:
-    case (EventType as any).SystemTokenRequestDeclined:
-      return "requestId";
-    case (EventType as any).SystemTokenRequestApproved:
-      return "requestId";
-    default:
-      return "-";
-  }
-}
+import LogRowCollapsible from "./ui/LogRowCollapsible";
+import {
+  LogsListLayout,
+  type LogsListItem,
+  type LogsListItemLog,
+} from "./ui/LogsListLayout";
 
 interface EventsReviewProps {
   hideFilter?: boolean;
@@ -62,8 +40,7 @@ export default function EventsReview({ hideFilter }: EventsReviewProps) {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
-  const [showEventDialog, setShowEventDialog] = useState(false);
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const pageSize = 20;
 
   const queryVariables = useMemo(() => {
@@ -174,203 +151,207 @@ export default function EventsReview({ hideFilter }: EventsReviewProps) {
     handleClearFilters();
   }, [handleClearFilters]);
 
-  const formatTargetId = useCallback(
-    (
-      targetIdValue: string | null | undefined,
-      eventType: EventType
-    ): string => {
-      if (!targetIdValue) return "-";
-      if (
-        eventType === EventType.BucketSharing ||
-        eventType === EventType.BucketUnsharing
-      ) {
-        return userIdToName[targetIdValue] || targetIdValue;
+  const toggleEventExpand = useCallback((eventId: string) => {
+    setExpandedEventId((prev) => (prev === eventId ? null : eventId));
+  }, []);
+
+  const flatListData = useMemo((): LogsListItem<any>[] => {
+    const groupOrder: string[] = [];
+    const groupMap = new Map<string, { timeLabel: string; events: any[] }>();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < events.length; i++) {
+      const ev = events[i];
+      const date = new Date(ev.createdAt);
+      const minutes = date.getMinutes();
+      const roundedMinutes = Math.floor(minutes / 5) * 5;
+      date.setMinutes(roundedMinutes, 0, 0);
+      const timeKey = date.toISOString();
+
+      if (!groupMap.has(timeKey)) {
+        const logDate = new Date(ev.createdAt);
+        logDate.setHours(0, 0, 0, 0);
+        const isToday = logDate.getTime() === today.getTime();
+        let timeLabel = date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        if (!isToday) {
+          const dateLabel = date.toLocaleDateString([], {
+            month: "short",
+            day: "numeric",
+          });
+          timeLabel = `${dateLabel}, ${timeLabel}`;
+        }
+        groupMap.set(timeKey, { timeLabel, events: [] });
+        groupOrder.push(timeKey);
       }
-      return targetIdValue;
-    },
-    [userIdToName]
-  );
-
-  const formatObjectId = useCallback(
-    (
-      objectIdValue: string | null | undefined,
-      eventType: EventType
-    ): string => {
-      if (!objectIdValue) return mappedObjectIdPlaceholder(eventType);
-      return objectIdValue;
-    },
-    []
-  );
-
-  const getTargetIdLabel = useCallback((eventType: EventType): string => {
-    switch (eventType) {
-      case EventType.BucketSharing:
-        return "shared with:";
-      case EventType.BucketUnsharing:
-        return "unshared from:";
-      case EventType.Notification:
-      case EventType.DeviceRegister:
-      case EventType.DeviceUnregister:
-        return "device:";
-      // Approved: target is token
-      case (EventType as any).SystemTokenRequestApproved:
-        return "token:";
-      default:
-        return "targetId:";
+      groupMap.get(timeKey)!.events.push(ev);
     }
-  }, []);
 
-  const getObjectIdLabel = useCallback((eventType: EventType): string => {
-    switch (eventType) {
-      case EventType.BucketSharing:
-      case EventType.BucketUnsharing:
-        return "bucket:";
-      case EventType.PushPassthrough:
-        return "token:";
-      // System token request events
-      case (EventType as any).SystemTokenRequestCreated:
-      case (EventType as any).SystemTokenRequestDeclined:
-      case (EventType as any).SystemTokenRequestApproved:
-        return "request:";
-      default:
-        return "objectId:";
-    }
-  }, []);
-
-  const handleShowEvent = useCallback((event: any) => {
-    setSelectedEvent(event);
-    setShowEventDialog(true);
-  }, []);
-
-  const handleCloseEventDialog = useCallback(() => {
-    setShowEventDialog(false);
-    setSelectedEvent(null);
-  }, []);
-
-  const renderItem = ({ item }: any) => {
-    const userDisplay = item.userId
-      ? userIdToName[item.userId] || item.userId
-      : "-";
-
-    const isNotification = item.type === EventType.Notification;
-    const isPassthroughEvent =
-      item.type === EventType.PushPassthrough ||
-      (item.type as EventType | string) ===
-        (EventType as any).PushPassthroughFailed;
-    const additionalInfo = item.additionalInfo || {};
-    const platform = additionalInfo.platform as string | undefined;
-    const sentWith = additionalInfo.sentWith as string | undefined;
-    const availableMethods = additionalInfo.availableMethods as
-      | string[]
-      | undefined;
-
-    let sentWithLabel: string | undefined;
-    if (sentWith) {
-      if (sentWith === "SELF_DOWNLOAD") {
-        sentWithLabel = "selfDownload";
-      } else if (sentWith === "UNENCRYPTED") {
-        sentWithLabel = "unencrypted";
-      } else if (sentWith === "ENCRYPTED") {
-        sentWithLabel = "encrypted";
-      } else {
-        sentWithLabel = sentWith.toString();
+    const flat: LogsListItem<any>[] = [];
+    for (let i = 0; i < groupOrder.length; i++) {
+      const timeKey = groupOrder[i];
+      const g = groupMap.get(timeKey)!;
+      flat.push({ type: "header", id: `h-${timeKey}`, timeLabel: g.timeLabel });
+      for (let j = 0; j < g.events.length; j++) {
+        const ev = g.events[j];
+        flat.push({ type: "log", id: ev.id, log: ev });
       }
     }
+    return flat;
+  }, [events]);
 
-    const unencryptedEnabled =
-      Array.isArray(availableMethods) &&
-      availableMethods.includes("UNENCRYPTED");
+  const renderLogRow = useCallback(
+    (item: LogsListItemLog<any>) => {
+      const ev = item.log;
+      const isExpanded = expandedEventId === ev.id;
+      const userDisplay = ev.userId
+        ? userIdToName[ev.userId] || ev.userId
+        : "-";
+      const additionalInfo = ev.additionalInfo || {};
+      const platform = additionalInfo.platform as string | undefined;
+      const sentWith = additionalInfo.sentWith as string | undefined;
+      const availableMethods = additionalInfo.availableMethods as
+        | string[]
+        | undefined;
+      let sentWithLabel: string | undefined;
+      if (sentWith) {
+        if (sentWith === "SELF_DOWNLOAD") sentWithLabel = "selfDownload";
+        else if (sentWith === "UNENCRYPTED") sentWithLabel = "unencrypted";
+        else if (sentWith === "ENCRYPTED") sentWithLabel = "encrypted";
+        else sentWithLabel = sentWith.toString();
+      }
+      const unencryptedEnabled =
+        Array.isArray(availableMethods) &&
+        availableMethods.includes("UNENCRYPTED");
+      const isNotification = ev.type === EventType.Notification;
+      const isPassthroughEvent =
+        ev.type === EventType.PushPassthrough ||
+        (ev.type as EventType | string) ===
+          (EventType as any).PushPassthroughFailed;
+      const showKpiBadges = isNotification || isPassthroughEvent;
+      const headerLine = `${new Date(ev.createdAt).toLocaleString()} - ${ev.type} - ${userDisplay}`;
 
-    const showKpiBadges = isNotification || isPassthroughEvent;
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.logRow,
-          { borderBottomColor: theme.colors.surfaceVariant },
-        ]}
-        activeOpacity={0.7}
-        onPress={() => handleShowEvent(item)}
-      >
-        <View style={styles.logRowHeader}>
-          <View style={styles.logRowHeaderLeft}>
-            <Text style={[{ color: theme.colors.onSurface }]} numberOfLines={1}>
-              <Text
-                style={[styles.logEventType, { color: theme.colors.primary }]}
-              >
-                {item.type}
-              </Text>
-              {userDisplay !== "-" && <Text>{` - ${userDisplay}`}</Text>}
-            </Text>
-
-            {showKpiBadges && (
-              <View style={styles.logBadgesRow}>
-                {platform && (
-                  <View
-                    style={[
-                      styles.badge,
-                      { backgroundColor: theme.colors.surfaceVariant },
-                    ]}
+      return (
+        <View style={styles.logRow}>
+          <LogRowCollapsible
+            id={ev.id}
+            isExpanded={isExpanded}
+            onToggle={() => toggleEventExpand(ev.id)}
+            headerLine={headerLine}
+            jsonObject={ev}
+            expandOpensDown
+            summaryContent={
+              <View style={styles.logRowHeader}>
+                <View style={styles.logRowHeaderLeft}>
+                  <Text
+                    style={[{ color: theme.colors.onSurface }]}
+                    numberOfLines={1}
                   >
                     <Text
                       style={[
-                        styles.badgeText,
-                        { color: theme.colors.onSurfaceVariant },
+                        styles.logEventType,
+                        { color: theme.colors.primary },
                       ]}
                     >
-                      {platform}
+                      {ev.type}
                     </Text>
-                  </View>
-                )}
-
-                {sentWithLabel && (
-                  <View
-                    style={[
-                      styles.badge,
-                      { backgroundColor: theme.colors.tertiaryContainer },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        { color: theme.colors.onTertiaryContainer },
-                      ]}
-                    >
-                      sentWith: {sentWithLabel}
-                    </Text>
-                  </View>
-                )}
-
-                {unencryptedEnabled && (
-                  <View
-                    style={[
-                      styles.badge,
-                      { backgroundColor: theme.colors.secondaryContainer },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        { color: theme.colors.onSecondaryContainer },
-                      ]}
-                    >
-                      unencrypted enabled
-                    </Text>
-                  </View>
-                )}
+                    {userDisplay !== "-" && (
+                      <Text>{` - ${userDisplay}`}</Text>
+                    )}
+                  </Text>
+                  {showKpiBadges && (
+                    <View style={styles.logBadgesRow}>
+                      {platform && (
+                        <View
+                          style={[
+                            styles.badge,
+                            {
+                              backgroundColor: theme.colors.surfaceVariant,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.badgeText,
+                              {
+                                color: theme.colors.onSurfaceVariant,
+                              },
+                            ]}
+                          >
+                            {platform}
+                          </Text>
+                        </View>
+                      )}
+                      {sentWithLabel && (
+                        <View
+                          style={[
+                            styles.badge,
+                            {
+                              backgroundColor: theme.colors.tertiaryContainer,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.badgeText,
+                              {
+                                color: theme.colors.onTertiaryContainer,
+                              },
+                            ]}
+                          >
+                            sentWith: {sentWithLabel}
+                          </Text>
+                        </View>
+                      )}
+                      {unencryptedEnabled && (
+                        <View
+                          style={[
+                            styles.badge,
+                            {
+                              backgroundColor:
+                                theme.colors.secondaryContainer,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.badgeText,
+                              {
+                                color: theme.colors.onSecondaryContainer,
+                              },
+                            ]}
+                          >
+                            unencrypted enabled
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+                <Text
+                  style={[
+                    styles.logDate,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
+                  {new Date(ev.createdAt).toLocaleString()}
+                </Text>
               </View>
-            )}
-          </View>
-
-          <Text
-            style={[styles.logDate, { color: theme.colors.onSurfaceVariant }]}
-          >
-            {new Date(item.createdAt).toLocaleString()}
-          </Text>
+            }
+          />
         </View>
-      </TouchableOpacity>
-    );
-  };
+      );
+    },
+    [
+      theme.colors,
+      userIdToName,
+      expandedEventId,
+      toggleEventExpand,
+    ]
+  );
 
   return (
     <PaperScrollView
@@ -421,15 +402,18 @@ export default function EventsReview({ hideFilter }: EventsReviewProps) {
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={events}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          onRefresh={handleRefresh}
-          refreshing={isRefreshing}
-          contentContainerStyle={styles.listContent}
+        <LogsListLayout<any>
+          data={flatListData}
+          renderLogRow={renderLogRow}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
+            />
+          }
           onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
           ListFooterComponent={
             hasNextPage && isLoadingMore ? (
               <View style={styles.footerLoading}>
@@ -439,161 +423,6 @@ export default function EventsReview({ hideFilter }: EventsReviewProps) {
           }
         />
       )}
-
-      <Modal
-        visible={showEventDialog}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCloseEventDialog}
-      >
-        <View style={styles.modalBackdrop}>
-          <View
-            style={[
-              styles.dialogContainer,
-              { backgroundColor: theme.colors.surface },
-            ]}
-          >
-            <View style={styles.dialogHeader}>
-              <Text
-                style={[styles.dialogTitle, { color: theme.colors.onSurface }]}
-              >
-                Event details
-              </Text>
-              <TouchableOpacity onPress={handleCloseEventDialog}>
-                <Icon source="close" size={24} color={theme.colors.onSurface} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.dialogContent}>
-              {selectedEvent && (
-                <>
-                  <View style={styles.dialogMetaRow}>
-                    <Text style={styles.dialogMetaLabel}>Type:</Text>
-                    <Text style={styles.dialogMetaValue}>
-                      {selectedEvent.type}
-                    </Text>
-                  </View>
-
-                  <View style={styles.dialogMetaRow}>
-                    <Text style={styles.dialogMetaLabel}>Created at:</Text>
-                    <Text style={styles.dialogMetaValue}>
-                      {new Date(selectedEvent.createdAt).toLocaleString()}
-                    </Text>
-                  </View>
-
-                  {selectedEvent.userId && (
-                    <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>User:</Text>
-                      <Text style={styles.dialogMetaValue}>
-                        {userIdToName[selectedEvent.userId] ||
-                          selectedEvent.userId}
-                      </Text>
-                    </View>
-                  )}
-
-                  {selectedEvent.objectId && (
-                    <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>
-                        {getObjectIdLabel(selectedEvent.type)}
-                      </Text>
-                      <Text style={styles.dialogMetaValue}>
-                        {formatObjectId(
-                          selectedEvent.objectId,
-                          selectedEvent.type
-                        )}
-                      </Text>
-                    </View>
-                  )}
-
-                  {selectedEvent.targetId && (
-                    <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>
-                        {getTargetIdLabel(selectedEvent.type)}
-                      </Text>
-                      <Text style={styles.dialogMetaValue}>
-                        {formatTargetId(
-                          selectedEvent.targetId,
-                          selectedEvent.type
-                        )}
-                      </Text>
-                    </View>
-                  )}
-
-                  <View style={styles.dialogMetaRow}>
-                    <Text style={styles.dialogMetaLabel}>Event id:</Text>
-                    <TextInput
-                      value={selectedEvent.id}
-                      editable={false}
-                      multiline
-                      style={[
-                        styles.fieldInput,
-                        {
-                          backgroundColor: theme.colors.surfaceVariant,
-                          borderColor: theme.colors.outline,
-                          color: theme.colors.onSurface,
-                        },
-                      ]}
-                    />
-                  </View>
-
-                  {selectedEvent.additionalInfo && (
-                    <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>
-                        Additional info:
-                      </Text>
-
-                      {(() => {
-                        const info = selectedEvent.additionalInfo || {};
-                        const platform = info.platform as string | undefined;
-                        const sentWith = info.sentWith as string | undefined;
-                        const availableMethods = info.availableMethods as
-                          | string[]
-                          | undefined;
-
-                        let deliveryMode: string | undefined;
-                        if (sentWith === "SELF_DOWNLOAD") {
-                          deliveryMode = "selfDownload";
-                        } else if (sentWith === "UNENCRYPTED") {
-                          deliveryMode = "unencrypted";
-                        } else if (sentWith === "ENCRYPTED") {
-                          deliveryMode = "encrypted";
-                        } else if (sentWith) {
-                          deliveryMode = sentWith.toString();
-                        }
-
-                        const unencryptedEnabled =
-                          Array.isArray(availableMethods) &&
-                          availableMethods.includes("UNENCRYPTED");
-
-                        return (
-                          <View>
-                            {platform && (
-                              <Text style={styles.dialogMetaValue}>
-                                Platform: {platform}
-                              </Text>
-                            )}
-                            {deliveryMode && (
-                              <Text style={styles.dialogMetaValue}>
-                                Delivery mode: {deliveryMode}
-                              </Text>
-                            )}
-                            {unencryptedEnabled !== undefined && (
-                              <Text style={styles.dialogMetaValue}>
-                                Unencrypted available: {""}
-                                {unencryptedEnabled ? "yes" : "no"}
-                              </Text>
-                            )}
-                          </View>
-                        );
-                      })()}
-                    </View>
-                  )}
-                </>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
 
       {/* FAB for filters */}
       {!hideFilter && (
@@ -697,9 +526,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   logRow: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
   },
   logRowHeader: {
     flexDirection: "row",
