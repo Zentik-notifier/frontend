@@ -221,11 +221,8 @@ public final class CloudKitManagerBase: NSObject {
             return
         }
 
-        infoLog("ensureZone starting", metadata: ["zoneName": config.zoneName])
-
         privateDatabase.fetch(withRecordZoneID: zoneID) { _, fetchError in
             if fetchError == nil {
-                self.infoLog("ensureZone completed (already exists)", metadata: ["zoneName": self.config.zoneName])
                 completion(.success(false))
                 return
             }
@@ -378,14 +375,6 @@ public final class CloudKitManagerBase: NSObject {
 
         let previousToken = loadServerChangeToken()
         var changes: [ZoneChange] = []
-
-        infoLog(
-            "fetchZoneChanges starting",
-            metadata: [
-                "zoneName": config.zoneName,
-                "hasPreviousToken": previousToken != nil
-            ]
-        )
 
         let op = CKFetchRecordZoneChangesOperation()
         op.recordZoneIDs = [zoneID]
@@ -954,14 +943,6 @@ public final class CloudKitManagerBase: NSObject {
             return
         }
 
-        infoLog(
-            "ensureSubscriptions starting",
-            metadata: [
-                "count": specs.count,
-                "recordTypes": specs.map { $0.recordType }.joined(separator: ",")
-            ]
-        )
-
         let subscriptions: [CKSubscription] = specs.map { spec in
             let sub = CKQuerySubscription(
                 recordType: spec.recordType,
@@ -1005,14 +986,6 @@ public final class CloudKitManagerBase: NSObject {
             completion(.success(()))
             return
         }
-        
-        infoLog(
-            "deleteSubscriptions starting",
-            metadata: [
-                "count": subscriptionIDs.count,
-                "subscriptionIDs": subscriptionIDs.joined(separator: ",")
-            ]
-        )
         
         runSerial(subscriptionIDs, label: "delete_subscriptions") { subscriptionID, deleteDone in
             self.privateDatabase.delete(withSubscriptionID: subscriptionID) { _, error in

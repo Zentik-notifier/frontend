@@ -71,6 +71,25 @@ public class LoggingSystem {
     }
     
     // MARK: - Logging Methods
+
+    private static let consoleMetadataMaxKeys = 4
+    private static let consoleMetadataMaxValueLength = 50
+
+    private static func conciseConsoleLine(level: String, tag: String?, message: String, metadata: [String: String]?, source: String) -> String {
+        var parts = "[\(source)] \(level)"
+        if let t = tag, !t.isEmpty { parts += " \(t)" }
+        parts += ": \(message)"
+        if let meta = metadata, !meta.isEmpty {
+            let entries = Array(meta.prefix(consoleMetadataMaxKeys)).map { item -> String in
+                let val = item.value.count > consoleMetadataMaxValueLength
+                    ? String(item.value.prefix(consoleMetadataMaxValueLength)) + "..."
+                    : item.value
+                return "\(item.key)=\(val)"
+            }
+            if !entries.isEmpty { parts += " [" + entries.joined(separator: " ") + "]" }
+        }
+        return parts
+    }
     
     /// Log a message with JSON structure
     public func log(
@@ -94,11 +113,8 @@ public class LoggingSystem {
             source: source
         )
         
-        // Print to console
-        if let jsonData = try? JSONEncoder().encode(entry),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            print("[\(source)] \(jsonString)")
-        }
+        let consoleLine = Self.conciseConsoleLine(level: level, tag: tag, message: message, metadata: stringMetadata, source: source)
+        print(consoleLine)
         
         // Add to source-specific buffer (thread-safe)
         queue.async(flags: .barrier) {
@@ -141,11 +157,8 @@ public class LoggingSystem {
             source: source
         )
         
-        // Print to console (same as log method)
-        if let jsonData = try? JSONEncoder().encode(entry),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            print("[\(source)] \(jsonString)")
-        }
+        let consoleLine = Self.conciseConsoleLine(level: level, tag: tag, message: message, metadata: metadata, source: source)
+        print(consoleLine)
         
         // Add to source-specific buffer (thread-safe)
         queue.async(flags: .barrier) {

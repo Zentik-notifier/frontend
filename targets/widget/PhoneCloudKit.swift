@@ -93,7 +93,6 @@ public final class PhoneCloudKit {
     }
 
     public func ensureReady(completion: @escaping (Result<Void, Error>) -> Void) {
-        infoLog("ensureReady starting")
         core.ensureZoneWithStatus { result in
             switch result {
             case .failure(let error):
@@ -111,7 +110,6 @@ public final class PhoneCloudKit {
                         if didCreateZone {
                             // Fresh zone: trigger full sync without CloudKit reset
                             // (zone is already created, just need to sync data)
-                            self.infoLog("Fresh zone detected; triggering full sync")
                             // Do not block app startup; run best-effort in the sync queue
                             self.syncQueue.async {
                                 self.performFullSyncWithReset(skipReset: true) { success, error, stats in
@@ -496,8 +494,6 @@ public final class PhoneCloudKit {
             return
         }
 
-        infoLog("triggerSyncToCloud starting")
-
         syncQueue.async {
             self.ensureReady { readyResult in
                 switch readyResult {
@@ -521,8 +517,6 @@ public final class PhoneCloudKit {
     }
     
     private func performFullSyncWithReset(skipReset: Bool, completion: @escaping (Bool, Error?, SyncStats?) -> Void) {
-        infoLog("fullSync starting (SQLite -> CloudKit)", metadata: ["skipReset": skipReset])
-        
         // EVENT 1: FullSync started
         self.notifySyncProgress(
             currentItem: 0,
@@ -534,7 +528,6 @@ public final class PhoneCloudKit {
         
         if skipReset {
             // Zone was just created, reset local cursors and sync without CloudKit reset
-            self.infoLog("Skipping CloudKit reset (zone is fresh); resetting local cursors")
             self.core.resetServerChangeToken()
             self.resetLastSyncDate()
             // Continue with sync (always do cleanup after full sync)
@@ -560,15 +553,12 @@ public final class PhoneCloudKit {
                     // This is critical: after deleting the zone, we need to recreate it
                     // before loading records, otherwise CloudKit might not propagate the zone
                     // in time for subsequent queries
-                    self.infoLog("Ensuring zone exists before full sync")
                     self.core.ensureZone { ensureResult in
                         switch ensureResult {
                         case .failure(let error):
                             self.errorLog("Failed to ensure zone before full sync", metadata: ["error": String(describing: error)])
                             completion(false, error, nil)
                         case .success:
-                            self.infoLog("Zone ensured, starting full sync")
-                            // Continue with sync (always do cleanup after full sync)
                             self.performFullSync(completion: completion)
                         }
                     }
@@ -588,7 +578,6 @@ public final class PhoneCloudKit {
         )
         
         // Step 1: Delete subscriptions
-        self.infoLog("Deleting CloudKit subscriptions")
         self.deleteAllSubscriptions { deleteSubsResult in
             switch deleteSubsResult {
             case .failure(let error):
@@ -599,7 +588,6 @@ public final class PhoneCloudKit {
             }
             
             // Step 2: Delete zone
-            self.infoLog("Deleting CloudKit zone")
             self.core.deleteZone { deleteZoneResult in
                 switch deleteZoneResult {
                 case .failure(let error):
@@ -614,7 +602,6 @@ public final class PhoneCloudKit {
                 }
                 
                 // Step 3: Reset token
-                self.infoLog("Resetting server change token")
                 self.core.resetServerChangeToken()
                 
                 // EVENT 3: Reset completed
@@ -637,8 +624,6 @@ public final class PhoneCloudKit {
         var syncedNotifications = 0
         var syncedBuckets = 0
         var errorOut: Error?
-        
-        infoLog("performFullSync starting")
 
         // 1) Sync buckets
         group.enter()
@@ -653,8 +638,6 @@ public final class PhoneCloudKit {
         )
         
         DatabaseAccess.getAllBuckets(source: "PhoneCloudKit") { buckets in
-            self.infoLog("Buckets phase starting", metadata: ["localBuckets": buckets.count])
-            
             // EVENT: Buckets found (show count in label)
             self.notifySyncProgress(
                 currentItem: buckets.count,
@@ -674,8 +657,6 @@ public final class PhoneCloudKit {
                 return record
             }
 
-            self.infoLog("Buckets records created, calling core.save", metadata: ["recordsCount": records.count])
-            
             // EVENT: Buckets uploading (upload started, show progress bar)
             self.notifySyncProgress(
                 currentItem: 0,
@@ -688,7 +669,6 @@ public final class PhoneCloudKit {
             self.core.save(
                 records: records,
                 progressCallback: { completed, total in
-                    self.infoLog("Buckets save progress", metadata: ["completed": completed, "total": total])
                     // EVENT: Buckets syncing (progress update - only called after successful chunk upload)
                     self.notifySyncProgress(
                         currentItem: completed,
@@ -699,7 +679,6 @@ public final class PhoneCloudKit {
                     )
                 }
             ) { result in
-                self.infoLog("Buckets save callback invoked")
                 switch result {
                 case .success:
                     syncedBuckets = records.count
@@ -744,13 +723,6 @@ public final class PhoneCloudKit {
         // Use a very high limit to get all notifications
         let maxLimit = 1000000 // High enough to get all notifications
         DatabaseAccess.getRecentNotifications(limit: maxLimit, unreadOnly: false, source: "PhoneCloudKit") { notifications in
-            self.infoLog(
-                "Notifications phase starting (full sync)",
-                metadata: [
-                    "totalNotifications": notifications.count
-                ]
-            )
-            
             var notificationsToSync = notifications
             
             // Apply cloudKitNotificationLimit if set (but don't filter by date)
@@ -827,8 +799,6 @@ public final class PhoneCloudKit {
                     return record
                 }
 
-                self.infoLog("Notification records created, calling core.save", metadata: ["recordsCount": records.count])
-                
                 // EVENT: Notifications uploading (upload started, show progress bar)
                 self.notifySyncProgress(
                     currentItem: 0,
@@ -841,7 +811,6 @@ public final class PhoneCloudKit {
                 self.core.save(
                     records: records,
                     progressCallback: { completed, total in
-                        self.infoLog("Notifications save progress", metadata: ["completed": completed, "total": total])
                         // EVENT: Notifications syncing (progress update - only called after successful chunk upload)
                         self.notifySyncProgress(
                             currentItem: completed,
@@ -852,7 +821,6 @@ public final class PhoneCloudKit {
                         )
                     }
                 ) { result in
-                    self.infoLog("Notifications save callback invoked")
                     switch result {
                     case .success:
                         syncedNotifications = records.count
@@ -1328,8 +1296,6 @@ public final class PhoneCloudKit {
     }
 
     private func cleanupLocalDatabase(completion: @escaping (Result<String, Error>) -> Void) {
-        infoLog("Local database cleanup starting")
-        
         // Cleanup old tombstones (deleted notifications older than 30 days)
         // This is handled by the React Native side via cleanupOldDeletedTombstones
         // For now, we just log that cleanup should happen
@@ -1344,8 +1310,6 @@ public final class PhoneCloudKit {
             completion(0, nil)
             return
         }
-
-        infoLog("Cleanup old notifications starting", metadata: ["keepLimit": keepLimit])
 
         core.queryRecords(
             recordType: Defaults.notificationRecordType,
@@ -1397,10 +1361,6 @@ public final class PhoneCloudKit {
             completion(0, nil)
             return
         }
-        
-        infoLog("updateAllNotificationsWithoutReadAt starting", metadata: [
-            "readAtValue": readAtValue != nil ? "set" : "nil"
-        ])
         
         ensureZoneOnlyReady { [weak self] result in
             guard let self = self else {
@@ -1488,7 +1448,6 @@ public final class PhoneCloudKit {
     }
 
     public func fetchAllNotificationsFromCloudKit(completion: @escaping ([[String: Any]], Error?) -> Void) {
-        infoLog("fetchAllNotificationsFromCloudKit starting")
         core.queryRecords(
             recordType: Defaults.notificationRecordType,
             predicate: NSPredicate(value: true),
@@ -1560,7 +1519,6 @@ public final class PhoneCloudKit {
     }
 
     public func fetchAllBucketsFromCloudKit(completion: @escaping ([[String: Any]], Error?) -> Void) {
-        infoLog("fetchAllBucketsFromCloudKit starting")
         core.queryRecords(
             recordType: Defaults.bucketRecordType,
             predicate: NSPredicate(value: true),

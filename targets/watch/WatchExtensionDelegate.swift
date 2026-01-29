@@ -204,10 +204,7 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
             completionHandler(.noData)
             return
         }
-        print("⌚ [WatchExtensionDelegate] 📬 Received remote notification")
-        print("⌚ [WatchExtensionDelegate] Notification userInfo keys: \(userInfo.keys)")
-        print("⌚ [WatchExtensionDelegate] Notification userInfo: \(userInfo)")
-        
+        print("⌚ [WatchExtensionDelegate] 📬 Received remote notification (keys: \(userInfo.count))")
         LoggingSystem.shared.log(
             level: "INFO",
             tag: "Watch",
@@ -221,15 +218,14 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
         
         // Check if this is a CloudKit notification
         if let notification = CKNotification(fromRemoteNotificationDictionary: userInfo as! [String: NSObject]) {
-            print("⌚ [WatchExtensionDelegate] ☁️ CloudKit notification detected")
-            print("⌚ [WatchExtensionDelegate] Notification type: \(notification.notificationType.rawValue)")
-            print("⌚ [WatchExtensionDelegate] Subscription ID: \(notification.subscriptionID ?? "nil")")
-            
-            // Extract record information if available
-            if let queryNotification = notification as? CKQueryNotification {
-                print("⌚ [WatchExtensionDelegate] 📝 Query notification - recordName: \(queryNotification.recordID?.recordName ?? "nil"), reason: \(queryNotification.queryNotificationReason.rawValue)")
+            let subId = notification.subscriptionID ?? "nil"
+            let recordInfo: String
+            if let q = notification as? CKQueryNotification {
+                recordInfo = " record=\(q.recordID?.recordName ?? "?") reason=\(q.queryNotificationReason.rawValue)"
+            } else {
+                recordInfo = ""
             }
-            
+            print("⌚ [WatchExtensionDelegate] ☁️ CloudKit type=\(notification.notificationType.rawValue) subId=\(subId)\(recordInfo)")
             LoggingSystem.shared.log(
                 level: "INFO",
                 tag: "Watch",
@@ -285,8 +281,8 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
 
     /// Called when a notification is delivered while the app is in the foreground (arrival without tap).
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        print("⌚ [WatchExtensionDelegate] 📬 willPresent (arrival, app in foreground)")
         let userInfo = notification.request.content.userInfo
+        print("⌚ [WatchExtensionDelegate] 📬 willPresent keys=\(userInfo.count) id=\(notification.request.identifier)")
         LoggingSystem.shared.log(
             level: "INFO",
             tag: "Watch",
@@ -298,9 +294,8 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
             source: "WatchExtensionDelegate"
         )
         
-        // Check if this is a CloudKit notification
         if let ckNotification = CKNotification(fromRemoteNotificationDictionary: userInfo as! [String: NSObject]) {
-            print("⌚ [WatchExtensionDelegate] ☁️ CloudKit notification in foreground - processing silently")
+            print("⌚ [WatchExtensionDelegate] ☁️ CloudKit foreground - processing silently")
             
             // Process CloudKit notification silently (don't show alert)
             // The notification will be handled by didReceiveRemoteNotification or we can process it here
@@ -324,8 +319,8 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
             let notificationId = userInfo["notificationId"] as? String
             let title = (notification.request.content.title as String).isEmpty ? (userInfo["title"] as? String) : notification.request.content.title
             let body = (notification.request.content.body as String).isEmpty ? (userInfo["body"] as? String) : notification.request.content.body
-            print("⌚ [WatchExtensionDelegate] 📢 Mirrored app notification - keys: \(keys)")
-            print("⌚ [WatchExtensionDelegate] 📢 payload: n=\(n ?? "nil") b=\(b ?? "nil") m=\(m ?? "nil") notificationId=\(notificationId ?? "nil") title=\(title ?? "nil") body=\(body ?? "nil")")
+            let titlePreview = (title ?? "").count > 30 ? String((title ?? "").prefix(30)) + "…" : (title ?? "")
+            print("⌚ [WatchExtensionDelegate] 📢 Mirrored notification id=\(notificationId ?? "?") title=\(titlePreview)")
             LoggingSystem.shared.log(
                 level: "INFO",
                 tag: "Watch",

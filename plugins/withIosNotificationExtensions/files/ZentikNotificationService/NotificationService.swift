@@ -273,7 +273,6 @@ class NotificationService: UNNotificationServiceExtension {
         bucketColor: defaultBucketColor,
         iconUrl: iconUrlFromPayload
       )
-        
       if senderAvatarImageData != nil {
         print("📱 [NotificationService] 🎭 Communication style with avatar (bucketId: \(bucketId))")
       }
@@ -2014,7 +2013,8 @@ class NotificationService: UNNotificationServiceExtension {
           nil,
           true
         )
-        whenDone?()
+        // Run continuation off dbQueue to avoid deadlock: _handleChatMessage calls getBucketById (via applySingleTextFieldTitleBodyBucketFallback) which blocks on dbQueue; if we run whenDone on dbQueue we'd wait ~10s for semaphore timeout.
+        DispatchQueue.global(qos: .userInitiated).async { whenDone?() }
         self?.saveNotificationToCloudKit(
           notificationId: notificationId,
           bucketId: bucketId,
