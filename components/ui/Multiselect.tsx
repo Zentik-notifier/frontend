@@ -223,7 +223,9 @@ export default function Multiselect({
   const allSelected = selectedValues.length === options.length;
   const someSelected = selectedValues.length > 0 && !allSelected;
 
-  const styles = StyleSheet.create({
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
     label: {
       fontSize: 16,
       fontWeight: "500",
@@ -248,6 +250,10 @@ export default function Multiselect({
       flexWrap: "wrap",
       alignItems: "center",
       gap: 8,
+    },
+    chevronTouchable: {
+      padding: 4,
+      marginLeft: 4,
     },
     disabledInput: {
       backgroundColor: theme.colors.surfaceDisabled,
@@ -502,7 +508,19 @@ export default function Multiselect({
       color: theme.colors.onSurfaceVariant,
       textAlign: "center",
     },
-  });
+  }),
+    [
+      theme,
+      error,
+      dropdownPosition.top,
+      dropdownPosition.left,
+      dropdownPosition.width,
+      dropdownPosition.maxHeight,
+      dropdownPosition.isOpeningUpward,
+      showSelectAll,
+      isSearchable,
+    ]
+  );
 
   const renderSelectedChips = () => {
     if (selectedOptions.length === 0) {
@@ -579,22 +597,29 @@ export default function Multiselect({
     <View ref={containerRef}>
       {label && <Text style={styles.label}>{label}</Text>}
 
-      <TouchableOpacity
+      <View
         style={[
           styles.inputContainer,
           disabled && styles.disabledInput,
           error && styles.errorInput,
         ]}
-        onPress={toggleInlineDropdown}
-        disabled={disabled}
       >
-        <View style={styles.valueContainer}>{renderSelectedChips()}</View>
-        <Icon
-          source={isInlineDropdownOpen ? "chevron-up" : "chevron-down"}
-          size={20}
-          color={theme.colors.onSurfaceVariant}
-        />
-      </TouchableOpacity>
+        <View style={styles.valueContainer} pointerEvents="box-none">
+          {renderSelectedChips()}
+        </View>
+        <TouchableOpacity
+          onPress={toggleInlineDropdown}
+          disabled={disabled}
+          style={styles.chevronTouchable}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Icon
+            source={isInlineDropdownOpen ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={theme.colors.onSurfaceVariant}
+          />
+        </TouchableOpacity>
+      </View>
 
       {helperText && !error && (
         <Text style={styles.helperText}>{helperText}</Text>
@@ -654,6 +679,9 @@ export default function Multiselect({
               style={styles.inlineOptionsList}
               data={filteredOptions}
               keyExtractor={(item) => String(item.id)}
+              initialNumToRender={16}
+              maxToRenderPerBatch={12}
+              windowSize={8}
               nestedScrollEnabled
               showsVerticalScrollIndicator
               renderItem={({ item }) => {
@@ -704,22 +732,29 @@ export default function Multiselect({
       <View>
         {label && <Text style={styles.label}>{label}</Text>}
 
-        <TouchableOpacity
+        <View
           style={[
             styles.inputContainer,
             disabled && styles.disabledInput,
             error && styles.errorInput,
           ]}
-          onPress={show}
-          disabled={disabled}
         >
-          <View style={styles.valueContainer}>{renderSelectedChips()}</View>
-          <Icon
-            source="chevron-down"
-            size={20}
-            color={theme.colors.onSurfaceVariant}
-          />
-        </TouchableOpacity>
+          <View style={styles.valueContainer} pointerEvents="box-none">
+            {renderSelectedChips()}
+          </View>
+          <TouchableOpacity
+            onPress={show}
+            disabled={disabled}
+            style={styles.chevronTouchable}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Icon
+              source="chevron-down"
+              size={20}
+              color={theme.colors.onSurfaceVariant}
+            />
+          </TouchableOpacity>
+        </View>
         {helperText && !error && (
           <Text style={styles.helperText}>{helperText}</Text>
         )}

@@ -1,10 +1,11 @@
-import CloudKit
 import CoreFoundation
 import Expo
 import FirebaseCore
 import React
 import ReactAppDependencyProvider
 import UserNotifications
+#if os(iOS)
+import CloudKit
 import WatchConnectivity
 
 private let darwinNSENotificationSavedCallback: CFNotificationCallback = { _, observer, _, _, _ in
@@ -12,6 +13,7 @@ private let darwinNSENotificationSavedCallback: CFNotificationCallback = { _, ob
   let delegate = Unmanaged<AppDelegate>.fromOpaque(obs).takeUnretainedValue()
   delegate.handleNSENotificationSaved()
 }
+#endif
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
@@ -31,7 +33,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 }
 
 @UIApplicationMain
-public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate, WCSessionDelegate {
+public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
   var window: UIWindow?
 
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
@@ -39,18 +41,15 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate, WCS
   
   // Keep reference to Expo's original notification delegate
   private var expoNotificationDelegate: UNUserNotificationCenterDelegate?
-  private var wcSession: WCSession?
   
-  // Batch processing for CloudKit notifications to avoid blocking
+#if os(iOS)
+  private var wcSession: WCSession?
   private static let cloudKitNotificationQueue = DispatchQueue(label: "com.zentik.cloudkit.notifications", qos: .utility)
   private static var pendingCloudKitNotifications: [CKNotification] = []
   private static var cloudKitNotificationTimer: Timer?
-  private static let cloudKitNotificationDebounceInterval: TimeInterval = 0.3 // 300ms
+  private static let cloudKitNotificationDebounceInterval: TimeInterval = 0.3
   private static let cloudKitNotificationLock = NSLock()
-
-  // WC is intentionally restricted to:
-  // - iPhone -> Watch: settings (applicationContext/sendMessage)
-  // - Watch -> iPhone: logs (sendMessage)
+#endif
 
   public override func application(
     _ application: UIApplication,
@@ -80,41 +79,28 @@ FirebaseApp.configure()
     
     UNUserNotificationCenter.current().delegate = self
     
-    // CloudKit initialization and subscriptions are now handled by React via useCleanup
-    // React will:
-    // 1. Initialize schema (creates zone if needed)
-    // 2. Setup subscriptions (after zone is initialized)
-    // 3. Trigger sync operations
-    // This ensures proper ordering and error handling from React side
-    
-    // Register for remote notifications (required for CloudKit subscriptions)
+#if os(iOS)
     application.registerForRemoteNotifications()
-    
-    // Setup WatchConnectivity for receiving logs from Watch
     setupWatchConnectivity()
-    
-    // Listen for Watch token settings requests from React Native
     NotificationCenter.default.addObserver(
       self,
       selector: #selector(handleSendWatchTokenSettings(_:)),
       name: NSNotification.Name("SendWatchTokenSettings"),
       object: nil
     )
-    
-    // Listen for CloudKit sync progress from extensions and forward to CloudKitSyncBridge
     NotificationCenter.default.addObserver(
       self,
       selector: #selector(handleCloudKitSyncProgress(_:)),
       name: NSNotification.Name("CloudKitSyncProgress"),
       object: nil
     )
-
-    // NSE posts Darwin notification after saving a notification to DB; main app pushes it to CloudKit
     registerDarwinNSENotificationSavedObserver()
+#endif
 
     return result
   }
 
+#if os(iOS)
   private static let darwinNSENotificationSavedName = "com.apocaliss92.zentik.nse.notificationSaved"
 
   private func registerDarwinNSENotificationSavedObserver() {
@@ -150,7 +136,9 @@ FirebaseApp.configure()
       }
     }
   }
+#endif
   
+#if os(iOS)
   @objc private func handleCloudKitSyncProgress(_ notification: Notification) {
     guard let userInfo = notification.userInfo,
           let currentItem = userInfo["currentItem"] as? Int,
@@ -199,7 +187,9 @@ FirebaseApp.configure()
       }
     }
   }
+#endif
   
+#if os(iOS)
   // MARK: - WatchConnectivity Setup
   
   private func setupWatchConnectivity() {
@@ -418,6 +408,7 @@ FirebaseApp.configure()
       replyHandler(["success": false, "error": error.localizedDescription])
     }
   }
+#endif
   
   // MARK: - UNUserNotificationCenterDelegate
   
@@ -607,9 +598,9 @@ FirebaseApp.configure()
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
   }
   
+#if os(iOS)
   // MARK: - Remote Notifications (CloudKit)
   
-  /// Called when app successfully registers for remote notifications
   public override func application(
     _ application: UIApplication,
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
@@ -777,5 +768,10 @@ FirebaseApp.configure()
     }
     return recordName
   }
+#endif
   
 }
+
+#if os(iOS)
+extension AppDelegate: WCSessionDelegate {}
+#endif

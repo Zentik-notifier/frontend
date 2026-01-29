@@ -9,11 +9,20 @@ interface CopyButtonProps {
   size?: number;
   style?: any;
   disabled?: boolean;
+  /** When true, minimizes vertical/horizontal padding and margin (e.g. for inline use in tight layouts) */
+  compact?: boolean;
   /** Optional label to display next to the icon. When provided, renders as an outlined button instead of icon-only */
   label?: string;
   /** Optional custom success label when text is copied. Defaults to "Copied!" */
   successLabel?: string;
 }
+
+const compactIconStyle = {
+  margin: 0,
+  marginVertical: 0,
+  marginHorizontal: 0,
+  padding: 0,
+};
 
 export default function CopyButton({
   text,
@@ -21,6 +30,7 @@ export default function CopyButton({
   size = 20,
   style,
   disabled = false,
+  compact = false,
   label,
   successLabel,
 }: CopyButtonProps) {
@@ -63,7 +73,7 @@ export default function CopyButton({
       size={size}
       iconColor={showSuccess ? "#4CAF50" : theme.colors.primary}
       onPress={handleCopy}
-      style={style}
+      style={[compact ? compactIconStyle : undefined, style]}
       disabled={disabled}
     />
   );

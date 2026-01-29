@@ -96,8 +96,10 @@ export function AppSettings() {
 
   useEffect(() => {
     loadApiUrl();
-    loadCloudKitStatus();
-    loadWatchToken();
+    if (Platform.OS === "ios") {
+      loadCloudKitStatus();
+      loadWatchToken();
+    }
   }, []);
 
   // Listen to CloudKit sync progress events

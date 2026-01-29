@@ -10,11 +10,8 @@ import * as Sharing from "expo-sharing";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  FlatList,
-  Modal,
   Platform,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -22,6 +19,7 @@ import {
   NativeEventEmitter,
   NativeModules,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Icon, Surface, Text, useTheme } from "react-native-paper";
 import CopyButton from "./ui/CopyButton";
 import PaperScrollView from "./ui/PaperScrollView";
@@ -39,8 +37,7 @@ export default function AppLogs() {
   const [sourceFilters, setSourceFilters] = useState<string[]>([]);
   // const [isExporting, setIsExporting] = useState<boolean>(false);
   // const [isClearing, setIsClearing] = useState<boolean>(false);
-  const [selectedLog, setSelectedLog] = useState<AppLog | null>(null);
-  const [showLogDialog, setShowLogDialog] = useState<boolean>(false);
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [sourceOptions, setSourceOptions] = useState<
     { id: string; name: string }[]
   >([]);
@@ -110,14 +107,8 @@ export default function AppLogs() {
     }
   }, [loadLogs]);
 
-  const handleShowLog = useCallback((log: AppLog) => {
-    setSelectedLog(log);
-    setShowLogDialog(true);
-  }, []);
-
-  const handleCloseLogDialog = useCallback(() => {
-    setShowLogDialog(false);
-    setSelectedLog(null);
+  const toggleLogExpand = useCallback((logId: string) => {
+    setExpandedLogId((prev) => (prev === logId ? null : logId));
   }, []);
 
   useEffect(() => {
@@ -170,20 +161,14 @@ export default function AppLogs() {
     [theme.colors]
   );
 
-  const { levelOptions } = useMemo(() => {
-    const uniqueLevels = new Set<string>();
-
-    logs.forEach((log) => {
-      uniqueLevels.add(log.level.trim().toUpperCase());
-    });
-
-    return {
-      levelOptions: Array.from(uniqueLevels).map((level) => ({
+  const levelOptions = useMemo(
+    () =>
+      ["DEBUG", "INFO", "WARN", "ERROR"].map((level) => ({
         id: level,
         name: level,
       })),
-    };
-  }, [logs]);
+    []
+  );
 
   const filteredLogs = useMemo(() => {
     // Filter out logs with empty messages first
@@ -224,8 +209,12 @@ export default function AppLogs() {
     });
   }, [logs, query, levelFilters, sourceFilters]);
 
-  // Group logs by 5-minute intervals
-  const groupedLogs = useMemo(() => {
+  // Group logs by 5-minute intervals, then flatten for FlashList (one row per header or log)
+  type ListItem =
+    | { type: "header"; id: string; timeLabel: string }
+    | { type: "log"; id: string; log: AppLog };
+
+  const flatListData = useMemo(() => {
     const groups: { timeLabel: string; logs: AppLog[] }[] = [];
     const groupMap = new Map<string, AppLog[]>();
     const today = new Date();
@@ -236,24 +225,19 @@ export default function AppLogs() {
       const minutes = date.getMinutes();
       const roundedMinutes = Math.floor(minutes / 5) * 5;
       date.setMinutes(roundedMinutes, 0, 0);
-      
       const timeKey = date.toISOString();
-      
-      // Check if the log is from today
+
       const logDate = new Date(log.timestamp);
       logDate.setHours(0, 0, 0, 0);
       const isToday = logDate.getTime() === today.getTime();
-      
-      // Format time label with date if not today
-      let timeLabel = date.toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      let timeLabel = date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
       });
-      
       if (!isToday) {
         const dateLabel = date.toLocaleDateString([], {
-          month: 'short',
-          day: 'numeric'
+          month: "short",
+          day: "numeric",
         });
         timeLabel = `${dateLabel}, ${timeLabel}`;
       }
@@ -265,63 +249,122 @@ export default function AppLogs() {
       groupMap.get(timeKey)!.push(log);
     });
 
-    return groups;
+    const flat: ListItem[] = [];
+    groups.forEach((g) => {
+      flat.push({ type: "header", id: `h-${g.timeLabel}`, timeLabel: g.timeLabel });
+      g.logs.forEach((log) => {
+        flat.push({ type: "log", id: log.id, log });
+      });
+    });
+    return flat;
   }, [filteredLogs]);
 
-  const renderLogItem = useCallback(
-    (log: AppLog) => {
-      return (
-        <TouchableOpacity
-          key={log.id}
-          style={[
-            styles.logItem,
-            {
-              borderBottomColor: theme.colors.surfaceVariant,
-            },
-          ]}
-          onPress={() => handleShowLog(log)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.logLine}>
-            <View
-              style={[
-                styles.levelIndicator,
-                { backgroundColor: levelToColor[log.level] },
-              ]}
-            />
-            <Text
-              style={[
-                styles.logText,
-                {
-                  fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-                  color: theme.colors.onSurface,
-                },
-              ]}
-              numberOfLines={2}
-            >
-              {log.source ? `[${log.source}] ` : ""}
-              {log.message}
+  const renderFlashItem = useCallback(
+    ({ item }: { item: ListItem }) => {
+      if (item.type === "header") {
+        return (
+          <View style={styles.timeGroupLabelWrap}>
+            <Text style={[styles.timeGroupLabel, { color: theme.colors.onSurfaceVariant }]}>
+              {item.timeLabel}
             </Text>
           </View>
-        </TouchableOpacity>
-      );
-    },
-    [theme.colors, levelToColor, handleShowLog]
-  );
-
-  const renderItem = useCallback(
-    ({ item }: { item: { timeLabel: string; logs: AppLog[] } }) => {
+        );
+      }
+      const log = item.log;
+      const isExpanded = expandedLogId === log.id;
+      const headerLine = `${new Date(log.timestamp).toLocaleString()} (${log.level.toUpperCase()})${log.tag ? ` - [${log.tag}]` : ""}`;
       return (
-        <View style={styles.logGroup}>
-          <Text style={[styles.timeGroupLabel, { color: theme.colors.onSurfaceVariant }]}>
-            {item.timeLabel}
-          </Text>
-          {item.logs.map((log) => renderLogItem(log))}
+        <View
+          style={[
+            styles.logItem,
+            styles.logItemColumn,
+            { borderBottomColor: theme.colors.surfaceVariant },
+          ]}
+        >
+          {isExpanded && (
+            <View
+              style={[
+                styles.logDetailBlock,
+                {
+                  backgroundColor: theme.colors.surfaceVariant,
+                  borderColor: theme.colors.outline,
+                },
+              ]}
+            >
+              <View style={styles.logDetailBlockHeader}>
+                <Text
+                  selectable
+                  style={[
+                    styles.logDetailHeaderLine,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {headerLine}
+                </Text>
+                <CopyButton
+                  text={JSON.stringify(log, null, 2)}
+                  size={18}
+                  compact
+                  style={styles.logDetailCopyBtn}
+                />
+              </View>
+              <TextInput
+                value={JSON.stringify(log, null, 2)}
+                multiline
+                editable={false}
+                scrollEnabled
+                style={[
+                  styles.metadataInputCompact,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.outline,
+                    color: theme.colors.onSurface,
+                  },
+                ]}
+              />
+            </View>
+          )}
+          <TouchableOpacity
+            onPress={() => toggleLogExpand(log.id)}
+            activeOpacity={0.7}
+            style={styles.logRowTouchable}
+          >
+            <View style={styles.logLine}>
+              <View
+                style={[
+                  styles.levelIndicator,
+                  { backgroundColor: levelToColor[log.level] ?? theme.colors.onSurfaceVariant },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.logText,
+                  {
+                    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+                    color: theme.colors.onSurface,
+                  },
+                ]}
+                numberOfLines={isExpanded ? undefined : 2}
+              >
+                {log.source ? `[${log.source}] ` : ""}
+                {log.message}
+              </Text>
+              <Icon
+                source={isExpanded ? "chevron-up" : "chevron-down"}
+                size={20}
+                color={theme.colors.onSurfaceVariant}
+              />
+            </View>
+          </TouchableOpacity>
         </View>
       );
     },
-    [theme.colors, renderLogItem]
+    [theme.colors, levelToColor, expandedLogId, toggleLogExpand, t]
   );
+
+  const getItemType = useCallback((item: ListItem) => item.type, []);
+  const keyExtractor = useCallback((item: ListItem) => item.id, []);
 
   const handleExportLogs = useCallback(async () => {
     try {
@@ -569,10 +612,12 @@ export default function AppLogs() {
         </Surface>
       )}
 
-      <FlatList
-        data={groupedLogs}
-        keyExtractor={(item) => item.timeLabel}
-        renderItem={renderItem}
+      <FlashList
+        data={flatListData}
+        keyExtractor={keyExtractor}
+        renderItem={renderFlashItem}
+        getItemType={getItemType}
+        drawDistance={400}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -583,141 +628,8 @@ export default function AppLogs() {
         }
         contentContainerStyle={styles.listContent}
       />
-
-      {/* Log Detail Modal */}
-      <Modal
-        visible={showLogDialog}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCloseLogDialog}
-      >
-        <View style={[styles.modalBackdrop]}>
-          <View
-            style={[
-              styles.dialogContainer,
-              { backgroundColor: theme.colors.surface },
-            ]}
-          >
-            <View style={styles.dialogHeader}>
-              <Text
-                style={[styles.dialogTitle, { color: theme.colors.onSurface }]}
-              >
-                {t("appLogs.logDetailsTitle")}
-              </Text>
-              <TouchableOpacity onPress={handleCloseLogDialog}>
-                <Icon source="close" size={24} color={theme.colors.onSurface} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.dialogContent}>
-              {selectedLog && (
-                <>
-                  <View style={styles.dialogMetaRow}>
-                    <Text style={styles.dialogMetaLabel}>
-                      {t("appLogs.fields.level")}:
-                    </Text>
-                    <Text
-                      selectable
-                      style={[
-                        styles.dialogMetaValue,
-                        {
-                          color: levelToColor[selectedLog.level],
-                          fontWeight: "bold",
-                        },
-                      ]}
-                    >
-                      {selectedLog.level.toUpperCase()}
-                    </Text>
-                  </View>
-
-                  <View style={styles.dialogMetaRow}>
-                    <Text style={styles.dialogMetaLabel}>
-                      {t("appLogs.fields.timestamp")}:
-                    </Text>
-                    <Text selectable style={styles.dialogMetaValue}>
-                      {new Date(selectedLog.timestamp).toLocaleString()}
-                    </Text>
-                  </View>
-
-                  {selectedLog.source && (
-                    <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>Source:</Text>
-                      <Text selectable style={styles.dialogMetaValue}>
-                        {selectedLog.source}
-                      </Text>
-                    </View>
-                  )}
-
-                  {selectedLog.tag && (
-                    <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>
-                        {t("appLogs.fields.tag")}:
-                      </Text>
-                      <Text selectable style={styles.dialogMetaValue}>
-                        {selectedLog.tag}
-                      </Text>
-                    </View>
-                  )}
-
-                  <View style={styles.dialogMetaRow}>
-                    <Text style={styles.dialogMetaLabel}>
-                      {t("appLogs.fields.message")}:
-                    </Text>
-                    <TextInput
-                      value={selectedLog.message}
-                      multiline
-                      editable={false}
-                      style={[
-                        styles.fieldInput,
-                        {
-                          backgroundColor: theme.colors.surfaceVariant,
-                          borderColor: theme.colors.outline,
-                          color: theme.colors.onSurface,
-                        },
-                      ]}
-                    />
-                  </View>
-
-                  {selectedLog.metadata && (
-                    <View style={styles.metadataSection}>
-                      <View style={styles.metadataHeader}>
-                        <Text style={styles.dialogMetaLabel}>
-                          {t("appLogs.fields.meta")}:
-                        </Text>
-                        <CopyButton
-                          text={JSON.stringify(selectedLog.metadata, null, 2)}
-                          size={18}
-                        />
-                      </View>
-                      <TextInput
-                        value={JSON.stringify(selectedLog.metadata, null, 2)}
-                        multiline
-                        editable={false}
-                        scrollEnabled
-                        style={[
-                          styles.metadataInput,
-                          {
-                            backgroundColor: theme.colors.surfaceVariant,
-                            borderColor: theme.colors.outline,
-                            color: theme.colors.onSurface,
-                          },
-                        ]}
-                      />
-                    </View>
-                  )}
-                </>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </PaperScrollView>
   );
-}
-
-function truncate(text: string, max: number = 300): string {
-  if (!text) return "";
-  return text.length > max ? text.slice(0, max) + "…" : text;
 }
 
 const styles = StyleSheet.create({
@@ -783,14 +695,57 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   logItem: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
+  },
+  logItemColumn: {
+    flexDirection: "column-reverse",
+  },
+  logDetailBlockHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 0,
+    paddingVertical: 0,
+  },
+  logDetailHeaderLine: {
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 14,
+    flex: 1,
+    marginRight: 6,
+  },
+  logDetailCopyBtn: {
+    marginLeft: "auto",
+  },
+  metadataInputCompact: {
+    borderRadius: 4,
+    borderWidth: 1,
+    maxHeight: 180,
+    minHeight: 48,
+    fontFamily: "monospace",
+    fontSize: 11,
+    lineHeight: 16,
+    padding: 4,
+    textAlignVertical: "top",
+  },
+  logRowTouchable: {
+    marginHorizontal: -10,
+    marginVertical: -6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   logLine: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+  logDetailBlock: {
+    marginTop: 4,
+    padding: 6,
+    borderRadius: 6,
+    borderWidth: 1,
   },
   levelIndicator: {
     width: 6,
@@ -856,34 +811,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.9,
   },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  dialogContainer: {
-    width: "100%",
-    maxWidth: 600,
-    maxHeight: "80%",
-    borderRadius: 16,
-  },
-  dialogHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.1)",
-  },
-  dialogTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  dialogContent: {
-    padding: 16,
-  },
   dialogMetaRow: {
     marginBottom: 12,
   },
@@ -936,11 +863,13 @@ const styles = StyleSheet.create({
   logGroup: {
     marginBottom: 16,
   },
+  timeGroupLabelWrap: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
   timeGroupLabel: {
     fontSize: 11,
     fontWeight: "600",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
     opacity: 0.7,
   },
 });
