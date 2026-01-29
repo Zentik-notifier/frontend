@@ -348,7 +348,7 @@ export async function enablePushBackgroundTasks(options?: {
   const notificationsRefreshMinimumInterval = options?.notificationsRefreshMinimumInterval ?? 180;
   const changelogCheckMinimumInterval = options?.changelogCheckMinimumInterval ?? 15;
   const noPushCheckMinimumInterval = options?.noPushCheckMinimumInterval ?? 15;
-  const cloudKitSyncMinimumInterval = options?.cloudKitSyncMinimumInterval ?? 60;
+  const cloudKitSyncMinimumInterval = options?.cloudKitSyncMinimumInterval ?? 15;
 
   try {
     const status = await BackgroundFetch.getStatusAsync();
