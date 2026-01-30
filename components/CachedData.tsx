@@ -38,6 +38,14 @@ type LogFile = {
   size?: number | null;
 };
 
+const MAX_JSON_DISPLAY_LENGTH = 100_000;
+
+function stringifyForDisplay(obj: unknown): string {
+  const s = JSON.stringify(obj, null, 2);
+  if (s.length <= MAX_JSON_DISPLAY_LENGTH) return s;
+  return s.slice(0, MAX_JSON_DISPLAY_LENGTH) + "\n… (truncated)";
+}
+
 export default function CachedData() {
   const theme = useTheme();
   const { t } = useI18n();
@@ -382,9 +390,8 @@ export default function CachedData() {
   const handleExportLogFile = useCallback(
     async (fileName: string) => {
       try {
-        // Load all entries from this specific file
         const source = fileName.replace(".json", "");
-        const logs = await readLogs(0, source);
+        const logs = await readLogs(0, source, 0);
         const jsonData = JSON.stringify(logs, null, 2);
 
         if (Platform.OS === "web") {
@@ -419,7 +426,7 @@ export default function CachedData() {
 
   const handleExportLogs = useCallback(async () => {
     try {
-      const logs = Platform.OS === "web" ? logEntries : await readLogs();
+      const logs = Platform.OS === "web" ? logEntries : await readLogs(0, undefined, 0);
       const jsonData = JSON.stringify(logs, null, 2);
       const fileName = `logs_${new Date().toISOString()}.json`;
 
@@ -2225,7 +2232,7 @@ export default function CachedData() {
                         color: theme.colors.onSurface,
                       }}
                     >
-                      {JSON.stringify(selectedRecord.data, null, 2)}
+                      {stringifyForDisplay(selectedRecord.data)}
                     </Text>
                   </ScrollView>
                 ) : (
@@ -2293,7 +2300,7 @@ export default function CachedData() {
                     color: theme.colors.onSurface,
                   }}
                 >
-                  {JSON.stringify(selectedRecord.data, null, 2)}
+                  {stringifyForDisplay(selectedRecord.data)}
                 </Text>
               </ScrollView>
             )}

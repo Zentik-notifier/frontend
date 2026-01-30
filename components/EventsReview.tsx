@@ -78,7 +78,7 @@ export default function EventsReview({ hideFilter }: EventsReviewProps) {
   } = useGetEventsPaginatedQuery({
     variables: queryVariables,
     notifyOnNetworkStatusChange: true,
-    fetchPolicy: "network-only",
+    fetchPolicy: "no-cache",
   });
 
   const events = paginatedData?.events?.events ?? [];

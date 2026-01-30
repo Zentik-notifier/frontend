@@ -528,8 +528,12 @@ class WebJsonFileLogger {
 
 export const logger = Platform.OS === 'web' ? new WebJsonFileLogger() : new JsonFileLogger();
 
-// Static method to read logs from both sources
-export async function readLogs(tsFrom: number = 0, fromSource?: string): Promise<AppLog[]> {
+const READ_LOGS_DEFAULT_LIMIT = 5000;
+
+export async function readLogs(tsFrom: number = 0, fromSource?: string, limit?: number): Promise<AppLog[]> {
+  const cap = limit === undefined ? READ_LOGS_DEFAULT_LIMIT : limit;
+  const applyLimit = (logs: AppLog[]) => (cap > 0 ? logs.slice(0, cap) : logs);
+
   if (Platform.OS === 'web') {
     try {
       const stored = localStorage.getItem('zentik-logs-json');
@@ -537,10 +541,10 @@ export async function readLogs(tsFrom: number = 0, fromSource?: string): Promise
 
       const allLogs: AppLog[] = JSON.parse(stored);
 
-      // Filter by timestamp, source (if specified) and sort by timestamp DESC
-      return allLogs
+      const filtered = allLogs
         .filter(log => log.timestamp >= tsFrom && (!fromSource || log.source === fromSource))
         .sort((a, b) => b.timestamp - a.timestamp);
+      return applyLimit(filtered);
     } catch (error) {
       console.warn('Failed to read web logs:', error);
       return [];
@@ -551,21 +555,15 @@ export async function readLogs(tsFrom: number = 0, fromSource?: string): Promise
 
       const allLogs: AppLog[] = [];
 
-      // Read from multi-file structure using new API
       const directory = new Directory(logsDir);
 
       if (directory.exists) {
         const files = await directory.list();
 
         for (const file of files) {
-          // Skip corrupted backup files
           const fileName = file.name;
           if (fileName.includes('_corrupted_')) continue;
-
-          // Only process .json files
           if (!fileName.endsWith('.json')) continue;
-
-          // If filtering by source, skip non-matching files
           if (fromSource) {
             const sourceFromFile = fileName.replace('.json', '');
             if (sourceFromFile !== fromSource) continue;
@@ -581,15 +579,14 @@ export async function readLogs(tsFrom: number = 0, fromSource?: string): Promise
             }
           } catch (error) {
             console.warn(`Failed to read log file ${fileName}:`, error);
-            // Continue with next file
           }
         }
       }
 
-      // Filter by timestamp, source (if specified) and sort by timestamp DESC
-      return allLogs
+      const filtered = allLogs
         .filter(log => log.timestamp >= tsFrom && (!fromSource || log.source === fromSource))
         .sort((a, b) => b.timestamp - a.timestamp);
+      return applyLimit(filtered);
     } catch (error) {
       console.warn('Failed to read mobile logs:', error);
       return [];

@@ -59,7 +59,7 @@ export default function ServerLogs() {
         search: query || undefined,
       },
     },
-    fetchPolicy: "cache-and-network",
+    fetchPolicy: "no-cache",
     notifyOnNetworkStatusChange: true,
   });
 

@@ -297,14 +297,17 @@ export const useCleanup = () => {
                 globalCloudKitInFlight = executeWithRAF(
                     async () => {
                         try {
-                            // Check if CloudKit is enabled
                             const cloudKitEnabled = await iosBridgeService.isCloudKitEnabled();
                             if (!cloudKitEnabled.enabled) {
                                 console.log('[Cleanup] CloudKit is disabled, skipping CloudKit operations');
                                 return;
                             }
 
-                            // Step 1: Initialize CloudKit schema (creates zone if needed)
+                            const watchSupported = await iosBridgeService.isWatchSupported();
+                            if (!watchSupported.supported) {
+                                return;
+                            }
+
                             console.log('[Cleanup] Initializing CloudKit schema...');
                             await iosBridgeService.initializeCloudKitSchema();
                             console.log('[Cleanup] ✓ CloudKit schema initialized');

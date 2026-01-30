@@ -62,7 +62,7 @@ export default function UserLogs({ userId, type }: UserLogsProps) {
         type: type || undefined,
       },
     },
-    fetchPolicy: "cache-and-network",
+    fetchPolicy: "no-cache",
     notifyOnNetworkStatusChange: true,
   });
 
