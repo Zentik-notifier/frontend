@@ -1,6 +1,7 @@
 import Foundation
 import React
 #if os(iOS)
+import Darwin
 import WatchConnectivity
 import CloudKit
 #endif
@@ -955,6 +956,37 @@ class CloudKitSyncBridge: RCTEventEmitter {
     resolve(["supported": supported])
     #else
     resolve(["supported": false])
+    #endif
+  }
+
+  @objc
+  func getProcessMemoryUsage(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    var info = mach_task_basic_info()
+    let MACH_TASK_BASIC_INFO_COUNT = MemoryLayout<mach_task_basic_info>.stride / MemoryLayout<integer_t>.stride
+    var count = mach_msg_type_number_t(MACH_TASK_BASIC_INFO_COUNT)
+
+    let kerr = withUnsafeMutablePointer(to: &info) {
+      $0.withMemoryRebound(to: integer_t.self, capacity: MACH_TASK_BASIC_INFO_COUNT) {
+        task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+      }
+    }
+
+    if kerr == KERN_SUCCESS {
+      let residentMB = Double(info.resident_size) / (1024 * 1024)
+      let virtualMB = Double(info.virtual_size) / (1024 * 1024)
+      resolve([
+        "residentMB": round(residentMB * 100) / 100,
+        "virtualMB": round(virtualMB * 100) / 100,
+      ])
+    } else {
+      reject("TASK_INFO_ERROR", "task_info failed with \(kerr)", nil)
+    }
+    #else
+    reject("NOT_SUPPORTED", "getProcessMemoryUsage is only available on iOS", nil)
     #endif
   }
 

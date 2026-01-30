@@ -1,7 +1,7 @@
-import MonacoEditor from "@monaco-editor/react";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { Text, TextInput } from "react-native-paper";
+
 
 // TypeScript definitions for Monaco Editor IntelliSense
 const typescriptDefinitions = `
@@ -130,6 +130,22 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   height = "300px",
 }) => {
   const shouldUseMonaco = Platform.OS === "web";
+  const [MonacoEditor, setMonacoEditor] = useState<React.ComponentType<any> | null>(null);
+
+  useEffect(() => {
+    if (!shouldUseMonaco) return;
+    import("@monaco-editor/react").then((m) => setMonacoEditor(() => m.default));
+  }, [shouldUseMonaco]);
+
+  if (shouldUseMonaco && !MonacoEditor) {
+    const loadingHeight =
+      typeof height === "number" ? height : parseInt(String(height), 10) || 300;
+    return (
+      <View style={[styles.codeEditor, { height: loadingHeight, justifyContent: "center", alignItems: "center" }]}>
+        <Text>Loading editor...</Text>
+      </View>
+    );
+  }
 
   if (shouldUseMonaco && MonacoEditor) {
     return (
@@ -156,7 +172,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               <Text>Loading editor...</Text>
             </View>
           }
-          beforeMount={(monaco) => {
+          beforeMount={(monaco: any) => {
             // Configure TypeScript compiler options for better IntelliSense
             monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
               target: monaco.languages.typescript.ScriptTarget.Latest,

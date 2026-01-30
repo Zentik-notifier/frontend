@@ -1,22 +1,18 @@
 import { useI18n } from "@/hooks/useI18n";
-import React, { forwardRef, useImperativeHandle, useState } from "react";
-import { Dimensions, StyleSheet, View } from "react-native";
-import ReanimatedColorPicker, {
-  Panel1,
-  Preview,
-} from "reanimated-color-picker";
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { ActivityIndicator, Dimensions, StyleSheet, View } from "react-native";
 import {
   Button,
-  Card,
   Icon,
   Modal,
   Portal,
-  Surface,
   Text,
   TextInput,
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
+
+type ReanimatedColorPickerModule = typeof import("reanimated-color-picker");
 
 interface ColorPickerProps {
   selectedColor: string;
@@ -50,6 +46,11 @@ const ColorPicker = forwardRef<ColorPickerRef, ColorPickerProps>(
     const [showModal, setShowModal] = useState(false);
     const [baseColor, setBaseColor] = useState<string>();
     const [hexInput, setHexInput] = useState("");
+    const [colorPickerLib, setColorPickerLib] = useState<ReanimatedColorPickerModule | null>(null);
+
+    useEffect(() => {
+      import("reanimated-color-picker").then((m) => setColorPickerLib(m));
+    }, []);
 
     const handleColorSelect = (color: string) => {
       if (!disabled) {
@@ -169,21 +170,33 @@ const ColorPicker = forwardRef<ColorPickerRef, ColorPickerProps>(
                   {t("common.customColor")}
                 </Text>
                 <View style={styles.colorPickerContainer}>
-                  <ReanimatedColorPicker
-                    value={selectedColor}
-                    onCompleteJS={handleCustomColorChange}
-                    style={styles.colorPicker}
-                    thumbStyle={[
-                      styles.colorPickerThumb,
-                      { borderColor: theme.colors.outline },
-                    ]}
-                    sliderThickness={25}
-                    thumbSize={24}
-                    thumbShape="circle"
-                  >
-                    <Preview />
-                    <Panel1 />
-                  </ReanimatedColorPicker>
+                  {!colorPickerLib ? (
+                    <View style={[styles.colorPicker, styles.colorPickerPlaceholder]}>
+                      <ActivityIndicator size="small" />
+                      <Text variant="bodySmall">{t("common.loading")}</Text>
+                    </View>
+                  ) : (() => {
+                    const ReanimatedColorPicker = colorPickerLib.default;
+                    const Preview = colorPickerLib.Preview;
+                    const Panel1 = colorPickerLib.Panel1;
+                    return (
+                      <ReanimatedColorPicker
+                        value={selectedColor}
+                        onCompleteJS={handleCustomColorChange}
+                        style={styles.colorPicker}
+                        thumbStyle={[
+                          styles.colorPickerThumb,
+                          { borderColor: theme.colors.outline },
+                        ]}
+                        sliderThickness={25}
+                        thumbSize={24}
+                        thumbShape="circle"
+                      >
+                        <Preview />
+                        <Panel1 />
+                      </ReanimatedColorPicker>
+                    );
+                  })()}
                 </View>
               </View>
 
@@ -317,6 +330,11 @@ const styles = StyleSheet.create({
   colorPicker: {
     width: "100%",
     height: 200,
+  },
+  colorPickerPlaceholder: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
   },
   colorPickerThumb: {
     borderWidth: 2,

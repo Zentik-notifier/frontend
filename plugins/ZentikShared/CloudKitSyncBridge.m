@@ -84,6 +84,9 @@ RCT_EXTERN_METHOD(sendWatchTokenSettings:(NSString *)token
 RCT_EXTERN_METHOD(retryNSENotificationsToCloudKit:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(getProcessMemoryUsage:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 + (BOOL)requiresMainQueueSetup
 {
   return NO;

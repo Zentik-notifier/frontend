@@ -196,7 +196,6 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                     "initialOrientation": "DEFAULT"
                 }
             ],
-            "expo-sqlite",
             [
                 "expo-splash-screen",
                 {
@@ -210,7 +209,6 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                     }
                 },
             ],
-            "expo-secure-store",
             [
                 "expo-notifications",
                 {

@@ -412,12 +412,24 @@ export async function executeQuery<T>(
   throw new Error(`Database operation failed: ${operationName}`);
 }
 
+const androidNoOpCacheDb: ISharedCacheDb = {
+  getFirstAsync: async () => undefined,
+  getAllAsync: async () => [],
+  runAsync: async () => ({ changes: 0 }),
+  execAsync: async () => {},
+  closeAsync: async () => {},
+};
+
 export async function openSharedCacheDb(): Promise<ISharedCacheDb> {
   if (Platform.OS === 'web') {
     return {} as ISharedCacheDb;
   }
 
-  if (Platform.OS === 'ios') {
+  if (Platform.OS === 'android') {
+    return androidNoOpCacheDb;
+  }
+
+  if (Platform.OS === 'ios' || Platform.OS === 'macos') {
     if (iosBridgeDbPromise) return iosBridgeDbPromise;
     iosBridgeDbPromise = (async () => {
       const iosBridge = (await import('./ios-bridge')).default;
@@ -427,224 +439,7 @@ export async function openSharedCacheDb(): Promise<ISharedCacheDb> {
     return iosBridgeDbPromise;
   }
 
-  if (dbInstance && !isClosing) return dbInstance;
-  if (dbPromise && !isClosing) return dbPromise;
-
-  isClosing = false;
-
-  dbPromise = (async () => {
-    try {
-    const sharedDir = await getSharedMediaCacheDirectoryAsync();
-    // expo-sqlite expects databaseName and an optional directory path (not URI)
-    const directory = sharedDir.startsWith('file://') ? sharedDir.replace('file://', '') : sharedDir;
-    console.log('[DB] Opening shared cache database at directory:', directory);
-    
-    // Validate database file exists and is readable before opening
-    // This prevents "FS pagein error" crashes from corrupted files
-    try {
-      const { File } = await import('expo-file-system');
-      const dbPath = `${directory}/cache.db`;
-      const dbFile = new File(dbPath);
-      
-      if (dbFile.exists) {
-        // Try to read first byte to verify file is not corrupted
-        try {
-          const info = await dbFile.info();
-          if (info.size === 0) {
-            console.warn('[DB] Database file exists but is empty, will recreate');
-          }
-        } catch (infoError: any) {
-          console.warn('[DB] Could not read database file info (may be corrupted):', infoError?.message);
-        }
-      }
-    } catch (fileCheckError: any) {
-      // Non-fatal - continue with database open attempt
-      console.warn('[DB] File check failed (non-fatal):', fileCheckError?.message);
-    }
-    
-    const { openDatabaseAsync } = await import('expo-sqlite');
-    const db = (await openDatabaseAsync('cache.db', undefined, directory)) as ISharedCacheDb;
-
-    // Database configuration optimized for iOS stability and concurrent access
-    // WAL mode allows multiple concurrent readers (NCE, NSE, main app)
-    // DELETE mode blocks all access when one process has the database open
-    // Added integrity check to detect corruption early
-    try {
-      await db.execAsync(`
-        PRAGMA journal_mode=WAL;
-        PRAGMA synchronous=NORMAL;
-        PRAGMA foreign_keys=ON;
-        PRAGMA cache_size=-2000;
-        PRAGMA temp_store=MEMORY;
-        PRAGMA busy_timeout=5000;
-        PRAGMA wal_autocheckpoint=1000;
-      `);
-      
-      // Perform checkpoint after opening to ensure WAL is in good state
-      // This prevents "cluster_pagein past EOF" errors
-      await db.execAsync('PRAGMA wal_checkpoint(TRUNCATE)');
-    } catch (pragmaError: any) {
-      // If pragmas fail, database may be corrupted
-      console.error('[DB] Failed to configure database:', pragmaError?.message);
-      // Try to close and throw to trigger recovery
-      try {
-        await db.closeAsync();
-      } catch (closeError) {
-        // Ignore close errors
-      }
-      throw new Error(`Database configuration failed: ${pragmaError?.message}`);
-    }
-
-    await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS cache_item (
-        key TEXT PRIMARY KEY,
-        url TEXT NOT NULL,
-        media_type TEXT NOT NULL,
-        local_path TEXT,
-        local_thumb_path TEXT,
-        generating_thumbnail INTEGER NOT NULL DEFAULT 0 CHECK (generating_thumbnail IN (0,1)),
-        timestamp INTEGER NOT NULL,
-        size INTEGER NOT NULL,
-        original_file_name TEXT,
-        downloaded_at INTEGER NOT NULL,
-        notification_date INTEGER,
-        notification_id TEXT,
-        is_downloading INTEGER NOT NULL DEFAULT 0 CHECK (is_downloading IN (0,1)),
-        is_permanent_failure INTEGER NOT NULL DEFAULT 0 CHECK (is_permanent_failure IN (0,1)),
-        is_user_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_user_deleted IN (0,1)),
-        error_code TEXT
-      );
-    `);
-
-    // Migration: Add notification_id column if it doesn't exist (for existing databases)
-    try {
-      await db.execAsync(`
-        ALTER TABLE cache_item ADD COLUMN notification_id TEXT;
-      `);
-      console.log('[DB] Migration: Added notification_id column to cache_item');
-    } catch (error: any) {
-      // Column already exists or other error - safe to ignore
-      if (!error?.message?.includes('duplicate column name')) {
-        console.warn('[DB] Migration warning (safe to ignore if column exists):', error?.message);
-      }
-    }
-
-    // Migration: Add bucket_icon_url column to notifications if it doesn't exist
-    try {
-      await db.execAsync(`
-        ALTER TABLE notifications ADD COLUMN bucket_icon_url TEXT;
-      `);
-      console.log('[DB] Migration: Added bucket_icon_url column to notifications');
-    } catch (error: any) {
-      // Column already exists or other error - safe to ignore
-      if (!error?.message?.includes('duplicate column name')) {
-        console.warn('[DB] Migration warning (safe to ignore if column exists):', error?.message);
-      }
-    }
-
-    await db.execAsync(`
-      CREATE INDEX IF NOT EXISTS idx_cache_item_downloaded_at ON cache_item(downloaded_at);
-    `);
-
-    await db.execAsync(`
-      CREATE INDEX IF NOT EXISTS idx_cache_item_notification_date ON cache_item(notification_date);
-    `);
-
-    await db.execAsync(`
-      CREATE INDEX IF NOT EXISTS idx_cache_item_media_type ON cache_item(media_type);
-    `);
-
-    await db.execAsync(`CREATE UNIQUE INDEX IF NOT EXISTS idx_cache_item_key ON cache_item(key);`);
-
-    // Additional indexes to speed up common queries
-    await db.execAsync(`
-      CREATE INDEX IF NOT EXISTS idx_cache_item_timestamp ON cache_item(timestamp);
-    `);
-
-    await db.execAsync(`
-      CREATE INDEX IF NOT EXISTS idx_cache_item_is_downloading ON cache_item(is_downloading);
-    `);
-
-    await db.execAsync(`
-      CREATE INDEX IF NOT EXISTS idx_cache_item_generating_thumbnail ON cache_item(generating_thumbnail);
-    `);
-
-    // Notifications table for storing notification data
-    await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS notifications (
-        id TEXT PRIMARY KEY,
-        created_at TEXT NOT NULL,
-        read_at TEXT,
-        bucket_id TEXT NOT NULL,
-        bucket_icon_url TEXT,
-        has_attachments INTEGER NOT NULL DEFAULT 0 CHECK (has_attachments IN (0,1)),
-        fragment TEXT NOT NULL
-      );
-    `);
-
-    // Create indexes for performance
-    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);`);
-    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_read_at ON notifications(read_at);`);
-    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_bucket_id ON notifications(bucket_id);`);
-    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_has_attachments ON notifications(has_attachments);`);
-
-    // Buckets table for caching bucket metadata
-    await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS buckets (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        icon TEXT,
-        description TEXT,
-        fragment TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        synced_at INTEGER NOT NULL
-      );
-    `);
-
-    // Create indexes for buckets
-    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_buckets_updated_at ON buckets(updated_at);`);
-    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_buckets_synced_at ON buckets(synced_at);`);
-
-    // Deleted notifications tombstone table - tracks notifications deleted locally
-    // These should not be re-added to cache even if they come from backend sync
-    await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS deleted_notifications (
-        id TEXT PRIMARY KEY,
-        deleted_at INTEGER NOT NULL,
-        retry_count INTEGER NOT NULL DEFAULT 0,
-        last_retry_at INTEGER
-      );
-    `);
-
-    // Create index for cleanup queries
-    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_deleted_notifications_deleted_at ON deleted_notifications(deleted_at);`);
-
-    // Store instance for reuse
-    dbInstance = db;
-
-    return db;
-    } catch (error: any) {
-      // If open/config fails due to corruption, notify the central recovery service.
-      if (databaseRecoveryService.isCorruptionError(error)) {
-        const errorMessage = error?.message || String(error);
-        databaseRecoveryService.notifyCorruption({
-          errorMessage,
-          errorCode: error?.code,
-          originalError: error,
-          source: 'openSharedCacheDb',
-        });
-
-        const corruptionError = new Error('Database corruption detected');
-        (corruptionError as any).isCorruptionError = true;
-        (corruptionError as any).originalError = error;
-        throw corruptionError;
-      }
-
-      throw error;
-    }
-  })();
-
-  return dbPromise;
+  return androidNoOpCacheDb;
 }
 
 /**

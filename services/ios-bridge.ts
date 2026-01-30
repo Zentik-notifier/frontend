@@ -798,6 +798,25 @@ class IosBridgeService {
     }
   }
 
+  async getProcessMemoryUsage(): Promise<{ residentMB: number; virtualMB: number } | null> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return null;
+    }
+    try {
+      const fn = (CloudKitSyncBridge as any).getProcessMemoryUsage;
+      if (typeof fn !== 'function') {
+        return null;
+      }
+      const result = await fn();
+      if (result && typeof result.residentMB === 'number' && typeof result.virtualMB === 'number') {
+        return { residentMB: result.residentMB, virtualMB: result.virtualMB };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Check if CloudKit is enabled
    */

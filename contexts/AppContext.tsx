@@ -19,6 +19,7 @@ import { useChangelogs } from "@/hooks/useChangelogs";
 import { useCleanup } from "@/hooks/useCleanup";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { Locale, localeToDatePickerLocale, useI18n } from "@/hooks/useI18n";
+import { useMemoryLogging } from "@/hooks/useMemoryLogging";
 import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
 import {
   UsePushNotifications,
@@ -130,6 +131,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const connectionStatus = useConnectionStatus(push);
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
   const queryClient = useQueryClient();
+  // useMemoryLogging(5000);
 
   useEffect(() => {
     const checkAndSetLocale = async () => {

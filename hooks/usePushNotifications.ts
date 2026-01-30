@@ -4,7 +4,6 @@ import { ChangelogsForModalQuery, DevicePlatform, GetBackendVersionDocument, Get
 import { useNotificationActions } from '@/hooks/useNotificationActions';
 import { translateInstant, Locale } from '@/hooks/useI18n';
 import { settingsService } from '@/services/settings-service';
-import { firebasePushNotificationService } from '@/services/firebase-push-notifications';
 import { iosNativePushNotificationService } from '@/services/ios-push-notifications';
 import { localNotifications } from '@/services/local-notifications';
 import { webPushNotificationService } from '@/services/web-push-notifications';
@@ -12,7 +11,7 @@ import { getRandomBytesAsync } from 'expo-crypto';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import packageJson from '../package.json';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useCleanup } from './useCleanup';
 import { useReactiveVar } from '@apollo/client';
@@ -29,7 +28,7 @@ const isAndroid = Platform.OS === 'android';
 const isIOS = Platform.OS === 'ios' || Platform.OS === 'macos';
 const isSimulator = !Device.isDevice;
 
-// Background tasks are defined in @/services/background-tasks (global scope)
+type FirebasePushService = typeof import('@/services/firebase-push-notifications')['firebasePushNotificationService'];
 
 export function usePushNotifications(versions: VersionsInfo) {
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
@@ -40,6 +39,7 @@ export function usePushNotifications(versions: VersionsInfo) {
   const [needsPwa, setNeedsPwa] = useState(false);
   const callbacks = useNotificationActions();
   const { cleanup } = useCleanup();
+  const firebaseServiceRef = useRef<FirebasePushService | null>(null);
 
   const deviceRegistrationInvalidated = useReactiveVar(deviceRegistrationInvalidatedVar);
 
@@ -85,6 +85,8 @@ export function usePushNotifications(versions: VersionsInfo) {
           result = await webPushNotificationService.initialize(callbacks);
           setNeedsPwa(result?.needsPwa ?? false);
         } else if (isAndroid) {
+          const { firebasePushNotificationService } = await import('@/services/firebase-push-notifications');
+          firebaseServiceRef.current = firebasePushNotificationService;
           result = await firebasePushNotificationService.initialize(callbacks);
         } else if (isIOS) {
           result = await iosNativePushNotificationService.initialize(callbacks);
@@ -250,7 +252,7 @@ export function usePushNotifications(versions: VersionsInfo) {
   const isReady = (): boolean => {
     if (isSimulator) return true;
     if (isWeb) return webPushNotificationService.isReady();
-    if (isAndroid) return firebasePushNotificationService.isReady();
+    if (isAndroid) return firebaseServiceRef.current?.isReady() ?? false;
     if (isIOS) return iosNativePushNotificationService.isReady();
     return false;
   };
@@ -258,7 +260,13 @@ export function usePushNotifications(versions: VersionsInfo) {
   const getDeviceToken = async (): Promise<string | null> => {
     if (isSimulator) return settingsService.getAuthData().deviceToken ?? `${await generateSimulatorToken(32)}`;
     if (isWeb) return webPushNotificationService.getDeviceToken();
-    if (isAndroid) return firebasePushNotificationService.getDeviceToken();
+    if (isAndroid) {
+      if (!firebaseServiceRef.current) {
+        const { firebasePushNotificationService } = await import('@/services/firebase-push-notifications');
+        firebaseServiceRef.current = firebasePushNotificationService;
+      }
+      return firebaseServiceRef.current.getDeviceToken();
+    }
     if (isIOS) return iosNativePushNotificationService.getDeviceToken();
     return null;
   };
@@ -284,7 +292,13 @@ export function usePushNotifications(versions: VersionsInfo) {
       onlyLocal: true
     };
     if (isWeb) return webPushNotificationService.getDeviceInfo();
-    if (isAndroid) return firebasePushNotificationService.getDeviceInfo();
+    if (isAndroid) {
+      if (!firebaseServiceRef.current) {
+        const { firebasePushNotificationService } = await import('@/services/firebase-push-notifications');
+        firebaseServiceRef.current = firebasePushNotificationService;
+      }
+      return firebaseServiceRef.current.getDeviceInfo();
+    }
     if (isIOS) return iosNativePushNotificationService.getDeviceInfo();
     return null;
   };

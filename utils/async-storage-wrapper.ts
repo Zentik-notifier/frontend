@@ -1,5 +1,4 @@
 import { NativeModules, Platform } from 'react-native';
-import BaseAsyncStorage from 'expo-sqlite/kv-store';
 import * as Device from 'expo-device';
 import * as Keychain from 'react-native-keychain';
 import { openWebStorageDb } from '../services/db-setup';
@@ -9,6 +8,32 @@ type StorageOptions = { secret?: boolean };
 
 const { DatabaseAccessBridge } = NativeModules;
 const useBridgeKV = (Platform.OS === 'ios' || Platform.OS === 'macos') && DatabaseAccessBridge;
+
+const androidMemoryStore = new Map<string, string>();
+
+const AndroidStorage = {
+  async setItem(key: string, value: string): Promise<void> {
+    androidMemoryStore.set(key, value);
+  },
+  async getItem(key: string): Promise<string | null> {
+    return androidMemoryStore.get(key) ?? null;
+  },
+  async removeItem(key: string): Promise<void> {
+    androidMemoryStore.delete(key);
+  },
+  async getAllKeys(): Promise<string[]> {
+    return Array.from(androidMemoryStore.keys());
+  },
+  async clear(): Promise<void> {
+    androidMemoryStore.clear();
+  },
+  async multiSet(entries: KeyValuePair[]): Promise<void> {
+    for (const [k, v] of entries) androidMemoryStore.set(k, v);
+  },
+  async multiRemove(keys: string[]): Promise<void> {
+    for (const k of keys) androidMemoryStore.delete(k);
+  },
+};
 
 const bundleIdentifier = process.env.EXPO_PUBLIC_APP_VARIANT === 'development'
   ? 'com.apocaliss92.zentik.dev'
@@ -131,7 +156,7 @@ const NativeStorage = {
       return;
     }
     if (bridgeKV) return bridgeKV.setItem(key, value);
-    return BaseAsyncStorage.setItem(key, value);
+    return AndroidStorage.setItem(key, value);
   },
   async getItem(key: string, options?: StorageOptions): Promise<string | null> {
     if ((Platform.OS === 'ios' || Platform.OS === 'macos') && options?.secret) {
@@ -147,7 +172,7 @@ const NativeStorage = {
       }
     }
     if (bridgeKV) return bridgeKV.getItem(key);
-    return BaseAsyncStorage.getItem(key);
+    return AndroidStorage.getItem(key);
   },
   async removeItem(key: string, options?: StorageOptions): Promise<void> {
     if ((Platform.OS === 'ios' || Platform.OS === 'macos') && options?.secret) {
@@ -161,7 +186,7 @@ const NativeStorage = {
       return;
     }
     if (bridgeKV) return bridgeKV.removeItem(key);
-    return BaseAsyncStorage.removeItem(key);
+    return AndroidStorage.removeItem(key);
   },
   async clear(): Promise<void> {
     if (bridgeKV) {
@@ -169,18 +194,11 @@ const NativeStorage = {
       for (const k of keys) await bridgeKV.removeItem(k);
       return;
     }
-    if (typeof (BaseAsyncStorage as any).clear === 'function') {
-      return (BaseAsyncStorage as any).clear();
-    }
-    const keys = await NativeStorage.getAllKeys();
-    await NativeStorage.multiRemove(keys);
+    await AndroidStorage.clear();
   },
   async getAllKeys(): Promise<string[]> {
     if (bridgeKV) return bridgeKV.getAllKeys();
-    if (typeof (BaseAsyncStorage as any).getAllKeys === 'function') {
-      return (BaseAsyncStorage as any).getAllKeys();
-    }
-    return [];
+    return AndroidStorage.getAllKeys();
   },
   async multiSet(entries: KeyValuePair[], options?: StorageOptions): Promise<void> {
     if ((Platform.OS === 'ios' || Platform.OS === 'macos') && options?.secret) {
@@ -193,10 +211,7 @@ const NativeStorage = {
       for (const [k, v] of entries) await bridgeKV.setItem(k, v);
       return;
     }
-    if (typeof (BaseAsyncStorage as any).multiSet === 'function') {
-      return (BaseAsyncStorage as any).multiSet(entries);
-    }
-    for (const [k, v] of entries) await BaseAsyncStorage.setItem(k, v);
+    await AndroidStorage.multiSet(entries);
   },
   async multiRemove(keys: string[], options?: StorageOptions): Promise<void> {
     if ((Platform.OS === 'ios' || Platform.OS === 'macos') && options?.secret) {
@@ -207,10 +222,7 @@ const NativeStorage = {
       for (const k of keys) await bridgeKV.removeItem(k);
       return;
     }
-    if (typeof (BaseAsyncStorage as any).multiRemove === 'function') {
-      return (BaseAsyncStorage as any).multiRemove(keys);
-    }
-    for (const k of keys) await BaseAsyncStorage.removeItem(k);
+    await AndroidStorage.multiRemove(keys);
   },
 };
 
