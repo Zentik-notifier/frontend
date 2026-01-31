@@ -1,5 +1,5 @@
 import { BucketFragment, NotificationFragment } from "@/generated/gql-operations-generated";
-import { keyBy } from "lodash";
+import { keyBy } from "@/utils/array-utils";
 
 /**
  * In-memory bucket statistics calculated from arrays

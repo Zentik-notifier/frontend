@@ -2,7 +2,7 @@ import { BehaviorSubject, Observable } from 'rxjs';
 import { distinctUntilChanged, map } from 'rxjs/operators';
 import { MediaType, UserSettingType, NotificationFragment } from '@/generated/gql-operations-generated';
 import { ThemePreset } from './theme-presets';
-import { startOfDay, subDays, isWithinInterval } from 'date-fns';
+import { startOfDay, subDays, isWithinInterval } from '@/utils/date-utils';
 import { Locale } from '@/hooks/useI18n';
 import * as Keychain from 'react-native-keychain';
 import * as Device from 'expo-device';

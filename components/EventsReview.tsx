@@ -5,7 +5,7 @@ import {
   useGetEventsPaginatedQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { uniqBy } from "lodash";
+import { uniqBy } from "@/utils/array-utils";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,

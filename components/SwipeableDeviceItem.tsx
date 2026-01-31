@@ -19,7 +19,6 @@ import {
   useTheme,
 } from "react-native-paper";
 import SwipeableItem, { MenuItem, SwipeAction } from "./SwipeableItem";
-import { is } from "date-fns/locale";
 
 interface SwipeableDeviceItemProps {
   device: UserDeviceFragment;
