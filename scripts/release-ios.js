@@ -216,7 +216,9 @@ async function runReleaseProcess() {
             '--platform', 'ios', 
             '--profile', 'production',
             '--auto-submit',
-            '--no-wait'
+            '--auto-submit-with-profile', 'production',
+            '--no-wait',
+            '--non-interactive'
         ]);
         
         printSuccess('EAS build and App Store submission completed successfully!');
