@@ -1336,11 +1336,17 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
 
         Task { [weak self] in
             let results = await NotificationActionHandler.executeWatchRemoteUpdates(actionType: "DELETE", notificationId: id)
+            let failed = results.filter { !$0.success }
+            var metadata: [String: String] = ["notificationId": id, "type": "DELETE"]
+            if !failed.isEmpty {
+                let errors = failed.map { "\($0.name): \($0.errorDescription ?? "unknown")" }.joined(separator: "; ")
+                metadata["errors"] = errors
+            }
             LoggingSystem.shared.log(
-                level: results.contains(where: { !$0.success }) ? "WARN" : "INFO",
+                level: failed.isEmpty ? "INFO" : "WARN",
                 tag: "WatchAction",
                 message: "Remote updates completed (best-effort)",
-                metadata: ["notificationId": id, "type": "DELETE"],
+                metadata: metadata,
                 source: "Watch"
             )
             await MainActor.run {

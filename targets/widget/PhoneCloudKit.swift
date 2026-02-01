@@ -43,11 +43,11 @@ public final class PhoneCloudKit {
         LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: message, metadata: metadata, source: "PhoneCloudKit")
     }
 
-    private func debugLog(_ message: String) {
+    private func debugLog(_ message: String, metadata: [String: Any]? = nil) {
         guard CloudKitManagerBase.isCloudKitDebugEnabled(appGroupIdentifier: core.config.appGroupIdentifier) else {
             return
         }
-        LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: message, source: "PhoneCloudKit")
+        LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: message, metadata: metadata, source: "PhoneCloudKit")
     }
     
     /// Helper to notify sync progress - uses CloudKitSyncBridge if available, otherwise NotificationCenter
@@ -350,15 +350,16 @@ public final class PhoneCloudKit {
                         sharedDefaults?.synchronize()
                         success = true
                     }
-                    DispatchQueue.main.async {
-                        completion(success, errorOut)
-                    }
+                    // Call completion directly without dispatching to main thread
+                    // NSE doesn't have an active main runloop, so DispatchQueue.main.async may never execute
+                    completion(success, errorOut)
                 }
             }
         }
     }
 
     /// Batch-only read/unread update (chunked by CloudKitManagerBase). Pass a single ID as a 1-element array.
+    /// Uses fetch-then-update pattern to ensure proper record versioning with CloudKit.
     public func updateNotificationsReadStatusInCloudKit(
         notificationIds: [String],
         readAt: Date?,
@@ -368,8 +369,13 @@ public final class PhoneCloudKit {
             completion(false, nil)
             return
         }
+        
+        guard !notificationIds.isEmpty else {
+            completion(true, nil)
+            return
+        }
 
-        // Ensure zone is ready before saving (prevents silent failures when CloudKit is not initialized)
+        // Ensure zone is ready before fetching/saving
         ensureZoneOnlyReady { [weak self] result in
             guard let self = self else {
                 completion(false, NSError(domain: "PhoneCloudKit", code: -1, userInfo: [NSLocalizedDescriptionKey: "Self deallocated"]))
@@ -381,23 +387,52 @@ public final class PhoneCloudKit {
                 self.warnLog("updateNotificationsReadStatusInCloudKit failed (ensureZone)", metadata: ["error": String(describing: error), "notificationIds": "\(notificationIds.count)"])
                 completion(false, error)
             case .success:
-                // Create records directly with known recordIDs - no fetch needed
-                // CloudKit will merge with existing records when using .changedKeys savePolicy
-                let recordsToSave: [CKRecord] = notificationIds.map { notificationId in
-                    let recordID = self.notificationRecordID(notificationId)
-                    let record = CKRecord(recordType: Defaults.notificationRecordType, recordID: recordID)
-                    record["readAt"] = readAt
-                    return record
-                }
-
-                self.core.save(records: recordsToSave, savePolicy: .changedKeys) { saveResult in
-                    switch saveResult {
+                // Fetch existing records first to get proper recordChangeTag
+                let recordIDs = notificationIds.map { self.notificationRecordID($0) }
+                
+                self.core.fetchRecords(recordIDs: recordIDs, desiredKeys: ["readAt"]) { fetchResult in
+                    switch fetchResult {
                     case .failure(let error):
-                        self.warnLog("updateNotificationsReadStatusInCloudKit save failed", metadata: ["error": String(describing: error), "notificationIds": "\(notificationIds.count)"])
+                        self.warnLog("updateNotificationsReadStatusInCloudKit fetch failed", metadata: ["error": String(describing: error), "notificationIds": "\(notificationIds.count)"])
                         completion(false, error)
-                    case .success:
-                        self.infoLog("updateNotificationsReadStatusInCloudKit completed", metadata: ["notificationIds": "\(notificationIds.count)", "readAt": readAt != nil ? "set" : "nil"])
-                        completion(true, nil)
+                        
+                    case .success(let fetchedRecords):
+                        // Update only fetched records (those that exist in CloudKit)
+                        var recordsToSave: [CKRecord] = []
+                        var notFoundIds: [String] = []
+                        
+                        for notificationId in notificationIds {
+                            let recordID = self.notificationRecordID(notificationId)
+                            if let record = fetchedRecords[recordID] {
+                                // Record exists - update readAt
+                                record["readAt"] = readAt
+                                recordsToSave.append(record)
+                            } else {
+                                notFoundIds.append(notificationId)
+                            }
+                        }
+                        
+                        if !notFoundIds.isEmpty {
+                            self.debugLog("updateNotificationsReadStatusInCloudKit: \(notFoundIds.count) records not found in CloudKit (skipped)", metadata: ["notFoundIds": notFoundIds.prefix(10).joined(separator: ", ")])
+                        }
+                        
+                        guard !recordsToSave.isEmpty else {
+                            self.infoLog("updateNotificationsReadStatusInCloudKit: no records to update (all not found)")
+                            completion(true, nil)
+                            return
+                        }
+                        
+                        // Save with .changedKeys - now safe because records have proper recordChangeTag
+                        self.core.save(records: recordsToSave, savePolicy: .changedKeys) { saveResult in
+                            switch saveResult {
+                            case .failure(let error):
+                                self.warnLog("updateNotificationsReadStatusInCloudKit save failed", metadata: ["error": String(describing: error), "recordsToSave": recordsToSave.count])
+                                completion(false, error)
+                            case .success:
+                                self.infoLog("updateNotificationsReadStatusInCloudKit completed", metadata: ["updated": recordsToSave.count, "notFound": notFoundIds.count, "readAt": readAt != nil ? "set" : "nil"])
+                                completion(true, nil)
+                            }
+                        }
                     }
                 }
             }
@@ -487,7 +522,8 @@ public final class PhoneCloudKit {
                 record["iconUrl"] = iconUrl
                 record["color"] = color
 
-                self.core.save(records: [record]) { saveResult in
+                // Use .allKeys to ensure all fields are saved (works for both create and update)
+                self.core.save(records: [record], savePolicy: .allKeys) { saveResult in
                     switch saveResult {
                     case .failure(let error):
                         completion(false, error)
@@ -685,8 +721,10 @@ public final class PhoneCloudKit {
                 step: "sync_buckets"
             )
             
+            // Use .allKeys for full sync (creating all records from scratch)
             self.core.save(
                 records: records,
+                savePolicy: .allKeys,
                 progressCallback: { completed, total in
                     // EVENT: Buckets syncing (progress update - only called after successful chunk upload)
                     self.notifySyncProgress(
@@ -827,8 +865,10 @@ public final class PhoneCloudKit {
                     step: "sync_notifications"
                 )
                 
+                // Use .allKeys for full sync (creating all records from scratch)
                 self.core.save(
                     records: records,
+                    savePolicy: .allKeys,
                     progressCallback: { completed, total in
                         // EVENT: Notifications syncing (progress update - only called after successful chunk upload)
                         self.notifySyncProgress(

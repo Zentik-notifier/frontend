@@ -148,7 +148,8 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
             }
         }
 
-        WKExtension.shared().registerForRemoteNotifications()
+        // Only re-register if not already registered (battery optimization)
+        // The system handles re-registration automatically in most cases
         NotificationCenter.default.post(name: NSNotification.Name("WatchAppDidBecomeActive"), object: nil)
     }
 

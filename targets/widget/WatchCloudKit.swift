@@ -21,9 +21,35 @@ public final class WatchCloudKit {
     }
 
     private let core: CloudKitManagerBase
+    
+    // MARK: - Remote Notification Coalescing (Battery Optimization)
+    // Instead of processing each push individually, we coalesce multiple
+    // notifications into a single incremental sync to reduce battery drain.
+    private let coalescingQueue = DispatchQueue(label: "com.zentik.watchcloudkit.coalescing")
+    private var pendingRecordIDs: Set<CKRecord.ID> = []
+    private var pendingDeletions: Set<CKRecord.ID> = []
+    private var coalescingWorkItem: DispatchWorkItem?
+    private let coalescingDelay: TimeInterval = 0.5 // Wait 500ms to collect more notifications
 
     public init(core: CloudKitManagerBase = CloudKitManagerBase()) {
         self.core = core
+    }
+
+    // MARK: - Logging helpers
+    
+    private func infoLog(_ message: String, metadata: [String: Any]? = nil) {
+        LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: message, metadata: metadata, source: "WatchCloudKit")
+    }
+
+    private func warnLog(_ message: String, metadata: [String: Any]? = nil) {
+        LoggingSystem.shared.log(level: "WARN", tag: "CloudKit", message: message, metadata: metadata, source: "WatchCloudKit")
+    }
+
+    private func debugLog(_ message: String, metadata: [String: Any]? = nil) {
+        guard CloudKitManagerBase.isCloudKitDebugEnabled(appGroupIdentifier: core.config.appGroupIdentifier) else {
+            return
+        }
+        LoggingSystem.shared.log(level: "DEBUG", tag: "CloudKit", message: message, metadata: metadata, source: "WatchCloudKit")
     }
 
     public var isCloudKitEnabled: Bool {
@@ -93,7 +119,8 @@ public final class WatchCloudKit {
 
         let op = CKQueryOperation(query: query)
         op.zoneID = core.zoneID
-        op.qualityOfService = .utility
+        // Use .background QoS to minimize battery impact on Watch
+        op.qualityOfService = .background
         op.resultsLimit = limit
 
         let dateFormatter = ISO8601DateFormatter()
@@ -265,7 +292,8 @@ public final class WatchCloudKit {
                 op.zoneID = core.zoneID
             }
 
-            op.qualityOfService = .utility
+            // Use .background QoS to minimize battery impact on Watch
+            op.qualityOfService = .background
 
             var pageBuckets: [[String: Any]] = []
             op.recordMatchedBlock = { _, result in
@@ -694,7 +722,9 @@ public final class WatchCloudKit {
     }
 
     /// Handles CloudKit push notifications.
-    /// Prefers per-record fetch when recordID is present; falls back to incremental zone changes otherwise.
+    /// Uses coalescing to batch multiple notifications together for better battery efficiency.
+    /// Instead of fetching each record individually, we collect record IDs and do a single
+    /// incremental sync after a short delay.
     public func handleRemoteNotification(
         userInfo: [AnyHashable: Any],
         completion: @escaping (Result<Int, Error>) -> Void
@@ -711,54 +741,49 @@ public final class WatchCloudKit {
             return
         }
 
-        if let queryNotification = notification as? CKQueryNotification {
-            if let recordID = queryNotification.recordID {
+        // For query notifications with recordID, use coalescing
+        if let queryNotification = notification as? CKQueryNotification,
+           let recordID = queryNotification.recordID {
+            
+            coalescingQueue.async { [weak self] in
+                guard let self = self else {
+                    completion(.success(0))
+                    return
+                }
+                
+                // Track the record based on operation type
                 switch queryNotification.queryNotificationReason {
                 case .recordDeleted:
-                    let applied = applyZoneChangesToWatchCache([
-                        .deleted(recordID: recordID, recordType: nil)
-                    ])
-                    UserDefaults.standard.set(true, forKey: CloudKitManagerBase.cloudKitInitialSyncCompletedKey)
-                    completion(.success(applied))
-                    return
-
+                    self.pendingDeletions.insert(recordID)
+                    self.pendingRecordIDs.remove(recordID)
                 case .recordCreated, .recordUpdated:
-                    fetchRecord(recordID: recordID) { result in
-                        switch result {
-                        case .failure(let error):
-                            self.syncFromCloudKitIncremental(fullSync: false) { applied, syncError in
-                                if let syncError {
-                                    completion(.failure(syncError))
-                                } else {
-                                    completion(.success(applied))
-                                }
-                            }
-
-                        case .success(let record):
-                            if let record {
-                                let applied = self.applyZoneChangesToWatchCache([.changed(record)])
-                                UserDefaults.standard.set(true, forKey: CloudKitManagerBase.cloudKitInitialSyncCompletedKey)
-                                completion(.success(applied))
-                            } else {
-                                let applied = self.applyZoneChangesToWatchCache([
-                                    .deleted(recordID: recordID, recordType: nil)
-                                ])
-                                UserDefaults.standard.set(true, forKey: CloudKitManagerBase.cloudKitInitialSyncCompletedKey)
-                                completion(.success(applied))
-                            }
-                        }
-                    }
-                    return
-
+                    self.pendingRecordIDs.insert(recordID)
+                    self.pendingDeletions.remove(recordID)
                 @unknown default:
                     break
                 }
+                
+                // Cancel any existing coalescing work item
+                self.coalescingWorkItem?.cancel()
+                
+                // Schedule a new coalesced sync after delay
+                let workItem = DispatchWorkItem { [weak self] in
+                    guard let self = self else { return }
+                    self.executeCoalescedSync(completion: completion)
+                }
+                self.coalescingWorkItem = workItem
+                
+                // Use global queue for the actual work to not block coalescingQueue
+                DispatchQueue.global(qos: .utility).asyncAfter(
+                    deadline: .now() + self.coalescingDelay,
+                    execute: workItem
+                )
             }
+            return
         }
 
+        // For zone notifications or fallback, use incremental sync directly
         if notification is CKRecordZoneNotification {
-            // CKRecordZoneNotification doesn't include a recordID.
-            // Fallback to incremental zone changes (minimal, token-based) and apply to watch cache.
             syncFromCloudKitIncremental(fullSync: false) { applied, error in
                 if let error {
                     completion(.failure(error))
@@ -778,9 +803,92 @@ public final class WatchCloudKit {
             }
         }
     }
+    
+    /// Executes the coalesced sync by fetching all pending records at once
+    private func executeCoalescedSync(completion: @escaping (Result<Int, Error>) -> Void) {
+        // Grab and clear pending items
+        let (recordsToFetch, recordsToDelete) = coalescingQueue.sync { () -> (Set<CKRecord.ID>, Set<CKRecord.ID>) in
+            let toFetch = self.pendingRecordIDs
+            let toDelete = self.pendingDeletions
+            self.pendingRecordIDs.removeAll()
+            self.pendingDeletions.removeAll()
+            self.coalescingWorkItem = nil
+            return (toFetch, toDelete)
+        }
+        
+        // If we have many changes, just do incremental sync (more efficient)
+        let totalPending = recordsToFetch.count + recordsToDelete.count
+        if totalPending > 10 {
+            infoLog("Coalesced sync: too many changes (\(totalPending)), using incremental sync")
+            syncFromCloudKitIncremental(fullSync: false) { applied, error in
+                if let error {
+                    completion(.failure(error))
+                } else {
+                    completion(.success(applied))
+                }
+            }
+            return
+        }
+        
+        // Apply deletions immediately
+        var changes: [CloudKitManagerBase.ZoneChange] = recordsToDelete.map {
+            .deleted(recordID: $0, recordType: nil)
+        }
+        
+        // If no records to fetch, just apply deletions
+        guard !recordsToFetch.isEmpty else {
+            let applied = applyZoneChangesToWatchCache(changes)
+            UserDefaults.standard.set(true, forKey: CloudKitManagerBase.cloudKitInitialSyncCompletedKey)
+            infoLog("Coalesced sync: applied \(applied) deletions")
+            completion(.success(applied))
+            return
+        }
+        
+        // Batch fetch all pending records
+        core.fetchRecords(recordIDs: Array(recordsToFetch)) { [weak self] result in
+            guard let self = self else {
+                completion(.success(0))
+                return
+            }
+            
+            switch result {
+            case .failure(let error):
+                // Fallback to incremental sync
+                self.warnLog("Coalesced fetch failed, falling back to incremental sync", metadata: ["error": error.localizedDescription])
+                self.syncFromCloudKitIncremental(fullSync: false) { applied, syncError in
+                    if let syncError {
+                        completion(.failure(syncError))
+                    } else {
+                        completion(.success(applied))
+                    }
+                }
+                
+            case .success(let recordsByID):
+                // Add fetched records to changes
+                for (recordID, record) in recordsByID {
+                    changes.append(.changed(record))
+                }
+                
+                // Records not found are treated as deletions
+                for recordID in recordsToFetch where recordsByID[recordID] == nil {
+                    changes.append(.deleted(recordID: recordID, recordType: nil))
+                }
+                
+                let applied = self.applyZoneChangesToWatchCache(changes)
+                UserDefaults.standard.set(true, forKey: CloudKitManagerBase.cloudKitInitialSyncCompletedKey)
+                self.infoLog("Coalesced sync: applied \(applied) changes", metadata: [
+                    "fetched": recordsByID.count,
+                    "deleted": recordsToDelete.count
+                ])
+                completion(.success(applied))
+            }
+        }
+    }
 
     // MARK: - Modify (batch-only)
 
+    /// Batch-only read/unread update (chunked by CloudKitManagerBase). Pass a single ID as a 1-element array.
+    /// Uses fetch-then-update pattern to ensure proper record versioning with CloudKit.
     public func updateNotificationsReadStatusInCloudKit(
         notificationIds: [String],
         readAt: Date?,
@@ -791,21 +899,52 @@ public final class WatchCloudKit {
             return
         }
 
-        // Create records directly with known recordIDs - no fetch needed
-        // CloudKit will merge with existing records when using .changedKeys savePolicy
-        let recordsToSave: [CKRecord] = notificationIds.map { notificationId in
-            let recordID = self.notificationRecordID(notificationId)
-            let record = CKRecord(recordType: Defaults.notificationRecordType, recordID: recordID)
-            record["readAt"] = readAt
-            return record
-        }
-
-        self.core.save(records: recordsToSave, savePolicy: .changedKeys) { saveResult in
-            switch saveResult {
+        // Fetch existing records first to get proper recordChangeTag
+        let recordIDs = notificationIds.map { self.notificationRecordID($0) }
+        
+        self.core.fetchRecords(recordIDs: recordIDs, desiredKeys: ["readAt"]) { fetchResult in
+            switch fetchResult {
             case .failure(let error):
-                completion(false, recordsToSave.count, error)
-            case .success:
-                completion(true, recordsToSave.count, nil)
+                self.warnLog("updateNotificationsReadStatusInCloudKit fetch failed", metadata: ["error": String(describing: error), "notificationIds": "\(notificationIds.count)"])
+                completion(false, 0, error)
+                
+            case .success(let fetchedRecords):
+                // Update only fetched records (those that exist in CloudKit)
+                var recordsToSave: [CKRecord] = []
+                var notFoundCount = 0
+                
+                for notificationId in notificationIds {
+                    let recordID = self.notificationRecordID(notificationId)
+                    if let record = fetchedRecords[recordID] {
+                        // Record exists - update readAt
+                        record["readAt"] = readAt
+                        recordsToSave.append(record)
+                    } else {
+                        notFoundCount += 1
+                    }
+                }
+                
+                if notFoundCount > 0 {
+                    self.debugLog("updateNotificationsReadStatusInCloudKit: \(notFoundCount) records not found in CloudKit (skipped)")
+                }
+                
+                guard !recordsToSave.isEmpty else {
+                    self.infoLog("updateNotificationsReadStatusInCloudKit: no records to update (all not found)")
+                    completion(true, 0, nil)
+                    return
+                }
+                
+                // Save with .changedKeys - now safe because records have proper recordChangeTag
+                self.core.save(records: recordsToSave, savePolicy: .changedKeys) { saveResult in
+                    switch saveResult {
+                    case .failure(let error):
+                        self.warnLog("updateNotificationsReadStatusInCloudKit save failed", metadata: ["error": String(describing: error), "recordsToSave": recordsToSave.count])
+                        completion(false, 0, error)
+                    case .success:
+                        self.infoLog("updateNotificationsReadStatusInCloudKit completed", metadata: ["updated": recordsToSave.count, "notFound": notFoundCount, "readAt": readAt != nil ? "set" : "nil"])
+                        completion(true, recordsToSave.count, nil)
+                    }
+                }
             }
         }
     }
@@ -814,12 +953,15 @@ public final class WatchCloudKit {
         notificationId: String,
         completion: @escaping (Bool, Error?) -> Void
     ) {
+        debugLog("deleteNotificationFromCloudKit starting", metadata: ["notificationId": notificationId])
         let recordID = notificationRecordID(notificationId)
         core.delete(recordIDs: [recordID]) { result in
             switch result {
             case .failure(let error):
+                self.warnLog("deleteNotificationFromCloudKit failed", metadata: ["notificationId": notificationId, "error": String(describing: error)])
                 completion(false, error)
             case .success:
+                self.infoLog("deleteNotificationFromCloudKit succeeded", metadata: ["notificationId": notificationId])
                 // Apply change to cache (batch operation even for single item)
                 _ = self.applyZoneChangesToWatchCache([.deleted(recordID: recordID, recordType: Defaults.notificationRecordType)])
                 completion(true, nil)
@@ -840,12 +982,15 @@ public final class WatchCloudKit {
             return
         }
         
+        debugLog("deleteNotificationsFromCloudKit starting", metadata: ["count": notificationIds.count, "ids": notificationIds.joined(separator: ",")])
         let recordIDs = notificationIds.map { notificationRecordID($0) }
         core.delete(recordIDs: recordIDs) { result in
             switch result {
             case .failure(let error):
+                self.warnLog("deleteNotificationsFromCloudKit failed", metadata: ["count": notificationIds.count, "error": String(describing: error)])
                 completion(false, 0, error)
             case .success:
+                self.infoLog("deleteNotificationsFromCloudKit succeeded", metadata: ["count": notificationIds.count])
                 // Apply all changes to cache in a single batch operation
                 let changes = recordIDs.map { recordID in
                     CloudKitManagerBase.ZoneChange.deleted(recordID: recordID, recordType: Defaults.notificationRecordType)

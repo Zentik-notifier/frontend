@@ -111,12 +111,20 @@ public class NotificationActionHandler {
         return request
     }
 
+    /// URLSession with short timeout for Watch REST calls (best-effort)
+    private static let watchURLSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 10  // 10 seconds max for request
+        config.timeoutIntervalForResource = 15 // 15 seconds max total
+        return URLSession(configuration: config)
+    }()
+
     private static func performWatchApiRequest(path: String, method: String, jsonBody: [String: Any]? = nil) async throws {
         guard let request = makeWatchApiRequest(path: path, method: method, jsonBody: jsonBody) else {
             throw NSError(domain: "WatchREST", code: -1, userInfo: [NSLocalizedDescriptionKey: "Missing watch token/serverAddress"])
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await watchURLSession.data(for: request)
         if let httpResponse = response as? HTTPURLResponse {
             let status = httpResponse.statusCode
             if status >= 200 && status < 300 {
