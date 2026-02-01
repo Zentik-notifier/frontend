@@ -574,12 +574,8 @@ export async function updateNotificationReadStatus(notificationId: string, readA
     }
   }, 'updateNotificationReadStatus');
 
-  // Update CloudKit directly (more efficient than full sync)
   if (Platform.OS === 'ios') {
-    iosBridgeService.updateNotificationReadStatusInCloudKit(
-      notificationId,
-      readAt
-    ).catch((error) => {
+    iosBridgeService.updateNotificationReadStatusInCloudKit(notificationId, readAt).catch((error) => {
       console.error('[NotificationsRepository] Failed to update CloudKit read status:', error);
     });
   }
@@ -703,18 +699,7 @@ export async function updateNotificationsReadStatus(notificationIds: string[], r
     }
   }, 'updateNotificationsReadStatus');
 
-  // Update CloudKit directly (more efficient than full sync)
-  if (Platform.OS === 'ios') {
-    console.log(`[updateNotificationsReadStatus] Updating ${notificationIds.length} notifications in CloudKit - readAt: ${readAt !== null ? 'set' : 'null'}`);
-    iosBridgeService.updateNotificationsReadStatusInCloudKit(
-      notificationIds,
-      readAt
-    ).then((result) => {
-      console.log(`[updateNotificationsReadStatus] ✅ CloudKit batch update completed - success: ${result.success}, updatedCount: ${result.updatedCount}`);
-    }).catch((error) => {
-      console.error('[NotificationsRepository] Failed to update CloudKit read status:', error);
-    });
-  }
+  // CloudKit sync for batch is triggered by the caller (useBatchMarkAsRead / useMarkAllAsRead)
 }
 
 /**

@@ -33,6 +33,7 @@ import {
     UseMutationResult,
     useQueryClient,
 } from '@tanstack/react-query';
+import { Platform } from 'react-native';
 import { notificationKeys } from './useNotificationQueries';
 import IosBridgeService from '@/services/ios-bridge';
 
@@ -461,11 +462,18 @@ export function useBatchMarkAsRead(
     return useMutation({
         mutationFn: async (input: MarkAsReadInput) => {
             const isMarkingAsRead = input.readAt !== null;
-            
-            // 1. Update local DB FIRST for immediate UI update
+
+            // 1. Update local DB first for immediate UI update
             await updateNotificationsReadStatus(input.notificationIds, input.readAt);
 
-            // 2. Call backend GraphQL batch mutation in background (this cancels reminders)
+            // 2. Sync read status to CloudKit (iOS) so Watch and widgets stay in sync
+            if (Platform.OS === 'ios' && input.notificationIds.length > 0) {
+                IosBridgeService.updateNotificationsReadStatusInCloudKit(input.notificationIds, input.readAt).catch((error) => {
+                    console.error('[useBatchMarkAsRead] CloudKit sync failed:', error);
+                });
+            }
+
+            // 3. Call backend GraphQL batch mutation in background (this cancels reminders)
             const backendCall = isMarkingAsRead
                 ? massMarkAsReadGQL({ variables: { ids: input.notificationIds } })
                 : massMarkAsUnreadGQL({ variables: { ids: input.notificationIds } });
@@ -599,9 +607,14 @@ export function useMarkAllAsRead(
             const unreadNotifications = allNotifications.filter(n => !n.readAt);
             const unreadNotificationIds = unreadNotifications.map(n => n.id);
 
-            // 2. Update local DB FIRST for immediate UI update
+            // 2. Update local DB first for immediate UI update
             if (unreadNotificationIds.length > 0) {
                 await updateNotificationsReadStatus(unreadNotificationIds, now);
+                if (Platform.OS === 'ios') {
+                    IosBridgeService.updateNotificationsReadStatusInCloudKit(unreadNotificationIds, now).catch((error) => {
+                        console.error('[useMarkAllAsRead] CloudKit sync failed:', error);
+                    });
+                }
             }
 
             // 3. Call backend GraphQL mutation in background (this cancels all reminders)
