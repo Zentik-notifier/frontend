@@ -50,13 +50,13 @@ function printHeader() {
 function runCommand(command, args, options = {}) {
     return new Promise((resolve, reject) => {
         printInfo(`Running: ${command} ${args.join(' ')}`);
-        
+
         const child = spawn(command, args, {
             stdio: 'inherit',
             shell: true,
             ...options
         });
-        
+
         child.on('close', (code) => {
             if (code === 0) {
                 resolve();
@@ -64,7 +64,7 @@ function runCommand(command, args, options = {}) {
                 reject(new Error(`Command failed with exit code ${code}`));
             }
         });
-        
+
         child.on('error', (error) => {
             reject(error);
         });
@@ -123,7 +123,7 @@ printInfo(`  Version Code: ${currentVersionCode}`);
 function incrementVersion(version, type) {
     const parts = version.split('.').map(Number);
     let [major, minor, patch] = parts;
-    
+
     switch (type) {
         case 'major':
             major += 1;
@@ -138,7 +138,7 @@ function incrementVersion(version, type) {
             patch += 1;
             break;
     }
-    
+
     return `${major}.${minor}.${patch}`;
 }
 
@@ -173,7 +173,7 @@ updatedContent = updatedContent.replace(
     `buildNumber: "${newBuildNumber}"`
 );
 updatedContent = updatedContent.replace(
-    /versionCode: \d+/, 
+    /versionCode: \d+/,
     `versionCode: ${newVersionCode}`
 );
 
@@ -206,21 +206,20 @@ async function runReleaseProcess() {
     try {
         console.log('');
         printInfo('Starting automated iOS release process...');
-        
+
         // Combined EAS Build and Submit in one command (detached mode)
         printInfo('Starting EAS build and submit for iOS production in detached mode...');
         printInfo('This will build the app and automatically submit to App Store when ready');
-        
+
         await runCommand('eas', [
-            'build', 
-            '--platform', 'ios', 
+            'build',
+            '--platform', 'ios',
             '--profile', 'production',
-            '--auto-submit',
             '--auto-submit-with-profile', 'production',
             '--no-wait',
             '--non-interactive'
         ]);
-        
+
         printSuccess('EAS build and App Store submission completed successfully!');
 
         // Git commit of app.config.ts changes
@@ -233,7 +232,7 @@ async function runReleaseProcess() {
         } catch (gitError) {
             printWarning(`Git commit/push failed or skipped: ${gitError.message}`);
         }
-        
+
         printSuccess('🎉 Full release process completed!');
         printInfo(`Version ${newVersion} has been built and submitted to the App Store`);
 
@@ -257,7 +256,7 @@ async function runReleaseProcess() {
     } catch (error) {
         printError(`Release process failed: ${error.message}`);
         printWarning('Restoring backup...');
-        
+
         // Restore backup in case of error
         try {
             fs.copyFileSync(backupPath, configPath);
@@ -267,7 +266,7 @@ async function runReleaseProcess() {
         } catch (restoreError) {
             printError(`Error restoring backup: ${restoreError.message}`);
         }
-        
+
         process.exit(1);
     }
 }
