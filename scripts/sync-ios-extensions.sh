@@ -338,9 +338,9 @@ if [ -d "$SHARED_SOURCE" ]; then
     WIDGET_DIR="targets/widget"
     
     if [ -d "$WIDGET_DIR" ]; then
-        # Exclude NotificationActionHandler.swift, CloudKitSyncBridge.swift and CloudKitManager.swift
+        # Exclude Watch-only files and React Native bridges
         # Widget Extension doesn't handle CloudKit remote notifications and doesn't need CloudKit sync
-        copy_shared_files "$WIDGET_DIR" "Widget" "NotificationActionHandler.swift|CloudKitSyncBridge.swift|CloudKitManager.swift" "${SHARED_FILES[@]}"
+        copy_shared_files "$WIDGET_DIR" "Widget" "NotificationActionHandler.swift|CloudKitSyncBridge.swift|CloudKitManager.swift|WatchCloudKit.swift|WatchDataStore.swift|WatchSettingsManager.swift" "${SHARED_FILES[@]}"
         
         print_success "Widget target synced"
     else

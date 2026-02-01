@@ -3,29 +3,6 @@ import ImageIO
 import WatchKit
 import CloudKit
 
-// MARK: - Watch Settings Manager
-
-/// Manages Watch-specific settings stored in UserDefaults
-class WatchSettingsManager {
-    static let shared = WatchSettingsManager()
-    
-    private let maxNotificationsLimitKey = "watch_max_notifications_limit"
-    
-    private init() {}
-    
-    /// Get maximum number of notifications to display (default: 100)
-    var maxNotificationsLimit: Int {
-        let value = UserDefaults.standard.integer(forKey: maxNotificationsLimitKey)
-        return value > 0 ? value : 100 // Default to 100 if not set
-    }
-    
-    /// Set maximum number of notifications to display
-    func setMaxNotificationsLimit(_ limit: Int) {
-        UserDefaults.standard.set(limit, forKey: maxNotificationsLimitKey)
-        UserDefaults.standard.synchronize()
-    }
-}
-
 // MARK: - Helper Functions
 
 func hasWatchTokenAndAddress() -> Bool {
