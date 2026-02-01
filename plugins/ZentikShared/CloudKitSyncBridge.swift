@@ -117,6 +117,66 @@ class CloudKitSyncBridge: RCTEventEmitter {
     }
   }
   
+  /// Batch notify multiple notification updates at once (more efficient than calling notifyNotificationUpdated in a loop)
+  @objc
+  static func notifyNotificationsUpdatedBatch(_ notificationIds: [String]) {
+    guard !notificationIds.isEmpty else { return }
+    
+    notificationDebounceLock.lock()
+    pendingNotificationIds.formUnion(notificationIds)
+    let currentCount = pendingNotificationIds.count
+    notificationDebounceLock.unlock()
+    
+    DispatchQueue.main.async {
+      notificationDebounceTimer?.invalidate()
+      notificationDebounceTimer = nil
+      
+      if let instance = sharedInstance, instance.hasListeners == false {
+        return
+      }
+      
+      // With batch input, emit immediately
+      if currentCount >= batchThreshold || notificationIds.count > 1 {
+        emitBatchNotificationUpdate()
+        return
+      }
+      
+      notificationDebounceTimer = Timer.scheduledTimer(withTimeInterval: notificationDebounceInterval, repeats: false) { _ in
+        emitBatchNotificationUpdate()
+      }
+    }
+  }
+  
+  /// Batch notify multiple notification deletions at once
+  @objc
+  static func notifyNotificationsDeletedBatch(_ notificationIds: [String]) {
+    guard !notificationIds.isEmpty else { return }
+    
+    notificationDeletedDebounceLock.lock()
+    pendingNotificationDeletedIdsSet.formUnion(notificationIds)
+    let currentCount = pendingNotificationDeletedIdsSet.count
+    notificationDeletedDebounceLock.unlock()
+    
+    DispatchQueue.main.async {
+      notificationDeletedDebounceTimer?.invalidate()
+      notificationDeletedDebounceTimer = nil
+      
+      if let instance = sharedInstance, instance.hasListeners == false {
+        return
+      }
+      
+      // With batch input, emit immediately
+      if currentCount >= batchThreshold || notificationIds.count > 1 {
+        emitBatchNotificationDeletion()
+        return
+      }
+      
+      notificationDeletedDebounceTimer = Timer.scheduledTimer(withTimeInterval: notificationDeletedDebounceInterval, repeats: false) { _ in
+        emitBatchNotificationDeletion()
+      }
+    }
+  }
+  
   private static func emitBatchNotificationUpdate() {
     // If JS isn't listening yet, do not flush; keep pending IDs.
     if let instance = sharedInstance, instance.hasListeners == false {
@@ -615,6 +675,11 @@ class CloudKitSyncBridge: RCTEventEmitter {
         
         // Batch update readAt timestamps
         if !readAtMap.isEmpty {
+          let ids = Array(readAtMap.keys)
+          LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Record update arrived on iOS", metadata: [
+            "notificationIds": ids.joined(separator: ","),
+            "count": "\(ids.count)"
+          ], source: "PhoneCloudKit")
           dispatchGroup.enter()
           DatabaseAccess.setNotificationsReadAt(readAtMap: readAtMap, source: "CloudKitSyncBridge") { success, count in
             if !success {
@@ -647,16 +712,12 @@ class CloudKitSyncBridge: RCTEventEmitter {
             )
           }
           
-          // Notify in batch to reduce event spam
-          for id in notificationIds {
-            CloudKitSyncBridge.notifyNotificationUpdated(id)
-          }
+          // Notify in batch (single event per type)
+          CloudKitSyncBridge.notifyNotificationsUpdatedBatch(notificationIds)
           for id in bucketIds {
             CloudKitSyncBridge.notifyBucketUpdated(id)
           }
-          for id in deletedNotificationIds {
-            CloudKitSyncBridge.notifyNotificationDeleted(id)
-          }
+          CloudKitSyncBridge.notifyNotificationsDeletedBatch(deletedNotificationIds)
 
           if let error = dbError {
             reject("DB_ERROR", error.localizedDescription, error)
@@ -1262,6 +1323,134 @@ class CloudKitSyncBridge: RCTEventEmitter {
     }
     #else
     reject("NOT_SUPPORTED", "sendWatchTokenSettings is only available on iOS", nil)
+    #endif
+  }
+  
+  // MARK: - WatchConnectivity-Only Sync Mode
+  
+  /**
+   * Check if WC-only sync mode is enabled
+   * When enabled, watch sync uses WatchConnectivity instead of CloudKit
+   */
+  @objc
+  func isWCSyncEnabled(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    let enabled = WatchSyncManager.shared.isWCSyncEnabled
+    resolve(["enabled": enabled])
+    #else
+    resolve(["enabled": false])
+    #endif
+  }
+  
+  /**
+   * Enable or disable WC-only sync mode
+   * When enabled, watch sync uses WatchConnectivity instead of CloudKit
+   */
+  @objc
+  func setWCSyncEnabled(
+    _ enabled: Bool,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    WatchSyncManager.shared.isWCSyncEnabled = enabled
+    
+    infoLog("WC sync mode changed", metadata: ["enabled": enabled])
+    
+    // If enabling WC sync, trigger an initial full sync to watch
+    if enabled {
+      WatchSyncManager.shared.triggerFullSync { success, _ in
+        resolve([
+          "success": true,
+          "enabled": enabled,
+          "fullSyncTriggered": success
+        ])
+      }
+    } else {
+      resolve([
+        "success": true,
+        "enabled": enabled
+      ])
+    }
+    #else
+    reject("NOT_SUPPORTED", "setWCSyncEnabled is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Trigger full WC sync to Watch
+   * Sends all notifications and buckets via transferUserInfo
+   */
+  @objc
+  func triggerWCFullSync(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    WatchSyncManager.shared.triggerFullSync { success, error in
+      if success {
+        resolve(["success": true])
+      } else {
+        reject("SYNC_FAILED", "Failed to trigger WC full sync", nil)
+      }
+    }
+    #else
+    reject("NOT_SUPPORTED", "triggerWCFullSync is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Retry NSE notifications to Watch
+   * Uses cursor to send only notifications that weren't delivered yet
+   */
+  @objc
+  func retryNSENotificationsToWatch(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    WatchSyncManager.shared.retryNSENotificationsToWatch { count, error in
+      if let error = error {
+        reject("RETRY_FAILED", error.localizedDescription, error)
+      } else {
+        resolve(["success": true, "count": count])
+      }
+    }
+    #else
+    reject("NOT_SUPPORTED", "retryNSENotificationsToWatch is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Get WC sync status
+   * Returns information about the WatchConnectivity sync state
+   */
+  @objc
+  func getWCSyncStatus(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    let session = WCSession.isSupported() ? WCSession.default : nil
+    let status: [String: Any] = [
+      "wcSyncEnabled": WatchSyncManager.shared.isWCSyncEnabled,
+      "watchReachable": session?.isReachable ?? false,
+      "watchPaired": session?.isPaired ?? false,
+      "watchAppInstalled": session?.isWatchAppInstalled ?? false,
+      "pendingTransfers": session?.outstandingUserInfoTransfers.count ?? 0
+    ]
+    resolve(status)
+    #else
+    resolve([
+      "wcSyncEnabled": false,
+      "watchReachable": false,
+      "watchPaired": false,
+      "watchAppInstalled": false,
+      "pendingTransfers": 0
+    ])
     #endif
   }
 

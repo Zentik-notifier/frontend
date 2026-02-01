@@ -508,9 +508,9 @@ class WatchDataStore {
     
     // MARK: - Update Cache
 
-    /// Replace notifications in cache from CloudKit fetch (keeps existing buckets).
+    /// Replace notifications in cache from external fetch (keeps existing buckets).
     /// Used for watch "top-up" when deletions reduce the list below the display limit.
-    func replaceNotificationsFromCloudKit(notifications: [[String: Any]]) {
+    func replaceNotifications(notifications: [[String: Any]]) {
         var cache = loadCache()
 
         let iso8601Fractional = ISO8601DateFormatter()
@@ -826,6 +826,41 @@ class WatchDataStore {
             saveCache(cache)
             print("⌚ [WatchDataStore] ✅ Deleted notification locally: \(id)")
         }
+    }
+    
+    /// Delete multiple notifications by IDs
+    func deleteNotifications(ids: [String]) {
+        guard !ids.isEmpty else { return }
+        
+        var cache = loadCache()
+        let idsSet = Set(ids)
+        
+        var unreadDelta = 0
+        var bucketUnreadDeltas: [String: Int] = [:]
+        
+        // Find and remove all matching notifications
+        cache.notifications.removeAll { notification in
+            if idsSet.contains(notification.id) {
+                if !notification.isRead {
+                    unreadDelta += 1
+                    bucketUnreadDeltas[notification.bucketId, default: 0] += 1
+                }
+                return true
+            }
+            return false
+        }
+        
+        // Update counts
+        cache.unreadCount = max(0, cache.unreadCount - unreadDelta)
+        
+        for (bucketId, delta) in bucketUnreadDeltas {
+            if let bucketIndex = cache.buckets.firstIndex(where: { $0.id == bucketId }) {
+                cache.buckets[bucketIndex].unreadCount = max(0, cache.buckets[bucketIndex].unreadCount - delta)
+            }
+        }
+        
+        saveCache(cache)
+        print("⌚ [WatchDataStore] ✅ Deleted \(ids.count) notifications locally")
     }
     
     // MARK: - Clear Cache

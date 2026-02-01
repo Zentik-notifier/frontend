@@ -1,16 +1,17 @@
-import { NativeModules, Platform } from 'react-native';
-import { settingsService } from './settings-service';
+import { NativeModules, Platform } from "react-native";
+import { settingsService } from "./settings-service";
 
-const { WidgetReloadBridge, DatabaseAccessBridge, CloudKitSyncBridge } = NativeModules;
+const { WidgetReloadBridge, DatabaseAccessBridge, CloudKitSyncBridge } =
+  NativeModules;
 
-const isIOS = Platform.OS === 'ios';
+const isIOS = Platform.OS === "ios";
 
-const isCloudKitDebugEnabled = () => settingsService.getSettings().cloudKitDebug === true;
+const isCloudKitDebugEnabled = () =>
+  settingsService.getSettings().cloudKitDebug === true;
 
 // ========== IosBridgeService ==========
 
 class IosBridgeService {
-
   // ========== Database Access Methods (iOS only) ==========
 
   /**
@@ -23,15 +24,22 @@ class IosBridgeService {
     readAt?: string;
   }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     try {
-      const result = await DatabaseAccessBridge.markNotificationAsRead(notificationId);
-      console.log('[DatabaseAccess] Marked notification as read:', notificationId);
+      const result =
+        await DatabaseAccessBridge.markNotificationAsRead(notificationId);
+      console.log(
+        "[DatabaseAccess] Marked notification as read:",
+        notificationId,
+      );
       return result;
     } catch (error) {
-      console.error('[DatabaseAccess] Failed to mark notification as read:', error);
+      console.error(
+        "[DatabaseAccess] Failed to mark notification as read:",
+        error,
+      );
       throw error;
     }
   }
@@ -45,7 +53,7 @@ class IosBridgeService {
     readAt?: string;
   }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     if (notificationIds.length === 0) {
@@ -53,11 +61,20 @@ class IosBridgeService {
     }
 
     try {
-      const result = await DatabaseAccessBridge.markMultipleNotificationsAsRead(notificationIds);
-      console.log('[DatabaseAccess] Marked notifications as read:', notificationIds.length);
+      const result =
+        await DatabaseAccessBridge.markMultipleNotificationsAsRead(
+          notificationIds,
+        );
+      console.log(
+        "[DatabaseAccess] Marked notifications as read:",
+        notificationIds.length,
+      );
       return result;
     } catch (error) {
-      console.error('[DatabaseAccess] Failed to mark notifications as read:', error);
+      console.error(
+        "[DatabaseAccess] Failed to mark notifications as read:",
+        error,
+      );
       throw error;
     }
   }
@@ -70,15 +87,22 @@ class IosBridgeService {
     notificationId: string;
   }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     try {
-      const result = await DatabaseAccessBridge.markNotificationAsUnread(notificationId);
-      console.log('[DatabaseAccess] Marked notification as unread:', notificationId);
+      const result =
+        await DatabaseAccessBridge.markNotificationAsUnread(notificationId);
+      console.log(
+        "[DatabaseAccess] Marked notification as unread:",
+        notificationId,
+      );
       return result;
     } catch (error) {
-      console.error('[DatabaseAccess] Failed to mark notification as unread:', error);
+      console.error(
+        "[DatabaseAccess] Failed to mark notification as unread:",
+        error,
+      );
       throw error;
     }
   }
@@ -91,15 +115,16 @@ class IosBridgeService {
     notificationId: string;
   }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     try {
-      const result = await DatabaseAccessBridge.deleteNotification(notificationId);
-      console.log('[DatabaseAccess] Deleted notification:', notificationId);
+      const result =
+        await DatabaseAccessBridge.deleteNotification(notificationId);
+      console.log("[DatabaseAccess] Deleted notification:", notificationId);
       return result;
     } catch (error) {
-      console.error('[DatabaseAccess] Failed to delete notification:', error);
+      console.error("[DatabaseAccess] Failed to delete notification:", error);
       throw error;
     }
   }
@@ -109,15 +134,18 @@ class IosBridgeService {
    */
   async dbGetNotificationCount(): Promise<{ count: number }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     try {
       const result = await DatabaseAccessBridge.getNotificationCount();
-      console.log('[DatabaseAccess] Notification count:', result.count);
+      console.log("[DatabaseAccess] Notification count:", result.count);
       return result;
     } catch (error) {
-      console.error('[DatabaseAccess] Failed to get notification count:', error);
+      console.error(
+        "[DatabaseAccess] Failed to get notification count:",
+        error,
+      );
       throw error;
     }
   }
@@ -130,15 +158,23 @@ class IosBridgeService {
     notificationId: string;
   }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     try {
-      const result = await DatabaseAccessBridge.notificationExists(notificationId);
-      console.log('[DatabaseAccess] Notification exists:', notificationId, result.exists);
+      const result =
+        await DatabaseAccessBridge.notificationExists(notificationId);
+      console.log(
+        "[DatabaseAccess] Notification exists:",
+        notificationId,
+        result.exists,
+      );
       return result;
     } catch (error) {
-      console.error('[DatabaseAccess] Failed to check notification existence:', error);
+      console.error(
+        "[DatabaseAccess] Failed to check notification existence:",
+        error,
+      );
       throw error;
     }
   }
@@ -157,15 +193,15 @@ class IosBridgeService {
     count: number;
   }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     try {
       const result = await DatabaseAccessBridge.getAllBuckets();
-      console.log('[DatabaseAccess] Retrieved buckets:', result.count);
+      console.log("[DatabaseAccess] Retrieved buckets:", result.count);
       return result;
     } catch (error) {
-      console.error('[DatabaseAccess] Failed to get buckets:', error);
+      console.error("[DatabaseAccess] Failed to get buckets:", error);
       throw error;
     }
   }
@@ -175,7 +211,7 @@ class IosBridgeService {
    */
   async dbGetRecentNotifications(
     limit: number = 5,
-    unreadOnly: boolean = false
+    unreadOnly: boolean = false,
   ): Promise<{
     notifications: Array<{
       id: string;
@@ -206,15 +242,24 @@ class IosBridgeService {
     count: number;
   }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     try {
-      const result = await DatabaseAccessBridge.getRecentNotifications(limit, unreadOnly);
-      console.log('[DatabaseAccess] Retrieved recent notifications:', result.count);
+      const result = await DatabaseAccessBridge.getRecentNotifications(
+        limit,
+        unreadOnly,
+      );
+      console.log(
+        "[DatabaseAccess] Retrieved recent notifications:",
+        result.count,
+      );
       return result;
     } catch (error) {
-      console.error('[DatabaseAccess] Failed to get recent notifications:', error);
+      console.error(
+        "[DatabaseAccess] Failed to get recent notifications:",
+        error,
+      );
       throw error;
     }
   }
@@ -227,15 +272,19 @@ class IosBridgeService {
     value: string | null;
   }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     try {
       const result = await DatabaseAccessBridge.getSettingValue(key);
-      console.log('[DatabaseAccess] Retrieved setting:', key, result.value !== null);
+      console.log(
+        "[DatabaseAccess] Retrieved setting:",
+        key,
+        result.value !== null,
+      );
       return result;
     } catch (error) {
-      console.error('[DatabaseAccess] Failed to get setting value:', error);
+      console.error("[DatabaseAccess] Failed to get setting value:", error);
       throw error;
     }
   }
@@ -243,20 +292,23 @@ class IosBridgeService {
   /**
    * Set a setting value using native DatabaseAccess library
    */
-  async dbSetSettingValue(key: string, value: string): Promise<{
+  async dbSetSettingValue(
+    key: string,
+    value: string,
+  ): Promise<{
     success: boolean;
     key: string;
   }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     try {
       const result = await DatabaseAccessBridge.setSettingValue(key, value);
-      console.log('[DatabaseAccess] Set setting:', key);
+      console.log("[DatabaseAccess] Set setting:", key);
       return result;
     } catch (error) {
-      console.error('[DatabaseAccess] Failed to set setting value:', error);
+      console.error("[DatabaseAccess] Failed to set setting value:", error);
       throw error;
     }
   }
@@ -269,15 +321,15 @@ class IosBridgeService {
     key: string;
   }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     try {
       const result = await DatabaseAccessBridge.removeSettingValue(key);
-      console.log('[DatabaseAccess] Removed setting:', key);
+      console.log("[DatabaseAccess] Removed setting:", key);
       return result;
     } catch (error) {
-      console.error('[DatabaseAccess] Failed to remove setting value:', error);
+      console.error("[DatabaseAccess] Failed to remove setting value:", error);
       throw error;
     }
   }
@@ -287,15 +339,15 @@ class IosBridgeService {
    */
   async dbGetDbPath(): Promise<{ path: string }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     try {
       const result = await DatabaseAccessBridge.getDbPath();
-      console.log('[DatabaseAccess] Database path:', result.path);
+      console.log("[DatabaseAccess] Database path:", result.path);
       return result;
     } catch (error) {
-      console.error('[DatabaseAccess] Failed to get database path:', error);
+      console.error("[DatabaseAccess] Failed to get database path:", error);
       throw error;
     }
   }
@@ -305,7 +357,7 @@ class IosBridgeService {
    */
   async dbGetSharedCacheLockPath(): Promise<{ path: string }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     const result = await DatabaseAccessBridge.getSharedCacheLockPath();
@@ -317,7 +369,7 @@ class IosBridgeService {
    */
   async dbGetTotalNotificationCount(): Promise<{ count: number }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     return await DatabaseAccessBridge.getTotalNotificationCount();
@@ -329,7 +381,7 @@ class IosBridgeService {
    */
   async dbEnsureCacheDbInitialized(): Promise<void> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     await DatabaseAccessBridge.ensureCacheDbInitialized();
@@ -340,7 +392,7 @@ class IosBridgeService {
    */
   async dbRunIntegrityCheck(): Promise<boolean> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     await DatabaseAccessBridge.runIntegrityCheck();
@@ -355,14 +407,14 @@ class IosBridgeService {
    */
   async dbExecuteQuery(sql: string, params: any[] = []): Promise<any[]> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     try {
       const results = await DatabaseAccessBridge.executeQuery(sql, params);
       return results;
     } catch (error) {
-      console.error('[DatabaseAccess] Failed to execute query:', error);
+      console.error("[DatabaseAccess] Failed to execute query:", error);
       throw error;
     }
   }
@@ -371,19 +423,22 @@ class IosBridgeService {
    * Execute a generic SQL statement (INSERT, UPDATE, DELETE)
    * Returns the number of affected rows
    */
-  async dbExecuteUpdate(sql: string, params: any[] = []): Promise<{
+  async dbExecuteUpdate(
+    sql: string,
+    params: any[] = [],
+  ): Promise<{
     success: boolean;
     changes: number;
   }> {
     if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
+      throw new Error("Database access is only available on iOS");
     }
 
     try {
       const result = await DatabaseAccessBridge.executeUpdate(sql, params);
       return result;
     } catch (error) {
-      console.error('[DatabaseAccess] Failed to execute update:', error);
+      console.error("[DatabaseAccess] Failed to execute update:", error);
       throw error;
     }
   }
@@ -395,16 +450,16 @@ class IosBridgeService {
    */
   async reloadAllWidgets(): Promise<boolean> {
     if (!isIOS || !WidgetReloadBridge) {
-      console.log('[Widget] Not available on this platform');
+      console.log("[Widget] Not available on this platform");
       return false;
     }
 
     try {
       WidgetReloadBridge.reloadAllWidgets();
-      console.log('[Widget] All widgets reloaded successfully');
+      console.log("[Widget] All widgets reloaded successfully");
       return true;
     } catch (error) {
-      console.error('[Widget] Failed to reload widgets:', error);
+      console.error("[Widget] Failed to reload widgets:", error);
       return false;
     }
   }
@@ -424,7 +479,7 @@ class IosBridgeService {
     try {
       await CloudKitSyncBridge.triggerSyncToCloudWithDebounce();
     } catch (error) {
-      console.error('[CloudKit] Failed to trigger sync:', error);
+      console.error("[CloudKit] Failed to trigger sync:", error);
     }
   }
 
@@ -453,7 +508,7 @@ class IosBridgeService {
       const result = await CloudKitSyncBridge.triggerSyncToCloud();
       return result;
     } catch (error) {
-      console.error('[CloudKit] Failed to trigger sync:', error);
+      console.error("[CloudKit] Failed to trigger sync:", error);
       return {
         success: false,
         notificationsSynced: 0,
@@ -471,7 +526,7 @@ class IosBridgeService {
    */
   async updateNotificationReadStatusInCloudKit(
     notificationId: string,
-    readAt: string | null
+    readAt: string | null,
   ): Promise<boolean> {
     if (!isIOS || !CloudKitSyncBridge) {
       return false;
@@ -480,14 +535,17 @@ class IosBridgeService {
     try {
       // Convert ISO8601 string to timestamp (milliseconds since epoch)
       const readAtTimestamp = readAt ? new Date(readAt).getTime() : null;
-      
+
       await CloudKitSyncBridge.updateNotificationReadStatus(
         notificationId,
-        readAtTimestamp
+        readAtTimestamp,
       );
       return true;
     } catch (error) {
-      console.error('[CloudKit] Failed to update notification read status:', error);
+      console.error(
+        "[CloudKit] Failed to update notification read status:",
+        error,
+      );
       return false;
     }
   }
@@ -499,7 +557,7 @@ class IosBridgeService {
    */
   async updateNotificationsReadStatusInCloudKit(
     notificationIds: string[],
-    readAt: string | null
+    readAt: string | null,
   ): Promise<{ success: boolean; updatedCount: number }> {
     if (!isIOS || !CloudKitSyncBridge) {
       return { success: false, updatedCount: 0 };
@@ -508,14 +566,20 @@ class IosBridgeService {
     try {
       // Convert ISO8601 string to timestamp (milliseconds since epoch)
       const readAtTimestamp = readAt ? new Date(readAt).getTime() : null;
-      
+
       const result = await CloudKitSyncBridge.updateNotificationsReadStatus(
         notificationIds,
-        readAtTimestamp
+        readAtTimestamp,
       );
-      return { success: result.success, updatedCount: result.updatedCount || 0 };
+      return {
+        success: result.success,
+        updatedCount: result.updatedCount || 0,
+      };
     } catch (error) {
-      console.error('[CloudKit] Failed to update notifications read status:', error);
+      console.error(
+        "[CloudKit] Failed to update notifications read status:",
+        error,
+      );
       return { success: false, updatedCount: 0 };
     }
   }
@@ -524,7 +588,9 @@ class IosBridgeService {
    * Delete notification from CloudKit (single notification)
    * More efficient than triggering a full sync when only deleting one notification
    */
-  async deleteNotificationFromCloudKit(notificationId: string): Promise<boolean> {
+  async deleteNotificationFromCloudKit(
+    notificationId: string,
+  ): Promise<boolean> {
     if (!isIOS || !CloudKitSyncBridge) {
       return false;
     }
@@ -533,7 +599,7 @@ class IosBridgeService {
       await CloudKitSyncBridge.deleteNotification(notificationId);
       return true;
     } catch (error) {
-      console.error('[CloudKit] Failed to delete notification:', error);
+      console.error("[CloudKit] Failed to delete notification:", error);
       return false;
     }
   }
@@ -543,17 +609,21 @@ class IosBridgeService {
    * More efficient than triggering a full sync when deleting multiple notifications
    */
   async deleteNotificationsFromCloudKit(
-    notificationIds: string[]
+    notificationIds: string[],
   ): Promise<{ success: boolean; deletedCount: number }> {
     if (!isIOS || !CloudKitSyncBridge) {
       return { success: false, deletedCount: 0 };
     }
 
     try {
-      const result = await CloudKitSyncBridge.deleteNotifications(notificationIds);
-      return { success: result.success, deletedCount: result.deletedCount || 0 };
+      const result =
+        await CloudKitSyncBridge.deleteNotifications(notificationIds);
+      return {
+        success: result.success,
+        deletedCount: result.deletedCount || 0,
+      };
     } catch (error) {
-      console.error('[CloudKit] Failed to delete notifications:', error);
+      console.error("[CloudKit] Failed to delete notifications:", error);
       return { success: false, deletedCount: 0 };
     }
   }
@@ -562,17 +632,26 @@ class IosBridgeService {
    * Retry sending notifications to CloudKit that were saved by NSE but failed to send
    * This is called at app startup to ensure all notifications are synced to CloudKit
    */
-  async retryNSENotificationsToCloudKit(): Promise<{ success: boolean; count: number }> {
+  async retryNSENotificationsToCloudKit(): Promise<{
+    success: boolean;
+    count: number;
+  }> {
     if (!isIOS || !CloudKitSyncBridge) {
       return { success: false, count: 0 };
     }
 
     try {
       const result = await CloudKitSyncBridge.retryNSENotificationsToCloudKit();
-      console.log('[CloudKit] Retried NSE notifications to CloudKit:', result.count);
+      console.log(
+        "[CloudKit] Retried NSE notifications to CloudKit:",
+        result.count,
+      );
       return { success: result.success || false, count: result.count || 0 };
     } catch (error) {
-      console.error('[CloudKit] Failed to retry NSE notifications to CloudKit:', error);
+      console.error(
+        "[CloudKit] Failed to retry NSE notifications to CloudKit:",
+        error,
+      );
       return { success: false, count: 0 };
     }
   }
@@ -580,26 +659,33 @@ class IosBridgeService {
   /**
    * Update all CloudKit notification records that don't have readAt set
    * This is useful for initializing or fixing records that are missing the readAt field
-   * 
+   *
    * @param readAtTimestamp Optional timestamp (in milliseconds since epoch) to set for readAt.
    *                        If undefined, sets readAt to nil (unread).
    *                        If provided, sets all records to that timestamp (e.g., to mark all as read).
    */
   async updateAllNotificationsWithoutReadAt(
-    readAtTimestamp?: number
+    readAtTimestamp?: number,
   ): Promise<{ success: boolean; count: number }> {
     if (!isIOS || !CloudKitSyncBridge) {
       return { success: false, count: 0 };
     }
 
     try {
-      const result = await CloudKitSyncBridge.updateAllNotificationsWithoutReadAt(
-        readAtTimestamp ? readAtTimestamp : undefined
+      const result =
+        await CloudKitSyncBridge.updateAllNotificationsWithoutReadAt(
+          readAtTimestamp ? readAtTimestamp : undefined,
+        );
+      console.log(
+        "[CloudKit] Updated notifications without readAt:",
+        result.count,
       );
-      console.log('[CloudKit] Updated notifications without readAt:', result.count);
       return { success: result.success || false, count: result.count || 0 };
     } catch (error) {
-      console.error('[CloudKit] Failed to update notifications without readAt:', error);
+      console.error(
+        "[CloudKit] Failed to update notifications without readAt:",
+        error,
+      );
       return { success: false, count: 0 };
     }
   }
@@ -625,13 +711,14 @@ class IosBridgeService {
     }
 
     try {
-      const result = await CloudKitSyncBridge.syncFromCloudKitIncremental(fullSync);
+      const result =
+        await CloudKitSyncBridge.syncFromCloudKitIncremental(fullSync);
       if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Incremental sync completed:', result);
+        console.log("[CloudKit] Incremental sync completed:", result);
       }
       return result;
     } catch (error) {
-      console.error('[CloudKit] Failed to perform incremental sync:', error);
+      console.error("[CloudKit] Failed to perform incremental sync:", error);
       return {
         success: false,
         updatedCount: 0,
@@ -664,9 +751,10 @@ class IosBridgeService {
     }
 
     try {
-      const result = await CloudKitSyncBridge.fetchAllNotificationsFromCloudKit();
+      const result =
+        await CloudKitSyncBridge.fetchAllNotificationsFromCloudKit();
       if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] fetchAllNotificationsFromCloudKit completed:', {
+        console.log("[CloudKit] fetchAllNotificationsFromCloudKit completed:", {
           success: result?.success,
           count: result?.count,
         });
@@ -677,7 +765,10 @@ class IosBridgeService {
         notifications: result?.notifications || [],
       };
     } catch (error) {
-      console.error('[CloudKit] Failed to fetch all notifications from CloudKit:', error);
+      console.error(
+        "[CloudKit] Failed to fetch all notifications from CloudKit:",
+        error,
+      );
       return { success: false, count: 0, notifications: [] };
     }
   }
@@ -714,11 +805,17 @@ class IosBridgeService {
     try {
       const result = await CloudKitSyncBridge.triggerFullSyncWithVerification();
       if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Full sync with verification completed:', result);
+        console.log(
+          "[CloudKit] Full sync with verification completed:",
+          result,
+        );
       }
       return result;
     } catch (error) {
-      console.error('[CloudKit] Failed to trigger full sync with verification:', error);
+      console.error(
+        "[CloudKit] Failed to trigger full sync with verification:",
+        error,
+      );
       return {
         success: false,
         sqliteNotifications: 0,
@@ -740,17 +837,19 @@ class IosBridgeService {
    */
   async initializeCloudKitSchema(): Promise<{ success: boolean }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      throw new Error('CloudKit schema initialization is only available on iOS');
+      throw new Error(
+        "CloudKit schema initialization is only available on iOS",
+      );
     }
 
     try {
       const result = await CloudKitSyncBridge.initializeSchemaIfNeeded();
       if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Schema initialization completed:', result);
+        console.log("[CloudKit] Schema initialization completed:", result);
       }
       return result;
     } catch (error) {
-      console.error('[CloudKit] Failed to initialize schema:', error);
+      console.error("[CloudKit] Failed to initialize schema:", error);
       throw error;
     }
   }
@@ -761,17 +860,17 @@ class IosBridgeService {
    */
   async setupCloudKitSubscriptions(): Promise<{ success: boolean }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      throw new Error('CloudKit subscriptions setup is only available on iOS');
+      throw new Error("CloudKit subscriptions setup is only available on iOS");
     }
 
     try {
       const result = await CloudKitSyncBridge.setupSubscriptions();
       if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Subscriptions setup completed:', result);
+        console.log("[CloudKit] Subscriptions setup completed:", result);
       }
       return result;
     } catch (error) {
-      console.error('[CloudKit] Failed to setup subscriptions:', error);
+      console.error("[CloudKit] Failed to setup subscriptions:", error);
       throw error;
     }
   }
@@ -787,28 +886,35 @@ class IosBridgeService {
     }
     try {
       const fn = (CloudKitSyncBridge as any).isWatchSupported;
-      if (typeof fn !== 'function') {
+      if (typeof fn !== "function") {
         return { supported: false };
       }
       const result = await fn();
       return { supported: !!result?.supported };
     } catch (error) {
-      console.error('[CloudKit] Failed to check watch support:', error);
+      console.error("[CloudKit] Failed to check watch support:", error);
       return { supported: false };
     }
   }
 
-  async getProcessMemoryUsage(): Promise<{ residentMB: number; virtualMB: number } | null> {
+  async getProcessMemoryUsage(): Promise<{
+    residentMB: number;
+    virtualMB: number;
+  } | null> {
     if (!isIOS || !CloudKitSyncBridge) {
       return null;
     }
     try {
       const fn = (CloudKitSyncBridge as any).getProcessMemoryUsage;
-      if (typeof fn !== 'function') {
+      if (typeof fn !== "function") {
         return null;
       }
       const result = await fn();
-      if (result && typeof result.residentMB === 'number' && typeof result.virtualMB === 'number') {
+      if (
+        result &&
+        typeof result.residentMB === "number" &&
+        typeof result.virtualMB === "number"
+      ) {
         return { residentMB: result.residentMB, virtualMB: result.virtualMB };
       }
       return null;
@@ -829,7 +935,7 @@ class IosBridgeService {
       const result = await CloudKitSyncBridge.isCloudKitEnabled();
       return result;
     } catch (error) {
-      console.error('[CloudKit] Failed to check enabled state:', error);
+      console.error("[CloudKit] Failed to check enabled state:", error);
       return { enabled: false };
     }
   }
@@ -844,7 +950,7 @@ class IosBridgeService {
 
     try {
       const fn = (CloudKitSyncBridge as any).isCloudKitDebugEnabled;
-      if (typeof fn !== 'function') {
+      if (typeof fn !== "function") {
         // Backward compatibility: native module built without debug methods.
         return { enabled: false };
       }
@@ -852,7 +958,7 @@ class IosBridgeService {
       const result = await fn();
       return result;
     } catch (error) {
-      console.error('[CloudKit] Failed to check debug enabled state:', error);
+      console.error("[CloudKit] Failed to check debug enabled state:", error);
       return { enabled: false };
     }
   }
@@ -860,22 +966,26 @@ class IosBridgeService {
   /**
    * Set CloudKit debug logging enabled state
    */
-  async setCloudKitDebugEnabled(enabled: boolean): Promise<{ success: boolean; enabled: boolean }> {
+  async setCloudKitDebugEnabled(
+    enabled: boolean,
+  ): Promise<{ success: boolean; enabled: boolean }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      throw new Error('CloudKit debug flag is only available on iOS');
+      throw new Error("CloudKit debug flag is only available on iOS");
     }
 
     try {
       const fn = (CloudKitSyncBridge as any).setCloudKitDebugEnabled;
-      if (typeof fn !== 'function') {
-        throw new Error('CloudKit debug methods are not available in this build (rebuild iOS app)');
+      if (typeof fn !== "function") {
+        throw new Error(
+          "CloudKit debug methods are not available in this build (rebuild iOS app)",
+        );
       }
 
       const result = await fn(enabled);
-      console.log('[CloudKit] Debug enabled state changed:', result);
+      console.log("[CloudKit] Debug enabled state changed:", result);
       return result;
     } catch (error) {
-      console.error('[CloudKit] Failed to set debug enabled state:', error);
+      console.error("[CloudKit] Failed to set debug enabled state:", error);
       throw error;
     }
   }
@@ -883,19 +993,21 @@ class IosBridgeService {
   /**
    * Set CloudKit enabled state
    */
-  async setCloudKitEnabled(enabled: boolean): Promise<{ success: boolean; enabled: boolean }> {
+  async setCloudKitEnabled(
+    enabled: boolean,
+  ): Promise<{ success: boolean; enabled: boolean }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      throw new Error('CloudKit enable/disable is only available on iOS');
+      throw new Error("CloudKit enable/disable is only available on iOS");
     }
 
     try {
       const result = await CloudKitSyncBridge.setCloudKitEnabled(enabled);
       if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Enabled state changed:', result);
+        console.log("[CloudKit] Enabled state changed:", result);
       }
       return result;
     } catch (error) {
-      console.error('[CloudKit] Failed to set enabled state:', error);
+      console.error("[CloudKit] Failed to set enabled state:", error);
       throw error;
     }
   }
@@ -913,7 +1025,10 @@ class IosBridgeService {
       const result = await CloudKitSyncBridge.getCloudKitNotificationLimit();
       return { limit: result.limit ?? null };
     } catch (error) {
-      console.error('[CloudKit] Failed to get CloudKit notification limit:', error);
+      console.error(
+        "[CloudKit] Failed to get CloudKit notification limit:",
+        error,
+      );
       throw error;
     }
   }
@@ -922,19 +1037,23 @@ class IosBridgeService {
    * Set CloudKit notification limit
    * Pass null/undefined to remove limit (unlimited)
    */
-  async setCloudKitNotificationLimit(limit: number | null): Promise<{ success: boolean; limit: number | null }> {
+  async setCloudKitNotificationLimit(
+    limit: number | null,
+  ): Promise<{ success: boolean; limit: number | null }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      throw new Error('CloudKit notification limit is only available on iOS');
+      throw new Error("CloudKit notification limit is only available on iOS");
     }
 
     try {
-      const result = await CloudKitSyncBridge.setCloudKitNotificationLimit(limit ?? undefined);
+      const result = await CloudKitSyncBridge.setCloudKitNotificationLimit(
+        limit ?? undefined,
+      );
       if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Notification limit changed:', limit);
+        console.log("[CloudKit] Notification limit changed:", limit);
       }
       return { success: result.success, limit: result.limit ?? null };
     } catch (error) {
-      console.error('[CloudKit] Failed to set notification limit:', error);
+      console.error("[CloudKit] Failed to set notification limit:", error);
       throw error;
     }
   }
@@ -951,7 +1070,7 @@ class IosBridgeService {
       const result = await CloudKitSyncBridge.isInitialSyncCompleted();
       return result;
     } catch (error) {
-      console.error('[CloudKit] Failed to check initial sync status:', error);
+      console.error("[CloudKit] Failed to check initial sync status:", error);
       return { completed: false };
     }
   }
@@ -961,17 +1080,17 @@ class IosBridgeService {
    */
   async resetInitialSyncFlag(): Promise<{ success: boolean }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      throw new Error('Reset initial sync flag is only available on iOS');
+      throw new Error("Reset initial sync flag is only available on iOS");
     }
 
     try {
       const result = await CloudKitSyncBridge.resetInitialSyncFlag();
       if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Initial sync flag reset:', result);
+        console.log("[CloudKit] Initial sync flag reset:", result);
       }
       return result;
     } catch (error) {
-      console.error('[CloudKit] Failed to reset initial sync flag:', error);
+      console.error("[CloudKit] Failed to reset initial sync flag:", error);
       throw error;
     }
   }
@@ -981,21 +1100,20 @@ class IosBridgeService {
    */
   async deleteCloudKitZone(): Promise<{ success: boolean }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      throw new Error('Delete CloudKit zone is only available on iOS');
+      throw new Error("Delete CloudKit zone is only available on iOS");
     }
 
     try {
       const result = await CloudKitSyncBridge.deleteCloudKitZone();
       if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Zone deleted:', result);
+        console.log("[CloudKit] Zone deleted:", result);
       }
       return result;
     } catch (error) {
-      console.error('[CloudKit] Failed to delete zone:', error);
+      console.error("[CloudKit] Failed to delete zone:", error);
       throw error;
     }
   }
-
 
   /**
    * Subscribe to CloudKit sync progress events
@@ -1005,9 +1123,9 @@ class IosBridgeService {
     callback: (progress: {
       currentItem: number;
       totalItems: number;
-      itemType: 'notification' | 'bucket';
-      phase: 'syncing' | 'completed';
-    }) => void
+      itemType: "notification" | "bucket";
+      phase: "syncing" | "completed";
+    }) => void,
   ): void {
     if (!isIOS || !CloudKitSyncBridge) {
       return;
@@ -1016,7 +1134,7 @@ class IosBridgeService {
     try {
       CloudKitSyncBridge.subscribeToSyncProgress(callback);
     } catch (error) {
-      console.error('[CloudKit] Failed to subscribe to sync progress:', error);
+      console.error("[CloudKit] Failed to subscribe to sync progress:", error);
     }
   }
 
@@ -1031,7 +1149,10 @@ class IosBridgeService {
     try {
       CloudKitSyncBridge.unsubscribeFromSyncProgress();
     } catch (error) {
-      console.error('[CloudKit] Failed to unsubscribe from sync progress:', error);
+      console.error(
+        "[CloudKit] Failed to unsubscribe from sync progress:",
+        error,
+      );
     }
   }
 
@@ -1041,15 +1162,15 @@ class IosBridgeService {
    */
   async resetCloudKitZone(): Promise<{ success: boolean }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      throw new Error('resetCloudKitZone is only available on iOS');
+      throw new Error("resetCloudKitZone is only available on iOS");
     }
 
     try {
       const result = await CloudKitSyncBridge.resetCloudKitZone();
-      console.log('[CloudKit] Zone reset completed successfully');
+      console.log("[CloudKit] Zone reset completed successfully");
       return result;
     } catch (error) {
-      console.error('[CloudKit] Failed to reset zone:', error);
+      console.error("[CloudKit] Failed to reset zone:", error);
       throw error;
     }
   }
@@ -1057,18 +1178,165 @@ class IosBridgeService {
   /**
    * Send Watch token and server address to Watch app
    */
-  async sendWatchTokenSettings(token: string, serverAddress: string): Promise<{ success: boolean }> {
+  async sendWatchTokenSettings(
+    token: string,
+    serverAddress: string,
+  ): Promise<{ success: boolean }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      throw new Error('sendWatchTokenSettings is only available on iOS');
+      throw new Error("sendWatchTokenSettings is only available on iOS");
     }
 
     try {
-      const result = await CloudKitSyncBridge.sendWatchTokenSettings(token, serverAddress);
-      console.log('[WatchConnectivity] Token settings sent to Watch');
+      const result = await CloudKitSyncBridge.sendWatchTokenSettings(
+        token,
+        serverAddress,
+      );
+      console.log("[WatchConnectivity] Token settings sent to Watch");
       return result;
     } catch (error) {
-      console.error('[WatchConnectivity] Failed to send token settings to Watch:', error);
+      console.error(
+        "[WatchConnectivity] Failed to send token settings to Watch:",
+        error,
+      );
       throw error;
+    }
+  }
+
+  // MARK: - WatchConnectivity-Only Sync Mode
+
+  /**
+   * Check if WC-only sync mode is enabled
+   * When enabled, watch sync uses WatchConnectivity instead of CloudKit
+   */
+  async isWCSyncEnabled(): Promise<{ enabled: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return { enabled: false };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.isWCSyncEnabled();
+      return { enabled: !!result?.enabled };
+    } catch (error) {
+      console.error("[WCSync] Failed to check WC sync enabled:", error);
+      return { enabled: false };
+    }
+  }
+
+  /**
+   * Enable or disable WC-only sync mode
+   * When enabled, watch sync uses WatchConnectivity instead of CloudKit
+   */
+  async setWCSyncEnabled(enabled: boolean): Promise<{
+    success: boolean;
+    enabled: boolean;
+    fullSyncTriggered?: boolean;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      throw new Error("setWCSyncEnabled is only available on iOS");
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.setWCSyncEnabled(enabled);
+      console.log("[WCSync] WC sync mode changed:", { enabled, result });
+      return {
+        success: !!result?.success,
+        enabled: !!result?.enabled,
+        fullSyncTriggered: result?.fullSyncTriggered,
+      };
+    } catch (error) {
+      console.error("[WCSync] Failed to set WC sync enabled:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Trigger full WC sync to Watch
+   * Sends all notifications and buckets via transferUserInfo
+   */
+  async triggerWCFullSync(): Promise<{ success: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      throw new Error("triggerWCFullSync is only available on iOS");
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.triggerWCFullSync();
+      console.log("[WCSync] WC full sync triggered");
+      return { success: !!result?.success };
+    } catch (error) {
+      console.error("[WCSync] Failed to trigger WC full sync:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Retry NSE notifications to Watch via WC
+   * Uses cursor to send only notifications that weren't delivered yet
+   * This is analogous to retryNSENotificationsToCloudKit but for WC sync
+   */
+  async retryNSENotificationsToWatch(): Promise<{
+    success: boolean;
+    count: number;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      throw new Error("retryNSENotificationsToWatch is only available on iOS");
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.retryNSENotificationsToWatch();
+      if (result?.count > 0) {
+        console.log(
+          `[WCSync] NSE retry to Watch: pushed ${result.count} notification(s)`,
+        );
+      }
+      return { success: !!result?.success, count: result?.count ?? 0 };
+    } catch (error) {
+      console.error(
+        "[WCSync] Failed to retry NSE notifications to Watch:",
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get WC sync status
+   * Returns information about the WatchConnectivity sync state
+   */
+  async getWCSyncStatus(): Promise<{
+    wcSyncEnabled: boolean;
+    watchReachable: boolean;
+    watchPaired: boolean;
+    watchAppInstalled: boolean;
+    pendingTransfers: number;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return {
+        wcSyncEnabled: false,
+        watchReachable: false,
+        watchPaired: false,
+        watchAppInstalled: false,
+        pendingTransfers: 0,
+      };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.getWCSyncStatus();
+      return {
+        wcSyncEnabled: !!result?.wcSyncEnabled,
+        watchReachable: !!result?.watchReachable,
+        watchPaired: !!result?.watchPaired,
+        watchAppInstalled: !!result?.watchAppInstalled,
+        pendingTransfers: result?.pendingTransfers || 0,
+      };
+    } catch (error) {
+      console.error("[WCSync] Failed to get WC sync status:", error);
+      return {
+        wcSyncEnabled: false,
+        watchReachable: false,
+        watchPaired: false,
+        watchAppInstalled: false,
+        pendingTransfers: 0,
+      };
     }
   }
 }

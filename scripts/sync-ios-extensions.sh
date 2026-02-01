@@ -242,19 +242,9 @@ copy_shared_files() {
     local skipped_list=()
     local removed_list=()
     
-    # First, remove excluded files if they exist
+    # NOTE: We no longer remove excluded files because they might exist as local stubs
+    # (e.g., WatchSyncManager.swift stub in NSE). We simply don't copy them from shared.
     local removed_count=0
-    if [ -n "$exclude_pattern" ]; then
-        IFS='|' read -ra PATTERNS <<< "$exclude_pattern"
-        for pattern in "${PATTERNS[@]}"; do
-            local excluded_file="$dest_dir/$pattern"
-            if [ -f "$excluded_file" ]; then
-                rm -f "$excluded_file"
-                removed_list+=("$pattern")
-                ((removed_count++))
-            fi
-        done
-    fi
     
     local copied_count=0
     local skipped_count=0
@@ -305,11 +295,11 @@ if [ -d "$SHARED_SOURCE" ]; then
     # Copia file condivisi in iOS App principale
     copy_shared_files "$IOS_DIR/ZentikDev" "iOS App" "" "${SHARED_FILES[@]}"
     
-    # Copia file condivisi in Notification Service Extension (escludi bridge RN + monolite CloudKit)
-    copy_shared_files "$SERVICE_DEST" "NSE" "CloudKitSyncBridge.swift|CloudKitManager.swift" "${SHARED_FILES[@]}"
+    # Copia file condivisi in Notification Service Extension (escludi bridge RN + WatchSyncManager)
+    copy_shared_files "$SERVICE_DEST" "NSE" "CloudKitSyncBridge.swift|CloudKitManager.swift|WatchSyncManager.swift" "${SHARED_FILES[@]}"
     
-    # Copia file condivisi in Content Extension (escludi bridge RN + monolite CloudKit)
-    copy_shared_files "$CONTENT_DEST" "NCE" "CloudKitSyncBridge.swift|CloudKitManager.swift" "${SHARED_FILES[@]}"
+    # Copia file condivisi in Content Extension (escludi bridge RN + WatchSyncManager)
+    copy_shared_files "$CONTENT_DEST" "NCE" "CloudKitSyncBridge.swift|CloudKitManager.swift|WatchSyncManager.swift" "${SHARED_FILES[@]}"
     
     # 5. Watch Extension
     print_status "Syncing Watch target shared files..."
@@ -318,8 +308,8 @@ if [ -d "$SHARED_SOURCE" ]; then
     
     if [ -d "$WATCH_DIR" ]; then
         # Exclude CloudKitSyncBridge.swift (React Native bridge, not needed on Watch)
-        # Start cutting out the monolithic CloudKitManager.swift from the watch target.
-        copy_shared_files "$WATCH_DIR" "Watch" "CloudKitSyncBridge.swift|CloudKitManager.swift|PhoneCloudKit.swift" "${SHARED_FILES[@]}"
+        # Exclude CloudKitManager.swift, PhoneCloudKit.swift, CloudKitManagerBase.swift (Watch uses WC only, no CloudKit)
+        copy_shared_files "$WATCH_DIR" "Watch" "CloudKitSyncBridge.swift|CloudKitManager.swift|PhoneCloudKit.swift|CloudKitManagerBase.swift" "${SHARED_FILES[@]}"
 
         # Ensure NotificationActionHandler is available for WatchExtension builds.
         # Some build steps rely on it being present in targets/watch.
@@ -338,9 +328,9 @@ if [ -d "$SHARED_SOURCE" ]; then
     WIDGET_DIR="targets/widget"
     
     if [ -d "$WIDGET_DIR" ]; then
-        # Exclude NotificationActionHandler.swift, CloudKitSyncBridge.swift and CloudKitManager.swift
-        # Widget Extension doesn't handle CloudKit remote notifications and doesn't need CloudKit sync
-        copy_shared_files "$WIDGET_DIR" "Widget" "NotificationActionHandler.swift|CloudKitSyncBridge.swift|CloudKitManager.swift" "${SHARED_FILES[@]}"
+        # Exclude NotificationActionHandler.swift, CloudKitSyncBridge.swift, CloudKitManager.swift, WatchSyncManager.swift, CloudKitManagerBase.swift
+        # Widget Extension doesn't handle CloudKit remote notifications and doesn't need CloudKit sync or WatchConnectivity
+        copy_shared_files "$WIDGET_DIR" "Widget" "NotificationActionHandler.swift|CloudKitSyncBridge.swift|CloudKitManager.swift|WatchSyncManager.swift|CloudKitManagerBase.swift" "${SHARED_FILES[@]}"
         
         print_success "Widget target synced"
     else

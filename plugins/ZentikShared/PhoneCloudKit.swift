@@ -6,6 +6,12 @@ import WatchConnectivity
 
 #if os(iOS)
 
+/// Helper to detect if we're running inside an app extension (NSE, ShareExtension, etc.)
+/// WatchSyncManager is not available in extensions, so we need to skip those calls.
+private let isAppExtension: Bool = {
+    return Bundle.main.bundlePath.hasSuffix(".appex")
+}()
+
 /// iOS-side CloudKit orchestrator.
 ///
 /// Responsibilities (high level):
@@ -349,6 +355,27 @@ public final class PhoneCloudKit {
                         sharedDefaults?.set(createdAt.timeIntervalSince1970, forKey: "lastNSENotificationSentTimestamp")
                         sharedDefaults?.synchronize()
                         success = true
+                        
+                        // Also notify Watch via WatchConnectivity if WC sync is enabled
+                        // Skip in app extensions (NSE) - WatchSyncManager is not available there
+                        if !isAppExtension && WatchSyncManager.shared.isWCSyncEnabled {
+                            var notificationDict: [String: Any] = [
+                                "id": notificationId,
+                                "bucketId": bucketId,
+                                "title": title,
+                                "body": body,
+                                "createdAt": createdAt.timeIntervalSince1970 * 1000,
+                                "attachments": attachments,
+                                "actions": actions
+                            ]
+                            if let subtitle = subtitle {
+                                notificationDict["subtitle"] = subtitle
+                            }
+                            if let readAt = readAt {
+                                notificationDict["readAt"] = readAt.timeIntervalSince1970 * 1000
+                            }
+                            WatchSyncManager.shared.sendNotificationCreated(notificationDict)
+                        }
                     }
                     DispatchQueue.main.async {
                         completion(success, errorOut)
@@ -383,9 +410,11 @@ public final class PhoneCloudKit {
             case .success:
                 // Create records directly with known recordIDs - no fetch needed
                 // CloudKit will merge with existing records when using .changedKeys savePolicy
+                // Include id so zone changes returned to Watch contain it for partial updates
                 let recordsToSave: [CKRecord] = notificationIds.map { notificationId in
                     let recordID = self.notificationRecordID(notificationId)
                     let record = CKRecord(recordType: Defaults.notificationRecordType, recordID: recordID)
+                    record["id"] = notificationId
                     record["readAt"] = readAt
                     return record
                 }
@@ -396,7 +425,21 @@ public final class PhoneCloudKit {
                         self.warnLog("updateNotificationsReadStatusInCloudKit save failed", metadata: ["error": String(describing: error), "notificationIds": "\(notificationIds.count)"])
                         completion(false, error)
                     case .success:
-                        self.infoLog("updateNotificationsReadStatusInCloudKit completed", metadata: ["notificationIds": "\(notificationIds.count)", "readAt": readAt != nil ? "set" : "nil"])
+                        self.infoLog("Record read status updated manually from iOS", metadata: [
+                            "notificationIds": notificationIds.joined(separator: ","),
+                            "count": "\(notificationIds.count)",
+                            "readAt": readAt != nil ? "set" : "nil"
+                        ])
+                        
+                        // Also notify Watch via WatchConnectivity if WC sync is enabled
+                        // Skip in app extensions (NSE) - WatchSyncManager is not available there
+                        if !isAppExtension && WatchSyncManager.shared.isWCSyncEnabled {
+                            WatchSyncManager.shared.sendNotificationsReadStatusUpdated(
+                                notificationIds: notificationIds,
+                                readAt: readAt
+                            )
+                        }
+                        
                         completion(true, nil)
                     }
                 }
@@ -438,6 +481,12 @@ public final class PhoneCloudKit {
             case .failure(let error):
                 completion(false, error)
             case .success:
+                // Also notify Watch via WatchConnectivity if WC sync is enabled
+                // Skip in app extensions (NSE) - WatchSyncManager is not available there
+                if !isAppExtension && WatchSyncManager.shared.isWCSyncEnabled {
+                    WatchSyncManager.shared.sendNotificationDeleted(notificationId: notificationId)
+                }
+                
                 completion(true, nil)
             }
         }
@@ -458,6 +507,12 @@ public final class PhoneCloudKit {
             case .failure(let error):
                 completion(false, 0, error)
             case .success:
+                // Also notify Watch via WatchConnectivity if WC sync is enabled
+                // Skip in app extensions (NSE) - WatchSyncManager is not available there
+                if !isAppExtension && WatchSyncManager.shared.isWCSyncEnabled {
+                    WatchSyncManager.shared.sendNotificationsDeleted(notificationIds: notificationIds)
+                }
+                
                 completion(true, notificationIds.count, nil)
             }
         }
@@ -492,6 +547,22 @@ public final class PhoneCloudKit {
                     case .failure(let error):
                         completion(false, error)
                     case .success:
+                        // Also notify Watch via WatchConnectivity if WC sync is enabled
+                        // Skip in app extensions (NSE) - WatchSyncManager is not available there
+                        if !isAppExtension && WatchSyncManager.shared.isWCSyncEnabled {
+                            var bucketDict: [String: Any] = [
+                                "id": bucketId,
+                                "name": name
+                            ]
+                            if let color = color {
+                                bucketDict["color"] = color
+                            }
+                            if let iconUrl = iconUrl {
+                                bucketDict["iconUrl"] = iconUrl
+                            }
+                            WatchSyncManager.shared.sendBucketUpdated(bucketDict)
+                        }
+                        
                         completion(true, nil)
                     }
                 }

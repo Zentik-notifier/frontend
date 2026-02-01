@@ -121,19 +121,26 @@ FirebaseApp.configure()
     LoggingSystem.shared.log(
       level: "INFO",
       tag: "AppDelegate",
-      message: "Darwin notification received (NSE saved notification), forwarding to CloudKit retry",
+      message: "Darwin notification received (NSE saved notification)",
       metadata: [:],
       source: "AppDelegate"
     )
     DispatchQueue.main.async { [weak self] in
-      guard PhoneCloudKit.shared.isCloudKitEnabled else { return }
-      PhoneCloudKit.shared.retryNSENotificationsToCloudKit { count, error in
-        if let error = error {
-          print("☁️ [AppDelegate] NSE→CK retry failed: \(error.localizedDescription)")
-        } else if count > 0 {
-          print("☁️ [AppDelegate] NSE→CK retry pushed \(count) notification(s)")
+      // If WC sync is enabled, the NSE already sent via WC directly
+      // We still retry CloudKit if enabled (dual mode)
+      if PhoneCloudKit.shared.isCloudKitEnabled {
+        PhoneCloudKit.shared.retryNSENotificationsToCloudKit { count, error in
+          if let error = error {
+            print("☁️ [AppDelegate] NSE→CK retry failed: \(error.localizedDescription)")
+          } else if count > 0 {
+            print("☁️ [AppDelegate] NSE→CK retry pushed \(count) notification(s)")
+          }
         }
       }
+      
+      // Also notify React Native that a notification was saved
+      // This allows the UI to refresh
+      CloudKitSyncBridge.notifyNotificationUpdated("nse_batch")
     }
   }
 #endif
@@ -229,8 +236,26 @@ FirebaseApp.configure()
       handleWatchLogs(message: message, replyHandler: replyHandler)
       return
     }
+    
+    // Handle WC sync messages from Watch
+    if type.hasPrefix("wc_watch_") || type.hasPrefix("wc_request_") {
+      WatchSyncManager.shared.handleWatchMessage(message, replyHandler: replyHandler)
+      return
+    }
 
     replyHandler(["success": false, "error": "Unknown message type"])
+  }
+  
+  /// Handle transferUserInfo messages from Watch (queued delivery)
+  public func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
+    guard let type = userInfo["type"] as? String else { return }
+    
+    // Handle WC sync messages from Watch (queued)
+    if type.hasPrefix("wc_watch_") || type.hasPrefix("wc_request_") {
+      WatchSyncManager.shared.handleWatchMessage(userInfo) { _ in
+        // No reply needed for transferUserInfo
+      }
+    }
   }
 
 
@@ -733,10 +758,8 @@ FirebaseApp.configure()
               }
             }
             
-            // Notify in batch
-            for id in notificationIds {
-              CloudKitSyncBridge.notifyNotificationUpdated(id)
-            }
+            // Notify in batch (single event per type)
+            CloudKitSyncBridge.notifyNotificationsUpdatedBatch(notificationIds)
             for id in bucketIds {
               CloudKitSyncBridge.notifyBucketUpdated(id)
             }

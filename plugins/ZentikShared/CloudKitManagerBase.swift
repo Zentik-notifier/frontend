@@ -1,11 +1,11 @@
 import Foundation
 import CloudKit
 
-/// Core CloudKit primitives shared by iOS / watchOS / NSE / NCE.
+/// Core CloudKit primitives shared by iOS / NSE / NCE.
 ///
 /// Notes
 /// - This is intentionally "low level": zone/token/subscriptions + chunked modify operations.
-/// - Higher-level orchestration (full sync, applying DB patches, etc.) lives in PhoneCloudKit / WatchCloudKit.
+/// - Higher-level orchestration (full sync, applying DB patches, etc.) lives in PhoneCloudKit.
 public final class CloudKitManagerBase: NSObject {
 
     public struct Configuration {

@@ -2013,6 +2013,20 @@ class NotificationService: UNNotificationServiceExtension {
           nil,
           true
         )
+        
+        // Send to Watch via WatchConnectivity if WC sync is enabled
+        // This works in NSE if the session was already activated by the main app
+        self?.sendNotificationToWatchViaWC(
+          notificationId: notificationId,
+          bucketId: bucketId,
+          title: content.title,
+          body: content.body,
+          subtitle: content.subtitle.isEmpty ? nil : content.subtitle,
+          createdAt: Date(),
+          attachments: attachments,
+          actions: messageObj["actions"] as? [[String: Any]] ?? []
+        )
+        
         // Run continuation off dbQueue to avoid deadlock: _handleChatMessage calls getBucketById (via applySingleTextFieldTitleBodyBucketFallback) which blocks on dbQueue; if we run whenDone on dbQueue we'd wait ~10s for semaphore timeout.
         DispatchQueue.global(qos: .userInitiated).async { whenDone?() }
         self?.saveNotificationToCloudKit(
@@ -2174,5 +2188,167 @@ class NotificationService: UNNotificationServiceExtension {
       options: []
     )
     UNUserNotificationCenter.current().setNotificationCategories([category])
+  }
+  
+  // MARK: - WatchConnectivity Sync (from NSE)
+  
+  /// Key for WC sync enabled setting (must match WatchSyncManager)
+  private static let wcSyncEnabledKey = "wc_sync_enabled"
+  
+  /// Check if WC sync is enabled (reads from app group UserDefaults)
+  private var isWCSyncEnabled: Bool {
+    let appGroupId = resolveAppGroupIdentifier()
+    if let sharedDefaults = UserDefaults(suiteName: appGroupId) {
+      return sharedDefaults.bool(forKey: NotificationService.wcSyncEnabledKey)
+    }
+    return false
+  }
+  
+  /// Send notification to Watch via WatchConnectivity
+  /// Uses transferUserInfo which works in extensions if the session was already activated by the main app
+  private func sendNotificationToWatchViaWC(
+    notificationId: String,
+    bucketId: String,
+    title: String,
+    body: String,
+    subtitle: String?,
+    createdAt: Date,
+    attachments: [[String: Any]],
+    actions: [[String: Any]]
+  ) {
+    guard isWCSyncEnabled else {
+      return
+    }
+    
+    guard WCSession.isSupported() else {
+      print("📱 [NotificationService] ⚠️ WCSession not supported")
+      return
+    }
+    
+    let session = WCSession.default
+    
+    // Check if session is activated and Watch is paired
+    // Note: In extensions, we cannot activate the session ourselves
+    // It must have been activated by the main app
+    guard session.activationState == .activated else {
+      print("📱 [NotificationService] ⚠️ WCSession not activated (main app must activate first)")
+      return
+    }
+    
+    guard session.isPaired else {
+      print("📱 [NotificationService] ⚠️ Watch not paired")
+      return
+    }
+    
+    // Format date
+    let dateFormatter = ISO8601DateFormatter()
+    dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    
+    // Build notification data
+    var notificationData: [String: Any] = [
+      "id": notificationId,
+      "bucketId": bucketId,
+      "title": title,
+      "body": body,
+      "createdAt": dateFormatter.string(from: createdAt),
+      "isRead": false
+    ]
+    
+    if let subtitle = subtitle {
+      notificationData["subtitle"] = subtitle
+    }
+    
+    // Serialize attachments
+    let attachmentsData: [[String: Any]] = attachments.compactMap { attachment in
+      var dict: [String: Any] = [:]
+      if let mediaType = attachment["mediaType"] as? String {
+        dict["mediaType"] = mediaType
+      }
+      if let url = attachment["url"] as? String {
+        dict["url"] = url
+      }
+      if let name = attachment["name"] as? String {
+        dict["name"] = name
+      }
+      return dict.isEmpty ? nil : dict
+    }
+    notificationData["attachments"] = attachmentsData
+    
+    // Serialize actions
+    let actionsData: [[String: Any]] = actions.compactMap { action in
+      var dict: [String: Any] = [:]
+      if let type = action["type"] as? String {
+        dict["type"] = type.uppercased()
+      } else if let t = action["t"] as? Int {
+        dict["type"] = NotificationActionType.stringFrom(int: t) ?? "CUSTOM"
+      }
+      if let label = action["title"] as? String {
+        dict["label"] = label
+      }
+      if let value = action["value"] as? String ?? action["v"] as? String {
+        dict["value"] = value
+      }
+      if let id = action["id"] as? String {
+        dict["id"] = id
+      }
+      if let url = action["url"] as? String {
+        dict["url"] = url
+      }
+      if let bucketId = action["bucketId"] as? String {
+        dict["bucketId"] = bucketId
+      }
+      if let minutes = action["minutes"] as? Int {
+        dict["minutes"] = minutes
+      }
+      return dict.isEmpty ? nil : dict
+    }
+    notificationData["actions"] = actionsData
+    
+    // Build WC message
+    let message: [String: Any] = [
+      "type": "wc_notification_created",
+      "notification": notificationData,
+      "timestamp": Date().timeIntervalSince1970,
+      "source": "NSE"
+    ]
+    
+    // Use transferUserInfo for reliable FIFO delivery
+    // This works in extensions and queues the message for delivery
+    session.transferUserInfo(message)
+    
+    // Update WC sync cursor - transferUserInfo guarantees FIFO delivery
+    // so we can update cursor immediately after queueing
+    let appGroupId = resolveAppGroupIdentifier()
+    if let sharedDefaults = UserDefaults(suiteName: appGroupId) {
+      sharedDefaults.set(notificationId, forKey: "lastNSENotificationSentToWC")
+      sharedDefaults.set(createdAt.timeIntervalSince1970, forKey: "lastNSENotificationSentToWCTimestamp")
+    }
+    
+    print("📱 [NotificationService] 📲 Notification queued for Watch via WC: \(notificationId)")
+    
+    logToDatabase(
+      level: "info",
+      tag: "WCSync",
+      message: "Notification sent to Watch via WC",
+      metadata: [
+        "notificationId": notificationId,
+        "method": "transferUserInfo"
+      ]
+    )
+  }
+  
+  /// Resolve app group identifier for shared UserDefaults
+  private func resolveAppGroupIdentifier() -> String {
+    var bundleId = Bundle.main.bundleIdentifier ?? "com.unknown"
+    
+    // Strip common suffixes
+    let suffixes = [".dev", ".watchkitapp", ".watchkitapp.watchkitextension", ".ShareExtension", ".ZentikNotificationService", ".ZentikNotificationContent"]
+    for suffix in suffixes {
+      if bundleId.hasSuffix(suffix) {
+        bundleId = String(bundleId.dropLast(suffix.count))
+      }
+    }
+    
+    return "group.\(bundleId)"
   }
 }

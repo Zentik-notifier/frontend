@@ -1,7 +1,6 @@
 import SwiftUI
 import ImageIO
 import WatchKit
-import CloudKit
 
 // MARK: - Watch Settings Manager
 
@@ -198,19 +197,12 @@ struct ContentView: View {
     
     /**
      * Check if last refresh was more than 30 minutes ago and auto-refresh if needed
-     * Uses incremental sync only - full sync is only done during initialization or manual refresh
+     * Requests data refresh from iPhone via WatchConnectivity
      */
     private func checkAndRefreshIfNeeded() {
         guard let lastUpdate = connectivityManager.lastUpdate else {
-            // No previous update - check if initial sync has been completed
-            // If not, let initialization handle it. Otherwise, do incremental sync
-            let initialSyncCompleted = UserDefaults.standard.bool(forKey: CloudKitManagerBase.cloudKitInitialSyncCompletedKey)
-            if initialSyncCompleted {
-                print("⌚ [ContentView] 🔄 No previous update found but initial sync completed - triggering incremental sync")
-                connectivityManager.syncFromCloudKitIncremental()
-            } else {
-                print("⌚ [ContentView] ⏳ No previous update found and initial sync not completed - waiting for initialization")
-            }
+            print("⌚ [ContentView] 🔄 No previous update found - requesting refresh from iPhone")
+            connectivityManager.requestFullSync()
             return
         }
         
@@ -218,12 +210,12 @@ struct ContentView: View {
         
         if lastUpdate < thirtyMinutesAgo {
             let minutesAgo = Int(-lastUpdate.timeIntervalSinceNow / 60)
-            print("⌚ [ContentView] 🔄 Last update was \(minutesAgo) minutes ago - triggering incremental sync")
+            print("⌚ [ContentView] 🔄 Last update was \(minutesAgo) minutes ago - requesting refresh from iPhone")
             
             LoggingSystem.shared.log(
                 level: "INFO",
                 tag: "autoRefresh",
-                message: "Auto-refresh triggered: Last update exceeded 30 minutes threshold - using incremental sync",
+                message: "Auto-refresh triggered: Last update exceeded 30 minutes threshold",
                 metadata: [
                     "minutesAgo": "\(minutesAgo)",
                     "lastUpdate": ISO8601DateFormatter().string(from: lastUpdate)
@@ -231,8 +223,8 @@ struct ContentView: View {
                 source: "Watch"
             )
             
-            // Use incremental sync instead of full sync
-            connectivityManager.syncFromCloudKitIncremental()
+            // Request fresh data from iPhone
+            connectivityManager.requestFullSync()
         } else {
             let minutesAgo = Int(-lastUpdate.timeIntervalSinceNow / 60)
             print("⌚ [ContentView] ✅ Last update was \(minutesAgo) minutes ago - using cached data")
@@ -1179,7 +1171,7 @@ struct NotificationDetailView: View {
         
         print("⌚ [NotificationDetailView] 🎬 Executing action: \(action.type) - \(action.label) for notification \(notificationData.notification.id)")
         
-        // Execute on watch (best-effort REST/CloudKit where applicable)
+        // Execute on watch (best-effort REST where applicable)
         connectivityManager.executeNotificationAction(
             notificationId: notificationData.notification.id,
             action: action
@@ -1655,61 +1647,13 @@ struct AnimatedImageView: View {
 
 struct SettingsView: View {
     @StateObject private var connectivityManager = WatchConnectivityManager.shared
-    @State private var cloudKitEnabled: Bool = WatchCloudKit.shared.isCloudKitEnabled
-    @State private var cloudKitDebugEnabled: Bool = CloudKitManagerBase.isCloudKitDebugEnabled()
     @State private var maxNotificationsLimit: Int = WatchSettingsManager.shared.maxNotificationsLimit
     @State private var watchToken: String? = UserDefaults.standard.string(forKey: "watch_access_token")
     @State private var serverAddress: String? = UserDefaults.standard.string(forKey: "watch_server_address")
     
     var body: some View {
         List {
-            Section(header: Text("CloudKit")) {
-                HStack(spacing: 10) {
-                    Image(systemName: "icloud.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.blue)
-                        .frame(width: 32, height: 32)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("CloudKit Sync")
-                            .font(.headline)
-                        Text(cloudKitEnabled ? "Enabled" : "Disabled")
-                            .font(.caption)
-                            .foregroundColor(cloudKitEnabled ? .green : .red)
-                    }
-                    
-                    Spacer()
-                    
-                    Toggle("", isOn: $cloudKitEnabled)
-                        .labelsHidden()
-                }
-                .onChange(of: cloudKitEnabled) { oldValue, newValue in
-                    CloudKitManagerBase.setCloudKitEnabled(newValue)
-                }
-
-                HStack(spacing: 10) {
-                    Image(systemName: "ladybug.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.orange)
-                        .frame(width: 32, height: 32)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Debug logs")
-                            .font(.headline)
-                        Text(cloudKitDebugEnabled ? "Enabled" : "Disabled")
-                            .font(.caption)
-                            .foregroundColor(cloudKitDebugEnabled ? .green : .secondary)
-                    }
-
-                    Spacer()
-
-                    Toggle("", isOn: $cloudKitDebugEnabled)
-                        .labelsHidden()
-                }
-                .onChange(of: cloudKitDebugEnabled) { _, newValue in
-                    CloudKitManagerBase.setCloudKitDebugEnabled(newValue)
-                }
-                
+            Section(header: Text("Sync")) {
                 Button(action: {
                     connectivityManager.requestFullSync()
                 }) {
@@ -1726,57 +1670,12 @@ struct SettingsView: View {
                             }
                         }
                         
-                        // Show progress text or "Full Sync" based on sync state
                         if connectivityManager.isFullSyncing {
-                            let step = connectivityManager.syncProgressStep
-                            let phase = connectivityManager.syncProgressPhase
-                            let itemType = connectivityManager.syncProgressItemType
-                            let current = connectivityManager.syncProgressCurrentItem
-                            let total = connectivityManager.syncProgressTotalItems
-                            
-                            // Show appropriate message based on step and phase
-                            Group {
-                                if step == "full_sync" {
-                                    if phase == "starting" {
-                                        Text("Starting sync...")
-                                    } else if phase == "completed" {
-                                        Text("Sync completed")
-                                    } else if phase == "failed" {
-                                        Text("Sync failed")
-                                            .foregroundColor(.red)
-                                    } else {
-                                        Text("Syncing...")
-                                    }
-                                } else if step == "sync_buckets" {
-                                    if phase == "found" {
-                                        Text("\(total) buckets found")
-                                    } else {
-                                        Text("Syncing buckets...")
-                                    }
-                                } else if step == "sync_notifications" {
-                                    if phase == "found" {
-                                        Text("\(total) notifications found")
-                                    } else {
-                                        Text("Syncing notifications...")
-                                    }
-                                } else if step == "apply_data" {
-                                    if total > 0 {
-                                        Text("Applying \(current)/\(total)")
-                                    } else {
-                                        Text("Applying data...")
-                                    }
-                                } else if step == "restart_subscriptions" {
-                                    Text("Restarting subscriptions...")
-                                } else if step == "update_server_token" {
-                                    Text("Updating token...")
-                                } else {
-                                    Text("Syncing...")
-                                }
-                            }
-                            .font(.headline)
-                            .foregroundColor(.primary)
+                            Text("Syncing...")
+                                .font(.headline)
+                                .foregroundColor(.primary)
                         } else {
-                            Text("Full Sync")
+                            Text("Sync from iPhone")
                                 .font(.headline)
                                 .foregroundColor(.primary)
                         }
@@ -1784,7 +1683,7 @@ struct SettingsView: View {
                         Spacer()
                     }
                 }
-                .disabled(!cloudKitEnabled || connectivityManager.isFullSyncing || connectivityManager.isSyncing)
+                .disabled(connectivityManager.isFullSyncing || connectivityManager.isSyncing)
             }
             
             Section(header: Text("Watch Token")) {
@@ -1835,7 +1734,7 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
-                        Text("2. Go to Settings > App Settings > CloudKit")
+                        Text("2. Go to Settings > App Settings > Watch")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
@@ -1881,7 +1780,6 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            cloudKitEnabled = WatchCloudKit.shared.isCloudKitEnabled
             maxNotificationsLimit = WatchSettingsManager.shared.maxNotificationsLimit
             // Refresh token and address on appear
             watchToken = UserDefaults.standard.string(forKey: "watch_access_token")

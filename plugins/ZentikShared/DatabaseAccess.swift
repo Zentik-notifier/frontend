@@ -904,6 +904,181 @@ public class DatabaseAccess {
         }
     }
     
+    /// Notification stats structure for WatchSyncManager
+    public struct NotificationStats {
+        public let unreadCount: Int
+        public let totalCount: Int
+    }
+    
+    /// Get notification stats (unread and total counts) in a single query
+    /// - Parameters:
+    ///   - source: Source identifier for logging (default: "DatabaseAccess")
+    ///   - completion: Completion handler with stats
+    public static func getNotificationStats(
+        source: String = "DatabaseAccess",
+        completion: @escaping (NotificationStats) -> Void
+    ) {
+        var unreadCount = 0
+        var totalCount = 0
+        
+        performDatabaseOperation(
+            type: .read,
+            name: "GetNotificationStats",
+            source: source,
+            verboseLogging: false,
+            operation: { db, _ in
+                // Get total count
+                let totalSql = "SELECT COUNT(*) FROM notifications"
+                var totalStmt: OpaquePointer?
+                
+                guard sqlite3_prepare_v2(db, totalSql, -1, &totalStmt, nil) == SQLITE_OK else {
+                    return .failure("Failed to prepare total count statement")
+                }
+                
+                if sqlite3_step(totalStmt) == SQLITE_ROW {
+                    totalCount = Int(sqlite3_column_int(totalStmt, 0))
+                }
+                sqlite3_finalize(totalStmt)
+                
+                // Get unread count
+                let unreadSql = "SELECT COUNT(*) FROM notifications WHERE read_at IS NULL"
+                var unreadStmt: OpaquePointer?
+                
+                guard sqlite3_prepare_v2(db, unreadSql, -1, &unreadStmt, nil) == SQLITE_OK else {
+                    return .failure("Failed to prepare unread count statement")
+                }
+                
+                if sqlite3_step(unreadStmt) == SQLITE_ROW {
+                    unreadCount = Int(sqlite3_column_int(unreadStmt, 0))
+                }
+                sqlite3_finalize(unreadStmt)
+                
+                return .success
+            }
+        ) { (dbResult: DatabaseOperationResult) in
+            let stats = NotificationStats(unreadCount: unreadCount, totalCount: totalCount)
+            completion(stats)
+        }
+    }
+    
+    /// Get a single notification by ID
+    /// - Parameters:
+    ///   - id: The notification ID
+    ///   - source: Source identifier for logging (default: "DatabaseAccess")
+    ///   - completion: Completion handler with notification (nil if not found)
+    public static func getNotification(
+        id: String,
+        source: String = "DatabaseAccess",
+        completion: @escaping (WidgetNotification?) -> Void
+    ) {
+        var notification: WidgetNotification?
+        
+        performDatabaseOperation(
+            type: .read,
+            name: "GetNotification",
+            source: source,
+            verboseLogging: false,
+            operation: { db, _ in
+                let sql = """
+                    SELECT id, bucket_id, title, body, subtitle, created_at, read_at, attachments, actions
+                    FROM notifications
+                    WHERE id = ?
+                    LIMIT 1
+                """
+                var stmt: OpaquePointer?
+                
+                guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                    return .failure("Failed to prepare statement")
+                }
+                
+                defer { sqlite3_finalize(stmt) }
+                
+                sqlite3_bind_text(stmt, 1, (id as NSString).utf8String, -1, nil)
+                
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    let notifId = String(cString: sqlite3_column_text(stmt, 0))
+                    let bucketId = String(cString: sqlite3_column_text(stmt, 1))
+                    let title = String(cString: sqlite3_column_text(stmt, 2))
+                    let body = String(cString: sqlite3_column_text(stmt, 3))
+                    
+                    var subtitle: String?
+                    if sqlite3_column_type(stmt, 4) != SQLITE_NULL {
+                        subtitle = String(cString: sqlite3_column_text(stmt, 4))
+                    }
+                    
+                    let createdAtMs = sqlite3_column_int64(stmt, 5)
+                    
+                    var readAt: String?
+                    var isRead = false
+                    if sqlite3_column_type(stmt, 6) != SQLITE_NULL {
+                        let readAtMs = sqlite3_column_int64(stmt, 6)
+                        readAt = String(readAtMs)
+                        isRead = true
+                    }
+                    
+                    var attachments: [WidgetAttachment] = []
+                    if sqlite3_column_type(stmt, 7) != SQLITE_NULL,
+                       let attachmentsJson = sqlite3_column_text(stmt, 7) {
+                        let attachmentsStr = String(cString: attachmentsJson)
+                        if let data = attachmentsStr.data(using: .utf8),
+                           let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                            attachments = arr.compactMap { dict -> WidgetAttachment? in
+                                guard let mediaType = dict["mediaType"] as? String ?? dict["type"] as? String else { return nil }
+                                let url = dict["url"] as? String
+                                let name = dict["name"] as? String
+                                return WidgetAttachment(mediaType: mediaType, url: url, name: name)
+                            }
+                        }
+                    }
+                    
+                    var actions: [NotificationAction] = []
+                    if sqlite3_column_type(stmt, 8) != SQLITE_NULL,
+                       let actionsJson = sqlite3_column_text(stmt, 8) {
+                        let actionsStr = String(cString: actionsJson)
+                        if let data = actionsStr.data(using: .utf8),
+                           let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                            actions = arr.compactMap { dict -> NotificationAction? in
+                                guard let type = dict["type"] as? String,
+                                      let label = dict["label"] as? String else { return nil }
+                                return NotificationAction(
+                                    type: type,
+                                    label: label,
+                                    value: dict["value"] as? String,
+                                    id: dict["id"] as? String,
+                                    url: dict["url"] as? String,
+                                    bucketId: dict["bucketId"] as? String,
+                                    minutes: dict["minutes"] as? Int
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Convert createdAtMs to ISO8601 string
+                    let createdAtDate = Date(timeIntervalSince1970: Double(createdAtMs) / 1000.0)
+                    let dateFormatter = ISO8601DateFormatter()
+                    dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    let createdAtStr = dateFormatter.string(from: createdAtDate)
+                    
+                    notification = WidgetNotification(
+                        id: notifId,
+                        title: title,
+                        body: body,
+                        subtitle: subtitle,
+                        createdAt: createdAtStr,
+                        isRead: isRead,
+                        bucketId: bucketId,
+                        attachments: attachments,
+                        actions: actions
+                    )
+                }
+                
+                return .success
+            }
+        ) { (dbResult: DatabaseOperationResult) in
+            completion(notification)
+        }
+    }
+    
     /// Check if notification exists in database
     /// - Parameters:
     ///   - notificationId: The notification ID to check

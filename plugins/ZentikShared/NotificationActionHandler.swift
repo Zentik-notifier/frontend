@@ -1,6 +1,5 @@
 import Foundation
 import UserNotifications
-import CloudKit
 
 /**
  * NotificationActionHandler - Shared notification action handling
@@ -131,67 +130,7 @@ public class NotificationActionHandler {
         }
     }
 
-    private static func updateReadStatusInCloudKit_watch(notificationId: String, readAt: Date?) async -> StepResult {
-        await withCheckedContinuation { continuation in
-            WatchCloudKit.shared.updateNotificationsReadStatusInCloudKit(
-                notificationIds: [notificationId],
-                readAt: readAt
-            ) { success, _, error in
-                if success {
-                    continuation.resume(returning: StepResult(name: "cloudkit", success: true))
-                } else {
-                    continuation.resume(returning: StepResult(name: "cloudkit", success: false, errorDescription: error?.localizedDescription ?? "Unknown error"))
-                }
-            }
-        }
-    }
-
-    private static func deleteFromCloudKit_watch(notificationId: String) async -> StepResult {
-        await withCheckedContinuation { continuation in
-            WatchCloudKit.shared.deleteNotificationFromCloudKit(notificationId: notificationId) { success, error in
-                if success {
-                    continuation.resume(returning: StepResult(name: "cloudkit", success: true))
-                } else {
-                    continuation.resume(returning: StepResult(name: "cloudkit", success: false, errorDescription: error?.localizedDescription ?? "Unknown error"))
-                }
-            }
-        }
-    }
-
-    private static func deleteFromCloudKitBatch_watch(notificationIds: [String]) async -> StepResult {
-        guard !notificationIds.isEmpty else {
-            return StepResult(name: "cloudkit", success: true)
-        }
-        return await withCheckedContinuation { continuation in
-            WatchCloudKit.shared.deleteNotificationsFromCloudKit(notificationIds: notificationIds) { success, _, error in
-                if success {
-                    continuation.resume(returning: StepResult(name: "cloudkit", success: true))
-                } else {
-                    continuation.resume(returning: StepResult(name: "cloudkit", success: false, errorDescription: error?.localizedDescription ?? "Unknown error"))
-                }
-            }
-        }
-    }
-
-    private static func updateReadStatusInCloudKitBatch_watch(notificationIds: [String], readAt: Date?) async -> StepResult {
-        guard !notificationIds.isEmpty else {
-            return StepResult(name: "cloudkit", success: true)
-        }
-        return await withCheckedContinuation { continuation in
-            WatchCloudKit.shared.updateNotificationsReadStatusInCloudKit(
-                notificationIds: notificationIds,
-                readAt: readAt
-            ) { success, _, error in
-                if success {
-                    continuation.resume(returning: StepResult(name: "cloudkit", success: true))
-                } else {
-                    continuation.resume(returning: StepResult(name: "cloudkit", success: false, errorDescription: error?.localizedDescription ?? "Unknown error"))
-                }
-            }
-        }
-    }
-
-    /// Watch-only: execute remote side-effects (REST + CloudKit) best-effort.
+    /// Watch-only: execute remote side-effects (REST) best-effort.
     /// This intentionally does not touch SQLite badge counts or local DB state.
     public static func executeWatchRemoteUpdates(
         actionType: String,
@@ -203,38 +142,33 @@ public class NotificationActionHandler {
 
         switch type {
         case "MARK_AS_READ":
-            async let rest = asyncResult("rest") {
+            let rest = await asyncResult("rest") {
                 try await performWatchApiRequest(path: "/notifications/watch/\(notificationId)/read", method: "PATCH")
             }
-            async let ck = updateReadStatusInCloudKit_watch(notificationId: notificationId, readAt: Date())
-            return [await rest, await ck]
+            return [rest]
 
         case "MARK_AS_UNREAD":
-            async let rest = asyncResult("rest") {
+            let rest = await asyncResult("rest") {
                 try await performWatchApiRequest(path: "/notifications/watch/\(notificationId)/unread", method: "PATCH")
             }
-            async let ck = updateReadStatusInCloudKit_watch(notificationId: notificationId, readAt: nil)
-            return [await rest, await ck]
+            return [rest]
 
         case "DELETE":
-            async let rest = asyncResult("rest") {
+            let rest = await asyncResult("rest") {
                 try await performWatchApiRequest(path: "/notifications/watch/\(notificationId)", method: "DELETE")
             }
-            async let ck = deleteFromCloudKit_watch(notificationId: notificationId)
-            return [await rest, await ck]
+            return [rest]
 
         case "POSTPONE":
             let mins = minutes ?? 0
-            async let rest = asyncResult("rest") {
+            let rest = await asyncResult("rest") {
                 try await performWatchApiRequest(
                     path: "/notifications/watch/postpone",
                     method: "POST",
                     jsonBody: ["notificationId": notificationId, "minutes": mins]
                 )
             }
-            // IMPORTANT: postpone should NOT behave like delete.
-            // CloudKit doesn't currently model postpone metadata, so we only apply REST.
-            return [await rest]
+            return [rest]
 
         case "SNOOZE":
             guard let bucketId, let mins = minutes else {
@@ -258,7 +192,7 @@ public class NotificationActionHandler {
         }
     }
 
-    /// Watch-only: execute remote side-effects (REST + CloudKit) in batch for multiple notifications.
+    /// Watch-only: execute remote side-effects (REST) in batch for multiple notifications.
     /// This intentionally does not touch SQLite badge counts or local DB state.
     public static func executeWatchRemoteUpdatesBatch(
         actionType: String,
@@ -272,37 +206,34 @@ public class NotificationActionHandler {
 
         switch type {
         case "MARK_AS_READ":
-            async let rest = asyncResult("rest") {
+            let rest = await asyncResult("rest") {
                 try await performWatchApiRequest(
                     path: "/notifications/watch/batch/read",
                     method: "PATCH",
                     jsonBody: ["ids": notificationIds]
                 )
             }
-            async let ck = updateReadStatusInCloudKitBatch_watch(notificationIds: notificationIds, readAt: Date())
-            return [await rest, await ck]
+            return [rest]
 
         case "MARK_AS_UNREAD":
-            async let rest = asyncResult("rest") {
+            let rest = await asyncResult("rest") {
                 try await performWatchApiRequest(
                     path: "/notifications/watch/batch/unread",
                     method: "PATCH",
                     jsonBody: ["ids": notificationIds]
                 )
             }
-            async let ck = updateReadStatusInCloudKitBatch_watch(notificationIds: notificationIds, readAt: nil)
-            return [await rest, await ck]
+            return [rest]
 
         case "DELETE":
-            async let rest = asyncResult("rest") {
+            let rest = await asyncResult("rest") {
                 try await performWatchApiRequest(
                     path: "/notifications/watch/batch",
                     method: "DELETE",
                     jsonBody: ["ids": notificationIds]
                 )
             }
-            async let ck = deleteFromCloudKitBatch_watch(notificationIds: notificationIds)
-            return [await rest, await ck]
+            return [rest]
 
         default:
             return [StepResult(name: "noop", success: false, errorDescription: "Unsupported batch action type: \(type)")]
