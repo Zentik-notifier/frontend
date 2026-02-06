@@ -269,10 +269,8 @@ export class MediaCacheRepository {
         throw e;
       }
     } else {
-      // SQLite
       const sqliteDb = this.getSQLiteDb();
-      await sqliteDb.execAsync('BEGIN');
-      try {
+      await sqliteDb.withTransactionAsync(async () => {
         for (const item of items) {
           await sqliteDb.runAsync(
             `INSERT INTO cache_item (
@@ -318,11 +316,7 @@ export class MediaCacheRepository {
             ],
           );
         }
-        await sqliteDb.execAsync('COMMIT');
-      } catch (e) {
-        await sqliteDb.execAsync('ROLLBACK');
-        throw e;
-      }
+      });
     }
   }
 
