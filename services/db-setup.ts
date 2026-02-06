@@ -181,14 +181,7 @@ function createBridgeCacheDbAdapter(bridge: IosBridge): ISharedCacheDb {
     },
     closeAsync: async () => {},
     async withTransactionAsync(fn: () => Promise<void>): Promise<void> {
-      await adapter.execAsync('BEGIN TRANSACTION');
-      try {
-        await fn();
-        await adapter.execAsync('COMMIT');
-      } catch (e) {
-        await adapter.execAsync('ROLLBACK');
-        throw e;
-      }
+      await fn();
     },
   };
   return adapter;
