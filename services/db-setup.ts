@@ -150,6 +150,7 @@ let dbInstance: ISharedCacheDb | null = null;
 let isClosing = false; // Flag to prevent operations during database close
 
 let iosBridgeDbPromise: Promise<ISharedCacheDb> | null = null;
+let openSharedCacheDbErrorReported = false;
 
 type IosBridge = {
   dbExecuteQuery: (sql: string, params?: any[]) => Promise<any[]>;
@@ -435,24 +436,20 @@ export async function openSharedCacheDb(): Promise<ISharedCacheDb> {
       try {
         const iosBridge = (await import('./ios-bridge')).default;
         await iosBridge.dbEnsureCacheDbInitialized();
+        openSharedCacheDbErrorReported = false;
         return createBridgeCacheDbAdapter(iosBridge);
       } catch (error: any) {
         iosBridgeDbPromise = null;
         const errorMessage = error?.message || String(error);
         const errorCode = error?.code;
         console.error('[openSharedCacheDb] Failed to initialize shared cache database:', errorMessage, errorCode);
-        Alert.alert(
-          'Database init failed',
-          `${errorMessage}${errorCode != null ? ` (code: ${errorCode})` : ''}`,
-          [{ text: 'OK' }]
-        );
-        const isCorruptionError =
-          errorCode === 11 ||
-          errorCode === 'ERR_INTERNAL_SQLITE_ERROR' ||
-          errorMessage.includes('database disk image is malformed') ||
-          errorMessage.includes('malformed') ||
-          errorMessage.includes('corruption');
-        if (isCorruptionError) {
+        if (!openSharedCacheDbErrorReported) {
+          openSharedCacheDbErrorReported = true;
+          Alert.alert(
+            'Database init failed',
+            `${errorMessage}${errorCode != null ? ` (code: ${errorCode})` : ''}`,
+            [{ text: 'OK' }]
+          );
           databaseRecoveryService.notifyCorruption({
             errorMessage,
             errorCode,
