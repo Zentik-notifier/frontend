@@ -6,6 +6,7 @@ export interface ISharedCacheDb {
   runAsync(sql: string, params?: any[]): Promise<{ changes: number }>;
   execAsync(sql: string): Promise<void>;
   closeAsync(): Promise<void>;
+  withTransactionAsync(fn: () => Promise<void>): Promise<void>;
 }
 import { Alert, Platform } from 'react-native';
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
@@ -158,7 +159,7 @@ type IosBridge = {
 };
 
 function createBridgeCacheDbAdapter(bridge: IosBridge): ISharedCacheDb {
-  return {
+  const adapter: ISharedCacheDb = {
     getFirstAsync: async <T = any>(sql: string, params?: any[]): Promise<T | undefined> => {
       const rows = await bridge.dbExecuteQuery(sql, params ?? []);
       return (rows[0] as T) ?? undefined;
@@ -179,7 +180,18 @@ function createBridgeCacheDbAdapter(bridge: IosBridge): ISharedCacheDb {
       }
     },
     closeAsync: async () => {},
+    async withTransactionAsync(fn: () => Promise<void>): Promise<void> {
+      await adapter.execAsync('BEGIN TRANSACTION');
+      try {
+        await fn();
+        await adapter.execAsync('COMMIT');
+      } catch (e) {
+        await adapter.execAsync('ROLLBACK');
+        throw e;
+      }
+    },
   };
+  return adapter;
 }
 
 // Prevent concurrent database operations
@@ -419,6 +431,7 @@ const androidNoOpCacheDb: ISharedCacheDb = {
   runAsync: async () => ({ changes: 0 }),
   execAsync: async () => {},
   closeAsync: async () => {},
+  withTransactionAsync: async (fn) => fn(),
 };
 
 export async function openSharedCacheDb(): Promise<ISharedCacheDb> {
