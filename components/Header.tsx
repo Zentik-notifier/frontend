@@ -190,7 +190,7 @@ export default function Header() {
   const { itemsInQueue } = useDownloadQueue();
   const { t } = useI18n();
   const { settings } = useSettings();
-  const { navigateToHome, navigateBack, navigateToAppSettings } =
+  const { navigateToHome, navigateBack, navigateToSettings } =
     useNavigationUtils();
   const segments = useSegments() as string[];
   const insets = useSafeAreaInsets();
@@ -523,7 +523,7 @@ export default function Header() {
                   {/* Theme Toggle Button */}
                   <ThemeSwitcher variant="button" />
 
-                  {/* Settings Button */}
+                  {/* Settings Button - opens usual settings page (filtered to app/cache/logs when not logged in) */}
                   {isPublic && (
                     <Surface style={styles.unauthButtonWrapper} elevation={2}>
                       <TouchableRipple
@@ -534,7 +534,7 @@ export default function Header() {
                             borderColor: theme.colors.outline,
                           },
                         ]}
-                        onPress={() => navigateToAppSettings(false)}
+                        onPress={navigateToSettings}
                         accessibilityLabel={t("common.settings")}
                         accessibilityRole="button"
                       >

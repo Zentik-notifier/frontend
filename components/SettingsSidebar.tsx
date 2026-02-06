@@ -1,3 +1,4 @@
+import { useAppContext } from "@/contexts/AppContext";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -7,6 +8,8 @@ import React, { useEffect, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { Card, Icon, List, Text, useTheme } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
+
+const GUEST_ONLY_IDS = ["app-settings", "cached-data", "app-logs"];
 
 interface SettingsOption {
   id: string;
@@ -24,6 +27,8 @@ export default function SettingsSidebar() {
   const { t } = useI18n();
   const { isMobile, isDesktop, isTablet } = useDeviceType();
   const nav = useNavigationUtils();
+  const { lastUserId } = useAppContext();
+  const isLoggedIn = !!lastUserId;
   const [isWatchSupported, setIsWatchSupported] = useState<boolean>(false);
 
   useEffect(() => {
@@ -31,7 +36,7 @@ export default function SettingsSidebar() {
     iosBridgeService.isWatchSupported().then((r) => setIsWatchSupported(r.supported));
   }, []);
 
-  const settingsOptions: SettingsOption[] = [
+  const allSettingsOptions: SettingsOption[] = [
     {
       id: "user-profile",
       title: t("userProfile.title"),
@@ -163,6 +168,10 @@ export default function SettingsSidebar() {
       selectionSegment: "cached-data",
     },
   ];
+
+  const settingsOptions = isLoggedIn
+    ? allSettingsOptions
+    : allSettingsOptions.filter((o) => GUEST_ONLY_IDS.includes(o.id));
 
   if (!isMobile) {
     return (

@@ -49,16 +49,24 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     }
 
     // 2) If not logged in, send to login (avoid loop when already in public routes)
+    //    Allow settings guest routes: app-settings, cached-data, logs only
     if (!isInitializing && !showPrivateRoutes) {
       if (isPrivate) {
-        // Save redirect path to return after login
-        try {
-          const redirectPath = pathname || "/";
-          settingsRepository
-            .setSetting("auth_redirectAfterLogin", redirectPath)
-            .catch(() => {});
-        } catch {}
-        navigateToLogin();
+        const isSettings = segments[1] === "(settings)";
+        const settingsSegment = segments[2];
+        const guestSettingsSegments = ["app-settings", "cached-data", "logs"];
+        const isGuestSettingsRoute =
+          isSettings &&
+          (!settingsSegment || guestSettingsSegments.includes(settingsSegment));
+        if (!isGuestSettingsRoute) {
+          try {
+            const redirectPath = pathname || "/";
+            settingsRepository
+              .setSetting("auth_redirectAfterLogin", redirectPath)
+              .catch(() => {});
+          } catch {}
+          navigateToLogin();
+        }
       }
       return;
     }

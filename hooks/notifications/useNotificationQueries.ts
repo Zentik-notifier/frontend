@@ -25,6 +25,8 @@ import {
     UseBucketsStatsOptions,
     UseNotificationsOptions
 } from '@/types/notifications';
+import { useContext } from 'react';
+import { AppContext } from '@/contexts/AppContext';
 import { useInfiniteQuery, useQuery, useQueryClient, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
 import { useNetworkSync } from './useNetworkSync';
 
@@ -191,6 +193,8 @@ export function useNotificationsState(
     lastSync: string;
 }> & { refreshAll: (skipNetwork?: boolean) => Promise<{ networkTime: number; mergeTime: number }> } {
     const queryClient = useQueryClient();
+    const appContext = useContext(AppContext);
+    const isLoggedIn = !!appContext?.lastUserId;
     const { syncFromNetwork } = useNetworkSync();
     const {
         realtime = false,
@@ -200,6 +204,7 @@ export function useNotificationsState(
 
     const queryResult = useQuery({
         queryKey: ['app-state'],
+        enabled: isLoggedIn,
         queryFn: async (): Promise<{
             buckets: BucketWithStats[];
             notifications: NotificationFragment[];
@@ -291,7 +296,6 @@ export function useNotificationsState(
                 throw error;
             }
         },
-        enabled: true, // ✅ Always enabled - data is essential for the app
         refetchInterval: realtime ? (refetchInterval || 5000) : refetchInterval,
         refetchOnWindowFocus: false, // ✅ Disable auto-refetch on focus to prevent conflicts with Watch sync
         refetchOnMount: true, // ✅ Refetch on mount to ensure fresh data (fixes unread count issue)

@@ -13,7 +13,7 @@ import { getCustomScheme } from "@/utils/universal-links";
 import { useFonts } from "expo-font";
 import * as Linking from "expo-linking";
 import React, { useEffect, useState } from "react";
-import { Platform } from "react-native";
+import { InteractionManager, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { MenuProvider } from "react-native-popup-menu";
 import "react-native-reanimated";
@@ -120,10 +120,19 @@ export default function RootLayout() {
     if (!loaded) return;
 
     installConsoleLoggerBridge();
-    openSharedCacheDb().catch((error: any) => {
-      console.error('[RootLayout] Failed to open database:', error);
+
+    const openDbs = () => {
+      openSharedCacheDb().catch((error: any) => {
+        console.error('[RootLayout] Failed to open database:', error);
+      });
+      openWebStorageDb().catch();
+    };
+
+    const dbOpenTimeout = setTimeout(openDbs, 300);
+    const interactionHandle = InteractionManager.runAfterInteractions(() => {
+      clearTimeout(dbOpenTimeout);
+      openDbs();
     });
-    openWebStorageDb().catch();
 
     const subscription = settingsService.isInitialized$.subscribe(
       (initialized) => {
@@ -133,7 +142,11 @@ export default function RootLayout() {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(dbOpenTimeout);
+      interactionHandle.cancel();
+      subscription.unsubscribe();
+    };
   }, [loaded]);
 
   if (!loaded || !settingsReady) {

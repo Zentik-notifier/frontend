@@ -117,6 +117,18 @@ FirebaseApp.configure()
     )
   }
 
+  private func unregisterDarwinNSENotificationSavedObserver() {
+    let name = Self.darwinNSENotificationSavedName as CFString
+    let center = CFNotificationCenterGetDarwinNotifyCenter()
+    let observer = Unmanaged.passUnretained(self).toOpaque()
+    CFNotificationCenterRemoveEveryObserver(center, observer)
+  }
+
+  public override func applicationWillTerminate(_ application: UIApplication) {
+    unregisterDarwinNSENotificationSavedObserver()
+    super.applicationWillTerminate(application)
+  }
+
   fileprivate func handleNSENotificationSaved() {
     LoggingSystem.shared.log(
       level: "INFO",

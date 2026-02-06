@@ -7,7 +7,7 @@ export interface ISharedCacheDb {
   execAsync(sql: string): Promise<void>;
   closeAsync(): Promise<void>;
 }
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { NotificationFragment } from '@/generated/gql-operations-generated';
 import { File, Paths } from 'expo-file-system';
@@ -432,9 +432,36 @@ export async function openSharedCacheDb(): Promise<ISharedCacheDb> {
   if (Platform.OS === 'ios' || Platform.OS === 'macos') {
     if (iosBridgeDbPromise) return iosBridgeDbPromise;
     iosBridgeDbPromise = (async () => {
-      const iosBridge = (await import('./ios-bridge')).default;
-      await iosBridge.dbEnsureCacheDbInitialized();
-      return createBridgeCacheDbAdapter(iosBridge);
+      try {
+        const iosBridge = (await import('./ios-bridge')).default;
+        await iosBridge.dbEnsureCacheDbInitialized();
+        return createBridgeCacheDbAdapter(iosBridge);
+      } catch (error: any) {
+        iosBridgeDbPromise = null;
+        const errorMessage = error?.message || String(error);
+        const errorCode = error?.code;
+        console.error('[openSharedCacheDb] Failed to initialize shared cache database:', errorMessage, errorCode);
+        Alert.alert(
+          'Database init failed',
+          `${errorMessage}${errorCode != null ? ` (code: ${errorCode})` : ''}`,
+          [{ text: 'OK' }]
+        );
+        const isCorruptionError =
+          errorCode === 11 ||
+          errorCode === 'ERR_INTERNAL_SQLITE_ERROR' ||
+          errorMessage.includes('database disk image is malformed') ||
+          errorMessage.includes('malformed') ||
+          errorMessage.includes('corruption');
+        if (isCorruptionError) {
+          databaseRecoveryService.notifyCorruption({
+            errorMessage,
+            errorCode,
+            originalError: error,
+            source: 'openSharedCacheDb',
+          });
+        }
+        throw error;
+      }
     })();
     return iosBridgeDbPromise;
   }

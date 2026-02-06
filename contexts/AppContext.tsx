@@ -98,7 +98,7 @@ interface AppContextProps {
   needsChangelogBackendBehindNotice: boolean;
 }
 
-const AppContext = createContext<AppContextProps | undefined>(undefined);
+export const AppContext = createContext<AppContextProps | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);

@@ -27,8 +27,9 @@ import { settingsService } from '@/services/settings-service';
 import {
     BucketWithStats
 } from '@/types/notifications';
+import { useCallback, useContext, useRef } from 'react';
+import { AppContext } from '@/contexts/AppContext';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useRef } from 'react';
 
 // Type for bucket from GetBucketsQuery (includes userBucket)
 type BucketWithUserData = NonNullable<GetBucketsQuery['buckets']>[number];
@@ -40,6 +41,8 @@ export interface NetworkSyncResult {
 
 export function useNetworkSync() {
     const queryClient = useQueryClient();
+    const appContext = useContext(AppContext);
+    const lastUserId = appContext?.lastUserId ?? null;
     const [updateReceivedNotifications] = useUpdateReceivedNotificationsMutation();
 
     // Use lazy queries for manual control
@@ -55,6 +58,9 @@ export function useNetworkSync() {
     const syncInFlightRef = useRef<Promise<NetworkSyncResult> | null>(null);
 
     const syncFromNetwork = useCallback(async (): Promise<NetworkSyncResult> => {
+        if (!lastUserId) {
+            return { networkTime: 0, mergeTime: 0 };
+        }
         if (syncInFlightRef.current) {
             // console.log('[useNetworkSync] Sync already in-flight; awaiting');
             return await syncInFlightRef.current;
@@ -376,7 +382,7 @@ export function useNetworkSync() {
                 syncInFlightRef.current = null;
             }
         }
-    }, [fetchBuckets, fetchNotifications, queryClient, updateReceivedNotifications]);
+    }, [lastUserId, fetchBuckets, fetchNotifications, queryClient, updateReceivedNotifications]);
 
     return { syncFromNetwork };
 }

@@ -100,7 +100,7 @@ export function useNavigationUtils() {
             if (isMobile) {
                 router.push(`/(phone)/(settings)`);
             } else {
-                router.push(`/(desktop)/(settings)/user/profile`);
+                router.push(`/(desktop)/(settings)`);
             }
         },
 
