@@ -479,6 +479,10 @@ export async function openSharedCacheDb(): Promise<ISharedCacheDb> {
  * Fixes crash: EXC_BAD_ACCESS on mutex_lock when statements are reset after database close
  */
 export async function closeSharedCacheDb(): Promise<void> {
+  if (Platform.OS === 'ios' || Platform.OS === 'macos') {
+    iosBridgeDbPromise = null;
+    return;
+  }
   if (!dbInstance || Platform.OS === 'web' || isClosing) {
     return;
   }
@@ -577,10 +581,12 @@ export async function deleteSQLiteDatabase(): Promise<void> {
     const walPath = `${dbPath}-wal`;
     const shmPath = `${dbPath}-shm`;
 
+    const lockPath = `${dbPath}.lock`;
     const filesToDelete = [
       { path: dbPath, name: 'database' },
       { path: walPath, name: 'WAL' },
       { path: shmPath, name: 'SHM' },
+      { path: lockPath, name: 'lock' },
     ];
 
     for (const { path, name } of filesToDelete) {
@@ -597,6 +603,7 @@ export async function deleteSQLiteDatabase(): Promise<void> {
       }
     }
 
+    iosBridgeDbPromise = null;
     console.log('[DB] ✅ SQLite database deleted successfully');
   } catch (error: any) {
     console.error('[DB] ❌ Error deleting database:', error?.message || error);

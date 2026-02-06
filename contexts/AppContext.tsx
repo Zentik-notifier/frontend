@@ -13,6 +13,7 @@ import {
   useRegisterMutation,
 } from "@/generated/gql-operations-generated";
 import { useMarkAllAsRead } from "@/hooks/notifications/useNotificationMutations";
+import { useSegments } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAppLog } from "@/hooks/useAppLog";
 import { useChangelogs } from "@/hooks/useChangelogs";
@@ -131,6 +132,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const connectionStatus = useConnectionStatus(push);
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
   const queryClient = useQueryClient();
+  const segments = useSegments() as string[];
   // useMemoryLogging(5000);
 
   useEffect(() => {
@@ -227,10 +229,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    if (shouldOpenChangelogModal) {
+    const isPrivateRoute = segments[0] !== "(common)";
+    if (shouldOpenChangelogModal && lastUserId && isPrivateRoute) {
       setIsChangelogModalOpen(true);
     }
-  }, [shouldOpenChangelogModal]);
+  }, [shouldOpenChangelogModal, lastUserId, segments]);
 
   const login = async (
     emailOrUsername: string,
@@ -727,16 +730,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         visible={isFeedbackModalOpen}
         onDismiss={() => setIsFeedbackModalOpen(false)}
       />
-      {isChangelogModalOpen && (
-        <ChangelogUpdatesModal
-          latest={latestChangelog}
-          changelogs={changelogsForModal}
-          unreadIds={unreadChangelogIds}
-          needsAppUpdateNotice={needsChangelogAppUpdateNotice}
-          needsBackendBehindNotice={needsChangelogBackendBehindNotice}
-          onClose={closeChangelogModal}
-        />
-      )}
+      {isChangelogModalOpen &&
+        lastUserId &&
+        segments[0] !== "(common)" && (
+          <ChangelogUpdatesModal
+            latest={latestChangelog}
+            changelogs={changelogsForModal}
+            unreadIds={unreadChangelogIds}
+            needsAppUpdateNotice={needsChangelogAppUpdateNotice}
+            needsBackendBehindNotice={needsChangelogBackendBehindNotice}
+            onClose={closeChangelogModal}
+          />
+        )}
     </AppContext.Provider>
   );
 }

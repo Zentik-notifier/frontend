@@ -208,6 +208,7 @@ class DatabaseRecoveryService {
 
       this.setStep('reset', { current: 4, total: 4 });
       await deleteSQLiteDatabase();
+      await new Promise((r) => setTimeout(r, 600));
       await openSharedCacheDb();
       console.log('[DatabaseRecoveryService] ✅ Recovery completed (reset)');
       this.setState({ visible: false, statusMessage: null, progressCurrent: null, progressTotal: null });
@@ -265,6 +266,7 @@ class DatabaseRecoveryService {
       // Step 1: reset DB
       this.setStep('reset', { current: 1, total: 3 });
       await deleteSQLiteDatabase();
+      await new Promise((r) => setTimeout(r, 600));
       await openSharedCacheDb();
 
       // Step 2: fetch from backend

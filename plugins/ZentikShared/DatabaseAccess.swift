@@ -238,6 +238,14 @@ public class DatabaseAccess {
             sqlite3_free(errMsg)
             if !s.contains("duplicate column name") {
                 print("📱 [DatabaseAccess] exec failed: \(s)")
+                let sqlPreview = String(sql.prefix(80)).replacingOccurrences(of: "\n", with: " ")
+                LoggingSystem.shared.log(
+                    level: "ERROR",
+                    tag: "RNBridge-DB",
+                    message: "[EnsureInitialized] Schema statement failed: \(s)",
+                    metadata: ["sqliteCode": String(result), "sqlPreview": sqlPreview],
+                    source: "DatabaseAccess"
+                )
             }
         }
         return result == SQLITE_OK
