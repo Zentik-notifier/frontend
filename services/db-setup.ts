@@ -565,22 +565,26 @@ export async function deleteSQLiteDatabase(): Promise<void> {
   }
 
   try {
-    // First close the database connection
     await closeSharedCacheDb();
     console.log('[DB] Database connection closed, proceeding to delete files...');
 
-    // Import FileSystem module dynamically
     const { File } = await import('expo-file-system');
-    const { getSharedMediaCacheDirectoryAsync } = await import('../utils/shared-cache');
 
-    const sharedDir = await getSharedMediaCacheDirectoryAsync();
-    const directory = sharedDir.startsWith('file://') ? sharedDir.replace('file://', '') : sharedDir;
+    let dbPath: string;
+    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
+      const iosBridge = (await import('./ios-bridge')).default;
+      const { path } = await iosBridge.dbGetDbPath();
+      dbPath = path.startsWith('file://') ? path.replace('file://', '') : path;
+      console.log('[DB] Using native DB path for deletion:', dbPath);
+    } else {
+      const { getSharedMediaCacheDirectoryAsync } = await import('../utils/shared-cache');
+      const sharedDir = await getSharedMediaCacheDirectoryAsync();
+      const directory = sharedDir.startsWith('file://') ? sharedDir.replace('file://', '') : sharedDir;
+      dbPath = `${directory}/cache.db`;
+    }
 
-    // Delete main database file
-    const dbPath = `${directory}/cache.db`;
     const walPath = `${dbPath}-wal`;
     const shmPath = `${dbPath}-shm`;
-
     const lockPath = `${dbPath}.lock`;
     const filesToDelete = [
       { path: dbPath, name: 'database' },

@@ -163,6 +163,9 @@ public class DatabaseAccess {
                         synced_at INTEGER NOT NULL
                     );
                     """) &&
+                runExecOptional(db, "ALTER TABLE buckets ADD COLUMN icon TEXT") &&
+                runExecOptional(db, "ALTER TABLE buckets ADD COLUMN description TEXT") &&
+                runExecOptional(db, "ALTER TABLE buckets ADD COLUMN synced_at INTEGER NOT NULL DEFAULT 0") &&
                 runExec(db, "CREATE INDEX IF NOT EXISTS idx_buckets_updated_at ON buckets(updated_at)") &&
                 runExec(db, "CREATE INDEX IF NOT EXISTS idx_buckets_synced_at ON buckets(synced_at)") &&
                 runExec(db, """
@@ -182,10 +185,7 @@ public class DatabaseAccess {
                     );
                     """) &&
                 runExecOptional(db, "ALTER TABLE cache_item ADD COLUMN notification_id TEXT") &&
-                runExecOptional(db, "ALTER TABLE notifications ADD COLUMN bucket_icon_url TEXT") &&
-                runExecOptional(db, "ALTER TABLE buckets ADD COLUMN icon TEXT") &&
-                runExecOptional(db, "ALTER TABLE buckets ADD COLUMN description TEXT") &&
-                runExecOptional(db, "ALTER TABLE buckets ADD COLUMN synced_at INTEGER NOT NULL DEFAULT 0")
+                runExecOptional(db, "ALTER TABLE notifications ADD COLUMN bucket_icon_url TEXT")
                     ? .success : .failure("Schema initialization failed")
             },
             completion: { (result: DatabaseOperationResult) in
