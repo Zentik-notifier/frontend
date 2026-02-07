@@ -3,6 +3,7 @@ import {
   CreateBucketDto,
   UpdateBucketDto,
   useCreateAccessTokenForBucketMutation,
+  useGetExternalNotifySystemsQuery,
   usePublicAppConfigQuery,
   useUpdateUserBucketCustomNameMutation,
 } from "@/generated/gql-operations-generated";
@@ -31,6 +32,7 @@ import ColorPicker, { ColorPickerRef } from "./ColorPicker";
 import IconEditor from "./IconEditor";
 import DetailSectionCard from "./ui/DetailSectionCard";
 import { BucketPresetSelector } from "./BucketPresetSelector";
+import Selector, { SelectorOption } from "./ui/Selector";
 
 const defaultColor = "#0a7ea4";
 
@@ -57,7 +59,16 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const [createAccessToken, setCreateAccessToken] = useState(false);
   const [generateMagicCode, setGenerateMagicCode] = useState(true);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const [externalNotifySystemId, setExternalNotifySystemId] = useState<string | null>(null);
+  const [externalSystemChannel, setExternalSystemChannel] = useState("");
   const colorPickerRef = useRef<ColorPickerRef>(null);
+
+  const { data: externalSystemsData } = useGetExternalNotifySystemsQuery();
+  const externalSystems = externalSystemsData?.externalNotifySystems ?? [];
+  const externalSystemOptions: SelectorOption[] = [
+    { id: null, name: t("externalServers.linkBucket.noServer") },
+    ...externalSystems.map((s) => ({ id: s.id, name: `${s.name} (${s.baseUrl})` })),
+  ];
   const isEditing = !!bucketId;
   const { navigateToBucketDetail } = useNavigationUtils();
 
@@ -161,6 +172,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       setOriginalColor(bucket.color || defaultColor);
       setOriginalIcon(bucket.icon || "");
       setOriginalIconSourceUrl(bucket.icon || "");
+      setExternalNotifySystemId(bucket.externalNotifySystem?.id ?? null);
+      setExternalSystemChannel(bucket.externalSystemChannel ?? "");
     }
   }, [bucket, isEditing, isSharedBucket]);
 
@@ -228,6 +241,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
             color: bucketData.color,
             icon: bucketData.icon,
             generateIconWithInitials: bucketData.generateIconWithInitials,
+            externalNotifySystemId: externalNotifySystemId ?? null,
+            externalSystemChannel: externalSystemChannel.trim() || null,
           },
         });
       } else {
@@ -240,6 +255,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
           isPublic: bucketData.isPublic || undefined,
           generateMagicCode: generateMagicCode,
           preset: selectedPresetId || undefined,
+          externalNotifySystemId: externalNotifySystemId ?? undefined,
+          externalSystemChannel: externalSystemChannel.trim() || undefined,
         });
       }
     } catch (error: any) {
@@ -306,6 +323,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       setCreateAccessToken(false);
       setGenerateMagicCode(true);
       setSelectedPresetId(null);
+      setExternalNotifySystemId(null);
+      setExternalSystemChannel("");
     }
     setBucketIconError("");
   };
@@ -445,7 +464,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                     styles.customColorInput,
                     { borderColor: theme.colors.outline },
                     ((isEditing && !canWrite) || offline) &&
-                      styles.disabledInput,
+                    styles.disabledInput,
                   ]}
                   onTouchEnd={() => colorPickerRef.current?.openModal()}
                 >
@@ -563,11 +582,40 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                     {bucketIcon
                       ? t("buckets.form.iconPreview")
                       : userSettings.settings.notificationsPreferences
-                          ?.generateBucketIconWithInitials && bucketName
-                      ? t("buckets.form.initialsPreview")
-                      : t("buckets.form.colorPreview")}
+                        ?.generateBucketIconWithInitials && bucketName
+                        ? t("buckets.form.initialsPreview")
+                        : t("buckets.form.colorPreview")}
                   </Text>
                 </Surface>
+              </View>
+            )}
+
+            {/* Link to external server - when creating or when editing with can write */}
+            {(!isEditing || canWrite) && !isSharedBucket && !isProtectedBucket && (
+              <View style={[styles.externalServerSection, { backgroundColor: theme.colors.surfaceVariant }]}>
+                <Text variant="titleSmall" style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+                  {t("externalServers.linkBucket.title")}
+                </Text>
+                <Text variant="bodySmall" style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
+                  {t("externalServers.linkBucket.description")}
+                </Text>
+                <Selector
+                  label={t("externalServers.linkBucket.selectServer")}
+                  selectedValue={externalNotifySystemId}
+                  onValueChange={(v) => setExternalNotifySystemId(v as string | null)}
+                  options={externalSystemOptions}
+                />
+                {externalNotifySystemId && (
+                  <TextInput
+                    label={t("externalServers.linkBucket.channel")}
+                    value={externalSystemChannel}
+                    onChangeText={setExternalSystemChannel}
+                    placeholder={t("externalServers.linkBucket.channelPlaceholder")}
+                    mode="outlined"
+                    autoCapitalize="none"
+                    style={styles.channelInput}
+                  />
+                )}
               </View>
             )}
 
@@ -664,12 +712,12 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                   {isEditing && !isSharedBucket && !canWrite
                     ? t("buckets.form.readOnlyMode")
                     : isLoading
-                    ? isEditing
-                      ? t("buckets.form.updating")
-                      : t("buckets.form.creating")
-                    : isEditing
-                    ? t("buckets.form.updateButton")
-                    : t("buckets.form.createButton")}
+                      ? isEditing
+                        ? t("buckets.form.updating")
+                        : t("buckets.form.creating")
+                      : isEditing
+                        ? t("buckets.form.updateButton")
+                        : t("buckets.form.createButton")}
                 </Button>
 
                 <Button
@@ -851,6 +899,20 @@ const styles = StyleSheet.create({
     marginTop: -8,
     marginBottom: 8,
     marginLeft: 12,
+  },
+  externalServerSection: {
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    marginBottom: 4,
+  },
+  sectionDescription: {
+    marginBottom: 12,
+  },
+  channelInput: {
+    marginTop: 12,
   },
   accessTokenSection: {
     flexDirection: "row",

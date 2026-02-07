@@ -1257,6 +1257,7 @@ export interface Translation {
     updateAvailable: string;
     reset: string;
     success: string;
+    shared: string;
     error: string;
     errorOccurred: string;
     ok: string;
@@ -1620,6 +1621,52 @@ export interface Translation {
       verifying: string;
       invalidCode: string;
       invalidEmail: string;
+    };
+  };
+  externalServers: {
+    title: string;
+    description: string;
+    noServersTitle: string;
+    noServersSubtext: string;
+    create: string;
+    edit: string;
+    delete: string;
+    deleteConfirmTitle: string;
+    deleteConfirmMessage: string;
+    deleteSuccessMessage: string;
+    deleteErrorMessage: string;
+    createErrorMessage: string;
+    updateErrorMessage: string;
+    form: {
+      name: string;
+      namePlaceholder: string;
+      nameRequired: string;
+      baseUrl: string;
+      baseUrlPlaceholder: string;
+      baseUrlRequired: string;
+      baseUrlInvalid: string;
+      type: string;
+      typeNtfy: string;
+      typeGotify: string;
+      authUser: string;
+      authPassword: string;
+      authToken: string;
+      color: string;
+      iconUrl: string;
+      save: string;
+      saving: string;
+      create: string;
+      creating: string;
+    };
+    linkBucket: {
+      title: string;
+      description: string;
+      noServer: string;
+      selectServer: string;
+      channel: string;
+      channelPlaceholder: string;
+      channelHelp: string;
+      unlink: string;
     };
   };
   webhooks: {

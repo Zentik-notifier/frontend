@@ -6,6 +6,13 @@ import React from "react";
 import { StyleSheet, TouchableWithoutFeedback, View } from "react-native";
 import { Icon, useTheme } from "react-native-paper";
 
+const EXTERNAL_SYSTEM_SUBICON_SIZE = { sm: 12, md: 14, lg: 16, xl: 20, xxl: 24 };
+
+const EXTERNAL_SYSTEM_ICONS: Record<string, number> = {
+  NTFY: require("@/assets/icons/ntfy.svg"),
+  Gotify: require("@/assets/icons/gotify.png"),
+};
+
 const sizeMap = {
   sm: { container: 32, icon: 28, text: 14 },
   md: { container: 40, icon: 36, text: 16 },
@@ -69,6 +76,13 @@ export default function BucketIcon({
     }
   };
 
+  const externalSystemType = bucket?.externalNotifySystem?.type;
+  const showExternalSystemSubicon =
+    !isOrphan && externalSystemType && EXTERNAL_SYSTEM_ICONS[externalSystemType];
+  const subiconSize = EXTERNAL_SYSTEM_SUBICON_SIZE[size];
+  const subiconSource = externalSystemType ? EXTERNAL_SYSTEM_ICONS[externalSystemType] : null;
+
+  // console.log(externalSystemType, showExternalSystemSubicon, subiconSize, subiconSource)
   const iconContent = (
     <View
       style={[
@@ -151,6 +165,27 @@ export default function BucketIcon({
           </View>
         </TouchableWithoutFeedback>
       )}
+      {showExternalSystemSubicon && subiconSource && (
+        <View
+          style={[
+            styles.subicon,
+            {
+              width: subiconSize,
+              height: subiconSize,
+              borderRadius: subiconSize / 2,
+              backgroundColor: theme.colors.surface,
+              bottom: 0,
+              right: 0,
+            },
+          ]}
+        >
+          <Image
+            source={subiconSource}
+            style={{ width: subiconSize, height: subiconSize }}
+            contentFit="cover"
+          />
+        </View>
+      )}
     </View>
   );
 
@@ -178,6 +213,13 @@ const styles = StyleSheet.create({
   iconContainer: {
     justifyContent: "center",
     alignItems: "center",
+  },
+  subicon: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.08)",
   },
   bucketIconText: {
     // Styles applied inline for dynamic sizing

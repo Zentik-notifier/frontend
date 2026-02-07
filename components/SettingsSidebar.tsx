@@ -105,6 +105,15 @@ export default function SettingsSidebar() {
       selectionSegment: "webhook",
     },
     {
+      id: "external-servers-settings",
+      title: t("externalServers.title"),
+      description: t("externalServers.description"),
+      icon: "server",
+      iconColor: "#0D9488", // Teal
+      onPress: nav.navigateToExternalNotifySystemsSettings,
+      selectionSegment: "external-notify-system",
+    },
+    {
       id: "user-attachments",
       title: t("userAttachments.title"),
       description: t("userAttachments.description"),

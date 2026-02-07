@@ -607,7 +607,7 @@ export default function Selector({
         <FlatList
           style={styles.optionsList}
           data={filteredOptions}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item) => item.id != null ? String(item.id) : "empty"}
           renderItem={({ item }) => {
             const isSelected = item.id === selectedValue;
             return (

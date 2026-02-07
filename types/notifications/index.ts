@@ -185,6 +185,12 @@ export interface BucketWithStats {
   
   /** Magic code for bucket access */
   magicCode?: string | null;
+
+  /** Linked external notify system (e.g. NTFY) */
+  externalNotifySystem?: { id: string; name?: string; baseUrl?: string; type?: string } | null;
+
+  /** Topic/channel on the linked external system */
+  externalSystemChannel?: string | null;
   
   /** Whether the bucket is orphan (exists only through notifications, not in global cache) */
   isOrphan?: boolean;

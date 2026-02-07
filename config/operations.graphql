@@ -104,7 +104,7 @@ fragment NotificationFragment on Notification {
   }
 }
 
-fragment BucketPermissionsFragment on BucketPermissionsDto {
+fragment BucketPermissionsFragment on ResourcePermissionsDto {
   canWrite
   canDelete
   canAdmin
@@ -128,6 +128,13 @@ fragment BucketFragment on Bucket {
   isPublic
   isAdmin
   preset
+  externalNotifySystem {
+    id
+    name
+    baseUrl
+    type
+  }
+  externalSystemChannel
 }
 
 fragment BucketWithDevicesFragment on Bucket {
@@ -705,6 +712,69 @@ mutation UpdateWebhook($id: ID!, $input: UpdateWebhookDto!) {
 
 mutation DeleteWebhook($id: ID!) {
   deleteWebhook(id: $id)
+}
+
+# External Notify System operations
+fragment ExternalNotifySystemFragment on ExternalNotifySystem {
+  id
+  name
+  baseUrl
+  type
+  iconUrl
+  color
+  createdAt
+  updatedAt
+  user {
+    id
+    username
+  }
+  userPermissions {
+    canRead
+    canWrite
+    canDelete
+    canAdmin
+    isOwner
+    isSharedWithMe
+    sharedCount
+  }
+}
+
+query GetExternalNotifySystems {
+  externalNotifySystems {
+    ...ExternalNotifySystemFragment
+  }
+}
+
+query GetExternalNotifySystem($id: ID!) {
+  externalNotifySystem(id: $id) {
+    ...ExternalNotifySystemFragment
+  }
+}
+
+mutation CreateExternalNotifySystem($input: CreateExternalNotifySystemDto!) {
+  createExternalNotifySystem(input: $input) {
+    ...ExternalNotifySystemFragment
+  }
+}
+
+mutation UpdateExternalNotifySystem($id: ID!, $input: UpdateExternalNotifySystemDto!) {
+  updateExternalNotifySystem(id: $id, input: $input) {
+    ...ExternalNotifySystemFragment
+  }
+}
+
+mutation DeleteExternalNotifySystem($id: ID!) {
+  deleteExternalNotifySystem(id: $id)
+}
+
+mutation ShareExternalNotifySystem($input: GrantEntityPermissionInput!) {
+  shareExternalNotifySystem(input: $input) {
+    ...EntityPermissionFragment
+  }
+}
+
+mutation UnshareExternalNotifySystem($input: RevokeEntityPermissionInput!) {
+  unshareExternalNotifySystem(input: $input)
 }
 
 # Access Token Fragments

@@ -164,6 +164,30 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToExternalNotifySystemsSettings: () => {
+            if (isMobile) {
+                router.push("/(phone)/(settings)/external-notify-system/list" as Href);
+            } else {
+                router.push("/(desktop)/(settings)/external-notify-system/list" as Href);
+            }
+        },
+
+        navigateToCreateExternalNotifySystem: () => {
+            if (isMobile) {
+                router.push("/(phone)/(settings)/external-notify-system/create" as Href);
+            } else {
+                router.push("/(desktop)/(settings)/external-notify-system/create" as Href);
+            }
+        },
+
+        navigateToEditExternalNotifySystem: (systemId: string) => {
+            if (isMobile) {
+                router.push(`/(phone)/(settings)/external-notify-system/${systemId}` as Href);
+            } else {
+                router.push(`/(desktop)/(settings)/external-notify-system/${systemId}` as Href);
+            }
+        },
+
         navigateToPayloadMappersSettings: () => {
             if (isMobile) {
                 router.push(`/(phone)/(settings)/payload-mapper/list`);

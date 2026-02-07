@@ -77,6 +77,8 @@ const ROUTES_WITH_BACK_BUTTON: string[] = [
   "/(phone)/(admin)/user-logs",
   "/(phone)/(settings)/payload-mapper/",
   "/(phone)/(settings)/user-template/",
+  "/(phone)/(settings)/external-notify-system/",
+  "/(desktop)/(settings)/external-notify-system/",
   "/(common)/(auth)/app-settings",
 ];
 
@@ -177,6 +179,12 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(desktop)/(settings)/user-template/create": "userTemplates.create",
   "/(desktop)/(settings)/user-template/[id]": "userTemplates.edit",
   "/(desktop)/(settings)/user-template/list": "userTemplates.title",
+  "/(phone)/(settings)/external-notify-system/list": "externalServers.title",
+  "/(desktop)/(settings)/external-notify-system/list": "externalServers.title",
+  "/(phone)/(settings)/external-notify-system/create": "externalServers.create",
+  "/(desktop)/(settings)/external-notify-system/create": "externalServers.create",
+  "/(phone)/(settings)/external-notify-system/[id]": "externalServers.edit",
+  "/(desktop)/(settings)/external-notify-system/[id]": "externalServers.edit",
 };
 
 export default function Header() {
@@ -268,7 +276,16 @@ export default function Header() {
   const isHome = HOME_ROUTES.some((route) => currentRoute.startsWith(route));
   const showFeedbackButton = isPublic || isSelfService || isHome;
 
-  const currentTitle = ROUTE_TITLES[currentRoute];
+  const currentTitle =
+    ROUTE_TITLES[currentRoute] ??
+    (/^\/\(desktop\)\/\(settings\)\/external-notify-system\/[^/]+$/.test(
+      currentRoute
+    ) ||
+    /^\/\(phone\)\/\(settings\)\/external-notify-system\/[^/]+$/.test(
+      currentRoute
+    )
+      ? "externalServers.edit"
+      : undefined);
 
 
   return (

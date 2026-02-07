@@ -38,7 +38,9 @@ export interface BucketPermissions {
 }
 
 /**
- * Complete bucket data with permissions
+ * Complete bucket data with permissions.
+ * bucket includes externalNotifySystem (id, name, baseUrl, type) and externalSystemChannel
+ * from both GetBucket and app state (sync), for edit form and BucketIcon subicon.
  */
 export interface BucketWithPermissions extends BucketPermissions {
     bucket: BucketDetailData | null;
@@ -99,8 +101,8 @@ export function useBucket(
     });
 
     // Read bucket details from separate query (for permissions and full data)
-    // This query is populated by manual refetch via useRefreshBucket OR autoFetch
-    // BUT: Don't fetch if bucket is orphan (exists only through notifications)
+    // When autoFetch (e.g. edit form), always fetch so we get full bucket including externalNotifySystem.
+    // Don't fetch if bucket is orphan (exists only through notifications).
     const { data: bucketDetail, isLoading: loadingDetail, error } = useQuery({
         queryKey: bucketKeys.detail(bucketId!),
         queryFn: async () => {
@@ -108,16 +110,16 @@ export function useBucket(
             const { data } = await getBucket({ variables: { id: bucketId! } });
             return data?.bucket ?? null;
         },
-        enabled: autoFetch && !!bucketId && !appStateLoading && !bucketFromGlobal?.isOrphan && !bucketFromGlobal,
+        enabled: autoFetch && !!bucketId && !appStateLoading && !bucketFromGlobal?.isOrphan,
         refetchOnWindowFocus: false, // ✅ Disable auto-refetch on focus to prevent conflicts with Watch sync
         refetchOnMount: false, // ✅ Only fetch on initial mount
         staleTime: Infinity,
         gcTime: Infinity,
     });
 
-    // Use bucketDetail if manually fetched (has permissions), otherwise use bucketFromGlobal
-    // bucketFromGlobal has: id, name, description, icon, color, isSnoozed, snoozeUntil, etc.
-    // bucketDetail has: full BucketFragment with permissions, user, userBucket
+    // Use bucketDetail if fetched (full data), otherwise use bucketFromGlobal from app state.
+    // Both sources include externalNotifySystem (id, name, baseUrl, type) and externalSystemChannel
+    // for edit form preselection and BucketIcon subicon.
     const bucket = bucketDetail ?? (bucketFromGlobal as any) ?? null;
 
     // Loading state logic:
