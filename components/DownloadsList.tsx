@@ -27,11 +27,11 @@ function formatSize(bytes?: number): string {
 
 function DownloadEntryRow({ entry }: { entry: DownloadHistoryEntry }) {
   const theme = useTheme();
-  const cached = useCachedItem(entry.url, entry.mediaType, { force: false });
+  const { item: cachedItem } = useCachedItem(entry.url, entry.mediaType, { force: false });
   const previewUri =
-    cached?.localPath &&
+    cachedItem?.localPath &&
     (entry.mediaType === MediaType.Image || entry.mediaType === MediaType.Gif)
-      ? cached.localPath
+      ? cachedItem.localPath
       : entry.mediaType === MediaType.Image || entry.mediaType === MediaType.Gif
         ? entry.url
         : null;

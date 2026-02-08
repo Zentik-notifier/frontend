@@ -1281,7 +1281,7 @@ class SettingsService {
         ? { service: API_ENDPOINT_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
         : { service: API_ENDPOINT_SERVICE };
       const creds = await Keychain.getGenericPassword(options);
-      const endpoint = creds?.password?.trim();
+      const endpoint = creds && typeof creds === 'object' ? creds.password?.trim() : null;
       return endpoint || null;
     } catch {
       return null;
