@@ -1142,6 +1142,7 @@ export function useUpdateBucket(options?: {
         color?: string | null;
         icon?: string | null;
         generateIconWithInitials?: boolean | null;
+        preset?: string | null;
         externalNotifySystemId?: string | null;
         externalSystemChannel?: string | null;
       };

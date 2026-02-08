@@ -3,7 +3,6 @@ import { useI18n } from "@/hooks/useI18n";
 import { useNotificationExportImport } from "@/hooks/useNotificationExportImport";
 import { getAllNotificationsFromCache } from "@/services/notifications-repository";
 import { deleteAllBuckets } from "@/db/repositories/buckets-repository";
-import type { NotificationFragment } from "@/generated/graphql";
 import {
   AppLog,
   clearAllLogs,
@@ -29,6 +28,7 @@ import DetailModal from "./ui/DetailModal";
 import PaperScrollView from "./ui/PaperScrollView";
 import { exportSQLiteDatabaseToFile, importSQLiteDatabaseFromFile, deleteSQLiteDatabase } from "@/services/db-setup";
 import { getLatestAutoDbBackup, restoreLatestAutoDbBackup } from "@/services/db-auto-backup";
+import { NotificationFragment } from "@/generated/gql-operations-generated";
 
 type DetailRecord = {
   type: "bucket" | "notification" | "log" | "setting" | "media";

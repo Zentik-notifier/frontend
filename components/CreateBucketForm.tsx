@@ -152,6 +152,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const [originalColor, setOriginalColor] = useState(defaultColor);
   const [originalIcon, setOriginalIcon] = useState("");
   const [originalIconSourceUrl, setOriginalIconSourceUrl] = useState("");
+  const [originalPresetId, setOriginalPresetId] = useState<string | null>(null);
   // Device selection removed
 
   // Initialize form with bucket data when editing
@@ -172,8 +173,10 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       setOriginalColor(bucket.color || defaultColor);
       setOriginalIcon(bucket.icon || "");
       setOriginalIconSourceUrl(bucket.icon || "");
+      setOriginalPresetId(bucket.preset ?? null);
       setExternalNotifySystemId(bucket.externalNotifySystem?.id ?? null);
       setExternalSystemChannel(bucket.externalSystemChannel ?? "");
+      setSelectedPresetId(bucket.preset ?? null);
     }
   }, [bucket, isEditing, isSharedBucket]);
 
@@ -241,6 +244,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
             color: bucketData.color,
             icon: bucketData.icon,
             generateIconWithInitials: bucketData.generateIconWithInitials,
+            preset: selectedPresetId ?? null,
             externalNotifySystemId: externalNotifySystemId ?? null,
             externalSystemChannel: externalSystemChannel.trim() || null,
           },
@@ -309,11 +313,11 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
 
   const resetForm = () => {
     if (isEditing) {
-      // Reset to original values when editing
       setBucketName(originalName);
       setBucketIcon(originalIcon);
       setBucketIconSourceUrl(originalIconSourceUrl);
       setBucketColor(originalColor);
+      setSelectedPresetId(originalPresetId);
     } else {
       // Reset to defaults when creating
       setBucketName("");
@@ -409,8 +413,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
         maxHeight={1000}
         renderItem={() => (
           <>
-            {/* Preset selector (only when creating a new bucket) */}
-            {!isEditing && !isProtectedBucket && !isSharedBucket && (
+            {!isProtectedBucket && !isSharedBucket && (
               <View style={styles.presetSection}>
                 <BucketPresetSelector
                   selectedId={selectedPresetId}
