@@ -4,6 +4,7 @@ import { MediaType, MediaViewer } from "@/components/ui";
 import { useI18n } from "@/hooks/useI18n";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { authService } from "@/services/auth-service";
+import { mediaCache } from "@/services/media-cache-service";
 import { settingsService } from "@/services/settings-service";
 import { getCustomScheme } from "@/utils/universal-links";
 import { Image } from "expo-image";
@@ -119,6 +120,7 @@ function ShareExtensionContent(props: InitialProps) {
   const [buckets, setBuckets] = useState<Bucket[] | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [needsLogin, setNeedsLogin] = useState(false);
+  const [cachedIconUris, setCachedIconUris] = useState<Record<string, string>>({});
 
   const loadBuckets = async () => {
     try {
@@ -179,6 +181,31 @@ function ShareExtensionContent(props: InitialProps) {
       loadBuckets();
     }
   }, [apiUrl, token]);
+
+  useEffect(() => {
+    if (!buckets?.length) {
+      setCachedIconUris({});
+      return;
+    }
+    let cancelled = false;
+    const loadCachedIcons = async () => {
+      const next: Record<string, string> = {};
+      for (const bucket of buckets) {
+        if (cancelled) return;
+        try {
+          const uri = await mediaCache.getBucketIconFromCacheOnly(bucket.id, bucket.name);
+          if (uri && !cancelled) next[bucket.id] = uri;
+        } catch {
+          // ignore
+        }
+      }
+      if (!cancelled) setCachedIconUris((prev) => ({ ...prev, ...next }));
+    };
+    loadCachedIcons();
+    return () => {
+      cancelled = true;
+    };
+  }, [buckets]);
 
   const handleAddMoreMedia = async () => {
     try {
@@ -404,7 +431,7 @@ function ShareExtensionContent(props: InitialProps) {
   const renderBucketIcon = (bucket: Bucket) => {
     const backgroundColor = bucket.color || theme.colors.primary;
     const initials = bucket.name.substring(0, 2).toUpperCase();
-    const iconUri = resolveIconUri(bucket);
+    const iconUri = cachedIconUris[bucket.id] ?? resolveIconUri(bucket);
     const externalType = bucket.externalNotifySystem?.type;
     const externalIcon = externalType ? EXTERNAL_SYSTEM_ICONS[externalType] : null;
 

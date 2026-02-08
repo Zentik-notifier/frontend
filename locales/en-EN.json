@@ -2459,7 +2459,10 @@
     "title": "Downloads",
     "description": "Recent downloads from the app queue",
     "noDownloads": "No downloads yet",
-    "clear": "Clear history"
+    "clear": "Clear history",
+    "inProgress": "In progress",
+    "queued": "Queued",
+    "completed": "Completed"
   },
   "messageReminders": {
     "title": "Pending messages",

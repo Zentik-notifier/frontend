@@ -206,7 +206,7 @@ export default function Header() {
   const { itemsInQueue } = useDownloadQueue();
   const { t } = useI18n();
   const { settings } = useSettings();
-  const { navigateToHome, navigateBack, navigateToSettings } =
+  const { navigateToHome, navigateBack, navigateToSettings, navigateToDownloads } =
     useNavigationUtils();
   const segments = useSegments() as string[];
   const insets = useSafeAreaInsets();
@@ -476,7 +476,7 @@ export default function Header() {
             {isHome && itemsInQueue > 0 && (
               <View style={styles.downloadQueueContainer}>
                 <TouchableRipple
-                  disabled
+                  onPress={navigateToDownloads}
                   style={styles.iconButtonRipple}
                   borderless
                 >

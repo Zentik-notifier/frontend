@@ -2693,7 +2693,10 @@
     "title": "Download",
     "description": "Ultimi download dalla coda dell'app",
     "noDownloads": "Nessun download",
-    "clear": "Cancella cronologia"
+    "clear": "Cancella cronologia",
+    "inProgress": "In corso",
+    "queued": "In coda",
+    "completed": "Completati"
   },
   "messageReminders": {
     "title": "Messaggi in sospeso",

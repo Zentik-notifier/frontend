@@ -1360,6 +1360,24 @@ class MediaCacheService {
     }
 
     /**
+     * Get bucket icon URI from shared cache only (no download).
+     * Used by Share Extension to read icons already cached by the main app.
+     */
+    async getBucketIconFromCacheOnly(
+        bucketId: string,
+        bucketName: string,
+    ): Promise<string | null> {
+        await this.initialize();
+        if (!this.repo) return null;
+        try {
+            return await this.repo.getBucketIconFromSharedCache(bucketId, bucketName, Date.now());
+        } catch (error) {
+            console.error('[MediaCache] Failed to get bucket icon from cache:', error);
+            return null;
+        }
+    }
+
+    /**
      * Get bucket icon URI synchronously from in-memory cache
      * Returns null if not yet loaded or if params have changed (needs re-download)
      * Use this for instant access during initial render
