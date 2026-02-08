@@ -249,7 +249,9 @@ export default function SettingsSidebar() {
   };
 
   return (
-    <PaperScrollView>
+    <PaperScrollView
+      style={isMobile ? styles.mobileContainer : undefined}
+    >
       <View style={styles.listContainer}>
         {settingsOptions.map(renderListItem)}
       </View>
@@ -264,5 +266,9 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingVertical: 4,
+  },
+  mobileContainer: {
+    paddingHorizontal: 0,
+    paddingVertical: 8,
   },
 });

@@ -162,6 +162,7 @@ export type CreateBucketDto = {
   color?: InputMaybe<Scalars['String']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
   externalNotifySystemId?: InputMaybe<Scalars['String']['input']>;
+  externalSystemAuthToken?: InputMaybe<Scalars['String']['input']>;
   externalSystemChannel?: InputMaybe<Scalars['String']['input']>;
   generateIconWithInitials?: InputMaybe<Scalars['Boolean']['input']>;
   generateMagicCode?: InputMaybe<Scalars['Boolean']['input']>;
@@ -2075,6 +2076,7 @@ export type UpdateBucketDto = {
   color?: InputMaybe<Scalars['String']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
   externalNotifySystemId?: InputMaybe<Scalars['String']['input']>;
+  externalSystemAuthToken?: InputMaybe<Scalars['String']['input']>;
   externalSystemChannel?: InputMaybe<Scalars['String']['input']>;
   generateIconWithInitials?: InputMaybe<Scalars['Boolean']['input']>;
   icon?: InputMaybe<Scalars['String']['input']>;

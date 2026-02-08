@@ -6,7 +6,7 @@ import {
   MediaType,
   NotificationAttachmentDto,
 } from "@/generated/gql-operations-generated";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View } from "react-native";
 import Gallery, { GalleryRef } from "react-native-awesome-gallery";
 import { CachedMedia } from "./CachedMedia";
@@ -38,6 +38,15 @@ export default function AttachmentGalleryContent({
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const galleryRef = React.useRef<GalleryRef>(null);
   const mediaHeight = containerWidth > 0 ? containerWidth * 0.6 : 200;
+
+  useEffect(() => {
+    const safe = Math.min(
+      Math.max(initialIndex, 0),
+      attachments.length - 1
+    );
+    setCurrentIndex(safe);
+    galleryRef.current?.setIndex(safe, true);
+  }, [initialIndex, attachments.length]);
 
   if (!attachments || attachments.length === 0) {
     return null;

@@ -6,7 +6,7 @@ import React from "react";
 import { StyleSheet, TouchableWithoutFeedback, View } from "react-native";
 import { Icon, useTheme } from "react-native-paper";
 
-const EXTERNAL_SYSTEM_SUBICON_SIZE = { sm: 12, md: 14, lg: 16, xl: 20, xxl: 24 };
+const EXTERNAL_SYSTEM_SUBICON_SIZE = { sm: 16, md: 18, lg: 20, xl: 26, xxl: 30 };
 
 const EXTERNAL_SYSTEM_ICONS: Record<string, number> = {
   NTFY: require("@/assets/icons/ntfy.svg"),
@@ -171,17 +171,16 @@ export default function BucketIcon({
             {
               width: subiconSize,
               height: subiconSize,
-              borderRadius: subiconSize / 2,
-              backgroundColor: theme.colors.surface,
               bottom: 0,
               right: 0,
             },
           ]}
+          pointerEvents="none"
         >
           <Image
             source={subiconSource}
             style={{ width: subiconSize, height: subiconSize }}
-            contentFit="cover"
+            contentFit="contain"
           />
         </View>
       )}
@@ -217,8 +216,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.08)",
   },
   bucketIconText: {
     // Styles applied inline for dynamic sizing

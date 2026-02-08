@@ -7,10 +7,11 @@ import {
   useCreateMessageMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Dimensions,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -70,8 +71,22 @@ export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
   const [remindEveryMinutes, setRemindEveryMinutes] = useState("");
   const [maxReminders, setMaxReminders] = useState("");
   const [optionsExpanded, setOptionsExpanded] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const [createMessage, { loading: isCreating }] = useCreateMessageMutation();
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", (e) =>
+      setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener("keyboardDidHide", () =>
+      setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleUploadImages = useCallback(async () => {
     try {
@@ -449,6 +464,7 @@ export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
           {
             backgroundColor: theme.colors.surface,
             borderTopColor: theme.colors.outline,
+            marginBottom: keyboardHeight,
           },
         ]}
       >

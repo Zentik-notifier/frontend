@@ -1741,6 +1741,7 @@
       "channel": "Topic / Canale",
       "channelPlaceholder": "es. my-topic",
       "channelHelp": "Nome topic sul server (es. topic NTFY). Obbligatorio per pubblicare e sottoscrivere.",
+      "gotifyToken": "Token applicazione (Gotify)",
       "unlink": "Scollega"
     }
   },

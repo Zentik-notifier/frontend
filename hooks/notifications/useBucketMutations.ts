@@ -965,6 +965,7 @@ export function useCreateBucket(options?: {
       generateMagicCode?: boolean;
       preset?: string;
       externalNotifySystemId?: string | null;
+      externalSystemAuthToken?: string | null;
       externalSystemChannel?: string | null;
     }) => {
       console.log('[useCreateBucket] Creating bucket:', input.name);
@@ -1144,6 +1145,7 @@ export function useUpdateBucket(options?: {
         generateIconWithInitials?: boolean | null;
         preset?: string | null;
         externalNotifySystemId?: string | null;
+        externalSystemAuthToken?: string | null;
         externalSystemChannel?: string | null;
       };
     }) => {

@@ -46,7 +46,6 @@ export default function CreateExternalNotifySystemForm({
   const [type, setType] = useState<ExternalNotifySystemType>(ExternalNotifySystemType.Ntfy);
   const [authUser, setAuthUser] = useState("");
   const [authPassword, setAuthPassword] = useState("");
-  const [authToken, setAuthToken] = useState("");
   const [color, setColor] = useState("");
   const [iconUrl, setIconUrl] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; baseUrl?: string }>({});
@@ -143,9 +142,10 @@ export default function CreateExternalNotifySystemForm({
       type,
       color: color.trim() || undefined,
       iconUrl: iconUrl.trim() || undefined,
-      authUser: authUser.trim() || undefined,
-      authPassword: authPassword ? authPassword : undefined,
-      authToken: authToken.trim() || undefined,
+      ...(type === ExternalNotifySystemType.Ntfy && {
+        authUser: authUser.trim() || undefined,
+        authPassword: authPassword ? authPassword : undefined,
+      }),
     };
 
     if (isEditing && systemId) {
@@ -206,30 +206,26 @@ export default function CreateExternalNotifySystemForm({
           </Text>
         ) : null}
 
-        <TextInput
-          label={t("externalServers.form.authUser")}
-          value={authUser}
-          onChangeText={setAuthUser}
-          mode="outlined"
-          autoCapitalize="none"
-          style={styles.input}
-        />
-        <TextInput
-          label={t("externalServers.form.authPassword")}
-          value={authPassword}
-          onChangeText={setAuthPassword}
-          mode="outlined"
-          secureTextEntry
-          style={styles.input}
-        />
-        <TextInput
-          label={t("externalServers.form.authToken")}
-          value={authToken}
-          onChangeText={setAuthToken}
-          mode="outlined"
-          secureTextEntry
-          style={styles.input}
-        />
+        {type === ExternalNotifySystemType.Ntfy && (
+          <>
+            <TextInput
+              label={t("externalServers.form.authUser")}
+              value={authUser}
+              onChangeText={setAuthUser}
+              mode="outlined"
+              autoCapitalize="none"
+              style={styles.input}
+            />
+            <TextInput
+              label={t("externalServers.form.authPassword")}
+              value={authPassword}
+              onChangeText={setAuthPassword}
+              mode="outlined"
+              secureTextEntry
+              style={styles.input}
+            />
+          </>
+        )}
         <TextInput
           label={t("externalServers.form.color")}
           value={color}

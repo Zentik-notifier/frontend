@@ -1685,6 +1685,7 @@
       "channel": "Topic / Channel",
       "channelPlaceholder": "e.g. my-topic",
       "channelHelp": "Topic name on the server (e.g. NTFY topic). Required to publish and subscribe.",
+      "gotifyToken": "Application token (Gotify)",
       "unlink": "Unlink"
     }
   },

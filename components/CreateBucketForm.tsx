@@ -2,6 +2,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import {
   CreateBucketDto,
   UpdateBucketDto,
+  ExternalNotifySystemType,
   useCreateAccessTokenForBucketMutation,
   useGetExternalNotifySystemsQuery,
   usePublicAppConfigQuery,
@@ -61,6 +62,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [externalNotifySystemId, setExternalNotifySystemId] = useState<string | null>(null);
   const [externalSystemChannel, setExternalSystemChannel] = useState("");
+  const [externalSystemAuthToken, setExternalSystemAuthToken] = useState("");
   const colorPickerRef = useRef<ColorPickerRef>(null);
 
   const { data: externalSystemsData } = useGetExternalNotifySystemsQuery();
@@ -247,6 +249,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
             preset: selectedPresetId ?? null,
             externalNotifySystemId: externalNotifySystemId ?? null,
             externalSystemChannel: externalSystemChannel.trim() || null,
+            externalSystemAuthToken: externalSystemAuthToken.trim() || null,
           },
         });
       } else {
@@ -261,6 +264,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
           preset: selectedPresetId || undefined,
           externalNotifySystemId: externalNotifySystemId ?? undefined,
           externalSystemChannel: externalSystemChannel.trim() || undefined,
+          externalSystemAuthToken: externalSystemAuthToken.trim() || undefined,
         });
       }
     } catch (error: any) {
@@ -609,15 +613,28 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                   options={externalSystemOptions}
                 />
                 {externalNotifySystemId && (
-                  <TextInput
-                    label={t("externalServers.linkBucket.channel")}
-                    value={externalSystemChannel}
-                    onChangeText={setExternalSystemChannel}
-                    placeholder={t("externalServers.linkBucket.channelPlaceholder")}
-                    mode="outlined"
-                    autoCapitalize="none"
-                    style={styles.channelInput}
-                  />
+                  <>
+                    <TextInput
+                      label={t("externalServers.linkBucket.channel")}
+                      value={externalSystemChannel}
+                      onChangeText={setExternalSystemChannel}
+                      placeholder={t("externalServers.linkBucket.channelPlaceholder")}
+                      mode="outlined"
+                      autoCapitalize="none"
+                      style={styles.channelInput}
+                    />
+                    {externalSystems.find((s) => s.id === externalNotifySystemId)?.type === ExternalNotifySystemType.Gotify && (
+                      <TextInput
+                        label={t("externalServers.linkBucket.gotifyToken")}
+                        value={externalSystemAuthToken}
+                        onChangeText={setExternalSystemAuthToken}
+                        mode="outlined"
+                        secureTextEntry
+                        autoCapitalize="none"
+                        style={styles.channelInput}
+                      />
+                    )}
+                  </>
                 )}
               </View>
             )}

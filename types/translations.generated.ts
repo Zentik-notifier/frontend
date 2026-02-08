@@ -1688,6 +1688,7 @@ export interface Translation {
       channel: string;
       channelPlaceholder: string;
       channelHelp: string;
+      gotifyToken: string;
       unlink: string;
     };
   };

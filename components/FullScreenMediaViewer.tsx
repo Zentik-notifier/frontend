@@ -18,7 +18,11 @@ import {
   View,
 } from "react-native";
 import { IconButton, Text, useTheme } from "react-native-paper";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  initialWindowMetrics,
+  SafeAreaProvider,
+  SafeAreaView,
+} from "react-native-safe-area-context";
 import AttachmentGalleryContent from "./AttachmentGalleryContent";
 
 interface FullScreenMediaViewerProps {
@@ -64,7 +68,6 @@ export default function FullScreenMediaViewer({
   const [busy, setBusy] = useState(false);
   const { t } = useI18n();
   const { formatDate } = useDateFormat();
-  const insets = useSafeAreaInsets();
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
 
@@ -219,17 +222,15 @@ export default function FullScreenMediaViewer({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        {/* Top bar with absolute positioning over content */}
-        <View
-          style={[
-            styles.topBar,
-            {
-              top: insets.top + 8,
-              backgroundColor: "rgba(0,0,0,0.7)",
-            },
-          ]}
+      <SafeAreaProvider initialMetrics={initialWindowMetrics} style={styles.flex1}>
+        <SafeAreaView
+          style={[styles.flex1, styles.modalOverlay]}
+          edges={["top", "bottom"]}
         >
+          <View style={styles.modalInner}>
+            <View
+              style={[styles.topBar, styles.topBarPosition]}
+            >
           {/* Navigation buttons (left) */}
           {(hasAttachments && attachments!.length > 1) || enableSwipeNavigation ? (
             <View style={styles.navigationSection}>
@@ -330,7 +331,8 @@ export default function FullScreenMediaViewer({
 
         <View style={styles.container}>
           <View style={styles.content}>
-            <AttachmentGalleryContent
+            <View style={styles.mediaCenter}>
+              <AttachmentGalleryContent
               attachments={
                 hasAttachments
                   ? attachments!
@@ -353,6 +355,7 @@ export default function FullScreenMediaViewer({
               }}
               onSwipeToClose={onClose}
             />
+            </View>
           </View>
 
           {/* Bottom description with title and cache info - now in flex layout */}
@@ -364,7 +367,6 @@ export default function FullScreenMediaViewer({
               <Pressable
                 style={[
                   styles.bottomBar,
-                  { paddingBottom: insets.bottom + 20 },
                   Platform.OS === "web" &&
                     isFooterHovered &&
                     styles.bottomBarHovered,
@@ -409,20 +411,27 @@ export default function FullScreenMediaViewer({
                 </View>
               </Pressable>
             )}
-        </View>
-      </View>
+          </View>
+          </View>
+        </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  flex1: { flex: 1 },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.95)",
   },
+  modalInner: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     flexDirection: "column",
+    paddingTop: 48,
   },
   topBar: {
     position: "absolute",
@@ -434,6 +443,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+  },
+  topBarPosition: {
+    top: 8,
+    backgroundColor: "rgba(0,0,0,0.7)",
   },
   navigationSection: {
     flexDirection: "row",
@@ -457,10 +470,16 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: "center",
+    alignItems: "center",
+  },
+  mediaCenter: {
+    width: "100%",
+    height: "80%",
   },
   media: { width: "95%", height: "80%" },
   bottomBar: {
     padding: 16,
+    paddingBottom: 20,
     backgroundColor: "rgba(0,0,0,0.75)",
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
