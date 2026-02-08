@@ -11,7 +11,7 @@ import {
 import {
   useBucket,
   useRefreshBucket,
-  useDeleteBucketWithNotifications,
+  useDeleteBucket,
 } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useState } from "react";
@@ -52,9 +52,9 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     setRefetchTrigger((prev) => prev + 1);
   };
 
-  const { deleteBucket } = useDeleteBucketWithNotifications({
+  const { deleteBucket } = useDeleteBucket({
     onSuccess: () => {
-      navigateToHome();
+      onBack?.() ?? navigateToHome();
     },
     onError: (error) => {
       console.error("Error deleting bucket:", error);

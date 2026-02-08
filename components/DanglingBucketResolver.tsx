@@ -2,7 +2,7 @@ import { NotificationFragment } from "@/generated/gql-operations-generated";
 import {
   useAppState,
   useCreateBucket,
-  useDeleteBucketWithNotifications,
+  useDeleteBucket,
 } from "@/hooks/notifications";
 import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
@@ -35,7 +35,7 @@ interface DanglingBucketResolverProps {
 export default function DanglingBucketResolver({
   id,
 }: DanglingBucketResolverProps) {
-  const { navigateToHome } = useNavigationUtils();
+  const { navigateBack } = useNavigationUtils();
   const theme = useTheme();
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -50,8 +50,7 @@ export default function DanglingBucketResolver({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { createBucket, isLoading: creatingBucket } = useCreateBucket();
-  const { deleteBucket: deleteBucketWithNotifications } =
-    useDeleteBucketWithNotifications();
+  const { deleteBucket } = useDeleteBucket();
   const { data: appState, isLoading: loading, refreshAll } = useAppState();
   const bucketsWithStats = appState?.buckets || [];
   const buckets = bucketsWithStats;
@@ -201,7 +200,7 @@ export default function DanglingBucketResolver({
         [
           {
             text: t("common.ok"),
-            onPress: () => navigateToHome(),
+            onPress: () => navigateBack(),
           },
         ]
       );
@@ -267,7 +266,7 @@ export default function DanglingBucketResolver({
           [
             {
               text: t("common.ok"),
-              onPress: () => navigateToHome(),
+              onPress: () => navigateBack(),
             },
           ]
         );
@@ -292,18 +291,16 @@ export default function DanglingBucketResolver({
     }
 
     console.log(
-      `🗑️ Starting deletion of dangling bucket ${currentDanglingBucket.id} with ${currentDanglingBucket.totalMessages} notifications using useDeleteBucketWithNotifications`
+      `🗑️ Starting deletion of dangling bucket ${currentDanglingBucket.id} with ${currentDanglingBucket.totalMessages} notifications`
     );
 
     setIsMigrating(true);
     setShowDeleteDialog(false); // Close dialog immediately
 
     try {
-      await deleteBucketWithNotifications(currentDanglingBucket.id);
+      await deleteBucket(currentDanglingBucket.id);
 
-      console.log(
-        "✅ Bucket deleted successfully via useDeleteBucketWithNotifications!"
-      );
+      console.log("✅ Bucket deleted successfully");
 
       // Update local notifications list
       const allNotifications = await getAllNotificationsFromCache();
@@ -312,8 +309,7 @@ export default function DanglingBucketResolver({
         `✅ Reloaded ${allNotifications.length} notifications from cache`
       );
 
-      // Navigate home after cleanup is complete
-      navigateToHome();
+      navigateBack();
     } catch (error) {
       console.error("❌ Delete bucket error:", error);
       Alert.alert(

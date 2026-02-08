@@ -286,6 +286,8 @@ export function useRefreshBucket() {
                             magicCode: freshBucket.userBucket?.magicCode ?? null,
                             user: freshBucket.user,
                             permissions: freshBucket.permissions,
+                            externalNotifySystem: freshBucket.externalNotifySystem,
+                            externalSystemChannel: freshBucket.externalSystemChannel,
                             isOrphan: false, // Mark as no longer orphan
                         };
                     }
@@ -314,6 +316,8 @@ export function useRefreshBucket() {
                 userBucket: freshBucket.userBucket,
                 user: freshBucket.user,
                 permissions: freshBucket.permissions,
+                externalNotifySystem: freshBucket.externalNotifySystem,
+                externalSystemChannel: freshBucket.externalSystemChannel,
                 isOrphan: false, // Refreshed buckets are never orphans
             });
 

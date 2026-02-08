@@ -82,7 +82,6 @@ export default function BucketIcon({
   const subiconSize = EXTERNAL_SYSTEM_SUBICON_SIZE[size];
   const subiconSource = externalSystemType ? EXTERNAL_SYSTEM_ICONS[externalSystemType] : null;
 
-  // console.log(externalSystemType, showExternalSystemSubicon, subiconSize, subiconSource)
   const iconContent = (
     <View
       style={[

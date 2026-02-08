@@ -34,6 +34,7 @@ export {
 export {
   useCreateBucket,
   useUpdateBucket,
+  useDeleteBucket,
   useDeleteBucketWithNotifications,
   useSetBucketSnooze,
   useUpdateBucketSnoozes,

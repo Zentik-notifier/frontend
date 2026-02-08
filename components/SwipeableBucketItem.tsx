@@ -7,7 +7,7 @@ import {
 import {
   BucketWithStats,
   useBucket,
-  useDeleteBucketWithNotifications,
+  useDeleteBucket,
 } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -46,7 +46,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
     (permission) => permission.user?.id !== userId
   ).length;
 
-  const { deleteBucket } = useDeleteBucketWithNotifications({
+  const { deleteBucket } = useDeleteBucket({
     onSuccess: () => {
       bucketDeleted();
     },
