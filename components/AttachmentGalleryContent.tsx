@@ -3,7 +3,6 @@
  * to avoid circular dependency with AttachmentGallery.
  */
 import {
-  MediaType,
   NotificationAttachmentDto,
 } from "@/generated/gql-operations-generated";
 import React, { useEffect, useState } from "react";
