@@ -6,7 +6,6 @@
 import {
     BucketData,
     getAllBuckets,
-    getBucketsUpdatedAt,
     saveBuckets
 } from '@/db/repositories/buckets-repository';
 import {
@@ -330,23 +329,13 @@ export function useNetworkSync() {
                     }))
                 ];
 
-                // Get existing buckets' updatedAt timestamps to avoid unnecessary writes
-                const bucketIds = bucketsToSave.map(b => b.id);
-                const existingUpdatedAt = await getBucketsUpdatedAt(bucketIds);
-
-                // Filter buckets that actually need updating (new or changed)
-                const bucketsNeedingUpdate = bucketsToSave.filter(bucket => {
-                    const existingDate = existingUpdatedAt.get(bucket.id);
-                    if (!existingDate) {
-                        return true;
-                    }
-                    const remoteDate = new Date(bucket.updatedAt).getTime();
-                    const localDate = new Date(existingDate).getTime();
-                    return remoteDate > localDate;
-                });
-
-                if (bucketsNeedingUpdate.length > 0) {
-                    await saveBuckets(bucketsNeedingUpdate);
+                // Always save all buckets to local DB to ensure the JSON fragment
+                // contains all fields (e.g. externalNotifySystem, userPermissions).
+                // The previous updatedAt-only filter could leave stale fragments in the DB
+                // when new fields were added without changing updatedAt.
+                // Bucket count is typically small (tens), so the write cost is negligible.
+                if (bucketsToSave.length > 0) {
+                    await saveBuckets(bucketsToSave);
                 }
 
                 // Combine all buckets

@@ -18,6 +18,7 @@ import {
 import {
     getAllNotificationsFromCache,
 } from '@/services/notifications-repository';
+import { mediaCache } from '@/services/media-cache-service';
 import {
     BucketWithStats,
     NotificationQueryResult,
@@ -93,21 +94,27 @@ export function useInfiniteNotifications(
                         offset: (pageParam as number) * limit,
                     }
                 });
-                // console.log(`[useInfiniteNotifications] Loaded ${result.notifications.length} notifications on page ${pageParam}`);
 
-                // Preload bucket icons for this page BEFORE returning (makes icons instantly visible)
-                // const uniqueBucketIds = new Set<string>();
-                // const bucketInfoMap = new Map<string, { name: string; iconUrl?: string }>();
+                // Preload bucket icons for this page (non-blocking, deduped by MediaCacheService)
+                // Extracts unique buckets from notifications and warms the in-memory icon cache
+                // so BucketIcon components render icons instantly without triggering individual fetches
+                const bucketInfoMap = new Map<string, { id: string; name: string; iconUrl?: string | null }>();
+                for (const notif of result.notifications) {
+                    const bucket = notif.message?.bucket;
+                    if (bucket?.id && bucket?.name && !bucketInfoMap.has(bucket.id)) {
+                        bucketInfoMap.set(bucket.id, {
+                            id: bucket.id,
+                            name: bucket.name,
+                            iconUrl: bucket.iconUrl,
+                        });
+                    }
+                }
+                if (bucketInfoMap.size > 0) {
+                    mediaCache.preloadBucketIcons(
+                        Array.from(bucketInfoMap.values())
+                    ).catch(() => {});
+                }
 
-                // result.notifications.forEach(notif => {
-                //     if (notif.message?.bucket?.id && notif.message?.bucket?.name) {
-                //         uniqueBucketIds.add(notif.message.bucket.id);
-                //         bucketInfoMap.set(notif.message.bucket.id, {
-                //             name: notif.message.bucket.name,
-                //             iconUrl: notif.message.bucket.iconUrl ?? undefined
-                //         });
-                //     }
-                // });
                 return result;
             } catch (error) {
                 console.error('[useInfiniteNotifications] Error:', error);
@@ -220,8 +227,18 @@ export function useNotificationsState(
 
                 const cachedStats = await getNotificationStats([]);
 
+                // Backfill: preserve fields from previous React Query state
+                // that may not be stored in the local DB fragment yet
+                const prevState = queryClient.getQueryData<{
+                    buckets: BucketWithStats[];
+                }>(['app-state']);
+                const prevBucketsMap = new Map(
+                    (prevState?.buckets ?? []).map(b => [b.id, b])
+                );
+
                 // Build buckets with stats from cache
                 const cachedBucketsWithStats: BucketWithStats[] = cachedBuckets.map((bucket) => {
+                    const prev = prevBucketsMap.get(bucket.id);
                     const bucketStat = cachedStats.byBucket?.find(s => s.bucketId === bucket.id);
                     const snoozeUntil = bucket.userBucket?.snoozeUntil;
                     const isSnoozed = snoozeUntil
@@ -242,8 +259,8 @@ export function useNotificationsState(
                         isPublic: bucket.isPublic ?? false,
                         isAdmin: bucket.isAdmin ?? false,
                         preset: bucket.preset ?? null,
-                        externalNotifySystem: bucket.externalNotifySystem ?? null,
-                        externalSystemChannel: bucket.externalSystemChannel ?? null,
+                        externalNotifySystem: bucket.externalNotifySystem ?? prev?.externalNotifySystem ?? null,
+                        externalSystemChannel: bucket.externalSystemChannel ?? prev?.externalSystemChannel ?? null,
                         totalMessages: bucketStat?.totalCount ?? 0,
                         unreadCount: bucketStat?.unreadCount ?? 0,
                         lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
@@ -251,7 +268,7 @@ export function useNotificationsState(
                         snoozeUntil: snoozeUntil ?? null,
                         user: bucket.user,
                         permissions: bucket.permissions ?? [],
-                        userPermissions: bucket.userPermissions,
+                        userPermissions: bucket.userPermissions ?? prev?.userPermissions,
                         userBucket: bucket.userBucket,
                         magicCode: bucket.userBucket?.magicCode ?? null,
                         isOrphan: bucket.isOrphan ?? false,
@@ -272,7 +289,17 @@ export function useNotificationsState(
                 });
 
                 // ============================================================
-                // PHASE 2: Return cache data immediately (FAST - UI updates)
+                // PHASE 2: Warm bucket icon cache (NON-BLOCKING)
+                // Pre-load bucket icons into MediaCacheService memory cache
+                // so BucketIcon components find them synchronously on first render
+                // ============================================================
+                const bucketsWithIcons = cachedBucketsWithStats.filter(b => b.iconUrl && b.name);
+                if (bucketsWithIcons.length > 0) {
+                    mediaCache.preloadBucketIcons(bucketsWithIcons).catch(() => {});
+                }
+
+                // ============================================================
+                // PHASE 3: Return cache data immediately (FAST - UI updates)
                 // ============================================================
                 const cacheData = {
                     buckets: cachedBucketsWithStats,
@@ -282,7 +309,7 @@ export function useNotificationsState(
                 };
 
                 // ============================================================
-                // PHASE 3: Fetch from API in background (SLOW - background update)
+                // PHASE 4: Fetch from API in background (SLOW - background update)
                 // ============================================================
                 // Start network sync in background (non-blocking)
                 // This will update the query when complete

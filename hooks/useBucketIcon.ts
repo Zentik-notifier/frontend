@@ -138,14 +138,9 @@ export function useBucketIcon(
       setIconUri(cachedUri);
       onIconLoadedRef.current?.(cachedUri);
     } else if (!cancelled) {
-      // Add a small delay based on bucketId hash to stagger concurrent requests
-      // This prevents race conditions when multiple BucketIcon components mount simultaneously
-      const delay = (bucketId.charCodeAt(0) % 50); // 0-49ms delay based on first char
-      setTimeout(() => {
-        if (!cancelled) {
-          loadIcon();
-        }
-      }, delay);
+      // Load immediately — deduplication is handled by MediaCacheService queue
+      // (addBucketIconToQueue checks for duplicates before enqueuing)
+      loadIcon();
     }
 
     // Subscribe to bucket icon ready events
