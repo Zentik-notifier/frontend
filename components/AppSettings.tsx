@@ -22,6 +22,7 @@ import ThemeSettings from "./ThemeSettings";
 import UnifiedCacheSettings from "./UnifiedCacheSettings";
 import { VersionInfo } from "./VersionInfo";
 import { useSettings } from "@/hooks/useSettings";
+import { ServerDiscoveryCard } from "./ServerDiscoveryCard";
 
 export function AppSettings() {
   const theme = useTheme();
@@ -173,6 +174,11 @@ export function AppSettings() {
             )}
           </Card.Content>
         </Card>
+
+        <ServerDiscoveryCard
+          currentServerUrl={apiUrl || settingsService.getApiUrl()}
+          onSelectServer={(url) => setApiUrl(url)}
+        />
 
         {/* Localization Settings Section */}
         <Surface style={styles.settingsSurface} elevation={1}>

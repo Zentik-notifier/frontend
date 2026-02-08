@@ -79,6 +79,8 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             // },
             googleServicesFile: process.env.GOOGLE_SERVICE_INFO_PLIST ?? './keys/GoogleService-Info.plist',
             infoPlist: {
+                NSBonjourServices: ["_zentik._tcp."],
+                NSLocalNetworkUsageDescription: "Zentik uses the local network to discover self-hosted Zentik servers on your Wi-Fi.",
                 NSUserNotificationUsageDescription: "This app uses notifications to send you important updates about your buckets and notifications.",
                 UIBackgroundModes: ["remote-notification", "fetch"],
                 NSPhotoLibraryAddUsageDescription: "Zentik needs access to your photo library to save media attachments to your gallery.",

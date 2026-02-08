@@ -25,6 +25,18 @@
       "successMessage": "The server URL has been updated successfully. GraphQL connections are now using the new URL.",
       "saveError": "Failed to save the server URL. Please try again."
     },
+    "serverDiscovery": {
+      "title": "LAN server discovery",
+      "description": "Find self-hosted Zentik servers on your local network and use one as the API server.",
+      "currentServer": "Current server",
+      "noServerSet": "Default server",
+      "findOnLan": "Find on LAN",
+      "stopScan": "Stop",
+      "discoveredServers": "Discovered servers",
+      "useThisServer": "Use this server",
+      "onlyOnNative": "LAN discovery is only available in the native app (iOS/Android).",
+      "hint": "Tap \"Find on LAN\" to discover Zentik servers on your Wi‑Fi. Ensure the server has LAN discovery enabled."
+    },
     "retentionPolicies": {
       "title": "Media retention rules",
       "description": "Configure how long media files are stored locally",

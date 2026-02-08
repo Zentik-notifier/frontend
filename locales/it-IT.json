@@ -25,6 +25,18 @@
       "successMessage": "L'URL del server è stato aggiornato con successo. Le connessioni GraphQL ora utilizzano il nuovo URL.",
       "saveError": "Impossibile salvare l'URL del server. Riprova."
     },
+    "serverDiscovery": {
+      "title": "Scoperta server in LAN",
+      "description": "Trova server Zentik self-hosted sulla rete locale e usane uno come server API.",
+      "currentServer": "Server attuale",
+      "noServerSet": "Server predefinito",
+      "findOnLan": "Cerca in LAN",
+      "stopScan": "Ferma",
+      "discoveredServers": "Server trovati",
+      "useThisServer": "Usa questo server",
+      "onlyOnNative": "La scoperta LAN è disponibile solo nell'app nativa (iOS/Android).",
+      "hint": "Tocca \"Cerca in LAN\" per scoprire server Zentik sulla tua Wi‑Fi. Assicurati che il server abbia la scoperta LAN abilitata."
+    },
     "retentionPolicies": {
       "title": "Regole di conservazione media",
       "description": "Configura per quanto tempo i file media vengono conservati localmente",

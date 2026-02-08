@@ -28,6 +28,18 @@ export interface Translation {
       successMessage: string;
       saveError: string;
     };
+    serverDiscovery: {
+      title: string;
+      description: string;
+      currentServer: string;
+      noServerSet: string;
+      findOnLan: string;
+      stopScan: string;
+      discoveredServers: string;
+      useThisServer: string;
+      onlyOnNative: string;
+      hint: string;
+    };
     retentionPolicies: {
       title: string;
       description: string;
