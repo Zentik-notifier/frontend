@@ -12,7 +12,6 @@ import { StyleSheet, View, Linking } from "react-native";
 import {
   Badge,
   Button,
-  FAB,
   Icon,
   IconButton,
   Surface,
@@ -279,14 +278,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
         customHeader={<View style={[styles.filtersContainer]} />}
       />
 
-      {canWrite && (
-        <MessageBuilder
-          bucketId={bucketId}
-          trigger={(show: () => void) => (
-            <FAB icon="message" style={styles.fab} onPress={show} />
-          )}
-        />
-      )}
+      {canWrite && <MessageBuilder bucketId={bucketId} />}
     </Surface>
   );
 }
@@ -390,11 +382,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#fff",
-  },
-  fab: {
-    position: "absolute",
-    margin: 16,
-    right: 0,
-    bottom: 0,
   },
 });

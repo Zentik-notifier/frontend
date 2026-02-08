@@ -11,23 +11,25 @@ import React, { useCallback, useState } from "react";
 import {
   Alert,
   Dimensions,
+  KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import {
   Button,
   Icon,
-  List,
-  Modal,
-  Portal,
+  IconButton,
   Switch,
   Text,
   TextInput,
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
+import { Portal } from "react-native-paper";
 import * as DocumentPicker from "expo-document-picker";
 import { settingsService } from "@/services/settings-service";
 import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
@@ -37,13 +39,9 @@ import Selector, { SelectorOption } from "./ui/Selector";
 
 interface MessageBuilderProps {
   bucketId: string;
-  trigger: (show: () => void) => React.ReactNode;
 }
 
-export default function MessageBuilder({
-  bucketId,
-  trigger,
-}: MessageBuilderProps) {
+export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
   const { t } = useI18n();
   const theme = useTheme();
   const deviceHeight = Dimensions.get("window").height;
@@ -71,6 +69,7 @@ export default function MessageBuilder({
   const [delayMinutes, setDelayMinutes] = useState("");
   const [remindEveryMinutes, setRemindEveryMinutes] = useState("");
   const [maxReminders, setMaxReminders] = useState("");
+  const [optionsExpanded, setOptionsExpanded] = useState(false);
 
   const [createMessage, { loading: isCreating }] = useCreateMessageMutation();
 
@@ -246,6 +245,26 @@ export default function MessageBuilder({
     hideModal,
   ]);
 
+  const handleQuickSend = useCallback(async () => {
+    const title = messageData.title?.trim();
+    if (!title) return;
+    try {
+      await createMessage({
+        variables: {
+          input: {
+            bucketId,
+            title,
+            deliveryType: NotificationDeliveryType.Normal,
+          },
+        },
+        refetchQueries: [GetNotificationsDocument],
+      });
+      setMessageData((prev) => ({ ...prev, title: "" }));
+    } catch (error) {
+      console.error("Error creating message:", error);
+    }
+  }, [bucketId, messageData.title, createMessage]);
+
   const handleResetForm = useCallback(() => {
     setMessageData({
       title: "",
@@ -282,43 +301,84 @@ export default function MessageBuilder({
   ];
 
   const styles = StyleSheet.create({
-    header: {
+    drawerOverlay: {
+      flex: 1,
+      justifyContent: "flex-end",
+      backgroundColor: "rgba(0,0,0,0.4)",
+    },
+    drawerBackdrop: {
+      flex: 1,
+    },
+    drawer: {
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: deviceHeight * 0.88,
+    },
+    drawerHandle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      alignSelf: "center",
+      marginTop: 12,
+      marginBottom: 8,
+    },
+    drawerHeader: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      paddingHorizontal: 16,
-      height: 60,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
       borderBottomWidth: 1,
     },
-    headerLeft: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-    },
-    headerTitle: {
-      fontSize: 20,
+    drawerTitle: {
+      fontSize: 18,
       fontWeight: "600",
     },
-    headerRight: {
+    closeButton: {
+      padding: 4,
+    },
+    drawerScroll: {
+      maxHeight: deviceHeight * 0.75,
+    },
+    composer: {
+      padding: 16,
+      paddingBottom: 8,
+    },
+    composerTitle: {
+      marginBottom: 12,
+      backgroundColor: theme.colors.surface,
+    },
+    composerBody: {
+      marginBottom: 12,
+      minHeight: 80,
+      backgroundColor: theme.colors.surface,
+    },
+    sendButton: {
+      marginTop: 4,
+    },
+    optionsRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      gap: 10,
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      borderTopWidth: 1,
     },
-    closeButton: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
+    optionsRowInner: {
+      flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
+      gap: 10,
+      flex: 1,
     },
-    triggerButton: {
-      margin: 16,
+    optionsRowText: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: "500",
     },
-    formContainer: {
+    optionsContent: {
       padding: 16,
-      marginBottom: 16,
-      borderRadius: 12,
-      backgroundColor: theme.colors.surfaceVariant,
+      paddingTop: 8,
+      paddingBottom: 24,
     },
     inputGroup: {
       marginBottom: 16,
@@ -331,18 +391,11 @@ export default function MessageBuilder({
     textInput: {
       backgroundColor: theme.colors.surface,
     },
-    multilineInput: {
-      minHeight: 100,
-    },
-    sectionTitle: {
-      marginBottom: 8,
-      fontWeight: "600",
-      color: theme.colors.onSurface,
-    },
     sectionDescription: {
-      marginBottom: 16,
+      marginBottom: 8,
       opacity: 0.7,
       color: theme.colors.onSurface,
+      fontSize: 13,
     },
     switchContainer: {
       flexDirection: "row",
@@ -355,351 +408,297 @@ export default function MessageBuilder({
       fontWeight: "500",
       color: theme.colors.onSurface,
     },
-    footer: {
-      borderTopWidth: 1,
-      paddingHorizontal: 20,
-      paddingVertical: 12,
-      flexDirection: "row",
-      gap: 12,
+    uploadButton: {
+      marginBottom: 8,
     },
-    footerButton: {
+    resetButton: {
+      marginTop: 8,
+    },
+    inlineComposeBar: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      gap: 8,
+      borderTopWidth: 1,
+      elevation: 8,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: -2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+    },
+    inlineComposeInput: {
       flex: 1,
+      minHeight: 44,
+      fontSize: 16,
+    },
+    inlineComposeButton: {
+      margin: 0,
     },
   });
 
   return (
     <>
-      {trigger(showModal)}
+      <View
+        style={[
+          styles.inlineComposeBar,
+          {
+            backgroundColor: theme.colors.surface,
+            borderTopColor: theme.colors.outline,
+          },
+        ]}
+      >
+        <TextInput
+          mode="outlined"
+          value={messageData.title ?? ""}
+          onChangeText={(text) =>
+            setMessageData((prev) => ({ ...prev, title: text }))
+          }
+          placeholder={t("compose.messageBuilder.titlePlaceholder")}
+          style={[styles.inlineComposeInput, { backgroundColor: theme.colors.surfaceVariant }]}
+          outlineStyle={{ borderRadius: 22 }}
+          dense
+        />
+        <IconButton
+          icon="dots-horizontal"
+          size={24}
+          onPress={showModal}
+          iconColor={theme.colors.primary}
+          style={styles.inlineComposeButton}
+        />
+        <IconButton
+          icon="send"
+          size={24}
+          onPress={handleQuickSend}
+          disabled={!messageData.title?.trim() || isCreating}
+          loading={isCreating}
+          iconColor={theme.colors.primary}
+          style={styles.inlineComposeButton}
+        />
+      </View>
       <Portal>
         <Modal
           visible={visible}
-          onDismiss={hideModal}
-          contentContainerStyle={{
-            backgroundColor: theme.colors.surface,
-            borderRadius: 12,
-            marginHorizontal: 16,
-            marginVertical: 24,
-            maxHeight: deviceHeight * 0.8,
-          }}
-          dismissable={false}
-          dismissableBackButton
+          onRequestClose={hideModal}
+          transparent
+          animationType="slide"
         >
-          <View
-            style={[
-              styles.header,
-              {
-                borderBottomColor: theme.colors.outline,
-                backgroundColor: "transparent",
-              },
-            ]}
-          >
-            <View style={styles.headerLeft}>
-              <Icon source="message" size={24} color={theme.colors.primary} />
-              <Text style={styles.headerTitle}>
-                {t("compose.messageBuilder.createMessage")}
-              </Text>
-            </View>
-            <View style={styles.headerRight}>
-              <TouchableRipple
-                style={styles.closeButton}
-                onPress={hideModal}
-                borderless
-              >
-                <Icon source="close" size={20} color={theme.colors.onSurface} />
-              </TouchableRipple>
-            </View>
-          </View>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={styles.formContainer}>
-              {/* Title */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  {t("compose.messageBuilder.title")} *
-                </Text>
-                <TextInput
-                  mode="outlined"
-                  value={messageData.title}
-                  onChangeText={(text) =>
-                    setMessageData((prev) => ({ ...prev, title: text }))
-                  }
-                  placeholder={t("compose.messageBuilder.titlePlaceholder")}
-                  style={styles.textInput}
-                />
-              </View>
-
-              {/* Body */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  {t("compose.messageBuilder.body")} *
-                </Text>
-                <TextInput
-                  mode="outlined"
-                  value={messageData.body ?? ""}
-                  onChangeText={(text) =>
-                    setMessageData((prev) => ({ ...prev, body: text }))
-                  }
-                  placeholder={t("compose.messageBuilder.bodyPlaceholder")}
-                  multiline
-                  numberOfLines={4}
-                  style={[styles.textInput, styles.multilineInput]}
-                />
-              </View>
-            </View>
-
-            {/* More - Collapsible */}
-            <List.Section>
-              <List.Accordion
-                title={t("compose.messageBuilder.more" as any)}
-                description={t("compose.messageBuilder.moreDescription" as any)}
-                left={(props) => (
-                  <List.Icon {...props} icon="dots-horizontal" />
-                )}
-              >
-                <View style={styles.formContainer}>
-                  {/* Subtitle */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>
-                      {t("compose.messageBuilder.subtitle")}
+          <View style={styles.drawerOverlay}>
+            <TouchableWithoutFeedback onPress={hideModal}>
+              <View style={styles.drawerBackdrop} />
+            </TouchableWithoutFeedback>
+            <KeyboardAvoidingView
+                  behavior={Platform.OS === "ios" ? "padding" : undefined}
+                  style={[styles.drawer, { backgroundColor: theme.colors.surface }]}
+                >
+                  <View style={[styles.drawerHandle, { backgroundColor: theme.colors.outlineVariant }]} />
+                  <View style={[styles.drawerHeader, { borderBottomColor: theme.colors.outline }]}>
+                    <Text style={[styles.drawerTitle, { color: theme.colors.onSurface }]}>
+                      {t("compose.messageBuilder.createMessage")}
                     </Text>
-                    <TextInput
-                      mode="outlined"
-                      value={messageData.subtitle ?? ""}
-                      onChangeText={(text) =>
-                        setMessageData((prev) => ({ ...prev, subtitle: text }))
-                      }
-                      placeholder={t(
-                        "compose.messageBuilder.subtitlePlaceholder"
-                      )}
-                      style={styles.textInput}
-                    />
+                    <TouchableRipple onPress={hideModal} borderless style={styles.closeButton}>
+                      <Icon source="close" size={24} color={theme.colors.onSurface} />
+                    </TouchableRipple>
                   </View>
 
-                  {/* Delivery Type */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>
-                      {t("notifications.settings.deliveryType")}
-                    </Text>
-                    <Selector
-                      options={deliveryTypeOptions}
-                      selectedValue={messageData.deliveryType}
-                      onValueChange={(value) =>
-                        setMessageData((prev) => ({
-                          ...prev,
-                          deliveryType: value as NotificationDeliveryType,
-                        }))
-                      }
-                      placeholder={t(
-                        "compose.messageBuilder.deliveryTypePlaceholder"
-                      )}
-                      isSearchable={false}
-                      disabled={false}
-                    />
-                  </View>
-
-                  {/* Snoozes */}
-                  <NumberListInput
-                    label={t("notifications.automaticActions.snoozeTimes")}
-                    values={snoozeTimes}
-                    onValuesChange={setSnoozeTimes}
-                    placeholder={t(
-                      "notifications.automaticActions.snoozeTimePlaceholder"
-                    )}
-                    unit="m"
-                    min={1}
-                    max={9999}
-                  />
-
-                  {/* Postpones */}
-                  <NumberListInput
-                    label={t("notifications.automaticActions.postponeTimes")}
-                    values={postponeTimes}
-                    onValuesChange={setPostponeTimes}
-                    placeholder={t(
-                      "notifications.automaticActions.postponeTimePlaceholder"
-                    )}
-                    unit="m"
-                    min={1}
-                    max={9999}
-                  />
-
-                  {/* Schedule send (delay) */}
-                  <View style={styles.inputGroup}>
-                    <View style={styles.switchContainer}>
-                      <Text style={styles.switchLabel}>
-                        {t("compose.messageBuilder.scheduleSend")}
-                      </Text>
-                      <Switch
-                        value={scheduleSendEnabled}
-                        onValueChange={setScheduleSendEnabled}
-                      />
-                    </View>
-                    {scheduleSendEnabled && (
-                      <>
-                        <Text style={styles.sectionDescription}>
-                          {t("compose.messageBuilder.scheduleSendDescription")}
-                        </Text>
-                        <TextInput
-                          mode="outlined"
-                          value={delayMinutes}
-                          onChangeText={setDelayMinutes}
-                          placeholder={t(
-                            "compose.messageBuilder.delayMinutesPlaceholder"
-                          )}
-                          keyboardType="number-pad"
-                          style={styles.textInput}
-                        />
-                      </>
-                    )}
-                  </View>
-
-                  {/* Reminders */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.switchLabel}>
-                      {t("compose.messageBuilder.remindEveryMinutes")}
-                    </Text>
-                    <Text style={styles.sectionDescription}>
-                      {t("compose.messageBuilder.remindEveryMinutesDescription")}
-                    </Text>
-                    <TextInput
-                      mode="outlined"
-                      value={remindEveryMinutes}
-                      onChangeText={setRemindEveryMinutes}
-                      placeholder={t(
-                        "compose.messageBuilder.remindEveryMinutesPlaceholder"
-                      )}
-                      keyboardType="number-pad"
-                      style={styles.textInput}
-                    />
-                  </View>
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.switchLabel}>
-                      {t("compose.messageBuilder.maxReminders")}
-                    </Text>
-                    <Text style={styles.sectionDescription}>
-                      {t("compose.messageBuilder.maxRemindersDescription")}
-                    </Text>
-                    <TextInput
-                      mode="outlined"
-                      value={maxReminders}
-                      onChangeText={setMaxReminders}
-                      placeholder={t(
-                        "compose.messageBuilder.maxRemindersPlaceholder"
-                      )}
-                      keyboardType="number-pad"
-                      style={styles.textInput}
-                    />
-                  </View>
-                </View>
-              </List.Accordion>
-            </List.Section>
-
-            {/* Attachments - Collapsible */}
-            <List.Section>
-              <List.Accordion
-                title={t("compose.messageBuilder.attachments")}
-                description={t("compose.messageBuilder.attachmentsDescription")}
-                left={(props) => <List.Icon {...props} icon="paperclip" />}
-              >
-                <View style={styles.formContainer}>
-                  <Button
-                    mode="outlined"
-                    icon="file-upload"
-                    onPress={handleUploadImages}
-                    style={{ marginBottom: 8 }}
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                    style={styles.drawerScroll}
                   >
-                    Upload image(s)
-                  </Button>
-                  <MediaAttachmentsSelector
-                    attachments={messageData.attachments || []}
-                    onAttachmentsChange={(attachments) =>
-                      setMessageData((prev) => ({
-                        ...prev,
-                        attachments: attachments as any,
-                      }))
-                    }
-                    label={t("notifications.attachments.title")}
-                  />
-                </View>
-              </List.Accordion>
-            </List.Section>
+                    <View style={styles.composer}>
+                      <TextInput
+                        mode="outlined"
+                        value={messageData.title}
+                        onChangeText={(text) =>
+                          setMessageData((prev) => ({ ...prev, title: text }))
+                        }
+                        placeholder={t("compose.messageBuilder.titlePlaceholder")}
+                        style={styles.composerTitle}
+                      />
+                      <TextInput
+                        mode="outlined"
+                        value={messageData.body ?? ""}
+                        onChangeText={(text) =>
+                          setMessageData((prev) => ({ ...prev, body: text }))
+                        }
+                        placeholder={t("compose.messageBuilder.bodyPlaceholder")}
+                        multiline
+                        numberOfLines={3}
+                        style={styles.composerBody}
+                      />
+                      <Button
+                        mode="contained"
+                        onPress={handleSaveMessage}
+                        loading={isCreating}
+                        disabled={!messageData.title?.trim()}
+                        icon="send"
+                        style={styles.sendButton}
+                      >
+                        {t("compose.messageBuilder.createMessage")}
+                      </Button>
+                    </View>
 
-            {/* Actions - Collapsible */}
-            <List.Section>
-              <List.Accordion
-                title={t("compose.messageBuilder.actions")}
-                description={t("compose.messageBuilder.actionsDescription")}
-                left={(props) => <List.Icon {...props} icon="cog" />}
-              >
-                <View style={styles.formContainer}>
-                  <View style={styles.switchContainer}>
-                    <Text style={styles.switchLabel}>
-                      {t("notifications.automaticActions.addMarkAsReadAction")}
-                    </Text>
-                    <Switch
-                      value={addMarkAsReadAction}
-                      onValueChange={setAddMarkAsReadAction}
-                    />
-                  </View>
+                    <TouchableRipple
+                      onPress={() => setOptionsExpanded((e) => !e)}
+                      style={[styles.optionsRow, { borderTopColor: theme.colors.outline }]}
+                    >
+                      <View style={styles.optionsRowInner}>
+                        <Icon source="dots-horizontal" size={20} color={theme.colors.primary} />
+                        <Text style={[styles.optionsRowText, { color: theme.colors.onSurface }]}>
+                          {t("compose.messageBuilder.more" as any)}
+                        </Text>
+                        <Icon
+                          source={optionsExpanded ? "chevron-up" : "chevron-down"}
+                          size={24}
+                          color={theme.colors.onSurfaceVariant}
+                        />
+                      </View>
+                    </TouchableRipple>
 
-                  <View style={styles.switchContainer}>
-                    <Text style={styles.switchLabel}>
-                      {t("notifications.automaticActions.addDeleteAction")}
-                    </Text>
-                    <Switch
-                      value={addDeleteAction}
-                      onValueChange={setAddDeleteAction}
-                    />
-                  </View>
-
-                  <View style={styles.switchContainer}>
-                    <Text style={styles.switchLabel}>
-                      {t(
-                        "notifications.automaticActions.addOpenNotificationAction"
-                      )}
-                    </Text>
-                    <Switch
-                      value={addOpenNotificationAction}
-                      onValueChange={setAddOpenNotificationAction}
-                    />
-                  </View>
-
-                  <NotificationActionsSelector
-                    actions={messageData.actions || []}
-                    onActionsChange={(actions) =>
-                      setMessageData((prev) => ({
-                        ...prev,
-                        actions: actions as any,
-                      }))
-                    }
-                    label={t("notifications.actions.title")}
-                  />
-                </View>
-              </List.Accordion>
-            </List.Section>
-          </ScrollView>
-
-          <View
-            style={[styles.footer, { borderTopColor: theme.colors.outline }]}
-          >
-            <Button
-              mode="outlined"
-              onPress={handleResetForm}
-              style={styles.footerButton}
-            >
-              {t("common.reset")}
-            </Button>
-            <Button
-              mode="contained"
-              onPress={handleSaveMessage}
-              loading={isCreating}
-              disabled={!messageData.title?.trim()}
-              style={styles.footerButton}
-            >
-              {t("common.save")}
-            </Button>
+                    {optionsExpanded && (
+                      <View style={styles.optionsContent}>
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.inputLabel}>{t("compose.messageBuilder.subtitle")}</Text>
+                          <TextInput
+                            mode="outlined"
+                            value={messageData.subtitle ?? ""}
+                            onChangeText={(text) => setMessageData((prev) => ({ ...prev, subtitle: text }))}
+                            placeholder={t("compose.messageBuilder.subtitlePlaceholder")}
+                            style={styles.textInput}
+                          />
+                        </View>
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.inputLabel}>{t("notifications.settings.deliveryType")}</Text>
+                          <Selector
+                            options={deliveryTypeOptions}
+                            selectedValue={messageData.deliveryType}
+                            onValueChange={(value) =>
+                              setMessageData((prev) => ({ ...prev, deliveryType: value as NotificationDeliveryType }))
+                            }
+                            placeholder={t("compose.messageBuilder.deliveryTypePlaceholder")}
+                            isSearchable={false}
+                            disabled={false}
+                          />
+                        </View>
+                        <NumberListInput
+                          label={t("notifications.automaticActions.snoozeTimes")}
+                          values={snoozeTimes}
+                          onValuesChange={setSnoozeTimes}
+                          placeholder={t("notifications.automaticActions.snoozeTimePlaceholder")}
+                          unit="m"
+                          min={1}
+                          max={9999}
+                        />
+                        <NumberListInput
+                          label={t("notifications.automaticActions.postponeTimes")}
+                          values={postponeTimes}
+                          onValuesChange={setPostponeTimes}
+                          placeholder={t("notifications.automaticActions.postponeTimePlaceholder")}
+                          unit="m"
+                          min={1}
+                          max={9999}
+                        />
+                        <View style={styles.inputGroup}>
+                          <View style={styles.switchContainer}>
+                            <Text style={styles.switchLabel}>{t("compose.messageBuilder.scheduleSend")}</Text>
+                            <Switch value={scheduleSendEnabled} onValueChange={setScheduleSendEnabled} />
+                          </View>
+                          {scheduleSendEnabled && (
+                            <>
+                              <Text style={styles.sectionDescription}>
+                                {t("compose.messageBuilder.scheduleSendDescription")}
+                              </Text>
+                              <TextInput
+                                mode="outlined"
+                                value={delayMinutes}
+                                onChangeText={setDelayMinutes}
+                                placeholder={t("compose.messageBuilder.delayMinutesPlaceholder")}
+                                keyboardType="number-pad"
+                                style={styles.textInput}
+                              />
+                            </>
+                          )}
+                        </View>
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.switchLabel}>{t("compose.messageBuilder.remindEveryMinutes")}</Text>
+                          <Text style={styles.sectionDescription}>
+                            {t("compose.messageBuilder.remindEveryMinutesDescription")}
+                          </Text>
+                          <TextInput
+                            mode="outlined"
+                            value={remindEveryMinutes}
+                            onChangeText={setRemindEveryMinutes}
+                            placeholder={t("compose.messageBuilder.remindEveryMinutesPlaceholder")}
+                            keyboardType="number-pad"
+                            style={styles.textInput}
+                          />
+                        </View>
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.switchLabel}>{t("compose.messageBuilder.maxReminders")}</Text>
+                          <Text style={styles.sectionDescription}>
+                            {t("compose.messageBuilder.maxRemindersDescription")}
+                          </Text>
+                          <TextInput
+                            mode="outlined"
+                            value={maxReminders}
+                            onChangeText={setMaxReminders}
+                            placeholder={t("compose.messageBuilder.maxRemindersPlaceholder")}
+                            keyboardType="number-pad"
+                            style={styles.textInput}
+                          />
+                        </View>
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.inputLabel}>{t("compose.messageBuilder.attachments")}</Text>
+                          <Button mode="outlined" icon="file-upload" onPress={handleUploadImages} style={styles.uploadButton}>
+                            Upload image(s)
+                          </Button>
+                          <MediaAttachmentsSelector
+                            attachments={messageData.attachments || []}
+                            onAttachmentsChange={(attachments) =>
+                              setMessageData((prev) => ({ ...prev, attachments: attachments as any }))
+                            }
+                            label={t("notifications.attachments.title")}
+                          />
+                        </View>
+                        <View style={styles.inputGroup}>
+                          <View style={styles.switchContainer}>
+                            <Text style={styles.switchLabel}>
+                              {t("notifications.automaticActions.addMarkAsReadAction")}
+                            </Text>
+                            <Switch value={addMarkAsReadAction} onValueChange={setAddMarkAsReadAction} />
+                          </View>
+                          <View style={styles.switchContainer}>
+                            <Text style={styles.switchLabel}>
+                              {t("notifications.automaticActions.addDeleteAction")}
+                            </Text>
+                            <Switch value={addDeleteAction} onValueChange={setAddDeleteAction} />
+                          </View>
+                          <View style={styles.switchContainer}>
+                            <Text style={styles.switchLabel}>
+                              {t("notifications.automaticActions.addOpenNotificationAction")}
+                            </Text>
+                            <Switch value={addOpenNotificationAction} onValueChange={setAddOpenNotificationAction} />
+                          </View>
+                          <NotificationActionsSelector
+                            actions={messageData.actions || []}
+                            onActionsChange={(actions) =>
+                              setMessageData((prev) => ({ ...prev, actions: actions as any }))
+                            }
+                            label={t("notifications.actions.title")}
+                          />
+                        </View>
+                        <Button mode="outlined" onPress={handleResetForm} style={styles.resetButton}>
+                          {t("common.reset")}
+                        </Button>
+                      </View>
+                    )}
+                  </ScrollView>
+                </KeyboardAvoidingView>
           </View>
         </Modal>
       </Portal>

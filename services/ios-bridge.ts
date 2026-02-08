@@ -352,9 +352,8 @@ class IosBridgeService {
    * Idempotent; call once at app startup on iOS before using cache via bridge.
    */
   async dbEnsureCacheDbInitialized(): Promise<void> {
-    if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
-    }
+    if (!DatabaseAccessBridge) return;
+    if (!isIOS) return;
 
     await DatabaseAccessBridge.ensureCacheDbInitialized();
   }
@@ -378,9 +377,7 @@ class IosBridgeService {
    * Returns an array of rows as objects
    */
   async dbExecuteQuery(sql: string, params: any[] = []): Promise<any[]> {
-    if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
-    }
+    if (!DatabaseAccessBridge || !isIOS) return [];
 
     try {
       const results = await DatabaseAccessBridge.executeQuery(sql, params);
@@ -399,9 +396,7 @@ class IosBridgeService {
     success: boolean;
     changes: number;
   }> {
-    if (!isIOS || !DatabaseAccessBridge) {
-      throw new Error('Database access is only available on iOS');
-    }
+    if (!DatabaseAccessBridge || !isIOS) return { success: true, changes: 0 };
 
     try {
       const result = await DatabaseAccessBridge.executeUpdate(sql, params);

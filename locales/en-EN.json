@@ -2943,6 +2943,7 @@
     "messageLabel": "Message",
     "messagePlaceholder": "Enter your message",
     "sendButton": "Send",
+    "addMoreMedia": "Add more photos or videos",
     "loginRequired": "Open the Zentik app and log in to use the Share Extension.",
     "openApp": "Open Zentik",
     "errors": {

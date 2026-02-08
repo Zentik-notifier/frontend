@@ -27,8 +27,9 @@ import {
 } from "react-native";
 import { useTheme } from "react-native-paper";
 import { NotificationDeliveryType } from "./generated/gql-operations-generated";
+import * as DocumentPicker from "expo-document-picker";
 
-// Bucket type from REST
+// Bucket type from REST (GET /api/v1/buckets)
 type Bucket = {
   id: string;
   name: string;
@@ -36,9 +37,16 @@ type Bucket = {
   icon?: string;
   iconUrl?: string;
   iconAttachmentUuid?: string;
+  externalNotifySystem?: { id?: string; type?: string };
+};
+
+const EXTERNAL_SYSTEM_ICONS: Record<string, number> = {
+  NTFY: require("@/assets/icons/ntfy.svg"),
+  Gotify: require("@/assets/icons/gotify.png"),
 };
 
 const BUCKET_SIZE = 80;
+const EXTERNAL_SUBICON_SIZE = 20;
 const BUCKETS_PER_ROW = 3;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -91,12 +99,20 @@ function ShareExtensionContent(props: InitialProps) {
   const [selectedBucket, setSelectedBucket] = useState<Bucket | null>(null);
   const [title, setTitle] = useState("Upload from Zentik");
   const [message, setMessage] = useState(url || "");
+  const [subtitle, setSubtitle] = useState("");
+  const [deliveryType, setDeliveryType] = useState<NotificationDeliveryType>(
+    NotificationDeliveryType.Normal
+  );
+  const [optionsExpanded, setOptionsExpanded] = useState(false);
+  const [snoozeInput, setSnoozeInput] = useState("");
+  const [postponeInput, setPostponeInput] = useState("");
+  const [extraMedia, setExtraMedia] = useState<{ url: string; mediaType: string }[]>([]);
 
-  // Combine images and videos for preview
-  const allMedia = [
-    ...images.map((url) => ({ url, mediaType: "IMAGE" })),
-    ...videos.map((url) => ({ url, mediaType: "VIDEO" })),
+  const sharedMedia = [
+    ...images.map((u) => ({ url: u, mediaType: "IMAGE" })),
+    ...videos.map((u) => ({ url: u, mediaType: "VIDEO" })),
   ];
+  const allMedia = [...sharedMedia, ...extraMedia];
 
   const [token, setToken] = useState<string | null>(null);
   const [apiUrl, setApiUrl] = useState<string | null>(null);
@@ -164,6 +180,30 @@ function ShareExtensionContent(props: InitialProps) {
     }
   }, [apiUrl, token]);
 
+  const handleAddMoreMedia = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*", "video/*"],
+        copyToCacheDirectory: true,
+        multiple: true,
+      } as any);
+      if ((result as any).canceled) return;
+      const files = (result as any).assets ?? [(result as any)];
+      const newItems = files.map((f: { uri: string; mimeType?: string }) => {
+        const mt = (f.mimeType || "").toLowerCase();
+        const mediaType = mt.startsWith("video/") ? "VIDEO" : "IMAGE";
+        return { url: f.uri, mediaType };
+      });
+      setExtraMedia((prev) => [...prev, ...newItems]);
+    } catch (e) {
+      console.warn("[ShareExtension] Document picker not available or failed:", e);
+    }
+  };
+
+  const removeExtraMedia = (index: number) => {
+    setExtraMedia((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const sendMessage = async () => {
     if (!title.trim()) {
       Alert.alert(t("common.error"), t("shareExtension.errors.titleRequired"));
@@ -186,18 +226,13 @@ function ShareExtensionContent(props: InitialProps) {
         return;
       }
 
-      // First, upload all attachments in parallel and get their UUIDs
-      const uploadPromises = allMedia.map(async (media) => {
+      const successfulUploads: { uuid: string; mediaType: string }[] = [];
+      for (const media of allMedia) {
         try {
-          // Use FormData with native file uri without reading file contents
           const formData = new FormData();
           const isImage = media.mediaType === "IMAGE";
-
-          // Extract filename from the local path
           const pathParts = media.url.split("/");
           const originalFilename = pathParts[pathParts.length - 1];
-
-          // Determine mime type based on file extension
           const fileExtension = originalFilename
             .split(".")
             .pop()
@@ -250,52 +285,47 @@ function ShareExtensionContent(props: InitialProps) {
           formData.append("filename", originalFilename);
           formData.append("mediaType", media.mediaType);
 
-          // Upload attachment
           const uploadResponse = await fetch(
             `${apiUrl}/api/v1/attachments/upload`,
             {
               method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
+              headers: { Authorization: `Bearer ${token}` },
               body: formData,
             }
           );
 
           if (uploadResponse.ok) {
             const attachment = await uploadResponse.json();
-            return {
-              success: true,
+            successfulUploads.push({
               uuid: attachment.id,
               mediaType: media.mediaType,
-            };
+            });
           } else {
-            console.error(
-              `Failed to upload ${media.url}:`,
-              uploadResponse.status
-            );
-            return { success: false, error: `HTTP ${uploadResponse.status}` };
+            console.error(`Failed to upload ${media.url}:`, uploadResponse.status);
           }
         } catch (error) {
           console.error(`Error uploading ${media.url}:`, error);
-          return { success: false, error: (error as Error).message };
         }
-      });
+      }
+      const snoozes = snoozeInput
+        .split(",")
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !Number.isNaN(n) && n >= 1);
+      const postpones = postponeInput
+        .split(",")
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !Number.isNaN(n) && n >= 1);
 
-      // Wait for all uploads to complete
-      const uploadResults = await Promise.all(uploadPromises);
-
-      // Filter successful uploads for payload
-      const successfulUploads = uploadResults.filter(
-        (result) => result.success
-      );
-      const payload = {
+      const payload: Record<string, unknown> = {
         title: title.trim(),
         body: message.trim() || undefined,
+        subtitle: subtitle.trim() || undefined,
         bucketId: selectedBucket.id,
-        deliveryType: NotificationDeliveryType.Normal,
+        deliveryType,
         attachmentUuids: successfulUploads.map((result) => result.uuid),
       };
+      if (snoozes.length > 0) payload.snoozes = snoozes;
+      if (postpones.length > 0) payload.postpones = postpones;
 
       const response = await fetch(`${apiUrl}/message`, {
         method: "POST",
@@ -321,6 +351,10 @@ function ShareExtensionContent(props: InitialProps) {
 
       setTitle("");
       setMessage("");
+      setSubtitle("");
+      setExtraMedia([]);
+      setSnoozeInput("");
+      setPostponeInput("");
     } catch (err: any) {
       console.error("[ShareExtension] Error sending message:", err);
       Alert.alert(
@@ -356,26 +390,55 @@ function ShareExtensionContent(props: InitialProps) {
     }
   };
 
+  const resolveIconUri = (bucket: Bucket): string | null => {
+    const raw = bucket.iconUrl;
+    if (!raw || !raw.trim()) return null;
+    if (raw.startsWith("http")) return raw;
+    if (apiUrl && (raw.startsWith("/") || !raw.startsWith("http"))) {
+      const base = apiUrl.replace(/\/$/, "");
+      return raw.startsWith("/") ? `${base}${raw}` : `${base}/${raw}`;
+    }
+    return null;
+  };
+
   const renderBucketIcon = (bucket: Bucket) => {
     const backgroundColor = bucket.color || theme.colors.primary;
     const initials = bucket.name.substring(0, 2).toUpperCase();
+    const iconUri = resolveIconUri(bucket);
+    const externalType = bucket.externalNotifySystem?.type;
+    const externalIcon = externalType ? EXTERNAL_SYSTEM_ICONS[externalType] : null;
 
-    // Priority: iconUrl (preferred) > iconAttachmentUuid > icon URL > color + initials
-    if (bucket.iconUrl && bucket.iconUrl.startsWith("http")) {
-      return (
-        <Image
-          source={{ uri: bucket.iconUrl }}
-          style={styles.bucketIcon}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-        />
-      );
-    }
-
-    // Fallback: colored circle with initials
     return (
-      <View style={[styles.bucketIcon, { backgroundColor }]}>
-        <Text style={styles.bucketInitial}>{initials}</Text>
+      <View style={styles.bucketIconWrapper}>
+        <View style={[styles.bucketIcon, { backgroundColor }]}>
+          {iconUri ? (
+            <Image
+              source={{ uri: iconUri }}
+              style={[styles.bucketIconImage, { borderRadius: BUCKET_SIZE / 2 }]}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <Text style={styles.bucketInitial}>{initials}</Text>
+          )}
+        </View>
+        {externalIcon && (
+          <View
+            style={[
+              styles.externalSubicon,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outline,
+              },
+            ]}
+          >
+            <Image
+              source={externalIcon}
+              style={styles.externalSubiconImage}
+              contentFit="cover"
+            />
+          </View>
+        )}
       </View>
     );
   };
@@ -537,6 +600,7 @@ function ShareExtensionContent(props: InitialProps) {
           <TextInput
             style={[
               styles.input,
+              styles.inputCompact,
               {
                 borderColor: theme.colors.outline,
                 color: theme.colors.onSurface,
@@ -573,23 +637,150 @@ function ShareExtensionContent(props: InitialProps) {
       </View>
 
       {/* Media preview section */}
-      {allMedia.length > 0 && (
-        <View
-          style={[
-            styles.mediaPreviewSection,
-            {
-              backgroundColor: theme.colors.surface,
-              borderBottomColor: theme.colors.outline,
-            },
-          ]}
+      <View
+        style={[
+          styles.mediaPreviewSection,
+          {
+            backgroundColor: theme.colors.surface,
+            borderBottomColor: theme.colors.outline,
+          },
+        ]}
+      >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {allMedia.map((media, index: number) => (
+            <View key={index} style={styles.mediaPreviewWrapper}>
+              <MediaPreviewItem media={media} index={index} />
+              {index >= sharedMedia.length && (
+                <TouchableOpacity
+                  style={[styles.removeMediaBtn, { backgroundColor: theme.colors.error }]}
+                  onPress={() => removeExtraMedia(index - sharedMedia.length)}
+                >
+                  <Text style={[styles.iconChar, { color: theme.colors.onError, fontSize: 16 }]}>×</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
+          <TouchableOpacity
+            style={[styles.addMediaSlot, { borderColor: theme.colors.primary }]}
+            onPress={handleAddMoreMedia}
+          >
+            <Text style={[styles.iconChar, { color: theme.colors.primary, fontSize: 28 }]}>+</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+
+      {/* More options */}
+      <View style={[styles.moreOptionsSection, { backgroundColor: theme.colors.surface }]}>
+        <TouchableOpacity
+          style={[styles.moreOptionsRow, { borderBottomColor: theme.colors.outline }]}
+          onPress={() => setOptionsExpanded((e) => !e)}
         >
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {allMedia.map((media, index: number) => (
-              <MediaPreviewItem key={index} media={media} index={index} />
-            ))}
-          </ScrollView>
-        </View>
-      )}
+          <Text style={[styles.iconChar, { color: theme.colors.primary, fontSize: 20 }]}>⋯</Text>
+          <Text style={[styles.moreOptionsRowText, { color: theme.colors.onSurface }]}>
+            {t("compose.messageBuilder.more" as any)}
+          </Text>
+          <Text style={[styles.iconChar, { color: theme.colors.onSurfaceVariant, fontSize: 18 }]}>
+            {optionsExpanded ? "▲" : "▼"}
+          </Text>
+        </TouchableOpacity>
+        {optionsExpanded && (
+          <View style={styles.moreOptionsContent}>
+            <View style={styles.formSection}>
+              <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>
+                {t("notifications.settings.deliveryType" as any)}
+              </Text>
+              <View style={styles.deliveryTypeRow}>
+                {[
+                  NotificationDeliveryType.Normal,
+                  NotificationDeliveryType.Critical,
+                  NotificationDeliveryType.Silent,
+                ].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    onPress={() => setDeliveryType(type)}
+                    style={[
+                      styles.deliveryChip,
+                      {
+                        borderColor: theme.colors.outline,
+                        backgroundColor:
+                          deliveryType === type
+                            ? theme.colors.primaryContainer
+                            : theme.colors.surfaceVariant,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.deliveryChipText,
+                        {
+                          color:
+                            deliveryType === type
+                              ? theme.colors.onPrimaryContainer
+                              : theme.colors.onSurfaceVariant,
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {type === NotificationDeliveryType.Normal
+                        ? t("compose.messageBuilder.deliveryType.normal" as any)
+                        : type === NotificationDeliveryType.Critical
+                          ? t("compose.messageBuilder.deliveryType.critical" as any)
+                          : t("compose.messageBuilder.deliveryType.silent" as any)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            <View style={styles.formSection}>
+              <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>
+                {t("compose.messageBuilder.subtitle" as any)}
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  { borderColor: theme.colors.outline, color: theme.colors.onSurface },
+                ]}
+                value={subtitle}
+                onChangeText={setSubtitle}
+                placeholder={t("compose.messageBuilder.subtitlePlaceholder" as any)}
+                placeholderTextColor={theme.colors.onSurfaceVariant}
+              />
+            </View>
+            <View style={styles.formSection}>
+              <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>
+                {t("notifications.automaticActions.snoozeTimes" as any)}
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  { borderColor: theme.colors.outline, color: theme.colors.onSurface },
+                ]}
+                value={snoozeInput}
+                onChangeText={setSnoozeInput}
+                placeholder={t("notifications.automaticActions.snoozeTimePlaceholder" as any)}
+                placeholderTextColor={theme.colors.onSurfaceVariant}
+                keyboardType="numbers-and-punctuation"
+              />
+            </View>
+            <View style={styles.formSection}>
+              <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>
+                {t("notifications.automaticActions.postponeTimes" as any)}
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  { borderColor: theme.colors.outline, color: theme.colors.onSurface },
+                ]}
+                value={postponeInput}
+                onChangeText={setPostponeInput}
+                placeholder={t("notifications.automaticActions.postponeTimePlaceholder" as any)}
+                placeholderTextColor={theme.colors.onSurfaceVariant}
+                keyboardType="numbers-and-punctuation"
+              />
+            </View>
+          </View>
+        )}
+      </View>
 
       {/* Buckets selection */}
       <ScrollView
@@ -671,6 +862,69 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
   },
+  mediaPreviewWrapper: {
+    marginRight: 12,
+    position: "relative",
+  },
+  removeMediaBtn: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  addMediaSlot: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  deliveryTypeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 4,
+  },
+  deliveryChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  deliveryChipText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  moreOptionsSection: {
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.08)",
+  },
+  moreOptionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+    borderBottomWidth: 1,
+  },
+  moreOptionsRowText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "500",
+  },
+  moreOptionsContent: {
+    padding: 16,
+    paddingTop: 8,
+  },
   mediaPreviewItem: {
     marginRight: 12,
     alignItems: "center",
@@ -720,13 +974,38 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     elevation: 5,
   },
+  bucketIconWrapper: {
+    position: "relative",
+    marginBottom: 8,
+  },
   bucketIcon: {
     width: BUCKET_SIZE,
     height: BUCKET_SIZE,
     borderRadius: BUCKET_SIZE / 2,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
+    overflow: "hidden",
+  },
+  bucketIconImage: {
+    position: "absolute",
+    width: BUCKET_SIZE,
+    height: BUCKET_SIZE,
+  },
+  externalSubicon: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: EXTERNAL_SUBICON_SIZE,
+    height: EXTERNAL_SUBICON_SIZE,
+    borderRadius: EXTERNAL_SUBICON_SIZE / 2,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  externalSubiconImage: {
+    width: EXTERNAL_SUBICON_SIZE - 4,
+    height: EXTERNAL_SUBICON_SIZE - 4,
+    borderRadius: (EXTERNAL_SUBICON_SIZE - 4) / 2,
   },
   bucketInitial: {
     color: "#fff",
@@ -737,6 +1016,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     textAlign: "center",
+  },
+  iconChar: {
+    fontWeight: "600",
+    lineHeight: 22,
   },
   formSection: {
     marginBottom: 12,
@@ -753,6 +1036,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     backgroundColor: "transparent",
+  },
+  inputCompact: {
+    paddingVertical: 8,
+    minHeight: 44,
   },
   textArea: {
     height: 80,

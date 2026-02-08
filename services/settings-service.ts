@@ -244,6 +244,7 @@ const DEFAULT_AUTH_DATA: AuthData = {
 
 const SERVICE = 'zentik-auth';
 const PRIVATE_KEY_SERVICE = 'zentik-private-key';
+const API_ENDPOINT_SERVICE = 'zentik-api-endpoint';
 
 const bundleIdentifier = process.env.EXPO_PUBLIC_APP_VARIANT === 'development' ?
   'com.apocaliss92.zentik.dev' :
@@ -270,11 +271,18 @@ class SettingsService {
         this.loadAuthData()
       ]);
 
-      // Ensure API endpoint is set in database for iOS extensions (NCE/NSE)
+      // Ensure API endpoint is set in database for iOS extensions (NCE/NSE/Share)
       // Never allow empty API endpoint - always use default as fallback
       const currentEndpoint = this.authDataSubject.value.apiEndpoint;
       if (!currentEndpoint || currentEndpoint.trim() === '') {
         await this.saveApiEndpoint(DEFAULT_API_URL);
+      } else if (Platform.OS === 'ios' || Platform.OS === 'macos') {
+        try {
+          const options: Keychain.SetOptions = Device.isDevice
+            ? { service: API_ENDPOINT_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
+            : { service: API_ENDPOINT_SERVICE, accessible: ACCESSIBLE };
+          await Keychain.setGenericPassword('api', currentEndpoint.trim(), options);
+        } catch { }
       }
 
       this.initializedSubject.next(true);
@@ -374,7 +382,7 @@ class SettingsService {
         lastUserId,
         pushInitStr,
         badgeCountStr,
-        apiEndpoint,
+        apiEndpointFromRepo,
       ] = await Promise.all([
         settingsRepository.getSetting('auth_deviceToken'),
         settingsRepository.getSetting('auth_deviceId'),
@@ -383,6 +391,11 @@ class SettingsService {
         settingsRepository.getSetting('auth_badgeCount'),
         settingsRepository.getSetting('auth_apiEndpoint'),
       ]);
+
+      let apiEndpoint = apiEndpointFromRepo ?? null;
+      if ((Platform.OS === 'ios' || Platform.OS === 'macos') && !apiEndpoint) {
+        apiEndpoint = await this.getApiEndpointFromKeychain();
+      }
 
       const pushNotificationsInitialized = pushInitStr === 'true';
       const badgeCount = badgeCountStr ? parseInt(badgeCountStr, 10) : 0;
@@ -936,6 +949,16 @@ class SettingsService {
     this.authDataSubject.next(current);
 
     await settingsRepository.setSetting('auth_apiEndpoint', finalEndpoint);
+    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
+      try {
+        const options: Keychain.SetOptions = Device.isDevice
+          ? { service: API_ENDPOINT_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
+          : { service: API_ENDPOINT_SERVICE, accessible: ACCESSIBLE };
+        await Keychain.setGenericPassword('api', finalEndpoint, options);
+      } catch (e) {
+        console.warn('[SettingsService] Failed to save API endpoint to Keychain for extension:', e);
+      }
+    }
     console.log('[SettingsService] 🌐 API endpoint saved:', finalEndpoint);
   }
 
@@ -1006,6 +1029,14 @@ class SettingsService {
 
   public async clearApiEndpoint(): Promise<void> {
     console.log('[SettingsService] 🔄 Clearing API endpoint (resetting to default)');
+    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
+      try {
+        const options: Keychain.SetOptions = Device.isDevice
+          ? { service: API_ENDPOINT_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
+          : { service: API_ENDPOINT_SERVICE };
+        await Keychain.resetGenericPassword(options);
+      } catch { }
+    }
     await this.resetApiEndpoint();
   }
 
@@ -1239,6 +1270,20 @@ class SettingsService {
         return null;
       }
     } else {
+      return null;
+    }
+  }
+
+  private async getApiEndpointFromKeychain(): Promise<string | null> {
+    if (Platform.OS !== 'ios' && Platform.OS !== 'macos') return null;
+    try {
+      const options: Keychain.GetOptions = Device.isDevice
+        ? { service: API_ENDPOINT_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
+        : { service: API_ENDPOINT_SERVICE };
+      const creds = await Keychain.getGenericPassword(options);
+      const endpoint = creds?.password?.trim();
+      return endpoint || null;
+    } catch {
       return null;
     }
   }

@@ -433,6 +433,12 @@ export interface Translation {
       scheduleSendDescription: string;
       delayMinutes: string;
       delayMinutesPlaceholder: string;
+      remindEveryMinutes: string;
+      remindEveryMinutesDescription: string;
+      remindEveryMinutesPlaceholder: string;
+      maxReminders: string;
+      maxRemindersDescription: string;
+      maxRemindersPlaceholder: string;
     };
   };
   userProfile: {
@@ -2475,6 +2481,19 @@ export interface Translation {
     updateMessage: string;
     scheduledSendAt: string;
     nextReminderAt: string;
+    inMinutes: string;
+    messageContent: string;
+    rescheduleModeDelay: string;
+    rescheduleModeDateTime: string;
+    rescheduleDelayAmountPlaceholder: string;
+    rescheduleUnitMinutes: string;
+    rescheduleUnitHours: string;
+    rescheduleUnitDays: string;
+    rescheduleDateLabel: string;
+    rescheduleTimeLabel: string;
+    rescheduleSelectDate: string;
+    rescheduleSelectTime: string;
+    reschedulePastError: string;
   };
   backupManagement: {
     title: string;
