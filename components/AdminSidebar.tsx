@@ -4,7 +4,7 @@ import { useNavigationUtils } from "@/utils/navigation";
 import { useSegments } from "expo-router";
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import { Card, Icon, List, Text, useTheme } from "react-native-paper";
+import { List, useTheme } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
 
 interface AdminOption {
@@ -125,109 +125,58 @@ export default function AdminSidebar() {
     },
   ];
 
-  if (!isMobile) {
-    return (
-      <PaperScrollView>
-        <View>
-          {adminOptions.filter(Boolean).map((option) => {
-            const isSelected = segments.some(
-              (segment) => segment === option.selectionSegment
-            );
-            return (
-              <List.Item
-                key={option.id}
-                title={option.title}
-                description={option.description}
-                titleNumberOfLines={1}
-                descriptionNumberOfLines={4}
-                left={(props) => (
-                  <List.Icon
-                    {...props}
-                    icon={option.icon}
-                    color={isSelected ? theme.colors.primary : option.iconColor}
-                  />
-                )}
-                onPress={option.onPress}
-                style={[
-                  styles.listItem,
-                  {
-                    backgroundColor: isSelected
-                      ? theme.colors.primaryContainer
-                      : "transparent",
-                  },
-                ]}
-                titleStyle={{
-                  color: isSelected
-                    ? theme.colors.onPrimaryContainer
-                    : theme.colors.onSurface,
-                }}
-                descriptionStyle={{
-                  color: isSelected
-                    ? theme.colors.onPrimaryContainer
-                    : theme.colors.onSurfaceVariant,
-                }}
-              />
-            );
-          })}
-        </View>
-      </PaperScrollView>
+  const renderListItem = (option: AdminOption) => {
+    const isSelected = segments.some(
+      (segment) => segment === option.selectionSegment
     );
-  }
+    return (
+      <List.Item
+        key={option.id}
+        title={option.title}
+        description={!isMobile ? option.description : undefined}
+        titleNumberOfLines={1}
+        descriptionNumberOfLines={isMobile ? 0 : 2}
+        left={(props) => (
+          <List.Icon
+            {...props}
+            icon={option.icon}
+            color={isSelected ? theme.colors.primary : option.iconColor}
+          />
+        )}
+        right={isMobile ? (props) => <List.Icon {...props} icon="chevron-right" /> : undefined}
+        onPress={option.onPress}
+        style={[
+          styles.listItem,
+          {
+            backgroundColor: isSelected
+              ? theme.colors.primaryContainer
+              : "transparent",
+            minHeight: isMobile ? 48 : 56,
+          },
+        ]}
+        titleStyle={{
+          color: isSelected
+            ? theme.colors.onPrimaryContainer
+            : theme.colors.onSurface,
+          fontSize: isMobile ? 16 : 15,
+        }}
+        descriptionStyle={
+          !isMobile
+            ? {
+                color: isSelected
+                  ? theme.colors.onPrimaryContainer
+                  : theme.colors.onSurfaceVariant,
+              }
+            : undefined
+        }
+      />
+    );
+  };
 
   return (
     <PaperScrollView>
-      <View style={styles.optionsContainer}>
-        {adminOptions.filter(Boolean).map((option) => (
-          <Card
-            key={option.id}
-            style={[
-              styles.optionCard,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.outline,
-              },
-            ]}
-            onPress={option.onPress}
-          >
-            <Card.Content style={styles.cardContent}>
-              <View
-                style={[
-                  styles.optionIconContainer,
-                  { backgroundColor: `${option.iconColor}15` },
-                ]}
-              >
-                <Icon source={option.icon} size={24} color={option.iconColor} />
-              </View>
-              <View style={styles.optionTextContainer}>
-                <Text
-                  style={[
-                    styles.optionTitle,
-                    { color: theme.colors.onSurface },
-                  ]}
-                  numberOfLines={4}
-                >
-                  {option.title}
-                </Text>
-                {isMobile && (
-                  <Text
-                    style={[
-                      styles.optionDescription,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
-                    numberOfLines={4}
-                  >
-                    {option.description}
-                  </Text>
-                )}
-              </View>
-              <Icon
-                source="chevron-right"
-                size={20}
-                color={theme.colors.onSurfaceVariant}
-              />
-            </Card.Content>
-          </Card>
-        ))}
+      <View style={styles.listContainer}>
+        {adminOptions.filter(Boolean).map(renderListItem)}
       </View>
     </PaperScrollView>
   );
@@ -238,56 +187,7 @@ const styles = StyleSheet.create({
     marginVertical: 1,
     borderRadius: 8,
   },
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  titleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 30,
-    gap: 12,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 0,
-    lineHeight: 34,
-  },
-  optionsContainer: {
-    gap: 8,
-  },
-  optionCard: {
-    marginBottom: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  cardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-  },
-  optionIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    marginRight: 15,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  optionTextContainer: {
-    flex: 1,
-  },
-  optionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  optionDescription: {
-    fontSize: 14,
-    opacity: 0.7,
-    lineHeight: 20,
+  listContainer: {
+    paddingVertical: 4,
   },
 });

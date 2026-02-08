@@ -19,7 +19,7 @@ import { UsePushNotifications } from "@/hooks/usePushNotifications";
 import { detectRetentionPreset } from "./utils";
 import { useAppLog } from "@/hooks/useAppLog";
 import { useGetBucketLazyQuery } from "@/generated/gql-operations-generated";
-import { useCreateBucket } from "@/hooks/notifications";
+import { useCreateBucket } from "@/hooks/notifications/useBucketMutations";
 import { useQuery } from "@tanstack/react-query";
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;

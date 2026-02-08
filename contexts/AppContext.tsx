@@ -1,3 +1,4 @@
+import { AuthUserIdProvider } from "@/contexts/AuthUserIdContext";
 import { ChangelogUpdatesModal } from "@/components/ChangelogUpdatesModal";
 import { DatabaseRecoveryModal } from "@/components/DatabaseRecoveryModal";
 import FeedbackModal from "@/components/FeedbackModal";
@@ -686,6 +687,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 
   return (
+    <AuthUserIdProvider value={lastUserId}>
     <AppContext.Provider
       value={{
         logout,
@@ -743,6 +745,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           />
         )}
     </AppContext.Provider>
+    </AuthUserIdProvider>
   );
 }
 

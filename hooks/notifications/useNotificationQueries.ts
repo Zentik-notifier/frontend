@@ -24,27 +24,12 @@ import {
     UseNotificationsOptions
 } from '@/types/notifications';
 import { useContext } from 'react';
-import { AppContext } from '@/contexts/AppContext';
 import { useInfiniteQuery, useQuery, useQueryClient, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
 import { useNetworkSync } from './useNetworkSync';
+import { notificationKeys } from './notificationKeys';
+import { AuthUserIdContext } from '../../contexts/AuthUserIdContext';
 
-/**
- * Query keys for notification-related queries
- * Centralized key management for React Query
- */
-export const notificationKeys = {
-    all: ['notifications'] as const,
-    lists: () => [...notificationKeys.all, 'list'] as const,
-    list: (filters?: any, sort?: any, limit?: number) =>
-        [...notificationKeys.lists(), { filters, sort, limit }] as const,
-    detail: (id: string) => [...notificationKeys.all, 'detail', id] as const,
-    stats: () => [...notificationKeys.all, 'stats'] as const,
-    stat: (bucketIds?: string[]) => [...notificationKeys.stats(), { bucketIds }] as const,
-    bucketStat: (bucketId: string) => [...notificationKeys.stats(), 'bucket', bucketId] as const,
-    bucketsStats: () => [...notificationKeys.all, 'bucketsStats'] as const,
-    allIds: (bucketIds?: string[], unreadOnly?: boolean, withAttachments?: boolean) =>
-        [...notificationKeys.all, 'allIds', { bucketIds, unreadOnly, withAttachments }] as const,
-};
+export { notificationKeys };
 
 /**
  * Hook for fetching notifications with pagination and local DB sync
@@ -196,8 +181,8 @@ export function useNotificationsState(
     lastSync: string;
 }> & { refreshAll: (skipNetwork?: boolean) => Promise<{ networkTime: number; mergeTime: number }> } {
     const queryClient = useQueryClient();
-    const appContext = useContext(AppContext);
-    const isLoggedIn = !!appContext?.lastUserId;
+    const lastUserId = useContext(AuthUserIdContext);
+    const isLoggedIn = !!lastUserId;
     const { syncFromNetwork } = useNetworkSync();
     const {
         realtime = false,

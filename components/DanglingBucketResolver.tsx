@@ -4,7 +4,7 @@ import {
   useCreateBucket,
   useDeleteBucket,
 } from "@/hooks/notifications";
-import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
+import { notificationKeys } from "@/hooks/notifications/notificationKeys";
 import { useI18n } from "@/hooks/useI18n";
 import {
   getAllNotificationsFromCache,

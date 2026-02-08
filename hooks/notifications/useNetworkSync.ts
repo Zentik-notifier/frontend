@@ -27,7 +27,7 @@ import {
     BucketWithStats
 } from '@/types/notifications';
 import { useCallback, useContext, useRef } from 'react';
-import { AppContext } from '@/contexts/AppContext';
+import { AuthUserIdContext } from '../../contexts/AuthUserIdContext';
 import { useQueryClient } from '@tanstack/react-query';
 
 // Type for bucket from GetBucketsQuery (includes userBucket)
@@ -40,8 +40,7 @@ export interface NetworkSyncResult {
 
 export function useNetworkSync() {
     const queryClient = useQueryClient();
-    const appContext = useContext(AppContext);
-    const lastUserId = appContext?.lastUserId ?? null;
+    const lastUserId = useContext(AuthUserIdContext);
     const [updateReceivedNotifications] = useUpdateReceivedNotificationsMutation();
 
     // Use lazy queries for manual control

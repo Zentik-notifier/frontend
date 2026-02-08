@@ -5,7 +5,7 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { notificationKeys } from './useNotificationQueries';
+import { notificationKeys } from './notificationKeys';
 import { getAllNotificationsFromCache } from '@/services/notifications-repository';
 import type { NotificationFragment } from '@/generated/gql-operations-generated';
 

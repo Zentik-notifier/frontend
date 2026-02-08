@@ -15,6 +15,7 @@ import {
 import { MediaType, NotificationFragment } from '../generated/gql-operations-generated';
 import { Directory, File } from '../utils/filesystem-wrapper';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
+import { downloadHistoryService } from './download-history-service';
 import { MediaCacheRepository } from './media-cache-repository';
 import { settingsService } from './settings-service';
 
@@ -365,6 +366,14 @@ class MediaCacheService {
                     timestamp: Date.now(),
                     notificationId: item.notificationId,
                 });
+
+                downloadHistoryService.append({
+                    url,
+                    mediaType,
+                    size: downloadResult.size || 0,
+                    bucketName: item.bucketName,
+                    notificationId: item.notificationId,
+                }).catch(() => {});
 
                 await this.generateThumbnail({ url, mediaType, force, notificationId: item.notificationId });
             } catch (error: any) {

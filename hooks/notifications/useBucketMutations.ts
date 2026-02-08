@@ -23,7 +23,7 @@ import { deleteNotificationsByBucketId } from '@/services/notifications-reposito
 import { BucketWithStats } from '@/types/notifications';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BucketDetailData, bucketKeys } from './useBucketQueries';
-import { notificationKeys } from './useNotificationQueries';
+import { notificationKeys } from './notificationKeys';
 
 /**
  * Hook for deleting a bucket and all its notifications

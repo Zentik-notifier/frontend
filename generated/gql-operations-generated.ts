@@ -217,6 +217,7 @@ export type CreateMessageDto = {
   bucketId?: InputMaybe<Scalars['String']['input']>;
   collapseId?: InputMaybe<Scalars['String']['input']>;
   deliveryType: NotificationDeliveryType;
+  ephemeral?: InputMaybe<Scalars['Boolean']['input']>;
   executionId?: InputMaybe<Scalars['String']['input']>;
   gifUrl?: InputMaybe<Scalars['String']['input']>;
   groupId?: InputMaybe<Scalars['String']['input']>;
@@ -226,6 +227,7 @@ export type CreateMessageDto = {
   maxReminders?: InputMaybe<Scalars['Float']['input']>;
   postpones?: InputMaybe<Array<Scalars['Float']['input']>>;
   remindEveryMinutes?: InputMaybe<Scalars['Float']['input']>;
+  scheduledSendAt?: InputMaybe<Scalars['DateTime']['input']>;
   snoozes?: InputMaybe<Array<Scalars['Float']['input']>>;
   sound?: InputMaybe<Scalars['String']['input']>;
   subtitle?: InputMaybe<Scalars['String']['input']>;
@@ -629,7 +631,9 @@ export type Message = {
   collapseId: Maybe<Scalars['String']['output']>;
   createdAt: Scalars['DateTime']['output'];
   deliveryType: NotificationDeliveryType;
+  ephemeral: Maybe<Scalars['Boolean']['output']>;
   executionId: Maybe<Scalars['String']['output']>;
+  externalSystemResponse: Maybe<Scalars['JSON']['output']>;
   fileAttachments: Maybe<Array<Attachment>>;
   groupId: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
@@ -637,6 +641,7 @@ export type Message = {
   maxReminders: Maybe<Scalars['Float']['output']>;
   postpones: Maybe<Array<Scalars['Float']['output']>>;
   remindEveryMinutes: Maybe<Scalars['Float']['output']>;
+  scheduledSendAt: Maybe<Scalars['DateTime']['output']>;
   snoozes: Maybe<Array<Scalars['Float']['output']>>;
   sound: Maybe<Scalars['String']['output']>;
   subtitle: Maybe<Scalars['String']['output']>;
@@ -652,6 +657,21 @@ export type MessageAttachment = {
   name: Maybe<Scalars['String']['output']>;
   saveOnServer: Maybe<Scalars['Boolean']['output']>;
   url: Maybe<Scalars['String']['output']>;
+};
+
+export type MessageReminder = {
+  __typename?: 'MessageReminder';
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  maxReminders: Scalars['Int']['output'];
+  message: Message;
+  messageId: Scalars['ID']['output'];
+  nextReminderAt: Scalars['DateTime']['output'];
+  remindEveryMinutes: Scalars['Int']['output'];
+  remindersSent: Scalars['Int']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  user: User;
+  userId: Scalars['ID']['output'];
 };
 
 export type MobileAppleAuthDto = {
@@ -672,6 +692,8 @@ export type Mutation = {
   approveSystemAccessTokenRequest: SystemAccessTokenRequest;
   /** Batch update multiple server settings */
   batchUpdateServerSettings: Array<ServerSetting>;
+  /** Cancel all reminders for a message for the current user. */
+  cancelMessageReminders: Scalars['Int']['output'];
   cancelPostpone: Scalars['Boolean']['output'];
   changePassword: Scalars['Boolean']['output'];
   cleanupExpiredPermissions: Scalars['Float']['output'];
@@ -707,6 +729,8 @@ export type Mutation = {
   /** Delete an invite code */
   deleteInviteCode: Scalars['Boolean']['output'];
   deleteMagicCode: UserBucket;
+  /** Delete a message (user must have write on bucket). Returns true if deleted. */
+  deleteMessage: Scalars['Boolean']['output'];
   deleteNotification: Scalars['Boolean']['output'];
   deleteOAuthProvider: Scalars['Boolean']['output'];
   deletePayloadMapper: Scalars['Boolean']['output'];
@@ -770,6 +794,8 @@ export type Mutation = {
   updateExternalNotifySystem: ExternalNotifySystem;
   /** Update an invite code */
   updateInviteCode: InviteCode;
+  /** Update a message (e.g. scheduled send time). */
+  updateMessage: Message;
   updateOAuthProvider: OAuthProvider;
   updatePayloadMapper: PayloadMapper;
   updateProfile: User;
@@ -817,6 +843,11 @@ export type MutationApproveSystemAccessTokenRequestArgs = {
 
 export type MutationBatchUpdateServerSettingsArgs = {
   settings: Array<BatchUpdateSettingInput>;
+};
+
+
+export type MutationCancelMessageRemindersArgs = {
+  messageId: Scalars['String']['input'];
 };
 
 
@@ -948,6 +979,11 @@ export type MutationDeleteInviteCodeArgs = {
 
 export type MutationDeleteMagicCodeArgs = {
   bucketId: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteMessageArgs = {
+  id: Scalars['String']['input'];
 };
 
 
@@ -1186,6 +1222,12 @@ export type MutationUpdateExternalNotifySystemArgs = {
 
 export type MutationUpdateInviteCodeArgs = {
   input: UpdateInviteCodeInput;
+};
+
+
+export type MutationUpdateMessageArgs = {
+  id: Scalars['String']['input'];
+  input: UpdateMessageDto;
 };
 
 
@@ -1527,6 +1569,8 @@ export type Query = {
   logs: PaginatedLogs;
   me: User;
   messageAttachments: Array<Attachment>;
+  /** Active message reminders (retry) for the current user. */
+  messageRemindersForCurrentUser: Array<MessageReminder>;
   myAdminSubscription: Maybe<Array<Scalars['String']['output']>>;
   mySystemAccessTokenRequests: Array<SystemAccessTokenRequest>;
   notification: Notification;
@@ -1537,6 +1581,8 @@ export type Query = {
   payloadMappers: Array<PayloadMapper>;
   pendingPostpones: Array<NotificationPostpone>;
   publicAppConfig: PublicAppConfig;
+  /** Messages with scheduled send in the future (user must have write on bucket). */
+  scheduledMessagesForCurrentUser: Array<Message>;
   serverFiles: Array<FileInfoDto>;
   /** Get a specific server setting by type */
   serverSetting: Maybe<ServerSetting>;
@@ -2076,6 +2122,10 @@ export type UpdateInviteCodeInput = {
   permissions?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
+export type UpdateMessageDto = {
+  scheduledSendAt?: InputMaybe<Scalars['DateTime']['input']>;
+};
+
 export type UpdateOAuthProviderDto = {
   additionalConfig?: InputMaybe<Scalars['String']['input']>;
   authorizationUrl?: InputMaybe<Scalars['String']['input']>;
@@ -2513,6 +2563,50 @@ export type CreateMessageMutationVariables = Exact<{
 
 
 export type CreateMessageMutation = { __typename?: 'Mutation', createMessage: { __typename?: 'Message', id: string, title: string, body: string | null, subtitle: string | null, sound: string | null, deliveryType: NotificationDeliveryType, locale: string | null, snoozes: Array<number> | null, executionId: string | null, createdAt: string, updatedAt: string, attachments: Array<{ __typename?: 'MessageAttachment', mediaType: MediaType, url: string | null, name: string | null, attachmentUuid: string | null, saveOnServer: boolean | null }> | null, tapAction: { __typename?: 'NotificationAction', type: NotificationActionType, value: string | null, title: string | null, icon: string | null, destructive: boolean | null } | null, actions: Array<{ __typename?: 'NotificationAction', type: NotificationActionType, value: string | null, title: string | null, icon: string | null, destructive: boolean | null }> | null, bucket: { __typename?: 'Bucket', id: string, name: string, description: string | null, color: string | null, icon: string | null, iconAttachmentUuid: string | null, iconUrl: string | null, createdAt: string, updatedAt: string, isProtected: boolean | null, isPublic: boolean | null, isAdmin: boolean | null, preset: string | null, externalSystemChannel: string | null, externalNotifySystem: { __typename?: 'ExternalNotifySystem', id: string, name: string, baseUrl: string, type: ExternalNotifySystemType } | null } } };
+
+export type ScheduledMessagesForCurrentUserQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ScheduledMessagesForCurrentUserQuery = { __typename?: 'Query', scheduledMessagesForCurrentUser: Array<{ __typename?: 'Message', id: string, title: string, body: string | null, scheduledSendAt: string | null, bucket: { __typename?: 'Bucket', id: string, name: string } }> };
+
+export type MessageRemindersForCurrentUserQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MessageRemindersForCurrentUserQuery = { __typename?: 'Query', messageRemindersForCurrentUser: Array<{ __typename?: 'MessageReminder', id: string, messageId: string, remindEveryMinutes: number, maxReminders: number, remindersSent: number, nextReminderAt: string, message: { __typename?: 'Message', id: string, title: string, body: string | null, scheduledSendAt: string | null, bucket: { __typename?: 'Bucket', id: string, name: string } } }> };
+
+export type CancelMessageRemindersMutationVariables = Exact<{
+  messageId: Scalars['String']['input'];
+}>;
+
+
+export type CancelMessageRemindersMutation = { __typename?: 'Mutation', cancelMessageReminders: number };
+
+export type UpdateMessageMutationVariables = Exact<{
+  id: Scalars['String']['input'];
+  input: UpdateMessageDto;
+}>;
+
+
+export type UpdateMessageMutation = { __typename?: 'Mutation', updateMessage: { __typename?: 'Message', id: string, scheduledSendAt: string | null } };
+
+export type DeleteMessageMutationVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type DeleteMessageMutation = { __typename?: 'Mutation', deleteMessage: boolean };
+
+export type PendingPostponesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type PendingPostponesQuery = { __typename?: 'Query', pendingPostpones: Array<{ __typename?: 'NotificationPostpone', id: string, sendAt: string, message: { __typename?: 'Message', id: string, title: string, body: string | null, bucket: { __typename?: 'Bucket', id: string, name: string } } }> };
+
+export type CancelPostponeMutationVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type CancelPostponeMutation = { __typename?: 'Mutation', cancelPostpone: boolean };
 
 export type DeleteNotificationMutationVariables = Exact<{
   id: Scalars['String']['input'];
@@ -3967,6 +4061,214 @@ export function useCreateMessageMutation(baseOptions?: ApolloReactHooks.Mutation
 export type CreateMessageMutationHookResult = ReturnType<typeof useCreateMessageMutation>;
 export type CreateMessageMutationResult = Apollo.MutationResult<CreateMessageMutation>;
 export type CreateMessageMutationOptions = Apollo.BaseMutationOptions<CreateMessageMutation, CreateMessageMutationVariables>;
+export const ScheduledMessagesForCurrentUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ScheduledMessagesForCurrentUser"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"scheduledMessagesForCurrentUser"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"body"}},{"kind":"Field","name":{"kind":"Name","value":"scheduledSendAt"}},{"kind":"Field","name":{"kind":"Name","value":"bucket"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useScheduledMessagesForCurrentUserQuery__
+ *
+ * To run a query within a React component, call `useScheduledMessagesForCurrentUserQuery` and pass it any options that fit your needs.
+ * When your component renders, `useScheduledMessagesForCurrentUserQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useScheduledMessagesForCurrentUserQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useScheduledMessagesForCurrentUserQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<ScheduledMessagesForCurrentUserQuery, ScheduledMessagesForCurrentUserQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<ScheduledMessagesForCurrentUserQuery, ScheduledMessagesForCurrentUserQueryVariables>(ScheduledMessagesForCurrentUserDocument, options);
+      }
+export function useScheduledMessagesForCurrentUserLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<ScheduledMessagesForCurrentUserQuery, ScheduledMessagesForCurrentUserQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<ScheduledMessagesForCurrentUserQuery, ScheduledMessagesForCurrentUserQueryVariables>(ScheduledMessagesForCurrentUserDocument, options);
+        }
+export function useScheduledMessagesForCurrentUserSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<ScheduledMessagesForCurrentUserQuery, ScheduledMessagesForCurrentUserQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<ScheduledMessagesForCurrentUserQuery, ScheduledMessagesForCurrentUserQueryVariables>(ScheduledMessagesForCurrentUserDocument, options);
+        }
+export type ScheduledMessagesForCurrentUserQueryHookResult = ReturnType<typeof useScheduledMessagesForCurrentUserQuery>;
+export type ScheduledMessagesForCurrentUserLazyQueryHookResult = ReturnType<typeof useScheduledMessagesForCurrentUserLazyQuery>;
+export type ScheduledMessagesForCurrentUserSuspenseQueryHookResult = ReturnType<typeof useScheduledMessagesForCurrentUserSuspenseQuery>;
+export type ScheduledMessagesForCurrentUserQueryResult = Apollo.QueryResult<ScheduledMessagesForCurrentUserQuery, ScheduledMessagesForCurrentUserQueryVariables>;
+export const MessageRemindersForCurrentUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MessageRemindersForCurrentUser"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"messageRemindersForCurrentUser"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"messageId"}},{"kind":"Field","name":{"kind":"Name","value":"remindEveryMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"maxReminders"}},{"kind":"Field","name":{"kind":"Name","value":"remindersSent"}},{"kind":"Field","name":{"kind":"Name","value":"nextReminderAt"}},{"kind":"Field","name":{"kind":"Name","value":"message"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"body"}},{"kind":"Field","name":{"kind":"Name","value":"scheduledSendAt"}},{"kind":"Field","name":{"kind":"Name","value":"bucket"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useMessageRemindersForCurrentUserQuery__
+ *
+ * To run a query within a React component, call `useMessageRemindersForCurrentUserQuery` and pass it any options that fit your needs.
+ * When your component renders, `useMessageRemindersForCurrentUserQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useMessageRemindersForCurrentUserQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useMessageRemindersForCurrentUserQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<MessageRemindersForCurrentUserQuery, MessageRemindersForCurrentUserQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<MessageRemindersForCurrentUserQuery, MessageRemindersForCurrentUserQueryVariables>(MessageRemindersForCurrentUserDocument, options);
+      }
+export function useMessageRemindersForCurrentUserLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<MessageRemindersForCurrentUserQuery, MessageRemindersForCurrentUserQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<MessageRemindersForCurrentUserQuery, MessageRemindersForCurrentUserQueryVariables>(MessageRemindersForCurrentUserDocument, options);
+        }
+export function useMessageRemindersForCurrentUserSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<MessageRemindersForCurrentUserQuery, MessageRemindersForCurrentUserQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<MessageRemindersForCurrentUserQuery, MessageRemindersForCurrentUserQueryVariables>(MessageRemindersForCurrentUserDocument, options);
+        }
+export type MessageRemindersForCurrentUserQueryHookResult = ReturnType<typeof useMessageRemindersForCurrentUserQuery>;
+export type MessageRemindersForCurrentUserLazyQueryHookResult = ReturnType<typeof useMessageRemindersForCurrentUserLazyQuery>;
+export type MessageRemindersForCurrentUserSuspenseQueryHookResult = ReturnType<typeof useMessageRemindersForCurrentUserSuspenseQuery>;
+export type MessageRemindersForCurrentUserQueryResult = Apollo.QueryResult<MessageRemindersForCurrentUserQuery, MessageRemindersForCurrentUserQueryVariables>;
+export const CancelMessageRemindersDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CancelMessageReminders"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"messageId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cancelMessageReminders"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"messageId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"messageId"}}}]}]}}]} as unknown as DocumentNode;
+export type CancelMessageRemindersMutationFn = Apollo.MutationFunction<CancelMessageRemindersMutation, CancelMessageRemindersMutationVariables>;
+
+/**
+ * __useCancelMessageRemindersMutation__
+ *
+ * To run a mutation, you first call `useCancelMessageRemindersMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useCancelMessageRemindersMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [cancelMessageRemindersMutation, { data, loading, error }] = useCancelMessageRemindersMutation({
+ *   variables: {
+ *      messageId: // value for 'messageId'
+ *   },
+ * });
+ */
+export function useCancelMessageRemindersMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<CancelMessageRemindersMutation, CancelMessageRemindersMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<CancelMessageRemindersMutation, CancelMessageRemindersMutationVariables>(CancelMessageRemindersDocument, options);
+      }
+export type CancelMessageRemindersMutationHookResult = ReturnType<typeof useCancelMessageRemindersMutation>;
+export type CancelMessageRemindersMutationResult = Apollo.MutationResult<CancelMessageRemindersMutation>;
+export type CancelMessageRemindersMutationOptions = Apollo.BaseMutationOptions<CancelMessageRemindersMutation, CancelMessageRemindersMutationVariables>;
+export const UpdateMessageDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateMessage"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateMessageDto"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateMessage"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}},{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"scheduledSendAt"}}]}}]}}]} as unknown as DocumentNode;
+export type UpdateMessageMutationFn = Apollo.MutationFunction<UpdateMessageMutation, UpdateMessageMutationVariables>;
+
+/**
+ * __useUpdateMessageMutation__
+ *
+ * To run a mutation, you first call `useUpdateMessageMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useUpdateMessageMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [updateMessageMutation, { data, loading, error }] = useUpdateMessageMutation({
+ *   variables: {
+ *      id: // value for 'id'
+ *      input: // value for 'input'
+ *   },
+ * });
+ */
+export function useUpdateMessageMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<UpdateMessageMutation, UpdateMessageMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<UpdateMessageMutation, UpdateMessageMutationVariables>(UpdateMessageDocument, options);
+      }
+export type UpdateMessageMutationHookResult = ReturnType<typeof useUpdateMessageMutation>;
+export type UpdateMessageMutationResult = Apollo.MutationResult<UpdateMessageMutation>;
+export type UpdateMessageMutationOptions = Apollo.BaseMutationOptions<UpdateMessageMutation, UpdateMessageMutationVariables>;
+export const DeleteMessageDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteMessage"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteMessage"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode;
+export type DeleteMessageMutationFn = Apollo.MutationFunction<DeleteMessageMutation, DeleteMessageMutationVariables>;
+
+/**
+ * __useDeleteMessageMutation__
+ *
+ * To run a mutation, you first call `useDeleteMessageMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useDeleteMessageMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [deleteMessageMutation, { data, loading, error }] = useDeleteMessageMutation({
+ *   variables: {
+ *      id: // value for 'id'
+ *   },
+ * });
+ */
+export function useDeleteMessageMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<DeleteMessageMutation, DeleteMessageMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<DeleteMessageMutation, DeleteMessageMutationVariables>(DeleteMessageDocument, options);
+      }
+export type DeleteMessageMutationHookResult = ReturnType<typeof useDeleteMessageMutation>;
+export type DeleteMessageMutationResult = Apollo.MutationResult<DeleteMessageMutation>;
+export type DeleteMessageMutationOptions = Apollo.BaseMutationOptions<DeleteMessageMutation, DeleteMessageMutationVariables>;
+export const PendingPostponesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PendingPostpones"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"pendingPostpones"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"sendAt"}},{"kind":"Field","name":{"kind":"Name","value":"message"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"body"}},{"kind":"Field","name":{"kind":"Name","value":"bucket"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __usePendingPostponesQuery__
+ *
+ * To run a query within a React component, call `usePendingPostponesQuery` and pass it any options that fit your needs.
+ * When your component renders, `usePendingPostponesQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = usePendingPostponesQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function usePendingPostponesQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<PendingPostponesQuery, PendingPostponesQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<PendingPostponesQuery, PendingPostponesQueryVariables>(PendingPostponesDocument, options);
+      }
+export function usePendingPostponesLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<PendingPostponesQuery, PendingPostponesQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<PendingPostponesQuery, PendingPostponesQueryVariables>(PendingPostponesDocument, options);
+        }
+export function usePendingPostponesSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<PendingPostponesQuery, PendingPostponesQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<PendingPostponesQuery, PendingPostponesQueryVariables>(PendingPostponesDocument, options);
+        }
+export type PendingPostponesQueryHookResult = ReturnType<typeof usePendingPostponesQuery>;
+export type PendingPostponesLazyQueryHookResult = ReturnType<typeof usePendingPostponesLazyQuery>;
+export type PendingPostponesSuspenseQueryHookResult = ReturnType<typeof usePendingPostponesSuspenseQuery>;
+export type PendingPostponesQueryResult = Apollo.QueryResult<PendingPostponesQuery, PendingPostponesQueryVariables>;
+export const CancelPostponeDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CancelPostpone"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cancelPostpone"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode;
+export type CancelPostponeMutationFn = Apollo.MutationFunction<CancelPostponeMutation, CancelPostponeMutationVariables>;
+
+/**
+ * __useCancelPostponeMutation__
+ *
+ * To run a mutation, you first call `useCancelPostponeMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useCancelPostponeMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [cancelPostponeMutation, { data, loading, error }] = useCancelPostponeMutation({
+ *   variables: {
+ *      id: // value for 'id'
+ *   },
+ * });
+ */
+export function useCancelPostponeMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<CancelPostponeMutation, CancelPostponeMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<CancelPostponeMutation, CancelPostponeMutationVariables>(CancelPostponeDocument, options);
+      }
+export type CancelPostponeMutationHookResult = ReturnType<typeof useCancelPostponeMutation>;
+export type CancelPostponeMutationResult = Apollo.MutationResult<CancelPostponeMutation>;
+export type CancelPostponeMutationOptions = Apollo.BaseMutationOptions<CancelPostponeMutation, CancelPostponeMutationVariables>;
 export const DeleteNotificationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteNotification"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteNotification"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode;
 export type DeleteNotificationMutationFn = Apollo.MutationFunction<DeleteNotificationMutation, DeleteNotificationMutationVariables>;
 

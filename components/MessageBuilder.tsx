@@ -67,6 +67,10 @@ export default function MessageBuilder({
     useState(false);
   const [snoozeTimes, setSnoozeTimes] = useState<number[]>([]);
   const [postponeTimes, setPostponeTimes] = useState<number[]>([]);
+  const [scheduleSendEnabled, setScheduleSendEnabled] = useState(false);
+  const [delayMinutes, setDelayMinutes] = useState("");
+  const [remindEveryMinutes, setRemindEveryMinutes] = useState("");
+  const [maxReminders, setMaxReminders] = useState("");
 
   const [createMessage, { loading: isCreating }] = useCreateMessageMutation();
 
@@ -164,6 +168,19 @@ export default function MessageBuilder({
 
   const handleSaveMessage = useCallback(async () => {
     try {
+      const minutes = scheduleSendEnabled && delayMinutes.trim() ? parseInt(delayMinutes, 10) : 0;
+      const scheduledSendAt =
+        minutes > 0
+          ? new Date(Date.now() + minutes * 60 * 1000).toISOString()
+          : undefined;
+
+      const remindEvery =
+        remindEveryMinutes.trim() !== ""
+          ? parseInt(remindEveryMinutes, 10)
+          : undefined;
+      const maxRemindersNum =
+        maxReminders.trim() !== "" ? parseInt(maxReminders, 10) : undefined;
+
       const createMessageDto: CreateMessageDto = {
         bucketId,
         title: messageData.title!,
@@ -173,12 +190,14 @@ export default function MessageBuilder({
           messageData.deliveryType ?? NotificationDeliveryType.Normal,
         actions: messageData.actions,
         attachments: messageData.attachments,
-        // Add automatic actions flags
         addMarkAsReadAction,
         addDeleteAction,
         addOpenNotificationAction,
         snoozes: snoozeTimes,
         postpones: postponeTimes,
+        ...(scheduledSendAt && { scheduledSendAt }),
+        ...(remindEvery != null && remindEvery >= 1 && { remindEveryMinutes: remindEvery }),
+        ...(maxRemindersNum != null && maxRemindersNum >= 1 && { maxReminders: maxRemindersNum }),
       };
 
       console.log(`Creating new message: ${JSON.stringify(createMessageDto)}`);
@@ -197,18 +216,35 @@ export default function MessageBuilder({
         actions: [],
         attachments: [],
       });
-      // Reset action flags and snooze times
       setAddMarkAsReadAction(false);
       setAddDeleteAction(false);
       setAddOpenNotificationAction(false);
       setSnoozeTimes([]);
       setPostponeTimes([]);
+      setScheduleSendEnabled(false);
+      setDelayMinutes("");
+      setRemindEveryMinutes("");
+      setMaxReminders("");
 
       hideModal();
     } catch (error) {
       console.error("Error creating message:", error);
     }
-  }, [bucketId, messageData, createMessage, hideModal]);
+  }, [
+    bucketId,
+    messageData,
+    addMarkAsReadAction,
+    addDeleteAction,
+    addOpenNotificationAction,
+    snoozeTimes,
+    postponeTimes,
+    scheduleSendEnabled,
+    delayMinutes,
+    remindEveryMinutes,
+    maxReminders,
+    createMessage,
+    hideModal,
+  ]);
 
   const handleResetForm = useCallback(() => {
     setMessageData({
@@ -219,12 +255,15 @@ export default function MessageBuilder({
       actions: [],
       attachments: [],
     });
-    // Reset action flags and snooze times
     setAddMarkAsReadAction(false);
     setAddDeleteAction(false);
     setAddOpenNotificationAction(false);
     setSnoozeTimes([]);
     setPostponeTimes([]);
+    setScheduleSendEnabled(false);
+    setDelayMinutes("");
+    setRemindEveryMinutes("");
+    setMaxReminders("");
   }, []);
 
   const deliveryTypeOptions: SelectorOption[] = [
@@ -485,6 +524,74 @@ export default function MessageBuilder({
                     min={1}
                     max={9999}
                   />
+
+                  {/* Schedule send (delay) */}
+                  <View style={styles.inputGroup}>
+                    <View style={styles.switchContainer}>
+                      <Text style={styles.switchLabel}>
+                        {t("compose.messageBuilder.scheduleSend")}
+                      </Text>
+                      <Switch
+                        value={scheduleSendEnabled}
+                        onValueChange={setScheduleSendEnabled}
+                      />
+                    </View>
+                    {scheduleSendEnabled && (
+                      <>
+                        <Text style={styles.sectionDescription}>
+                          {t("compose.messageBuilder.scheduleSendDescription")}
+                        </Text>
+                        <TextInput
+                          mode="outlined"
+                          value={delayMinutes}
+                          onChangeText={setDelayMinutes}
+                          placeholder={t(
+                            "compose.messageBuilder.delayMinutesPlaceholder"
+                          )}
+                          keyboardType="number-pad"
+                          style={styles.textInput}
+                        />
+                      </>
+                    )}
+                  </View>
+
+                  {/* Reminders */}
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.switchLabel}>
+                      {t("compose.messageBuilder.remindEveryMinutes")}
+                    </Text>
+                    <Text style={styles.sectionDescription}>
+                      {t("compose.messageBuilder.remindEveryMinutesDescription")}
+                    </Text>
+                    <TextInput
+                      mode="outlined"
+                      value={remindEveryMinutes}
+                      onChangeText={setRemindEveryMinutes}
+                      placeholder={t(
+                        "compose.messageBuilder.remindEveryMinutesPlaceholder"
+                      )}
+                      keyboardType="number-pad"
+                      style={styles.textInput}
+                    />
+                  </View>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.switchLabel}>
+                      {t("compose.messageBuilder.maxReminders")}
+                    </Text>
+                    <Text style={styles.sectionDescription}>
+                      {t("compose.messageBuilder.maxRemindersDescription")}
+                    </Text>
+                    <TextInput
+                      mode="outlined"
+                      value={maxReminders}
+                      onChangeText={setMaxReminders}
+                      placeholder={t(
+                        "compose.messageBuilder.maxRemindersPlaceholder"
+                      )}
+                      keyboardType="number-pad"
+                      style={styles.textInput}
+                    />
+                  </View>
                 </View>
               </List.Accordion>
             </List.Section>

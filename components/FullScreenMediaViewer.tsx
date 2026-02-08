@@ -19,7 +19,7 @@ import {
 } from "react-native";
 import { IconButton, Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AttachmentGallery from "./AttachmentGallery";
+import AttachmentGalleryContent from "./AttachmentGalleryContent";
 
 interface FullScreenMediaViewerProps {
   visible: boolean;
@@ -330,7 +330,7 @@ export default function FullScreenMediaViewer({
 
         <View style={styles.container}>
           <View style={styles.content}>
-            <AttachmentGallery
+            <AttachmentGalleryContent
               attachments={
                 hasAttachments
                   ? attachments!

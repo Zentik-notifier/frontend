@@ -1,4 +1,4 @@
-import { useBucket } from "@/hooks/notifications";
+import { useBucket } from "@/hooks/notifications/useBucketQueries";
 import { useBucketIcon } from "@/hooks/useBucketIcon";
 import { useNavigationUtils } from "@/utils/navigation";
 import { Image } from "expo-image";

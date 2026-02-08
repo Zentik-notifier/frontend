@@ -284,6 +284,22 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToDownloads: () => {
+            if (isMobile) {
+                router.push(`/(phone)/(settings)/downloads`);
+            } else {
+                router.push(`/(desktop)/(settings)/downloads`);
+            }
+        },
+
+        navigateToMessageReminders: () => {
+            if (isMobile) {
+                router.push(`/(phone)/(settings)/message-reminders`);
+            } else {
+                router.push(`/(desktop)/(settings)/message-reminders`);
+            }
+        },
+
         navigateToAdmin: () => {
             if (isMobile) {
                 router.push(`/(phone)/(admin)`);

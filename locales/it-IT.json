@@ -425,7 +425,17 @@
         "normal": "Normale",
         "critical": "Critica",
         "silent": "Silenziosa"
-      }
+      },
+      "scheduleSend": "Invia in ritardo",
+      "scheduleSendDescription": "Invia il messaggio dopo un ritardo (minuti)",
+      "delayMinutes": "Ritardo (minuti)",
+      "delayMinutesPlaceholder": "es. 5, 15, 60",
+      "remindEveryMinutes": "Promemoria ogni (minuti)",
+      "remindEveryMinutesDescription": "Rinvia la notifica ogni N minuti fino a conferma",
+      "remindEveryMinutesPlaceholder": "es. 15, 60",
+      "maxReminders": "Promemoria massimi",
+      "maxRemindersDescription": "Numero massimo di promemoria da inviare (default 5)",
+      "maxRemindersPlaceholder": "es. 5"
     }
   },
   "userProfile": {
@@ -2678,6 +2688,43 @@
       "bucketLabel": "Bucket:",
       "unknownBucket": "Sconosciuto"
     }
+  },
+  "downloads": {
+    "title": "Download",
+    "description": "Ultimi download dalla coda dell'app",
+    "noDownloads": "Nessun download",
+    "clear": "Cancella cronologia"
+  },
+  "messageReminders": {
+    "title": "Messaggi in sospeso",
+    "description": "Messaggi pianificati, ritardati e con promemoria — rimanda o elimina",
+    "noReminders": "Nessun promemoria attivo",
+    "noPending": "Nessun messaggio pianificato, con promemoria o rinviato",
+    "sectionScheduled": "Pianificati",
+    "sectionReminders": "Promemoria",
+    "sectionPostponed": "Rinviati",
+    "cancelPostpone": "Annulla rinvio",
+    "cancelReminders": "Annulla promemoria",
+    "reschedule": "Rimanda",
+    "rescheduleDescription": "Invia tra N minuti",
+    "deleteMessage": "Elimina",
+    "deleteMessageConfirm": "Eliminare questo messaggio? L'azione non può essere annullata.",
+    "updateMessage": "Aggiorna messaggio",
+    "scheduledSendAt": "Invio programmato",
+    "nextReminderAt": "Prossimo promemoria",
+    "inMinutes": "tra {{count}} min",
+    "messageContent": "Contenuto messaggio",
+    "rescheduleModeDelay": "Tra N unità",
+    "rescheduleModeDateTime": "Data e ora",
+    "rescheduleDelayAmountPlaceholder": "Quantità",
+    "rescheduleUnitMinutes": "Minuti",
+    "rescheduleUnitHours": "Ore",
+    "rescheduleUnitDays": "Giorni",
+    "rescheduleDateLabel": "Data",
+    "rescheduleTimeLabel": "Ora",
+    "rescheduleSelectDate": "Scegli data",
+    "rescheduleSelectTime": "Scegli ora",
+    "reschedulePastError": "La data e l'ora devono essere nel futuro"
   },
   "serverLogs": {
     "title": "Log del Server",

@@ -331,6 +331,75 @@ mutation CreateMessage($input: CreateMessageDto!) {
   }
 }
 
+query ScheduledMessagesForCurrentUser {
+  scheduledMessagesForCurrentUser {
+    id
+    title
+    body
+    scheduledSendAt
+    bucket {
+      id
+      name
+    }
+  }
+}
+
+query MessageRemindersForCurrentUser {
+  messageRemindersForCurrentUser {
+    id
+    messageId
+    remindEveryMinutes
+    maxReminders
+    remindersSent
+    nextReminderAt
+    message {
+      id
+      title
+      body
+      scheduledSendAt
+      bucket {
+        id
+        name
+      }
+    }
+  }
+}
+
+mutation CancelMessageReminders($messageId: String!) {
+  cancelMessageReminders(messageId: $messageId)
+}
+
+mutation UpdateMessage($id: String!, $input: UpdateMessageDto!) {
+  updateMessage(id: $id, input: $input) {
+    id
+    scheduledSendAt
+  }
+}
+
+mutation DeleteMessage($id: String!) {
+  deleteMessage(id: $id)
+}
+
+query PendingPostpones {
+  pendingPostpones {
+    id
+    sendAt
+    message {
+      id
+      title
+      body
+      bucket {
+        id
+        name
+      }
+    }
+  }
+}
+
+mutation CancelPostpone($id: String!) {
+  cancelPostpone(id: $id)
+}
+
 mutation DeleteNotification($id: String!) {
   deleteNotification(id: $id)
 }

@@ -182,6 +182,18 @@ export interface Translation {
       regenerateConfirmMessage: string;
       watchAppRequired: string;
     };
+    watchSyncMode: {
+      title: string;
+      description: string;
+      foregroundOnly: string;
+      foregroundOnlyDescription: string;
+      alwaysActive: string;
+      alwaysActiveDescription: string;
+      backgroundInterval: string;
+      backgroundIntervalDescription: string;
+      updateSuccess: string;
+      updateError: string;
+    };
     privacy: {
       title: string;
       description: string;
@@ -417,6 +429,10 @@ export interface Translation {
         critical: string;
         silent: string;
       };
+      scheduleSend: string;
+      scheduleSendDescription: string;
+      delayMinutes: string;
+      delayMinutesPlaceholder: string;
     };
   };
   userProfile: {
@@ -2436,6 +2452,30 @@ export interface Translation {
       unknownBucket: string;
     };
   };
+  downloads: {
+    title: string;
+    description: string;
+    noDownloads: string;
+    clear: string;
+  };
+  messageReminders: {
+    title: string;
+    description: string;
+    noReminders: string;
+    noPending: string;
+    sectionScheduled: string;
+    sectionReminders: string;
+    sectionPostponed: string;
+    cancelPostpone: string;
+    cancelReminders: string;
+    reschedule: string;
+    rescheduleDescription: string;
+    deleteMessage: string;
+    deleteMessageConfirm: string;
+    updateMessage: string;
+    scheduledSendAt: string;
+    nextReminderAt: string;
+  };
   backupManagement: {
     title: string;
     description: string;
@@ -2511,6 +2551,8 @@ export interface Translation {
     failedToSave: string;
     failedToLoad: string;
     selectPlaceholder: string;
+    selectSystemToken: string;
+    customToken: string;
     warningFooter: string;
     sections: {
       authentication: string;

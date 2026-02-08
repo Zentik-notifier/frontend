@@ -425,7 +425,17 @@
         "normal": "Normal",
         "critical": "Critical",
         "silent": "Silent"
-      }
+      },
+      "scheduleSend": "Schedule send",
+      "scheduleSendDescription": "Send message after a delay (minutes)",
+      "delayMinutes": "Delay (minutes)",
+      "delayMinutesPlaceholder": "e.g. 5, 15, 60",
+      "remindEveryMinutes": "Remind every (minutes)",
+      "remindEveryMinutesDescription": "Resend notification every N minutes until acknowledged",
+      "remindEveryMinutesPlaceholder": "e.g. 15, 60",
+      "maxReminders": "Max reminders",
+      "maxRemindersDescription": "Maximum number of reminders to send (default 5)",
+      "maxRemindersPlaceholder": "e.g. 5"
     }
   },
   "userProfile": {
@@ -2444,6 +2454,43 @@
       "bucketLabel": "Bucket:",
       "unknownBucket": "Unknown"
     }
+  },
+  "downloads": {
+    "title": "Downloads",
+    "description": "Recent downloads from the app queue",
+    "noDownloads": "No downloads yet",
+    "clear": "Clear history"
+  },
+  "messageReminders": {
+    "title": "Pending messages",
+    "description": "Scheduled, delayed and reminder messages — reschedule or delete",
+    "noReminders": "No active reminders",
+    "noPending": "No scheduled, reminder or postponed messages",
+    "sectionScheduled": "Scheduled",
+    "sectionReminders": "Reminders",
+    "sectionPostponed": "Postponed",
+    "cancelPostpone": "Cancel postpone",
+    "cancelReminders": "Cancel reminders",
+    "reschedule": "Reschedule",
+    "rescheduleDescription": "Send in N minutes",
+    "deleteMessage": "Delete",
+    "deleteMessageConfirm": "Delete this message? It cannot be undone.",
+    "updateMessage": "Update message",
+    "scheduledSendAt": "Scheduled send",
+    "nextReminderAt": "Next reminder",
+    "inMinutes": "in {{count}} min",
+    "messageContent": "Message content",
+    "rescheduleModeDelay": "In N units",
+    "rescheduleModeDateTime": "Date & time",
+    "rescheduleDelayAmountPlaceholder": "Amount",
+    "rescheduleUnitMinutes": "Minutes",
+    "rescheduleUnitHours": "Hours",
+    "rescheduleUnitDays": "Days",
+    "rescheduleDateLabel": "Date",
+    "rescheduleTimeLabel": "Time",
+    "rescheduleSelectDate": "Select date",
+    "rescheduleSelectTime": "Select time",
+    "reschedulePastError": "Date and time must be in the future"
   },
   "backupManagement": {
     "title": "Backup Management",

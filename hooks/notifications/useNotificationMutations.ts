@@ -34,7 +34,7 @@ import {
     useQueryClient,
 } from '@tanstack/react-query';
 import { Platform } from 'react-native';
-import { notificationKeys } from './useNotificationQueries';
+import { notificationKeys } from './notificationKeys';
 import IosBridgeService from '@/services/ios-bridge';
 
 // ====================
