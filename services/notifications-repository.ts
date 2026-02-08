@@ -826,6 +826,7 @@ export async function deleteNotificationsFromCache(notificationIds: string[]): P
 
 /**
  * Delete all notifications from cache for a specific bucket
+ * Creates tombstones and syncs deletions to CloudKit
  *
  * @example
  * ```typescript
@@ -835,36 +836,74 @@ export async function deleteNotificationsFromCache(notificationIds: string[]): P
  * ```
  */
 export async function deleteNotificationsByBucketId(bucketId: string): Promise<number> {
-  return await executeQuery(async (db) => {
-    try {
-      let deletedCount = 0;
-      
-      if (Platform.OS === 'web') {
-        // IndexedDB - get all notifications for bucket and delete them
-        const tx = db.transaction('notifications', 'readwrite');
-        const allNotifications = await tx.store.getAll();
+  // Step 1: Capture notification IDs before deletion
+  const notificationIds = await executeQuery(async (db) => {
+    if (Platform.OS === 'web') {
+      const tx = db.transaction('notifications', 'readonly');
+      const allNotifications = await tx.store.getAll();
+      await tx.done;
+      return allNotifications
+        .filter((n: any) => n.bucket_id === bucketId)
+        .map((n: any) => n.id) as string[];
+    } else {
+      const rows = await db.getAllAsync('SELECT id FROM notifications WHERE bucket_id = ?', [bucketId]);
+      return rows.map((row: any) => row.id) as string[];
+    }
+  }, 'deleteNotificationsByBucketId:getIds');
 
-        for (const notification of allNotifications) {
-          if (notification.bucket_id === bucketId) {
-            await tx.store.delete(notification.id);
-            deletedCount++;
-          }
+  if (notificationIds.length === 0) {
+    console.log(`[deleteNotificationsByBucketId] No notifications found for bucket ${bucketId}`);
+    return 0;
+  }
+
+  // Step 2: Create tombstones and delete
+  const deletedCount = await executeQuery(async (db) => {
+    try {
+      const now = Date.now();
+
+      if (Platform.OS === 'web') {
+        // Create tombstones
+        const tombTx = db.transaction('deleted_notifications', 'readwrite');
+        for (const id of notificationIds) {
+          await tombTx.store.put({ id, deleted_at: now, retry_count: 0 }, id);
+        }
+        await tombTx.done;
+
+        // Delete notifications
+        const cacheTx = db.transaction('notifications', 'readwrite');
+        for (const id of notificationIds) {
+          await cacheTx.store.delete(id);
+        }
+        await cacheTx.done;
+      } else {
+        // SQLite - create tombstones
+        for (const id of notificationIds) {
+          await db.runAsync(
+            `INSERT OR REPLACE INTO deleted_notifications (id, deleted_at, retry_count) VALUES (?, ?, 0)`,
+            [id, now]
+          );
         }
 
-        await tx.done;
-      } else {
-        // SQLite - use single query to delete by bucket_id
-        const result = await db.runAsync('DELETE FROM notifications WHERE bucket_id = ?', [bucketId]);
-        deletedCount = result.changes || 0;
+        // Delete notifications
+        await db.runAsync('DELETE FROM notifications WHERE bucket_id = ?', [bucketId]);
       }
 
-      console.log(`[deleteNotificationsByBucketId] Deleted ${deletedCount} notifications for bucket ${bucketId} from cache`);
-      return deletedCount;
+      console.log(`[deleteNotificationsByBucketId] Deleted ${notificationIds.length} notifications for bucket ${bucketId} from cache`);
+      return notificationIds.length;
     } catch (error) {
       console.error('[deleteNotificationsByBucketId] Failed to delete notifications by bucket ID from cache:', error);
       throw error;
     }
   }, 'deleteNotificationsByBucketId');
+
+  // Step 3: Sync deletions to CloudKit
+  if (Platform.OS === 'ios' && notificationIds.length > 0) {
+    iosBridgeService.deleteNotificationsFromCloudKit(notificationIds).catch((error) => {
+      console.error('[deleteNotificationsByBucketId] Failed to delete notifications from CloudKit:', error);
+    });
+  }
+
+  return deletedCount;
 }
 
 /**

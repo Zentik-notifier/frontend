@@ -15,9 +15,6 @@ import {
 import {
     NotificationFragment,
 } from '@/generated/gql-operations-generated';
-import {
-    getAllNotificationsFromCache,
-} from '@/services/notifications-repository';
 import { mediaCache } from '@/services/media-cache-service';
 import {
     BucketWithStats,
@@ -195,7 +192,6 @@ export function useNotificationsState(
     options?: UseBucketsStatsOptions
 ): UseQueryResult<{
     buckets: BucketWithStats[];
-    notifications: NotificationFragment[];
     stats: NotificationStats;
     lastSync: string;
 }> & { refreshAll: (skipNetwork?: boolean) => Promise<{ networkTime: number; mergeTime: number }> } {
@@ -214,7 +210,6 @@ export function useNotificationsState(
         enabled: isLoggedIn,
         queryFn: async (): Promise<{
             buckets: BucketWithStats[];
-            notifications: NotificationFragment[];
             stats: NotificationStats;
             lastSync: string;
         }> => {
@@ -222,7 +217,6 @@ export function useNotificationsState(
                 // ============================================================
                 // PHASE 1: Load from cache (FAST - immediate response)
                 // ============================================================
-                const cachedNotifications = await getAllNotificationsFromCache();
                 const cachedBuckets = await getAllBuckets();
 
                 const cachedStats = await getNotificationStats([]);
@@ -303,7 +297,6 @@ export function useNotificationsState(
                 // ============================================================
                 const cacheData = {
                     buckets: cachedBucketsWithStats,
-                    notifications: cachedNotifications,
                     stats: cachedStats,
                     lastSync: new Date().toISOString(),
                 };
@@ -329,7 +322,7 @@ export function useNotificationsState(
         refetchOnWindowFocus: false, // ✅ Disable auto-refetch on focus to prevent conflicts with Watch sync
         refetchOnMount: true, // ✅ Refetch on mount to ensure fresh data (fixes unread count issue)
         staleTime: forceFullDetails ? 0 : 0, // ✅ Consider stale immediately to force refetch if needed
-        gcTime: Infinity, // ✅ Keep in cache forever (until app restart)
+        gcTime: 30 * 60 * 1000, // ✅ 30 min - keep in cache but allow eventual GC
     });
 
     /**
@@ -349,7 +342,6 @@ export function useNotificationsState(
             // ============================================================
             
             // Load from cache
-            const cachedNotifications = await getAllNotificationsFromCache();
             const cachedBuckets = await getAllBuckets();
             
             // Calculate fresh stats from local data
@@ -409,7 +401,6 @@ export function useNotificationsState(
             // Update React Query cache with local data (instant UI update)
             queryClient.setQueryData(['app-state'], {
                 buckets: finalBuckets,
-                notifications: cachedNotifications,
                 stats: freshStats,
                 lastSync: new Date().toISOString(),
             });

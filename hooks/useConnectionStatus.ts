@@ -318,12 +318,15 @@ export function useConnectionStatus(push: UsePushNotifications) {
     if (Platform.OS !== 'web' || !('serviceWorker' in navigator)) return;
 
     let updateListenerAttached = false;
+    let registrationRef: ServiceWorkerRegistration | null = null;
+    let handleUpdateFoundRef: (() => void) | null = null;
 
     const setupPwaUpdateListener = async () => {
       try {
         const registration = await navigator.serviceWorker.getRegistration();
         if (!registration || updateListenerAttached) return;
 
+        registrationRef = registration;
         console.log('[useConnectionStatus] Setting up PWA update detection listener');
 
         // Check if there's already a waiting service worker
@@ -333,7 +336,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
         }
 
         // Listen for new service worker installing
-        const handleUpdateFound = () => {
+        handleUpdateFoundRef = () => {
           const newWorker = registration.installing;
           if (newWorker) {
             console.log('[useConnectionStatus] New Service Worker found, waiting for installation...');
@@ -347,7 +350,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
           }
         };
 
-        registration.addEventListener('updatefound', handleUpdateFound);
+        registration.addEventListener('updatefound', handleUpdateFoundRef);
         updateListenerAttached = true;
 
         // Perform initial update check
@@ -362,6 +365,12 @@ export function useConnectionStatus(push: UsePushNotifications) {
     };
 
     setupPwaUpdateListener();
+
+    return () => {
+      if (registrationRef && handleUpdateFoundRef) {
+        registrationRef.removeEventListener('updatefound', handleUpdateFoundRef);
+      }
+    };
   }, [isOtaUpdatesEnabled]);
 
   // Initial check for OTA updates (native apps only)

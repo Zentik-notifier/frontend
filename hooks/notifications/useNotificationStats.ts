@@ -56,7 +56,7 @@ export function useGlobalNotificationStats(): NotificationStatsResult {
             };
         },
         staleTime: Infinity, // Never auto-refetch - updated by mutations
-        gcTime: Infinity, // Keep in cache forever
+        gcTime: 30 * 60 * 1000, // 30 min
     });
 
     return {

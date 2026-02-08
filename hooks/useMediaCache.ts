@@ -105,7 +105,7 @@ export const useCachedItems = () => {
       setItems(Object.values(all));
     });
     return () => sub.unsubscribe();
-  }, [mediaCache]);
+  }, []);
 
   return items;
 }
@@ -138,15 +138,19 @@ export function useGetCacheStats() {
   useEffect(() => {
     updateStats();
 
-    // Subscribe a metadata per stats completi
-    const metadataSub: Subscription = mediaCache.metadata$.subscribe(updateStats);
-
-    // Subscribe a getCacheSize$ per size in tempo reale
-    const sizeSub: Subscription = mediaCache.getCacheSize$().subscribe(setTotalSizeBytes);
+    // Single subscription: update stats and size together
+    const metadataSub: Subscription = mediaCache.metadata$.subscribe(() => {
+      updateStats();
+      // Calculate size inline to avoid separate subscription
+      const items = Object.values(mediaCache.getMetadata());
+      const size = items
+        .filter(item => !item.isUserDeleted)
+        .reduce((sum, item) => sum + (item.size || 0), 0);
+      setTotalSizeBytes(size);
+    });
 
     return () => {
       metadataSub.unsubscribe();
-      sizeSub.unsubscribe();
     };
   }, [updateStats]);
 

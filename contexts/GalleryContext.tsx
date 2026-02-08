@@ -10,6 +10,7 @@ import React, {
   useReducer,
   ReactNode,
   useMemo,
+  useCallback,
   useEffect,
 } from "react";
 import { Alert } from "react-native";
@@ -124,48 +125,48 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
   const { userSettings } = useAppContext();
   const numColumns = userSettings.settings.galleryVisualization.gridSize;
 
-  const handleSetFilteredMedia = (media: CacheItem[]) => {
+  const handleSetFilteredMedia = useCallback((media: CacheItem[]) => {
     dispatch({ type: "SET_FILTERED_MEDIA", payload: media });
-  };
+  }, []);
 
-  const handleSetSections = (sections: GallerySection[]) => {
+  const handleSetSections = useCallback((sections: GallerySection[]) => {
     dispatch({ type: "SET_SECTIONS", payload: sections });
-  };
+  }, []);
 
-  const handleSetFlatOrder = (flatOrder: CacheItem[]) => {
+  const handleSetFlatOrder = useCallback((flatOrder: CacheItem[]) => {
     dispatch({ type: "SET_FLAT_ORDER", payload: flatOrder });
-  };
+  }, []);
 
-  const handleToggleMultiSelection = () => {
+  const handleToggleMultiSelection = useCallback(() => {
     dispatch({ type: "SET_SELECTION_MODE", payload: !state.selectionMode });
-  };
+  }, [state.selectionMode]);
 
-  const handleToggleItemSelection = (itemId: string) => {
+  const handleToggleItemSelection = useCallback((itemId: string) => {
     dispatch({ type: "TOGGLE_ITEM_SELECTION", payload: itemId });
-  };
+  }, []);
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     const allIds = new Set(state.filteredMedia.map((item) => item.key));
     dispatch({ type: "SET_SELECTED_ITEMS", payload: allIds });
-  };
+  }, [state.filteredMedia]);
 
-  const handleDeselectAll = () => {
+  const handleDeselectAll = useCallback(() => {
     dispatch({ type: "CLEAR_SELECTION" });
-  };
+  }, []);
 
-  const handleCloseSelectionMode = () => {
+  const handleCloseSelectionMode = useCallback(() => {
     dispatch({ type: "SET_SELECTION_MODE", payload: false });
-  };
+  }, []);
 
-  const handleShowFiltersModal = () => {
+  const handleShowFiltersModal = useCallback(() => {
     dispatch({ type: "SET_SHOW_FILTERS_MODAL", payload: true });
-  };
+  }, []);
 
-  const handleHideFiltersModal = () => {
+  const handleHideFiltersModal = useCallback(() => {
     dispatch({ type: "SET_SHOW_FILTERS_MODAL", payload: false });
-  };
+  }, []);
 
-  const handleDeleteSelected = async () => {
+  const handleDeleteSelected = useCallback(async () => {
     if (state.selectedItems.size === 0) return;
 
     const count = state.selectedItems.size;
@@ -244,9 +245,9 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
         ]
       );
     });
-  };
+  }, [state.selectedItems, state.filteredMedia, t]);
 
-  const value: GalleryContextType = {
+  const value: GalleryContextType = useMemo(() => ({
     state,
     dispatch,
     handleSetFilteredMedia,
@@ -260,7 +261,20 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
     handleShowFiltersModal,
     handleHideFiltersModal,
     handleDeleteSelected,
-  };
+  }), [
+    state,
+    handleSetFilteredMedia,
+    handleSetSections,
+    handleSetFlatOrder,
+    handleToggleMultiSelection,
+    handleToggleItemSelection,
+    handleSelectAll,
+    handleDeselectAll,
+    handleCloseSelectionMode,
+    handleShowFiltersModal,
+    handleHideFiltersModal,
+    handleDeleteSelected,
+  ]);
 
   useEffect(() => {
     const allWithIds = cachedItems.map((item) => ({

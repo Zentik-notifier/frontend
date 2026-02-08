@@ -11,6 +11,30 @@ const isCloudKitDebugEnabled = () => settingsService.getSettings().cloudKitDebug
 
 class IosBridgeService {
 
+  // CloudKit readiness gate: resolves once initializeCloudKitSchema() completes.
+  // Per-record CloudKit operations wait for this before proceeding.
+  private _cloudKitReadyResolve: (() => void) | null = null;
+  private _cloudKitReady: Promise<void>;
+  private _cloudKitInitialized = false;
+
+  constructor() {
+    this._cloudKitReady = new Promise<void>((resolve) => {
+      this._cloudKitReadyResolve = resolve;
+    });
+  }
+
+  /**
+   * Wait for CloudKit to be initialized before performing operations.
+   * Times out after maxWaitMs to avoid permanent blockage.
+   */
+  private async waitForCloudKitReady(maxWaitMs = 10_000): Promise<void> {
+    if (this._cloudKitInitialized) return;
+    await Promise.race([
+      this._cloudKitReady,
+      new Promise<void>((resolve) => setTimeout(resolve, maxWaitMs)),
+    ]);
+  }
+
   // ========== Database Access Methods (iOS only) ==========
 
   /**
@@ -421,6 +445,8 @@ class IosBridgeService {
       return;
     }
 
+    await this.waitForCloudKitReady();
+
     try {
       await CloudKitSyncBridge.triggerSyncToCloudWithDebounce();
     } catch (error) {
@@ -448,6 +474,8 @@ class IosBridgeService {
         bucketsUpdated: 0,
       };
     }
+
+    await this.waitForCloudKitReady();
 
     try {
       const result = await CloudKitSyncBridge.triggerSyncToCloud();
@@ -477,6 +505,8 @@ class IosBridgeService {
       return false;
     }
 
+    await this.waitForCloudKitReady();
+
     try {
       // Convert ISO8601 string to timestamp (milliseconds since epoch)
       const readAtTimestamp = readAt ? new Date(readAt).getTime() : null;
@@ -505,6 +535,8 @@ class IosBridgeService {
       return { success: false, updatedCount: 0 };
     }
 
+    await this.waitForCloudKitReady();
+
     try {
       // Convert ISO8601 string to timestamp (milliseconds since epoch)
       const readAtTimestamp = readAt ? new Date(readAt).getTime() : null;
@@ -529,6 +561,8 @@ class IosBridgeService {
       return false;
     }
 
+    await this.waitForCloudKitReady();
+
     try {
       await CloudKitSyncBridge.deleteNotification(notificationId);
       return true;
@@ -548,6 +582,8 @@ class IosBridgeService {
     if (!isIOS || !CloudKitSyncBridge) {
       return { success: false, deletedCount: 0 };
     }
+
+    await this.waitForCloudKitReady();
 
     try {
       const result = await CloudKitSyncBridge.deleteNotifications(notificationIds);
@@ -736,7 +772,8 @@ class IosBridgeService {
   }
 
   /**
-   * Initialize CloudKit schema if needed
+   * Initialize CloudKit schema if needed.
+   * Also marks CloudKit as ready so queued operations can proceed.
    */
   async initializeCloudKitSchema(): Promise<{ success: boolean }> {
     if (!isIOS || !CloudKitSyncBridge) {
@@ -748,6 +785,9 @@ class IosBridgeService {
       if (isCloudKitDebugEnabled()) {
         console.log('[CloudKit] Schema initialization completed:', result);
       }
+      // Signal readiness to any operations waiting for CloudKit init
+      this._cloudKitInitialized = true;
+      this._cloudKitReadyResolve?.();
       return result;
     } catch (error) {
       console.error('[CloudKit] Failed to initialize schema:', error);

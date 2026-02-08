@@ -1,7 +1,7 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Platform } from 'react-native';
-import { BehaviorSubject, Observable, Subject } from "rxjs";
+import { BehaviorSubject, Observable, Subject, Subscription, firstValueFrom } from "rxjs";
 import {
     catchError,
     concatMap,
@@ -118,6 +118,10 @@ class MediaCacheService {
     // Initialization ready notification
     private initReady$ = new Subject<void>();
 
+    // Track RxJS subscriptions for proper cleanup
+    private processingSubscription?: Subscription;
+    private queueTriggerSubscription?: Subscription;
+
     // Track current queue state for synchronous access
     private currentQueueState: DownloadQueueState = {
         queue: [],
@@ -229,7 +233,7 @@ class MediaCacheService {
         );
 
         // Process queue items sequentially using concatMap
-        this.queueItem$.pipe(
+        this.processingSubscription = this.queueItem$.pipe(
             tap(item => {
                 console.log('[MediaCache] Processing queue item:', item.op, item.url);
                 this.queueAction$.next({ type: 'START', item });
@@ -249,7 +253,7 @@ class MediaCacheService {
         ).subscribe();
 
         // Emit items to processing stream when queue has items and not processing
-        queueStateReducer$.pipe(
+        this.queueTriggerSubscription = queueStateReducer$.pipe(
             filter(state => state.queue.length > 0 && !state.isProcessing),
             map(state => state.queue[0]),
             tap(item => {
@@ -666,7 +670,8 @@ class MediaCacheService {
     }
 
     private emitMetadata(): void {
-        this.metadata$.next(this.getMetadata());
+        // Shallow clone — subscribers must treat as immutable
+        this.metadata$.next({ ...this.metadata });
     }
 
     public async upsertItem(key: string, patch: Partial<CacheItem>) {
@@ -894,6 +899,7 @@ class MediaCacheService {
             }
             this.metadata = {};
             this.bucketParamsCache.clear();
+            this.bucketIconUriCache.clear();
             this.emitMetadata();
         } catch (error) {
             console.error('[MediaCache] Failed to clear cache:', error);
@@ -929,8 +935,8 @@ class MediaCacheService {
         return { items, stats };
     }
 
-    getMetadata() {
-        return JSON.parse(JSON.stringify(this.metadata));
+    getMetadata(): CacheMetadata {
+        return { ...this.metadata };
     }
 
     async deleteCachedMedia(url: string, mediaType: MediaType, permanent?: boolean): Promise<boolean> {
@@ -1005,15 +1011,7 @@ class MediaCacheService {
      * Note: For reactive subscriptions, subscribe directly to downloadQueue$
      */
     async getDownloadQueueState(): Promise<DownloadQueueState> {
-        return new Promise((resolve) => {
-            let subscription: any;
-            subscription = this.downloadQueue$.subscribe(state => {
-                resolve(state);
-                if (subscription) {
-                    subscription.unsubscribe();
-                }
-            });
-        });
+        return firstValueFrom(this.downloadQueue$);
     }
 
     /**
@@ -1174,6 +1172,7 @@ class MediaCacheService {
             }
             this.metadata = {};
             this.bucketParamsCache.clear();
+            this.bucketIconUriCache.clear();
             this.emitMetadata();
 
             console.log('[MediaCache] Cache cleared completely');
@@ -1751,6 +1750,9 @@ class MediaCacheService {
         console.log(`[Gallery Cleanup] Cleanup completed: ${totalBefore} → ${totalAfter} items (${deletedCount} deleted)`);
         console.log(`[Gallery Cleanup] Size: ${(sizeBefore / (1024 * 1024)).toFixed(2)}MB → ${(sizeAfter / (1024 * 1024)).toFixed(2)}MB`);
 
+        // Prune old deleted metadata entries to prevent monotonic growth
+        await this.pruneDeletedMetadata();
+
         return {
             totalBefore,
             totalAfter,
@@ -1760,6 +1762,38 @@ class MediaCacheService {
             filteredByAge,
             filteredBySize,
         };
+    }
+
+    /**
+     * Remove metadata entries marked as isUserDeleted that are older than maxAgeDays.
+     * These entries exist only to prevent re-downloading; after enough time they can be pruned
+     * to stop monotonic memory/DB growth.
+     */
+    async pruneDeletedMetadata(maxAgeDays: number = 30): Promise<number> {
+        await this.initialize();
+        const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+        const keysToRemove: string[] = [];
+
+        for (const [key, item] of Object.entries(this.metadata)) {
+            if (item.isUserDeleted && (item.timestamp || 0) < cutoff) {
+                keysToRemove.push(key);
+            }
+        }
+
+        if (keysToRemove.length === 0) return 0;
+
+        for (const key of keysToRemove) {
+            delete this.metadata[key];
+            try {
+                await this.repo?.deleteCacheItem(key);
+            } catch (error) {
+                console.warn('[MediaCache] Failed to prune deleted metadata entry:', key, error);
+            }
+        }
+
+        this.emitMetadata();
+        console.log(`[MediaCache] Pruned ${keysToRemove.length} deleted metadata entries older than ${maxAgeDays} days`);
+        return keysToRemove.length;
     }
 
     async tryAutoDownload(notification: NotificationFragment, priority: number = 0): Promise<void> {
@@ -1805,9 +1839,14 @@ class MediaCacheService {
                     item.mediaType === mediaType && !item.isUserDeleted
                 )
             ),
-            distinctUntilChanged((prev, curr) =>
-                JSON.stringify(prev) === JSON.stringify(curr)
-            )
+            distinctUntilChanged((prev, curr) => {
+                if (prev.length !== curr.length) return false;
+                return prev.every((item, i) =>
+                    item.key === curr[i].key &&
+                    item.timestamp === curr[i].timestamp &&
+                    item.isUserDeleted === curr[i].isUserDeleted
+                );
+            })
         );
     }
 
@@ -1833,7 +1872,13 @@ class MediaCacheService {
         return this.metadata$.pipe(
             map(metadata => metadata[key]),
             distinctUntilChanged((prev, curr) =>
-                JSON.stringify(prev) === JSON.stringify(curr)
+                prev?.key === curr?.key &&
+                prev?.timestamp === curr?.timestamp &&
+                prev?.localPath === curr?.localPath &&
+                prev?.localThumbPath === curr?.localThumbPath &&
+                prev?.isDownloading === curr?.isDownloading &&
+                prev?.isUserDeleted === curr?.isUserDeleted &&
+                prev?.isPermanentFailure === curr?.isPermanentFailure
             )
         );
     }
@@ -1859,9 +1904,14 @@ class MediaCacheService {
      * Cleanup and destroy observables
      */
     destroy(): void {
+        this.processingSubscription?.unsubscribe();
+        this.queueTriggerSubscription?.unsubscribe();
         this.queueAction$.complete();
         this.queueItem$.complete();
         this.metadata$.complete();
+        this.bucketIconReady$.complete();
+        this.initReady$.complete();
+        this.repo?.dispose();
     }
 }
 

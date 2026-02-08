@@ -114,7 +114,7 @@ export function useBucket(
         refetchOnWindowFocus: false, // ✅ Disable auto-refetch on focus to prevent conflicts with Watch sync
         refetchOnMount: false, // ✅ Only fetch on initial mount
         staleTime: Infinity,
-        gcTime: Infinity,
+        gcTime: 30 * 60 * 1000, // 30 min
     });
 
     // Use bucketDetail if fetched (full data), otherwise use bucketFromGlobal from app state.

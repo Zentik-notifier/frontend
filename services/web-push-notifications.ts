@@ -19,6 +19,7 @@ class WebPushNotificationService {
   private swRegistration: ServiceWorkerRegistration | null = null;
   private callbacks: NotificationActionCallbacks | null = null;
   private listenerAttached = false;
+  private swMessageHandler: ((event: MessageEvent) => void) | null = null;
   private isInitialized = false;
 
   async checkPermissions() {
@@ -147,7 +148,14 @@ class WebPushNotificationService {
   }
 
   private attachServiceWorkerActionListener() {
-    if (typeof window === 'undefined' || this.listenerAttached) return;
+    if (typeof window === 'undefined') return;
+
+    // Remove previous handler if re-attaching (e.g. after logout/login)
+    if (this.swMessageHandler) {
+      navigator.serviceWorker.removeEventListener('message', this.swMessageHandler);
+      this.listenerAttached = false;
+    }
+    if (this.listenerAttached) return;
     if (!('serviceWorker' in navigator)) return;
     if (!this.callbacks) return;
 
@@ -285,6 +293,7 @@ class WebPushNotificationService {
       }
     };
 
+    this.swMessageHandler = handler;
     navigator.serviceWorker.addEventListener('message', handler);
     this.listenerAttached = true;
   }

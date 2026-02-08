@@ -42,144 +42,6 @@ import IosBridgeService from '@/services/ios-bridge';
 // ====================
 
 /**
- * Update notifications in appState cache
- * 
- * @param queryClient - React Query client
- * @param notificationId - ID of the notification to update
- * @param updates - Partial notification updates
- */
-/**
- * Update notification in appState cache
- * 
- * @param queryClient - React Query client
- * @param notificationId - ID of the notification to update
- * @param updates - Partial notification updates
- */
-export function updateAppStateNotification(
-    queryClient: QueryClient,
-    notificationId: string,
-    updates: Partial<NotificationFragment>
-): void {
-    queryClient.setQueryData<{
-        buckets: BucketWithStats[];
-        notifications: NotificationFragment[];
-        stats: any;
-        lastSync: string;
-    }>(
-        ['app-state'],
-        (oldAppState) => {
-            if (!oldAppState) return oldAppState;
-
-            const updatedNotifications = oldAppState.notifications.map(notification => {
-                if (notification.id !== notificationId) return notification;
-                return { ...notification, ...updates };
-            });
-
-            return {
-                ...oldAppState,
-                notifications: updatedNotifications,
-            };
-        }
-    );
-}
-
-/**
- * Remove notification from appState cache
- * 
- * @param queryClient - React Query client
- * @param notificationId - ID of the notification to remove
- */
-export function removeAppStateNotification(
-    queryClient: QueryClient,
-    notificationId: string
-): void {
-    queryClient.setQueryData<{
-        buckets: BucketWithStats[];
-        notifications: NotificationFragment[];
-        stats: any;
-        lastSync: string;
-    }>(
-        ['app-state'],
-        (oldAppState) => {
-            if (!oldAppState) return oldAppState;
-
-            const updatedNotifications = oldAppState.notifications.filter(
-                notification => notification.id !== notificationId
-            );
-
-            return {
-                ...oldAppState,
-                notifications: updatedNotifications,
-            };
-        }
-    );
-}
-
-/**
- * Remove multiple notifications from appState cache
- * 
- * @param queryClient - React Query client
- * @param notificationIds - IDs of the notifications to remove
- */
-function removeAppStateNotifications(
-    queryClient: QueryClient,
-    notificationIds: string[]
-): void {
-    queryClient.setQueryData<{
-        buckets: BucketWithStats[];
-        notifications: NotificationFragment[];
-        stats: any;
-        lastSync: string;
-    }>(
-        ['app-state'],
-        (oldAppState) => {
-            if (!oldAppState) return oldAppState;
-
-            const updatedNotifications = oldAppState.notifications.filter(
-                notification => !notificationIds.includes(notification.id)
-            );
-
-            return {
-                ...oldAppState,
-                notifications: updatedNotifications,
-            };
-        }
-    );
-}
-
-/**
- * Update all notifications in appState cache
- * 
- * @param queryClient - React Query client
- * @param updates - Partial notification updates to apply to all notifications
- */
-function updateAllAppStateNotifications(
-    queryClient: QueryClient,
-    updates: Partial<NotificationFragment>
-): void {
-    queryClient.setQueryData<{
-        buckets: BucketWithStats[];
-        notifications: NotificationFragment[];
-        stats: any;
-        lastSync: string;
-    }>(
-        ['app-state'],
-        (oldAppState) => {
-            if (!oldAppState) return oldAppState;
-
-            const updatedNotifications = oldAppState.notifications.map(notification => ({
-                ...notification,
-                ...updates,
-            }));
-
-            return {
-                ...oldAppState,
-                notifications: updatedNotifications,
-            };
-        }
-    );
-}
-/**
  * Update stats for a specific bucket in appState cache
  * This is much more efficient than refreshing all buckets from DB
  * 
@@ -198,7 +60,6 @@ function updateAppStateBucketStats(
 
     queryClient.setQueryData<{
         buckets: BucketWithStats[];
-        notifications: NotificationFragment[];
         stats: any;
         lastSync: string;
     }>(
@@ -309,9 +170,6 @@ export function useMarkAsRead(
                 updateAppStateBucketStats(queryClient, bucketIdRef.current, 0, -1);
             }
 
-            // Update notification in appState
-            updateAppStateNotification(queryClient, notificationId, { readAt: now });
-
             // Update detail cache if exists
             const cachedNotification = queryClient.getQueryData<NotificationFragment>(
                 notificationKeys.detail(notificationId)
@@ -412,9 +270,6 @@ export function useMarkAsUnread(
             if (wasReadRef.current) {
                 updateAppStateBucketStats(queryClient, bucketIdRef.current, 0, +1);
             }
-
-            // Update notification in appState
-            updateAppStateNotification(queryClient, notificationId, { readAt: null });
 
             // Update detail cache if exists
             const cachedNotification = queryClient.getQueryData<NotificationFragment>(
@@ -533,32 +388,7 @@ export function useBatchMarkAsRead(
                 updateAppStateBucketStats(queryClient, bucketId, 0, unreadDelta);
             });
 
-            // 3. Update notifications in appState
-            queryClient.setQueryData<{
-                buckets: BucketWithStats[];
-                notifications: NotificationFragment[];
-                stats: any;
-                lastSync: string;
-            }>(
-                ['app-state'],
-                (oldAppState) => {
-                    if (!oldAppState) return oldAppState;
-
-                    const updatedNotifications = oldAppState.notifications.map(notification => {
-                        if (notificationIds.includes(notification.id)) {
-                            return { ...notification, readAt: timestamp };
-                        }
-                        return notification;
-                    });
-
-                    return {
-                        ...oldAppState,
-                        notifications: updatedNotifications,
-                    };
-                }
-            );
-
-            // 4. Update detail caches for affected notifications
+            // 3. Update detail caches for affected notifications
             notificationIds.forEach(id => {
                 const cachedNotification = queryClient.getQueryData<NotificationFragment>(
                     notificationKeys.detail(id)
@@ -648,22 +478,15 @@ export function useMarkAllAsRead(
                 }
             );
 
-            // 2. Update all notifications in appState and reset bucket stats
+            // 2. Reset bucket unread counts and stats in appState
             queryClient.setQueryData<{
                 buckets: BucketWithStats[];
-                notifications: NotificationFragment[];
                 stats: any;
                 lastSync: string;
             }>(
                 ['app-state'],
                 (oldAppState) => {
                     if (!oldAppState) return oldAppState;
-
-                    // Update all notifications to be read
-                    const updatedNotifications = oldAppState.notifications.map(notification => ({
-                        ...notification,
-                        readAt: notification.readAt || timestamp,
-                    }));
 
                     // Reset all bucket unread counts to 0
                     const updatedBuckets = oldAppState.buckets.map(bucket => ({
@@ -679,16 +502,14 @@ export function useMarkAllAsRead(
 
                     return {
                         ...oldAppState,
-                        notifications: updatedNotifications,
                         buckets: updatedBuckets,
                         stats: updatedStats,
                     };
                 }
             );
 
-            // 3. Update all detail caches
-            const allNotificationIds = queryClient.getQueryData<{ notifications: NotificationFragment[]; }>(['app-state'])?.notifications.map(n => n.id) || [];
-            allNotificationIds.forEach(id => {
+            // 3. Update detail caches for unread notifications
+            unreadNotificationIds.forEach(id => {
                 const cachedNotification = queryClient.getQueryData<NotificationFragment>(
                     notificationKeys.detail(id)
                 );
@@ -800,9 +621,6 @@ export function useDeleteNotification(
                 wasUnreadRef.current ? -1 : 0
             );
 
-            // Remove notification from appState
-            removeAppStateNotification(queryClient, notificationId);
-
             // Remove from detail cache
             queryClient.removeQueries({
                 queryKey: notificationKeys.detail(notificationId),
@@ -889,9 +707,6 @@ export function useBatchDeleteNotifications(
             bucketChanges.forEach(({ total, unread }, bucketId) => {
                 updateAppStateBucketStats(queryClient, bucketId, -total, -unread);
             });
-
-            // Remove notifications from appState
-            removeAppStateNotifications(queryClient, deletedIds);
 
             // Remove from detail cache
             deletedIds.forEach(id => {

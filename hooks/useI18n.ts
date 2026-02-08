@@ -1,5 +1,5 @@
 import { Translation } from '@/types/translations.generated';
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { settingsService } from '@/services/settings-service';
 import enTranslations from '@/locales/en-EN.json';
 import itTranslations from '@/locales/it-IT.json';
@@ -93,11 +93,13 @@ function replaceParams(translation: string, params: Record<string, string | numb
 export function useI18n(): UseI18nReturn {
   const [locale, setLocale] = useState<Locale>('en-EN');
   const [isInitialized, setIsInitialized] = useState(false);
+  const isInitializedRef = useRef(false);
 
   // Subscribe directly to settings service to avoid Apollo dependency
   useEffect(() => {
     // Subscribe to initialization status first
     const initSubscription = settingsService.isInitialized$.subscribe((initialized) => {
+      isInitializedRef.current = initialized;
       setIsInitialized(initialized);
       
       if (initialized) {
@@ -109,7 +111,7 @@ export function useI18n(): UseI18nReturn {
 
     // Subscribe to settings changes
     const settingsSubscription = settingsService.userSettings$.subscribe((settings) => {
-      if (isInitialized) {
+      if (isInitializedRef.current) {
         setLocale(settings.locale as Locale);
       }
     });
@@ -118,7 +120,7 @@ export function useI18n(): UseI18nReturn {
       initSubscription.unsubscribe();
       settingsSubscription.unsubscribe();
     };
-  }, [isInitialized]);
+  }, []);
 
   const t = useCallback(<T extends TranslationKeyPath>(
     key: T,

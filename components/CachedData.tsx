@@ -1,6 +1,9 @@
 import { useAppState, useDeleteNotification } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useNotificationExportImport } from "@/hooks/useNotificationExportImport";
+import { getAllNotificationsFromCache } from "@/services/notifications-repository";
+import { deleteAllBuckets } from "@/db/repositories/buckets-repository";
+import type { NotificationFragment } from "@/generated/graphql";
 import {
   AppLog,
   clearAllLogs,
@@ -87,6 +90,8 @@ export default function CachedData() {
   const [isRestoring, setIsRestoring] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [latestAutoBackupName, setLatestAutoBackupName] = useState<string | null>(null);
+  const [cachedNotifications, setCachedNotifications] = useState<NotificationFragment[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   const {
     handleExportNotifications,
@@ -95,9 +100,31 @@ export default function CachedData() {
     isImporting,
   } = useNotificationExportImport();
 
+  const loadCachedNotifications = useCallback(async () => {
+    setLoadingNotifications(true);
+    try {
+      const notifications = await getAllNotificationsFromCache();
+      setCachedNotifications(notifications);
+    } catch (error) {
+      console.error('Failed to load cached notifications:', error);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, []);
+
+  // Load notifications when section is expanded
+  useEffect(() => {
+    if (notificationsExpanded) {
+      loadCachedNotifications();
+    }
+  }, [notificationsExpanded, loadCachedNotifications]);
+
   const refreshData = useCallback(async () => {
     await refetch();
-  }, [refetch]);
+    if (notificationsExpanded) {
+      await loadCachedNotifications();
+    }
+  }, [refetch, notificationsExpanded, loadCachedNotifications]);
 
   const refreshLatestAutoBackup = useCallback(async () => {
     if (Platform.OS === 'web') return;
@@ -156,12 +183,13 @@ export default function CachedData() {
           style: "destructive",
           onPress: async () => {
             try {
-              const notifications = appState?.notifications || [];
+              const notifications = cachedNotifications;
               for (const notification of notifications) {
                 await deleteMutation.mutateAsync({
                   notificationId: notification.id,
                 });
               }
+              setCachedNotifications([]);
               await refetch();
             } catch (error) {
               console.error("Failed to delete all notifications:", error);
@@ -224,8 +252,27 @@ export default function CachedData() {
   }, [t]);
 
   const handleDeleteAllBuckets = useCallback(() => {
-    Alert.alert(t("common.info"), "Delete all buckets not yet implemented");
-  }, [t]);
+    Alert.alert(
+      t("cachedData.confirmDelete"),
+      t("cachedData.confirmDeleteMessage"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("common.delete"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteAllBuckets();
+              await refetch();
+            } catch (error) {
+              console.error("Failed to delete all buckets:", error);
+              Alert.alert(t("common.error"), t("cachedData.deleteError"));
+            }
+          },
+        },
+      ]
+    );
+  }, [t, refetch]);
 
   // === LOGS SECTION ===
 
@@ -1424,7 +1471,7 @@ export default function CachedData() {
             label: t("cachedData.deleteAll"),
             icon: "delete-sweep",
             onPress: handleDeleteAllNotifications,
-            disabled: !appState?.notifications.length,
+            disabled: !cachedNotifications.length,
           },
           {
             label: t("cachedData.import"),
@@ -1438,14 +1485,14 @@ export default function CachedData() {
             icon: "download",
             onPress: handleExportNotifications,
             disabled:
-              !appState?.notifications.length || isExporting || isImporting,
+              !cachedNotifications.length || isExporting || isImporting,
             loading: isExporting,
           },
         ]}
       >
-        {appState?.notifications.length ? (
+        {cachedNotifications.length ? (
           <FlashList
-            data={appState.notifications}
+            data={cachedNotifications}
             renderItem={({ item: notification }) => (
               <Card style={styles.itemCard}>
                 <Card.Content style={styles.itemCardContent}>

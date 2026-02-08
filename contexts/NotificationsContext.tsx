@@ -1,7 +1,7 @@
 import { NotificationFragment } from "@/generated/gql-operations-generated";
 import { NotificationVisualization } from "@/services/settings-service";
 import { useAppContext } from "@/contexts/AppContext";
-import React, { createContext, useContext, useReducer, ReactNode, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useReducer, ReactNode, useEffect, useCallback, useMemo } from "react";
 
 // Types
 interface NotificationsState {
@@ -124,15 +124,15 @@ export function NotificationsProvider({
     dispatch({ type: "SET_ALL_NOTIFICATION_IDS", payload: ids });
   }, []);
 
-  const handleToggleMultiSelection = () => {
+  const handleToggleMultiSelection = useCallback(() => {
     dispatch({ type: "SET_SELECTION_MODE", payload: !state.selectionMode });
-  };
+  }, [state.selectionMode]);
 
-  const handleToggleItemSelection = (itemId: string) => {
+  const handleToggleItemSelection = useCallback((itemId: string) => {
     dispatch({ type: "TOGGLE_ITEM_SELECTION", payload: itemId });
-  };
+  }, []);
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     // Se tutte le notifiche sono già selezionate, deseleziona tutto
     const allSelected = state.allNotificationIds.length > 0 && 
                         state.selectedItems.size === state.allNotificationIds.length &&
@@ -146,23 +146,23 @@ export function NotificationsProvider({
       const allIds = new Set(state.allNotificationIds);
       dispatch({ type: "SET_SELECTED_ITEMS", payload: allIds });
     }
-  };
+  }, [state.allNotificationIds, state.selectedItems]);
 
-  const handleDeselectAll = () => {
+  const handleDeselectAll = useCallback(() => {
     dispatch({ type: "CLEAR_SELECTION" });
-  };
+  }, []);
 
-  const handleCloseSelectionMode = () => {
+  const handleCloseSelectionMode = useCallback(() => {
     dispatch({ type: "SET_SELECTION_MODE", payload: false });
-  };
+  }, []);
 
-  const handleShowFiltersModal = () => {
+  const handleShowFiltersModal = useCallback(() => {
     dispatch({ type: "SET_SHOW_FILTERS_MODAL", payload: true });
-  };
+  }, []);
 
-  const handleHideFiltersModal = () => {
+  const handleHideFiltersModal = useCallback(() => {
     dispatch({ type: "SET_SHOW_FILTERS_MODAL", payload: false });
-  };
+  }, []);
 
   const updateActiveFiltersCount = (filters: NotificationVisualization): void => {
     let count = 0;
@@ -178,7 +178,7 @@ export function NotificationsProvider({
     updateActiveFiltersCount(settings.notificationVisualization);
   }, [settings.notificationVisualization]);
 
-  const value: NotificationsContextType = {
+  const value: NotificationsContextType = useMemo(() => ({
     state,
     dispatch,
     handleSetAllNotificationIds,
@@ -189,7 +189,17 @@ export function NotificationsProvider({
     handleCloseSelectionMode,
     handleShowFiltersModal,
     handleHideFiltersModal,
-};
+  }), [
+    state,
+    handleSetAllNotificationIds,
+    handleToggleMultiSelection,
+    handleToggleItemSelection,
+    handleSelectAll,
+    handleDeselectAll,
+    handleCloseSelectionMode,
+    handleShowFiltersModal,
+    handleHideFiltersModal,
+  ]);
 
   return (
     <NotificationsContext.Provider value={value}>

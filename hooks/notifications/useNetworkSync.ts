@@ -352,16 +352,9 @@ export function useNetworkSync() {
                     return a.name.localeCompare(b.name);
                 });
 
-                // Re-fetch notifications from cache after API sync
-                const cachedNotifications = await getAllNotificationsFromCache();
-                const finalNotifications = apiNotifications.length > 0
-                    ? await getAllNotificationsFromCache()
-                    : cachedNotifications;
-
                 // Update React Query cache with merged data
                 queryClient.setQueryData(['app-state'], {
                     buckets: mergedBuckets,
-                    notifications: finalNotifications,
                     stats: updatedStats,
                     lastSync: new Date().toISOString(),
                 });
