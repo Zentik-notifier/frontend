@@ -2463,6 +2463,9 @@ export interface Translation {
     description: string;
     noDownloads: string;
     clear: string;
+    inProgress: string;
+    queued: string;
+    completed: string;
   };
   messageReminders: {
     title: string;
@@ -2946,6 +2949,7 @@ export interface Translation {
     messageLabel: string;
     messagePlaceholder: string;
     sendButton: string;
+    addMoreMedia: string;
     loginRequired: string;
     openApp: string;
     errors: {
