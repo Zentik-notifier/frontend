@@ -1111,6 +1111,43 @@ class IosBridgeService {
       throw error;
     }
   }
+
+  /**
+   * Get Watch subscription sync mode
+   * Returns: "foregroundOnly" | "alwaysActive" | "backgroundInterval"
+   */
+  async getWatchSubscriptionSyncMode(): Promise<{ mode: string }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return { mode: 'foregroundOnly' };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.getWatchSubscriptionSyncMode();
+      return { mode: result.mode ?? 'foregroundOnly' };
+    } catch (error) {
+      console.error('[WatchConnectivity] Failed to get subscription sync mode:', error);
+      return { mode: 'foregroundOnly' };
+    }
+  }
+
+  /**
+   * Set Watch subscription sync mode and send to Watch via WatchConnectivity
+   * @param mode - "foregroundOnly" | "alwaysActive" | "backgroundInterval"
+   */
+  async setWatchSubscriptionSyncMode(mode: string): Promise<{ success: boolean; mode: string; sentToWatch: boolean }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      throw new Error('setWatchSubscriptionSyncMode is only available on iOS');
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.setWatchSubscriptionSyncMode(mode);
+      console.log('[WatchConnectivity] Subscription sync mode set:', mode);
+      return result;
+    } catch (error) {
+      console.error('[WatchConnectivity] Failed to set subscription sync mode:', error);
+      throw error;
+    }
+  }
 }
 
 export default new IosBridgeService();

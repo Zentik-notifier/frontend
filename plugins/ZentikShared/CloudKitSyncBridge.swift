@@ -1264,5 +1264,94 @@ class CloudKitSyncBridge: RCTEventEmitter {
     reject("NOT_SUPPORTED", "sendWatchTokenSettings is only available on iOS", nil)
     #endif
   }
+  
+  // MARK: - Watch Subscription Sync Mode
+  
+  /**
+   * Get the current Watch subscription sync mode.
+   * This reads the value stored on the iPhone side (mirrored from Watch via applicationContext).
+   * Possible values: "foregroundOnly", "alwaysActive", "backgroundInterval"
+   */
+  @objc
+  func getWatchSubscriptionSyncMode(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    let modeString = UserDefaults.standard.string(forKey: "watch_subscription_sync_mode") ?? "foregroundOnly"
+    resolve(["mode": modeString])
+    #else
+    reject("NOT_SUPPORTED", "getWatchSubscriptionSyncMode is only available on iOS", nil)
+    #endif
+  }
+  
+  /**
+   * Set the Watch subscription sync mode and send it to the Watch via WatchConnectivity.
+   * Possible values: "foregroundOnly", "alwaysActive", "backgroundInterval"
+   */
+  @objc
+  func setWatchSubscriptionSyncMode(
+    _ mode: String,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    #if os(iOS)
+    // Validate the mode string
+    let validModes = ["foregroundOnly", "alwaysActive", "backgroundInterval"]
+    guard validModes.contains(mode) else {
+      reject("INVALID_MODE", "Invalid subscription sync mode: \(mode). Valid modes: \(validModes.joined(separator: ", "))", nil)
+      return
+    }
+    
+    // Persist on iPhone side for UI retrieval
+    UserDefaults.standard.set(mode, forKey: "watch_subscription_sync_mode")
+    UserDefaults.standard.synchronize()
+    
+    guard WCSession.isSupported() else {
+      // Still save locally even if Watch is not supported
+      resolve(["success": true, "mode": mode, "sentToWatch": false])
+      return
+    }
+    
+    let session = WCSession.default
+    guard session.activationState == .activated else {
+      infoLog("WCSession not activated — setting saved locally, will sync on next activation")
+      resolve(["success": true, "mode": mode, "sentToWatch": false])
+      return
+    }
+    
+    // Send via sendMessage (real-time if Watch is reachable) with applicationContext fallback
+    let message: [String: Any] = ["type": "watchSubscriptionSyncMode", "mode": mode]
+    
+    if session.isReachable {
+      session.sendMessage(message, replyHandler: { reply in
+        self.infoLog("Watch subscription sync mode sent via message", metadata: ["mode": mode])
+        resolve(["success": true, "mode": mode, "sentToWatch": true])
+      }, errorHandler: { error in
+        // Fallback to applicationContext
+        self.sendSyncModeViaContext(session: session, mode: mode, resolve: resolve, reject: reject)
+      })
+    } else {
+      // Watch not reachable — use applicationContext (delivered when Watch wakes)
+      sendSyncModeViaContext(session: session, mode: mode, resolve: resolve, reject: reject)
+    }
+    #else
+    reject("NOT_SUPPORTED", "setWatchSubscriptionSyncMode is only available on iOS", nil)
+    #endif
+  }
+  
+  #if os(iOS)
+  private func sendSyncModeViaContext(session: WCSession, mode: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    do {
+      try session.updateApplicationContext(["type": "watchSubscriptionSyncMode", "mode": mode])
+      infoLog("Watch subscription sync mode sent via applicationContext", metadata: ["mode": mode])
+      resolve(["success": true, "mode": mode, "sentToWatch": true])
+    } catch {
+      warnLog("Failed to send subscription sync mode to Watch", metadata: ["error": error.localizedDescription])
+      // Still resolve — we saved it locally
+      resolve(["success": true, "mode": mode, "sentToWatch": false])
+    }
+  }
+  #endif
 
 }

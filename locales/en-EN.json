@@ -179,6 +179,18 @@
       "regenerateConfirmMessage": "This will delete the current token and create a new one. The watch will need to receive the new token.",
       "watchAppRequired": "Please open the Watch app to receive/update the settings."
     },
+    "watchSyncMode": {
+      "title": "Subscription Sync Mode",
+      "description": "Control how the Watch app receives CloudKit updates. This affects battery life and data freshness.",
+      "foregroundOnly": "Foreground only",
+      "foregroundOnlyDescription": "Subscriptions active only while the Watch app is open. Best battery life.",
+      "alwaysActive": "Always active",
+      "alwaysActiveDescription": "Subscriptions always active, even in background. Real-time updates but higher battery usage.",
+      "backgroundInterval": "Background intervals",
+      "backgroundIntervalDescription": "Periodic background sync every ~15 minutes. Balanced battery life and data freshness.",
+      "updateSuccess": "Subscription sync mode updated. Open the Watch app to apply the change.",
+      "updateError": "Failed to update subscription sync mode. Please try again."
+    },
     "privacy": {
       "title": "Privacy",
       "description": "Control how your UI actions are tracked for service improvement",
@@ -2508,6 +2520,8 @@
     "failedToSave": "Failed to save settings",
     "failedToLoad": "Failed to load server settings",
     "selectPlaceholder": "Select {field}",
+    "selectSystemToken": "Select system token",
+    "customToken": "Custom token (enter below)",
     "warningFooter": "⚠️ Changes to server settings may require a restart to take effect. Some settings are sensitive and should be handled carefully.",
     "sections": {
       "authentication": "Authentication & JWT",

@@ -851,6 +851,7 @@ export function SettingsWatchCloud() {
             >
               {t("appSettings.watchToken.watchAppRequired")}
             </Text>
+
           </Card.Content>
         </Card>
       </PaperScrollView>

@@ -9,8 +9,10 @@ import UserNotifications
  * Receives CloudKit change notifications and updates local cache
  * Implements UNUserNotificationCenterDelegate to handle notifications in foreground
  *
- * Subscriptions are disabled when the app goes to background to avoid battery drain;
- * they are re-created when the app becomes active again.
+ * Subscription lifecycle is governed by `WatchSettingsManager.subscriptionSyncMode`:
+ * - `.foregroundOnly`: subscriptions created on foreground, removed after a 5-minute grace period when backgrounded
+ * - `.alwaysActive`: subscriptions stay active at all times; pushes processed even in background
+ * - `.backgroundInterval`: subscriptions disabled on background, but periodic background refresh scheduled
  */
 class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationCenterDelegate {
 
@@ -20,6 +22,16 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
         get { backgroundLock.lock(); defer { backgroundLock.unlock() }; return _isInBackground }
         set { backgroundLock.lock(); defer { backgroundLock.unlock() }; _isInBackground = newValue }
     }
+    
+    // MARK: - Subscription disable grace period
+    /// When going to background in `.foregroundOnly` mode, we wait 5 minutes before
+    /// actually disabling subscriptions. If the user returns to foreground within
+    /// that window the timer is cancelled and subscriptions stay active.
+    private var subscriptionDisableTimer: DispatchWorkItem?
+    private let subscriptionDisableDelay: TimeInterval = 5 * 60 // 5 minutes
+    
+    /// Background refresh interval for `.backgroundInterval` mode (30 min)
+    private let backgroundRefreshInterval: TimeInterval = 30 * 60
 
     func applicationDidFinishLaunching() {
         print("⌚ [WatchExtensionDelegate] Application did finish launching")
@@ -135,6 +147,10 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
     func applicationDidBecomeActive() {
         print("⌚ [WatchExtensionDelegate] Application became active")
         WatchExtensionDelegate.isInBackground = false
+        
+        // Cancel any pending subscription-disable timer (5-min grace period)
+        subscriptionDisableTimer?.cancel()
+        subscriptionDisableTimer = nil
 
         if WatchCloudKit.shared.isCloudKitEnabled {
             WatchCloudKit.shared.ensureReady { result in
@@ -156,20 +172,85 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
     func applicationWillResignActive() {
         print("⌚ [WatchExtensionDelegate] Application will resign active")
         WatchExtensionDelegate.isInBackground = true
+        
+        let mode = WatchSettingsManager.shared.subscriptionSyncMode
 
         if WatchCloudKit.shared.isCloudKitEnabled {
-            WatchCloudKit.shared.disableSubscriptions { result in
-                switch result {
-                case .success:
-                    print("⌚ [WatchExtensionDelegate] ✅ Subscriptions disabled (background)")
-                    LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "CloudKit subscriptions disabled for background", source: "WatchExtensionDelegate")
-                case .failure(let error):
-                    print("⌚ [WatchExtensionDelegate] ⚠️ Failed to disable subscriptions: \(error.localizedDescription)")
-                }
+            switch mode {
+            case .alwaysActive:
+                // Never disable subscriptions — keep receiving pushes in background
+                print("⌚ [WatchExtensionDelegate] ℹ️ alwaysActive mode — subscriptions kept active")
+                LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "Subscriptions kept active (alwaysActive mode)", source: "WatchExtensionDelegate")
+                
+            case .foregroundOnly:
+                // Disable after a 5-minute grace period to avoid rapid toggle on quick background/foreground transitions
+                scheduleSubscriptionDisable()
+                
+            case .backgroundInterval:
+                // Disable subscriptions immediately but schedule a background refresh
+                disableSubscriptionsNow()
+                scheduleBackgroundRefresh()
             }
         }
 
         NotificationCenter.default.post(name: NSNotification.Name("WatchAppWillResignActive"), object: nil)
+    }
+    
+    // MARK: - Subscription Disable Helpers
+    
+    /// Schedule subscription disable after a 5-minute grace period.
+    /// If the user comes back to foreground before the timer fires, it is cancelled in `applicationDidBecomeActive`.
+    private func scheduleSubscriptionDisable() {
+        // Cancel any previously scheduled timer
+        subscriptionDisableTimer?.cancel()
+        
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            // Double-check we're still in background when the timer fires
+            guard WatchExtensionDelegate.isInBackground else {
+                print("⌚ [WatchExtensionDelegate] ℹ️ Grace period expired but app is foreground — skipping disable")
+                return
+            }
+            self.disableSubscriptionsNow()
+        }
+        subscriptionDisableTimer = workItem
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + subscriptionDisableDelay, execute: workItem)
+        
+        print("⌚ [WatchExtensionDelegate] ⏱ Subscription disable scheduled in \(Int(subscriptionDisableDelay))s (foregroundOnly mode)")
+        LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "Subscription disable scheduled in \(Int(subscriptionDisableDelay))s", source: "WatchExtensionDelegate")
+    }
+    
+    /// Immediately disable CloudKit subscriptions
+    private func disableSubscriptionsNow() {
+        WatchCloudKit.shared.disableSubscriptions { result in
+            switch result {
+            case .success:
+                print("⌚ [WatchExtensionDelegate] ✅ Subscriptions disabled (background)")
+                LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "CloudKit subscriptions disabled for background", source: "WatchExtensionDelegate")
+            case .failure(let error):
+                print("⌚ [WatchExtensionDelegate] ⚠️ Failed to disable subscriptions: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    // MARK: - Background Refresh Scheduling
+    
+    /// Schedule a `WKApplicationRefreshBackgroundTask` for `.backgroundInterval` mode.
+    /// watchOS guarantees a minimum of ~15 minutes between refreshes.
+    private func scheduleBackgroundRefresh() {
+        let preferredDate = Date(timeIntervalSinceNow: backgroundRefreshInterval)
+        WKExtension.shared().scheduleBackgroundRefresh(
+            withPreferredDate: preferredDate,
+            userInfo: nil
+        ) { error in
+            if let error = error {
+                print("⌚ [WatchExtensionDelegate] ❌ Failed to schedule background refresh: \(error.localizedDescription)")
+                LoggingSystem.shared.log(level: "ERROR", tag: "Watch", message: "Failed to schedule background refresh", metadata: ["error": error.localizedDescription], source: "WatchExtensionDelegate")
+            } else {
+                print("⌚ [WatchExtensionDelegate] ✅ Background refresh scheduled in ~\(Int(self.backgroundRefreshInterval / 60)) min")
+                LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "Background refresh scheduled", metadata: ["intervalMinutes": "\(Int(self.backgroundRefreshInterval / 60))"], source: "WatchExtensionDelegate")
+            }
+        }
     }
     
     func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
@@ -180,7 +261,7 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
             
             if let refreshTask = task as? WKApplicationRefreshBackgroundTask {
                 print("⌚ [WatchExtensionDelegate] Application refresh background task")
-                refreshTask.setTaskCompletedWithSnapshot(false)
+                handleBackgroundRefreshTask(refreshTask)
             } else if let snapshotTask = task as? WKSnapshotRefreshBackgroundTask {
                 print("⌚ [WatchExtensionDelegate] Snapshot refresh background task")
                 snapshotTask.setTaskCompleted(restoredDefaultState: true, estimatedSnapshotExpiration: Date.distantFuture, userInfo: nil)
@@ -197,11 +278,54 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
         }
     }
     
+    /// Handle `WKApplicationRefreshBackgroundTask`.
+    /// In `.backgroundInterval` mode we perform an incremental CloudKit sync and
+    /// re-schedule the next background refresh. In other modes we just complete.
+    private func handleBackgroundRefreshTask(_ task: WKApplicationRefreshBackgroundTask) {
+        let mode = WatchSettingsManager.shared.subscriptionSyncMode
+        
+        guard mode == .backgroundInterval, WatchCloudKit.shared.isCloudKitEnabled else {
+            print("⌚ [WatchExtensionDelegate] ℹ️ Background refresh task completed (mode=\(mode.stringValue), ck=\(WatchCloudKit.shared.isCloudKitEnabled))")
+            task.setTaskCompletedWithSnapshot(false)
+            return
+        }
+        
+        print("⌚ [WatchExtensionDelegate] 🔄 Performing background incremental sync...")
+        LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "Background refresh: starting incremental sync", source: "WatchExtensionDelegate")
+        
+        // Need to ensure zone + subscriptions are not required for incremental sync
+        // (they shouldn't be — incremental uses server change tokens, not subscriptions)
+        WatchCloudKit.shared.fetchIncrementalChanges { [weak self] result in
+            switch result {
+            case .success(let changes):
+                let changeCount = changes.count
+                print("⌚ [WatchExtensionDelegate] ✅ Background sync completed — \(changeCount) changes")
+                LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "Background refresh: sync completed", metadata: ["changes": "\(changeCount)"], source: "WatchExtensionDelegate")
+                
+                if changeCount > 0 {
+                    // Notify WatchConnectivityManager to update UI
+                    NotificationCenter.default.post(name: NSNotification.Name("CloudKitDataUpdated"), object: nil, userInfo: ["changes": changes])
+                }
+                
+            case .failure(let error):
+                print("⌚ [WatchExtensionDelegate] ❌ Background sync failed: \(error.localizedDescription)")
+                LoggingSystem.shared.log(level: "ERROR", tag: "Watch", message: "Background refresh: sync failed", metadata: ["error": error.localizedDescription], source: "WatchExtensionDelegate")
+            }
+            
+            // Re-schedule next background refresh
+            self?.scheduleBackgroundRefresh()
+            task.setTaskCompletedWithSnapshot(false)
+        }
+    }
+    
     // MARK: - Remote Notifications
     // Two sources: (1) CloudKit push (CKNotification) when iPhone app pushes to CK; (2) Mirrored notification from iPhone (same APNs payload, our userInfo keys "n","b", etc.) in willPresent/didReceive.
 
     func didReceiveRemoteNotification(_ userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (WKBackgroundFetchResult) -> Void) {
-        if WatchExtensionDelegate.isInBackground {
+        // In .alwaysActive mode we process pushes even in background.
+        // In other modes we only process in foreground.
+        let mode = WatchSettingsManager.shared.subscriptionSyncMode
+        if WatchExtensionDelegate.isInBackground && mode != .alwaysActive {
             completionHandler(.noData)
             return
         }

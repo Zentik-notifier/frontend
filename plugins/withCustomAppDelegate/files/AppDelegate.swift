@@ -95,6 +95,7 @@ FirebaseApp.configure()
       object: nil
     )
     registerDarwinNSENotificationSavedObserver()
+    DatabaseAccess.registerLifecycleObservers()
 #endif
 
     return result

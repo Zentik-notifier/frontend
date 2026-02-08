@@ -8,6 +8,10 @@ import {
   RestartServerDocument,
   ServerSettingType,
 } from "@/generated/gql-operations-generated";
+import {
+  useSystemAccessTokens,
+  SystemTokenOption,
+} from "@/hooks/useSystemAccessTokens";
 import { useI18n } from "@/hooks/useI18n";
 import { useMutation, useQuery } from "@apollo/client";
 import React, { useEffect, useState } from "react";
@@ -366,6 +370,7 @@ type SettingSectionProps = {
   values: Record<ServerSettingType, any>;
   onValueChange: (configType: ServerSettingType, value: any) => void;
   theme: any;
+  systemTokens?: SystemTokenOption[];
 };
 
 function SettingSection({
@@ -374,6 +379,7 @@ function SettingSection({
   values,
   onValueChange,
   theme,
+  systemTokens,
 }: SettingSectionProps) {
   const { t } = useI18n();
   const sectionConfig = settingSections[section];
@@ -438,6 +444,11 @@ function SettingSection({
             value={values[setting.configType]}
             onValueChange={(value) => onValueChange(setting.configType, value)}
             theme={theme}
+            systemTokens={
+              setting.configType === ServerSettingType.PushPassthroughToken
+                ? systemTokens
+                : undefined
+            }
           />
         ))}
       </Card.Content>
@@ -450,32 +461,34 @@ type SettingFieldProps = {
   value: any;
   onValueChange: (value: any) => void;
   theme: any;
+  systemTokens?: SystemTokenOption[];
 };
+
+const CUSTOM_TOKEN_OPTION_ID = "__custom__";
 
 function SettingField({
   setting,
   value,
   onValueChange,
   theme,
+  systemTokens,
 }: SettingFieldProps) {
   const { t } = useI18n();
   const [showSecret, setShowSecret] = useState(false);
   const fieldType = getFieldType(setting);
   const label = t(`serverSettings.fields.${setting.configType}` as any);
 
-  // Don't show sensitive fields in plain text
-  // const isSensitive =
-  //   setting.configType.includes("Secret") ||
-  //   setting.configType.includes("Password") ||
-  //   setting.configType.includes("Pass") ||
-  //   setting.configType.includes("Key");
   const isSensitive = false;
 
-  // Check if this is a push mode field
   const isPushMode =
     setting.configType === ServerSettingType.ApnPush ||
     setting.configType === ServerSettingType.FirebasePush ||
     setting.configType === ServerSettingType.WebPush;
+
+  const isPushPassthroughToken =
+    setting.configType === ServerSettingType.PushPassthroughToken;
+  const tokensWithToken = systemTokens?.filter((t) => t.token) ?? [];
+  const showTokenSelector = isPushPassthroughToken && tokensWithToken.length > 0;
 
   if (fieldType === "boolean") {
     return (
@@ -590,12 +603,64 @@ function SettingField({
     );
   }
 
-  // Text field - make all fields multiline and add show/hide for sensitive fields
-  // Note: secureTextEntry doesn't work with multiline, so we mask the value manually
   const displayValue =
     isSensitive && !showSecret && value
       ? "•".repeat(Math.min(value.length, 40))
       : value ?? "";
+
+  if (showTokenSelector) {
+    const selectorOptions: SelectorOption[] = [
+      {
+        id: CUSTOM_TOKEN_OPTION_ID,
+        name: t("serverSettings.customToken" as any),
+      },
+      ...tokensWithToken.map((tkn) => ({
+        id: tkn.token,
+        name:
+          tkn.description?.trim() ||
+          `Token ${tkn.id.slice(0, 8)}... (${tkn.token.slice(0, 12)}...)`,
+      })),
+    ];
+    const selectedId = tokensWithToken.some((tkn) => tkn.token === value)
+      ? value
+      : CUSTOM_TOKEN_OPTION_ID;
+
+    return (
+      <View style={styles.fieldContainer}>
+        <Selector
+          label={t("serverSettings.selectSystemToken" as any)}
+          options={selectorOptions}
+          selectedValue={selectedId}
+          onValueChange={(id) => {
+            if (id === CUSTOM_TOKEN_OPTION_ID) return;
+            onValueChange(id);
+          }}
+          placeholder={t("serverSettings.selectPlaceholder", {
+            field: label,
+          } as any)}
+        />
+        <TextInput
+          mode="outlined"
+          label={label}
+          value={displayValue}
+          onChangeText={onValueChange}
+          autoCapitalize="none"
+          autoCorrect={false}
+          multiline={true}
+          numberOfLines={3}
+          style={[styles.textInput, { marginTop: 8 }]}
+          right={
+            isSensitive ? (
+              <TextInput.Icon
+                icon={showSecret ? "eye-off" : "eye"}
+                onPress={() => setShowSecret(!showSecret)}
+              />
+            ) : undefined
+          }
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.fieldContainer}>
@@ -651,6 +716,7 @@ export function ServerSettings() {
   );
 
   const settings = (data?.serverSettings ?? []) as ServerSetting[];
+  const { tokens: systemTokens } = useSystemAccessTokens();
 
   // Initialize values when data loads
   useEffect(() => {
@@ -817,6 +883,9 @@ export function ServerSettings() {
             values={values}
             onValueChange={handleValueChange}
             theme={theme}
+            systemTokens={
+              sectionKey === "pushPassthrough" ? systemTokens : undefined
+            }
           />
         ))}
 

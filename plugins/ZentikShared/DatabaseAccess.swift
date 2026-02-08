@@ -39,6 +39,67 @@ public class DatabaseAccess {
     private static let DB_BUSY_TIMEOUT: Int32 = 5000  // 5 seconds busy timeout
     private static let DB_MAX_RETRIES: Int = 5  // Max 5 retry attempts
     
+    // MARK: - Background suspension protection (0xdead10cc prevention)
+    
+    /// Set to true when the app is about to be suspended.
+    /// Database operations check this flag and abort early to avoid holding
+    /// file locks while the process is suspended, which causes the system to
+    /// kill the app with termination reason 0xdead10cc.
+    private static var isSuspending = false
+    private static let suspendLock = NSLock()
+    
+    private static var backgroundObserver: NSObjectProtocol?
+    private static var foregroundObserver: NSObjectProtocol?
+    
+    /// Call once at app startup to register for lifecycle notifications.
+    /// This ensures the file lock is released before the app is suspended.
+    /// NOTE: Only effective in the main app process. In extensions (e.g. NSE)
+    /// these notifications are not delivered, so this is a no-op.
+    public static func registerLifecycleObservers() {
+        #if os(iOS)
+        // Use raw notification names to avoid referencing UIApplication,
+        // which is unavailable in app extensions (APPLICATION_EXTENSION_API_ONLY).
+        backgroundObserver = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("UIApplicationDidEnterBackgroundNotification"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            suspendLock.lock()
+            isSuspending = true
+            suspendLock.unlock()
+            
+            // Force-release any held file lock immediately.
+            // The operation that was using it will see the closed descriptor
+            // and the DB will return SQLITE_BUSY on subsequent calls, but
+            // that is far better than the system killing the process.
+            forceReleaseLockForSuspension()
+        }
+        
+        foregroundObserver = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("UIApplicationWillEnterForegroundNotification"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            suspendLock.lock()
+            isSuspending = false
+            suspendLock.unlock()
+        }
+        #endif
+    }
+    
+    /// Force-release the file lock regardless of current state.
+    /// Called when the app is about to be suspended to prevent 0xdead10cc.
+    private static func forceReleaseLockForSuspension() {
+        lockQueue.sync {
+            if lockFileDescriptor != -1 {
+                flock(lockFileDescriptor, LOCK_UN)
+                close(lockFileDescriptor)
+                lockFileDescriptor = -1
+                print("📱 [DatabaseAccess] 🔓 Force-released file lock for suspension (0xdead10cc prevention)")
+            }
+        }
+    }
+    
     // MARK: - Database Path & Lock (App Group / userGroup)
     
     /// Paths for shared cache and lock inside the App Group container.

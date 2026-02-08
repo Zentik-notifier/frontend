@@ -179,6 +179,18 @@
       "regenerateConfirmMessage": "Questo eliminerà il token corrente e ne creerà uno nuovo. L'orologio dovrà ricevere il nuovo token.",
       "watchAppRequired": "Apri l'app del Watch per ricevere/aggiornare le impostazioni."
     },
+    "watchSyncMode": {
+      "title": "Modalità Sync Subscription",
+      "description": "Controlla come l'app Watch riceve gli aggiornamenti CloudKit. Influisce sulla durata della batteria e sull'aggiornamento dei dati.",
+      "foregroundOnly": "Solo in primo piano",
+      "foregroundOnlyDescription": "Le subscription sono attive solo quando l'app Watch è aperta. Migliore durata batteria.",
+      "alwaysActive": "Sempre attivo",
+      "alwaysActiveDescription": "Le subscription sono sempre attive, anche in background. Aggiornamenti in tempo reale ma maggiore consumo batteria.",
+      "backgroundInterval": "Intervalli in background",
+      "backgroundIntervalDescription": "Sincronizzazione periodica in background ogni ~15 minuti. Bilanciato tra batteria e aggiornamento dati.",
+      "updateSuccess": "Modalità sync subscription aggiornata. Apri l'app Watch per applicare il cambiamento.",
+      "updateError": "Impossibile aggiornare la modalità sync subscription. Riprova."
+    },
     "privacy": {
       "title": "Privacy",
       "description": "Controlla come vengono tracciate le tue azioni sull'interfaccia utente per il miglioramento del servizio",
@@ -2311,6 +2323,8 @@
     "failedToSave": "Impossibile salvare le impostazioni",
     "failedToLoad": "Impossibile caricare le impostazioni del server",
     "selectPlaceholder": "Seleziona {field}",
+    "selectSystemToken": "Seleziona token di sistema",
+    "customToken": "Token personalizzato (inserisci sotto)",
     "warningFooter": "⚠️ Le modifiche alle impostazioni del server potrebbero richiedere un riavvio per avere effetto. Alcune impostazioni sono sensibili e devono essere gestite con cura.",
     "sections": {
       "authentication": "Autenticazione & JWT",

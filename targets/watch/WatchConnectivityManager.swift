@@ -103,8 +103,12 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
             // Check for existing application context (token settings sent before watch was active)
             if let applicationContext = wcSession?.applicationContext, !applicationContext.isEmpty {
                 LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "Found existing application context", metadata: ["keys": "\(applicationContext.keys)"], source: "Watch")
-                if let type = applicationContext["type"] as? String, type == "watchTokenSettings" {
-                    handleWatchTokenSettings(message: applicationContext, replyHandler: { _ in })
+                if let type = applicationContext["type"] as? String {
+                    if type == "watchTokenSettings" {
+                        handleWatchTokenSettings(message: applicationContext, replyHandler: { _ in })
+                    } else if type == "watchSubscriptionSyncMode" {
+                        handleSubscriptionSyncMode(message: applicationContext, replyHandler: { _ in })
+                    }
                 }
             } else {
                 LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "No application context available yet", source: "Watch")
@@ -129,8 +133,12 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
                 let applicationContext = session.applicationContext
                 if !applicationContext.isEmpty {
                     LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "Application context available after activation", metadata: ["keys": "\(applicationContext.keys)"], source: "Watch")
-                    if let type = applicationContext["type"] as? String, type == "watchTokenSettings" {
-                        handleWatchTokenSettings(message: applicationContext, replyHandler: { _ in })
+                    if let type = applicationContext["type"] as? String {
+                        if type == "watchTokenSettings" {
+                            handleWatchTokenSettings(message: applicationContext, replyHandler: { _ in })
+                        } else if type == "watchSubscriptionSyncMode" {
+                            handleSubscriptionSyncMode(message: applicationContext, replyHandler: { _ in })
+                        }
                     }
                 } else {
                     LoggingSystem.shared.log(level: "INFO", tag: "WatchConnectivity", message: "Application context data is nil after activation", source: "Watch")
@@ -191,6 +199,8 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         
         if type == "watchTokenSettings" {
             handleWatchTokenSettings(message: message, replyHandler: replyHandler)
+        } else if type == "watchSubscriptionSyncMode" {
+            handleSubscriptionSyncMode(message: message, replyHandler: replyHandler)
         } else {
             replyHandler(["success": false, "error": "Unknown message type"])
         }
@@ -200,6 +210,8 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         if let type = applicationContext["type"] as? String {
             if type == "watchTokenSettings" {
                 handleWatchTokenSettings(message: applicationContext, replyHandler: { _ in })
+            } else if type == "watchSubscriptionSyncMode" {
+                handleSubscriptionSyncMode(message: applicationContext, replyHandler: { _ in })
             } else if type == "triggerFullSync" {
                 if WatchExtensionDelegate.isInBackground {
                     return
@@ -265,6 +277,27 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         )
         
         replyHandler(["success": true])
+    }
+    
+    private func handleSubscriptionSyncMode(message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        guard let modeString = message["mode"] as? String else {
+            LoggingSystem.shared.log(level: "ERROR", tag: "WatchConnectivity", message: "Missing subscription sync mode", source: "Watch")
+            replyHandler(["success": false, "error": "Missing mode"])
+            return
+        }
+        
+        let mode = SubscriptionSyncMode.from(string: modeString)
+        WatchSettingsManager.shared.subscriptionSyncMode = mode
+        
+        LoggingSystem.shared.log(
+            level: "INFO",
+            tag: "WatchConnectivity",
+            message: "Subscription sync mode updated",
+            metadata: ["mode": mode.stringValue],
+            source: "Watch"
+        )
+        
+        replyHandler(["success": true, "mode": mode.stringValue])
     }
     
     @objc private func appDidBecomeActive() {
