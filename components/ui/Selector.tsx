@@ -22,7 +22,7 @@ export interface SelectorOption {
   description?: string;
   iconName?: IconSource;
   iconColor?: string;
-  iconUrl?: string;
+  iconUrl?: string | number | { uri: string };
   iconElement?: React.ReactNode;
 }
 

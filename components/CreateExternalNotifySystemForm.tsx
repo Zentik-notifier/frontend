@@ -46,6 +46,7 @@ export default function CreateExternalNotifySystemForm({
   const [type, setType] = useState<ExternalNotifySystemType>(ExternalNotifySystemType.Ntfy);
   const [authUser, setAuthUser] = useState("");
   const [authPassword, setAuthPassword] = useState("");
+  const [authToken, setAuthToken] = useState("");
   const [color, setColor] = useState("");
   const [iconUrl, setIconUrl] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; baseUrl?: string }>({});
@@ -146,6 +147,9 @@ export default function CreateExternalNotifySystemForm({
         authUser: authUser.trim() || undefined,
         authPassword: authPassword ? authPassword : undefined,
       }),
+      ...(type === ExternalNotifySystemType.Gotify && {
+        authToken: authToken.trim() || undefined,
+      }),
     };
 
     if (isEditing && systemId) {
@@ -225,6 +229,18 @@ export default function CreateExternalNotifySystemForm({
               style={styles.input}
             />
           </>
+        )}
+        {type === ExternalNotifySystemType.Gotify && (
+          <TextInput
+            label={t("externalServers.form.authToken")}
+            value={authToken}
+            onChangeText={setAuthToken}
+            placeholder={t("externalServers.form.authTokenPlaceholder")}
+            mode="outlined"
+            autoCapitalize="none"
+            secureTextEntry
+            style={styles.input}
+          />
         )}
         <TextInput
           label={t("externalServers.form.color")}

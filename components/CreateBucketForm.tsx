@@ -37,6 +37,11 @@ import Selector, { SelectorOption } from "./ui/Selector";
 
 const defaultColor = "#0a7ea4";
 
+const EXTERNAL_SYSTEM_ICON_BY_TYPE: Partial<Record<string, number>> = {
+  [ExternalNotifySystemType.Ntfy]: require("@/assets/icons/ntfy.svg"),
+  [ExternalNotifySystemType.Gotify]: require("@/assets/icons/gotify.png"),
+};
+
 interface CreateBucketFormProps {
   bucketId?: string;
 }
@@ -69,7 +74,13 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const externalSystems = externalSystemsData?.externalNotifySystems ?? [];
   const externalSystemOptions: SelectorOption[] = [
     { id: null, name: t("externalServers.linkBucket.noServer") },
-    ...externalSystems.map((s) => ({ id: s.id, name: `${s.name} (${s.baseUrl})` })),
+    ...externalSystems.map((s) => ({
+      id: s.id,
+      name: `${s.name} (${s.baseUrl})`,
+      iconUrl: s.iconUrl
+        ? { uri: s.iconUrl }
+        : EXTERNAL_SYSTEM_ICON_BY_TYPE[s.type],
+    })),
   ];
   const isEditing = !!bucketId;
   const { navigateToBucketDetail } = useNavigationUtils();
@@ -249,7 +260,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
             preset: selectedPresetId ?? null,
             externalNotifySystemId: externalNotifySystemId ?? null,
             externalSystemChannel: externalSystemChannel.trim() || null,
-            externalSystemAuthToken: externalSystemAuthToken.trim() || null,
+            // externalSystemAuthToken: externalSystemAuthToken.trim() || null,
           },
         });
       } else {
@@ -264,7 +275,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
           preset: selectedPresetId || undefined,
           externalNotifySystemId: externalNotifySystemId ?? undefined,
           externalSystemChannel: externalSystemChannel.trim() || undefined,
-          externalSystemAuthToken: externalSystemAuthToken.trim() || undefined,
+          // externalSystemAuthToken: externalSystemAuthToken.trim() || undefined,
         });
       }
     } catch (error: any) {
@@ -611,6 +622,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                   selectedValue={externalNotifySystemId}
                   onValueChange={(v) => setExternalNotifySystemId(v as string | null)}
                   options={externalSystemOptions}
+                  mode="inline"
                 />
                 {externalNotifySystemId && (
                   <>
@@ -623,7 +635,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                       autoCapitalize="none"
                       style={styles.channelInput}
                     />
-                    {externalSystems.find((s) => s.id === externalNotifySystemId)?.type === ExternalNotifySystemType.Gotify && (
+                    {/* {externalSystems.find((s) => s.id === externalNotifySystemId)?.type === ExternalNotifySystemType.Gotify && (
                       <TextInput
                         label={t("externalServers.linkBucket.gotifyToken")}
                         value={externalSystemAuthToken}
@@ -633,7 +645,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                         autoCapitalize="none"
                         style={styles.channelInput}
                       />
-                    )}
+                    )} */}
                   </>
                 )}
               </View>
