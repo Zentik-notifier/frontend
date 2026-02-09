@@ -27,6 +27,28 @@ public final class PhoneCloudKit {
 
     private let syncQueue = DispatchQueue(label: "com.zentik.cloudkit.phone.sync", qos: .utility)
 
+    /// Atomic flag to prevent concurrent full syncs.
+    /// Only one full sync (with or without reset) can run at a time.
+    private var isSyncing = false
+    private let isSyncingLock = NSLock()
+
+    /// Thread-safe check-and-set for isSyncing.
+    /// Returns `true` if the lock was acquired (caller should proceed),
+    /// `false` if another sync is already running.
+    private func acquireSyncLock() -> Bool {
+        isSyncingLock.lock()
+        defer { isSyncingLock.unlock() }
+        guard !isSyncing else { return false }
+        isSyncing = true
+        return true
+    }
+
+    private func releaseSyncLock() {
+        isSyncingLock.lock()
+        defer { isSyncingLock.unlock() }
+        isSyncing = false
+    }
+
     public init(core: CloudKitManagerBase = CloudKitManagerBase()) {
         self.core = core
     }
@@ -122,7 +144,12 @@ public final class PhoneCloudKit {
                             // (zone is already created, just need to sync data)
                             // Do not block app startup; run best-effort in the sync queue
                             self.syncQueue.async {
+                                guard self.acquireSyncLock() else {
+                                    self.warnLog("⚠️ Zone created: bootstrap full sync skipped (another sync in progress)")
+                                    return
+                                }
                                 self.performFullSyncWithReset(skipReset: true) { success, error, stats in
+                                    self.releaseSyncLock()
                                     if success {
                                         self.infoLog("✅ Zone created: bootstrap full sync completed notifications=\(stats?.notificationsSynced ?? 0) buckets=\(stats?.bucketsSynced ?? 0)")
                                     } else {
@@ -537,6 +564,9 @@ public final class PhoneCloudKit {
 
     // MARK: - Bulk sync (SQLite -> CloudKit)
 
+    /// Incremental full sync: uploads all local data to CloudKit **without** deleting the zone.
+    /// This preserves the Watch change token and avoids forcing a full re-download.
+    /// Safe to call frequently (e.g. on app startup, app-became-active, after new notifications).
     public func triggerSyncToCloud(completion: @escaping (Bool, Error?, SyncStats?) -> Void) {
         guard Self.isWatchSupported else {
             warnLog("triggerSyncToCloud skipped (Watch not supported or not paired)")
@@ -550,13 +580,23 @@ public final class PhoneCloudKit {
         }
 
         syncQueue.async {
+            guard self.acquireSyncLock() else {
+                self.warnLog("triggerSyncToCloud skipped (another sync already in progress)")
+                completion(false, NSError(domain: "PhoneCloudKit", code: -3, userInfo: [NSLocalizedDescriptionKey: "Another sync is already in progress"]), nil)
+                return
+            }
             self.ensureReady { readyResult in
                 switch readyResult {
                 case .failure(let error):
+                    self.releaseSyncLock()
                     self.errorLog("triggerSyncToCloud failed (ensureReady)", metadata: ["error": String(describing: error)])
                     completion(false, error, nil)
                 case .success:
-                    self.triggerSyncToCloudInternal(completion: completion)
+                    // Incremental: skip reset, just upload data
+                    self.performFullSyncWithReset(skipReset: true) { success, error, stats in
+                        self.releaseSyncLock()
+                        completion(success, error, stats)
+                    }
                 }
             }
         }
@@ -567,8 +607,42 @@ public final class PhoneCloudKit {
         triggerSyncToCloud { _, _, _ in }
     }
 
-    private func triggerSyncToCloudInternal(completion: @escaping (Bool, Error?, SyncStats?) -> Void) {
-        performFullSyncWithReset(skipReset: false, completion: completion)
+    /// Destructive full sync: deletes the CloudKit zone, recreates it, and re-uploads everything.
+    /// This invalidates the Watch change token, forcing the Watch to re-download all data.
+    /// **Only call this when the user explicitly requests a reset from the UI.**
+    public func triggerSyncToCloudWithReset(completion: @escaping (Bool, Error?, SyncStats?) -> Void) {
+        guard Self.isWatchSupported else {
+            warnLog("triggerSyncToCloudWithReset skipped (Watch not supported or not paired)")
+            completion(false, NSError(domain: "PhoneCloudKit", code: -2, userInfo: [NSLocalizedDescriptionKey: "Watch is not supported or not paired. CloudKit is only available with a paired Apple Watch."]), nil)
+            return
+        }
+        guard isCloudKitEnabled else {
+            warnLog("triggerSyncToCloudWithReset skipped (CloudKit disabled)")
+            completion(false, nil, nil)
+            return
+        }
+
+        syncQueue.async {
+            guard self.acquireSyncLock() else {
+                self.warnLog("triggerSyncToCloudWithReset skipped (another sync already in progress)")
+                completion(false, NSError(domain: "PhoneCloudKit", code: -3, userInfo: [NSLocalizedDescriptionKey: "Another sync is already in progress"]), nil)
+                return
+            }
+            self.ensureReady { readyResult in
+                switch readyResult {
+                case .failure(let error):
+                    self.releaseSyncLock()
+                    self.errorLog("triggerSyncToCloudWithReset failed (ensureReady)", metadata: ["error": String(describing: error)])
+                    completion(false, error, nil)
+                case .success:
+                    // Destructive: delete zone + re-upload everything
+                    self.performFullSyncWithReset(skipReset: false) { success, error, stats in
+                        self.releaseSyncLock()
+                        completion(success, error, stats)
+                    }
+                }
+            }
+        }
     }
     
     private func performFullSyncWithReset(skipReset: Bool, completion: @escaping (Bool, Error?, SyncStats?) -> Void) {

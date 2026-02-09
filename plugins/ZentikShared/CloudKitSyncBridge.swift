@@ -411,6 +411,33 @@ class CloudKitSyncBridge: RCTEventEmitter {
   }
   
   /**
+   * Trigger a DESTRUCTIVE sync to CloudKit: deletes the zone, recreates it,
+   * and re-uploads everything. This should ONLY be called when the user
+   * explicitly presses a "Reset CloudKit" button in the UI.
+   */
+  @objc
+  func triggerSyncToCloudWithReset(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    PhoneCloudKit.shared.triggerSyncToCloudWithReset { success, error, stats in
+      if success {
+        let result: [String: Any] = [
+          "success": true,
+          "notificationsSynced": stats?.notificationsSynced ?? 0,
+          "bucketsSynced": stats?.bucketsSynced ?? 0,
+          "notificationsUpdated": stats?.notificationsUpdated ?? 0,
+          "bucketsUpdated": stats?.bucketsUpdated ?? 0
+        ]
+        resolve(result)
+      } else {
+        let errorMessage = error?.localizedDescription ?? "Unknown error"
+        reject("SYNC_RESET_FAILED", errorMessage, error)
+      }
+    }
+  }
+  
+  /**
    * Trigger immediate sync to CloudKit (debounce removed for faster sync)
    * Multiple calls will trigger multiple syncs, but CloudKit handles rate limiting
    */

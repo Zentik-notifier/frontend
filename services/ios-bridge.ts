@@ -488,6 +488,45 @@ class IosBridgeService {
   }
 
   /**
+   * Trigger a DESTRUCTIVE CloudKit sync with full zone reset.
+   * Deletes the zone, recreates it, and re-uploads everything.
+   * Should ONLY be called when the user explicitly presses a reset button in the UI.
+   */
+  async triggerCloudKitSyncWithReset(): Promise<{
+    success: boolean;
+    notificationsSynced: number;
+    bucketsSynced: number;
+    notificationsUpdated: number;
+    bucketsUpdated: number;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      return {
+        success: false,
+        notificationsSynced: 0,
+        bucketsSynced: 0,
+        notificationsUpdated: 0,
+        bucketsUpdated: 0,
+      };
+    }
+
+    await this.waitForCloudKitReady();
+
+    try {
+      const result = await CloudKitSyncBridge.triggerSyncToCloudWithReset();
+      return result;
+    } catch (error) {
+      console.error('[CloudKit] Failed to trigger sync with reset:', error);
+      return {
+        success: false,
+        notificationsSynced: 0,
+        bucketsSynced: 0,
+        notificationsUpdated: 0,
+        bucketsUpdated: 0,
+      };
+    }
+  }
+
+  /**
    * Update notification read status in CloudKit (single notification)
    * More efficient than triggering a full sync when only updating read status
    * readAt: null means unread, non-null means read
