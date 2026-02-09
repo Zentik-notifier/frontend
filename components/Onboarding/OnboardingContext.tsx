@@ -18,7 +18,13 @@ import { Locale, useI18n } from "@/hooks/useI18n";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
 import { detectRetentionPreset } from "./utils";
 import { useAppLog } from "@/hooks/useAppLog";
-import { useGetBucketLazyQuery } from "@/generated/gql-operations-generated";
+import {
+  CreateExternalNotifySystemDto,
+  ExternalNotifySystemType,
+  GetExternalNotifySystemsDocument,
+  useCreateExternalNotifySystemMutation,
+  useGetBucketLazyQuery,
+} from "@/generated/gql-operations-generated";
 import { useCreateBucket } from "@/hooks/notifications/useBucketMutations";
 import { useQuery } from "@tanstack/react-query";
 
@@ -40,6 +46,24 @@ interface OnboardingContextType {
   setTestingServer: (value: boolean) => void;
   setTestResult: (result: { success: boolean; message: string } | null) => void;
   testServerConnection: () => Promise<void>;
+
+  // Step 1: External system (optional, only when backend enables it)
+  step1CreateExternalSystem: boolean;
+  step1ExternalSystemType: string;
+  step1ExternalSystemName: string;
+  step1ExternalSystemBaseUrl: string;
+  step1ExternalSystemAuthUser: string;
+  step1ExternalSystemAuthPassword: string;
+  step1ExternalSystemAuthToken: string;
+  step1CreatedExternalSystemId: string | null;
+  setStep1CreateExternalSystem: (value: boolean) => void;
+  setStep1ExternalSystemType: (value: string) => void;
+  setStep1ExternalSystemName: (value: string) => void;
+  setStep1ExternalSystemBaseUrl: (value: string) => void;
+  setStep1ExternalSystemAuthUser: (value: string) => void;
+  setStep1ExternalSystemAuthPassword: (value: string) => void;
+  setStep1ExternalSystemAuthToken: (value: string) => void;
+  createStep1ExternalSystemIfNeeded: () => Promise<void>;
 
   // Step 2: UI Preferences
   selectedLanguage: Locale;
@@ -78,6 +102,8 @@ interface OnboardingContextType {
   step4SelectedTemplateId: string | null;
   step4TemplateColor: string | null;
   step4TemplateIconUrl: string | null;
+  step4ExternalSystemChannel: string;
+  setStep4ExternalSystemChannel: (value: string) => void;
   setStep4SelectedBucketId: (id: string) => void;
   setStep4BucketName: (name: string) => void;
   setStep4BucketSelectionMode: (mode: "existing" | "create") => void;
@@ -146,6 +172,23 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     success: boolean;
     message: string;
   } | null>(null);
+
+  const [step1CreateExternalSystem, setStep1CreateExternalSystem] =
+    useState(false);
+  const [step1ExternalSystemType, setStep1ExternalSystemType] = useState(
+    ExternalNotifySystemType.Ntfy
+  );
+  const [step1ExternalSystemName, setStep1ExternalSystemName] = useState("");
+  const [step1ExternalSystemBaseUrl, setStep1ExternalSystemBaseUrl] =
+    useState("");
+  const [step1ExternalSystemAuthUser, setStep1ExternalSystemAuthUser] =
+    useState("");
+  const [step1ExternalSystemAuthPassword, setStep1ExternalSystemAuthPassword] =
+    useState("");
+  const [step1ExternalSystemAuthToken, setStep1ExternalSystemAuthToken] =
+    useState("");
+  const [step1CreatedExternalSystemId, setStep1CreatedExternalSystemId] =
+    useState<string | null>(null);
 
   // Step 2: UI Preferences - Just local state, no persistence here
   const [selectedLanguage, setSelectedLanguage] = useState<Locale>("en-EN");
@@ -230,12 +273,74 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
   const [step4TemplateIconUrl, setStep4TemplateIconUrl] = useState<
     string | null
   >(null);
+  const [step4ExternalSystemChannel, setStep4ExternalSystemChannel] =
+    useState("");
 
   // Step 6: API Integration
   const [magicCode, setMagicCode] = useState<string | null>(null);
 
   const { createBucket } = useCreateBucket();
   const [getBucket] = useGetBucketLazyQuery();
+  const [createExternalNotifySystemMutation] =
+    useCreateExternalNotifySystemMutation({
+      update: (cache, { data }) => {
+        if (data?.createExternalNotifySystem) {
+          const existing = cache.readQuery<{
+            externalNotifySystems: unknown[];
+          }>({ query: GetExternalNotifySystemsDocument });
+          if (existing?.externalNotifySystems) {
+            cache.writeQuery({
+              query: GetExternalNotifySystemsDocument,
+              data: {
+                externalNotifySystems: [
+                  ...existing.externalNotifySystems,
+                  data.createExternalNotifySystem,
+                ],
+              },
+            });
+          }
+        }
+      },
+    });
+
+  const createStep1ExternalSystemIfNeeded = useCallback(async () => {
+    if (!step1CreateExternalSystem) return;
+    const name = step1ExternalSystemName.trim();
+    const baseUrl = step1ExternalSystemBaseUrl.trim().replace(/\/$/, "");
+    if (!name || !baseUrl) {
+      throw new Error("External system name and URL are required");
+    }
+    const input: CreateExternalNotifySystemDto = {
+      type: step1ExternalSystemType as ExternalNotifySystemType,
+      name,
+      baseUrl,
+      ...(step1ExternalSystemType === ExternalNotifySystemType.Ntfy && {
+        authUser: step1ExternalSystemAuthUser.trim() || undefined,
+        authPassword: step1ExternalSystemAuthPassword
+          ? step1ExternalSystemAuthPassword
+          : undefined,
+      }),
+      ...(step1ExternalSystemType === ExternalNotifySystemType.Gotify && {
+        authToken: step1ExternalSystemAuthToken.trim() || undefined,
+      }),
+    };
+    const result = await createExternalNotifySystemMutation({
+      variables: { input },
+    });
+    const created = result.data?.createExternalNotifySystem;
+    if (created?.id) {
+      setStep1CreatedExternalSystemId(created.id);
+    }
+  }, [
+    step1CreateExternalSystem,
+    step1ExternalSystemName,
+    step1ExternalSystemBaseUrl,
+    step1ExternalSystemType,
+    step1ExternalSystemAuthUser,
+    step1ExternalSystemAuthPassword,
+    step1ExternalSystemAuthToken,
+    createExternalNotifySystemMutation,
+  ]);
 
   const goToNextStep = useCallback(() => {
     if (currentStep < 6) {
@@ -529,6 +634,10 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
             isProtected: false,
             isPublic: false,
             preset: step4SelectedTemplateId || undefined,
+            ...(step1CreatedExternalSystemId && {
+              externalNotifySystemId: step1CreatedExternalSystemId,
+              externalSystemChannel: step4ExternalSystemChannel.trim() || undefined,
+            }),
           });
 
           if (bucket?.id) {
@@ -613,6 +722,8 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     step4BucketGenerated,
     step4TemplateColor,
     step4TemplateIconUrl,
+    step1CreatedExternalSystemId,
+    step4ExternalSystemChannel,
     createBucket,
     getBucket,
     setStep4SelectedBucketId,
@@ -650,12 +761,23 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     setStep3AutoDownloadEnabled(true); // Default ON
     setStep3WifiOnlyDownload(false); // Default OFF
 
+    // Reset Step 1: External system
+    setStep1CreateExternalSystem(false);
+    setStep1ExternalSystemType(ExternalNotifySystemType.Ntfy);
+    setStep1ExternalSystemName("");
+    setStep1ExternalSystemBaseUrl("");
+    setStep1ExternalSystemAuthUser("");
+    setStep1ExternalSystemAuthPassword("");
+    setStep1ExternalSystemAuthToken("");
+    setStep1CreatedExternalSystemId(null);
+
     // Reset Step 4: Messaging Setup
     setStep4SelectedBucketId("");
     setStep4BucketGenerated(null);
     setStep4MagicCode(null);
     setStep4BucketName("");
     setStep4BucketSelectionMode("existing");
+    setStep4ExternalSystemChannel("");
 
     // Reset Step 6: API Integration
     setMagicCode(null);
@@ -674,6 +796,22 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     setTestingServer,
     setTestResult,
     testServerConnection,
+    step1CreateExternalSystem,
+    step1ExternalSystemType,
+    step1ExternalSystemName,
+    step1ExternalSystemBaseUrl,
+    step1ExternalSystemAuthUser,
+    step1ExternalSystemAuthPassword,
+    step1ExternalSystemAuthToken,
+    step1CreatedExternalSystemId,
+    setStep1CreateExternalSystem,
+    setStep1ExternalSystemType,
+    setStep1ExternalSystemName,
+    setStep1ExternalSystemBaseUrl,
+    setStep1ExternalSystemAuthUser,
+    setStep1ExternalSystemAuthPassword,
+    setStep1ExternalSystemAuthToken,
+    createStep1ExternalSystemIfNeeded,
     selectedLanguage,
     selectedThemePreset,
     selectedDateFormat,
@@ -706,6 +844,8 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     step4SelectedTemplateId,
     step4TemplateColor,
     step4TemplateIconUrl,
+    step4ExternalSystemChannel,
+    setStep4ExternalSystemChannel,
     setStep4SelectedBucketId,
     setStep4BucketName,
     setStep4BucketSelectionMode,

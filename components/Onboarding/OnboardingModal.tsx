@@ -72,6 +72,7 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
     goToNextStep,
     applySettings,
     createStep4Resources,
+    createStep1ExternalSystemIfNeeded,
     isStep4Complete,
     resetOnboarding,
   } = useOnboarding();
@@ -97,7 +98,17 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
   }, []);
 
   const handleNext = useCallback(async () => {
-    if (currentStep === 4) {
+    if (currentStep === 1) {
+      setIsApplying(true);
+      try {
+        await createStep1ExternalSystemIfNeeded();
+        goToNextStep();
+      } catch (error) {
+        console.error("[Onboarding] Error creating external system:", error);
+      } finally {
+        setIsApplying(false);
+      }
+    } else if (currentStep === 4) {
       // Create bucket and token for Step 4 before proceeding
       setIsApplying(true);
       try {
@@ -152,6 +163,7 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
     onClose,
     applySettings,
     createStep4Resources,
+    createStep1ExternalSystemIfNeeded,
     completeOnboarding,
     resetOnboarding,
   ]);

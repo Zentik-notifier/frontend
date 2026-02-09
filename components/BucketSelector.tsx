@@ -14,6 +14,8 @@ interface BucketSelectorProps {
   label?: string;
   searchable?: boolean;
   preferredDropdownDirection?: PreferredDropdownDirection;
+  /** When set, only buckets linked to this external system are shown */
+  filterByExternalSystemId?: string | null;
 }
 
 export default function BucketSelector({
@@ -22,6 +24,7 @@ export default function BucketSelector({
   label,
   searchable: searchableParent,
   preferredDropdownDirection = "down",
+  filterByExternalSystemId,
 }: BucketSelectorProps) {
   const { t } = useI18n();
   const { data: appState } = useNotificationsState();
@@ -29,12 +32,18 @@ export default function BucketSelector({
 
   const bucketOptions = useMemo(() => {
     const isAdmin = meData?.me?.role === UserRole.Admin;
-    const buckets = (appState?.buckets || []).filter(
+    let buckets = (appState?.buckets || []).filter(
       (bucket) =>
         !bucket.isOrphan &&
         !bucket.isProtected &&
         (!bucket.isPublic || isAdmin)
     );
+    if (filterByExternalSystemId) {
+      buckets = buckets.filter(
+        (bucket) =>
+          bucket.externalNotifySystem?.id === filterByExternalSystemId
+      );
+    }
     const options: SelectorOption[] = [];
 
     // Add regular buckets
@@ -49,7 +58,7 @@ export default function BucketSelector({
     });
 
     return options;
-  }, [appState, t]);
+  }, [appState, meData?.me?.role, filterByExternalSystemId, t]);
 
   const searchable = searchableParent ?? bucketOptions.length > 15;
 

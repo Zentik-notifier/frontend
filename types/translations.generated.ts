@@ -2805,6 +2805,8 @@ export interface Translation {
       connectionSuccessful: string;
       serverNotResponding: string;
       connectionFailed: string;
+      externalSystemTitle: string;
+      createExternalSystem: string;
     };
     step2: {
       title: string;
@@ -2905,6 +2907,8 @@ export interface Translation {
       completeSetupWarning: string;
       magicCodeWarningTitle: string;
       magicCodeWarning: string;
+      externalSystemChannelLabel: string;
+      externalSystemChannelPlaceholder: string;
     };
     step5: {
       title: string;

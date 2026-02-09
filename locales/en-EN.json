@@ -2801,7 +2801,9 @@
       "enterServerUrl": "Enter server URL",
       "connectionSuccessful": "Connection to server successful!",
       "serverNotResponding": "Server not responding",
-      "connectionFailed": "Connection failed. Check the URL"
+      "connectionFailed": "Connection failed. Check the URL",
+      "externalSystemTitle": "External Notification System",
+      "createExternalSystem": "Create an external system (e.g. ntfy, Gotify)"
     },
     "step2": {
       "title": "Customize Your Experience",
@@ -2901,7 +2903,9 @@
       "tokenStatus": "Token generated",
       "completeSetupWarning": "⚠️ Complete bucket and token configuration to continue",
       "magicCodeWarningTitle": "Magic Code Security",
-      "magicCodeWarning": "Your bucket includes a magic code for easy unauthenticated access. While convenient, this bypasses authentication. For enhanced security, consider using an access token instead, which you can create at any time from the bucket settings."
+      "magicCodeWarning": "Your bucket includes a magic code for easy unauthenticated access. While convenient, this bypasses authentication. For enhanced security, consider using an access token instead, which you can create at any time from the bucket settings.",
+      "externalSystemChannelLabel": "Channel / Topic",
+      "externalSystemChannelPlaceholder": "e.g. my-topic (optional)"
     },
     "step5": {
       "title": "Test Notification",

@@ -39,23 +39,32 @@ const Step4 = memo(({ push }: Step4Props) => {
     step4BucketName: bucketName,
     step4BucketSelectionMode: bucketSelectionMode,
     step4SelectedTemplateId: selectedTemplateId,
+    step4ExternalSystemChannel,
+    setStep4ExternalSystemChannel,
     setStep4SelectedBucketId: setSelectedBucketId,
     setStep4BucketName: setBucketName,
     setStep4BucketSelectionMode: setBucketSelectionMode,
     setStep4SelectedTemplateId: setSelectedTemplateId,
     setStep4TemplateColor: setTemplateColor,
     setStep4TemplateIconUrl: setTemplateIconUrl,
+    step1CreatedExternalSystemId,
   } = useOnboarding();
 
   const { data: appState } = useNotificationsState();
   const { data: meData } = useGetMeQuery();
   const isAdmin = meData?.me?.role === UserRole.Admin;
-  const availableBuckets = (appState?.buckets || []).filter(
+  let availableBuckets = (appState?.buckets || []).filter(
     (bucket) =>
       !bucket.isOrphan &&
       !bucket.isProtected &&
       (!bucket.isPublic || isAdmin)
   );
+  if (step1CreatedExternalSystemId) {
+    availableBuckets = availableBuckets.filter(
+      (bucket) =>
+        bucket.externalNotifySystem?.id === step1CreatedExternalSystemId
+    );
+  }
 
   // Check device registration using usepush
   useEffect(() => {
@@ -211,6 +220,7 @@ const Step4 = memo(({ push }: Step4Props) => {
                   label={t("onboardingV2.step4.bucketLabel")}
                   selectedBucketId={selectedBucketId}
                   onBucketChange={handleBucketSelect}
+                  filterByExternalSystemId={step1CreatedExternalSystemId ?? undefined}
                 />
               )}
 
@@ -236,6 +246,19 @@ const Step4 = memo(({ push }: Step4Props) => {
                   returnKeyType="done"
                   onSubmitEditing={() => Keyboard.dismiss()}
                 />
+
+                {step1CreatedExternalSystemId && (
+                  <TextInput
+                    placeholder={t("onboardingV2.step4.externalSystemChannelPlaceholder")}
+                    value={step4ExternalSystemChannel}
+                    onChangeText={setStep4ExternalSystemChannel}
+                    style={styles.input}
+                    mode="outlined"
+                    label={t("onboardingV2.step4.externalSystemChannelLabel")}
+                    returnKeyType="done"
+                    onSubmitEditing={() => Keyboard.dismiss()}
+                  />
+                )}
               </View>
             )}
           </View>
