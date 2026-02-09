@@ -2803,7 +2803,12 @@
       "serverNotResponding": "Server not responding",
       "connectionFailed": "Connection failed. Check the URL",
       "externalSystemTitle": "External Notification System",
-      "createExternalSystem": "Create an external system (e.g. ntfy, Gotify)"
+      "createExternalSystem": "Create an external system (e.g. ntfy, Gotify)",
+      "externalSystemNone": "None",
+      "externalSystemUseExisting": "Use an existing system",
+      "externalSystemCreateNew": "Create a new system",
+      "selectExistingExternalSystem": "Select system",
+      "selectExistingPlaceholder": "Choose a system..."
     },
     "step2": {
       "title": "Customize Your Experience",

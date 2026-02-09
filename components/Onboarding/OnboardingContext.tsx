@@ -48,16 +48,18 @@ interface OnboardingContextType {
   testServerConnection: () => Promise<void>;
 
   // Step 1: External system (optional, only when backend enables it)
-  step1CreateExternalSystem: boolean;
-  step1ExternalSystemType: string;
+  step1ExternalSystemMode: "none" | "create" | "existing";
+  step1SelectedExistingExternalSystemId: string | null;
+  step1ExternalSystemType: ExternalNotifySystemType;
   step1ExternalSystemName: string;
   step1ExternalSystemBaseUrl: string;
   step1ExternalSystemAuthUser: string;
   step1ExternalSystemAuthPassword: string;
   step1ExternalSystemAuthToken: string;
   step1CreatedExternalSystemId: string | null;
-  setStep1CreateExternalSystem: (value: boolean) => void;
-  setStep1ExternalSystemType: (value: string) => void;
+  setStep1ExternalSystemMode: (value: "none" | "create" | "existing") => void;
+  setStep1SelectedExistingExternalSystemId: (id: string | null) => void;
+  setStep1ExternalSystemType: (value: ExternalNotifySystemType) => void;
   setStep1ExternalSystemName: (value: string) => void;
   setStep1ExternalSystemBaseUrl: (value: string) => void;
   setStep1ExternalSystemAuthUser: (value: string) => void;
@@ -173,8 +175,11 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     message: string;
   } | null>(null);
 
-  const [step1CreateExternalSystem, setStep1CreateExternalSystem] =
-    useState(false);
+  const [step1ExternalSystemMode, setStep1ExternalSystemMode] = useState<
+    "none" | "create" | "existing"
+  >("none");
+  const [step1SelectedExistingExternalSystemId, setStep1SelectedExistingExternalSystemId] =
+    useState<string | null>(null);
   const [step1ExternalSystemType, setStep1ExternalSystemType] = useState(
     ExternalNotifySystemType.Ntfy
   );
@@ -304,7 +309,11 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     });
 
   const createStep1ExternalSystemIfNeeded = useCallback(async () => {
-    if (!step1CreateExternalSystem) return;
+    if (step1ExternalSystemMode === "existing" && step1SelectedExistingExternalSystemId) {
+      setStep1CreatedExternalSystemId(step1SelectedExistingExternalSystemId);
+      return;
+    }
+    if (step1ExternalSystemMode !== "create") return;
     const name = step1ExternalSystemName.trim();
     const baseUrl = step1ExternalSystemBaseUrl.trim().replace(/\/$/, "");
     if (!name || !baseUrl) {
@@ -332,7 +341,8 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
       setStep1CreatedExternalSystemId(created.id);
     }
   }, [
-    step1CreateExternalSystem,
+    step1ExternalSystemMode,
+    step1SelectedExistingExternalSystemId,
     step1ExternalSystemName,
     step1ExternalSystemBaseUrl,
     step1ExternalSystemType,
@@ -762,7 +772,8 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     setStep3WifiOnlyDownload(false); // Default OFF
 
     // Reset Step 1: External system
-    setStep1CreateExternalSystem(false);
+    setStep1ExternalSystemMode("none");
+    setStep1SelectedExistingExternalSystemId(null);
     setStep1ExternalSystemType(ExternalNotifySystemType.Ntfy);
     setStep1ExternalSystemName("");
     setStep1ExternalSystemBaseUrl("");
@@ -796,7 +807,8 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     setTestingServer,
     setTestResult,
     testServerConnection,
-    step1CreateExternalSystem,
+    step1ExternalSystemMode,
+    step1SelectedExistingExternalSystemId,
     step1ExternalSystemType,
     step1ExternalSystemName,
     step1ExternalSystemBaseUrl,
@@ -804,7 +816,8 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     step1ExternalSystemAuthPassword,
     step1ExternalSystemAuthToken,
     step1CreatedExternalSystemId,
-    setStep1CreateExternalSystem,
+    setStep1ExternalSystemMode,
+    setStep1SelectedExistingExternalSystemId,
     setStep1ExternalSystemType,
     setStep1ExternalSystemName,
     setStep1ExternalSystemBaseUrl,

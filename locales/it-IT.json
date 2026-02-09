@@ -2808,7 +2808,12 @@
       "serverNotResponding": "Il server non risponde",
       "connectionFailed": "Connessione fallita. Controlla l'URL",
       "externalSystemTitle": "Sistema di Notifica Esterno",
-      "createExternalSystem": "Crea un sistema esterno (es. ntfy, Gotify)"
+      "createExternalSystem": "Crea un sistema esterno (es. ntfy, Gotify)",
+      "externalSystemNone": "Nessuno",
+      "externalSystemUseExisting": "Usa un sistema esistente",
+      "externalSystemCreateNew": "Crea un nuovo sistema",
+      "selectExistingExternalSystem": "Seleziona sistema",
+      "selectExistingPlaceholder": "Scegli un sistema..."
     },
     "step2": {
       "title": "Personalizza la Tua Esperienza",

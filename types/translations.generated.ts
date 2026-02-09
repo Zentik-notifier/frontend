@@ -2807,6 +2807,11 @@ export interface Translation {
       connectionFailed: string;
       externalSystemTitle: string;
       createExternalSystem: string;
+      externalSystemNone: string;
+      externalSystemUseExisting: string;
+      externalSystemCreateNew: string;
+      selectExistingExternalSystem: string;
+      selectExistingPlaceholder: string;
     };
     step2: {
       title: string;

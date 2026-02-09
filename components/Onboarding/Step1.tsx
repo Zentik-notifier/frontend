@@ -1,5 +1,6 @@
 import {
   ExternalNotifySystemType,
+  useGetExternalNotifySystemsQuery,
   usePublicAppConfigQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
@@ -9,12 +10,13 @@ import {
   Button,
   Card,
   Icon,
+  RadioButton,
   Switch,
   Text,
   TextInput,
   useTheme,
 } from "react-native-paper";
-import Selector, { SelectorOption } from "./ui/Selector";
+import Selector, { SelectorOption } from "@/components/ui/Selector";
 import { useOnboarding } from "./OnboardingContext";
 
 const Step1 = memo(() => {
@@ -33,8 +35,10 @@ const Step1 = memo(() => {
     setUseCustomServer,
     setTestResult,
     testServerConnection,
-    step1CreateExternalSystem,
-    setStep1CreateExternalSystem,
+    step1ExternalSystemMode,
+    setStep1ExternalSystemMode,
+    step1SelectedExistingExternalSystemId,
+    setStep1SelectedExistingExternalSystemId,
     step1ExternalSystemType,
     setStep1ExternalSystemType,
     step1ExternalSystemName,
@@ -49,19 +53,36 @@ const Step1 = memo(() => {
     setStep1ExternalSystemAuthToken,
   } = useOnboarding();
 
+  const { data: externalSystemsData } = useGetExternalNotifySystemsQuery();
+  const externalSystems = externalSystemsData?.externalNotifySystems ?? [];
+
   const externalSystemTypeOptions: SelectorOption[] = useMemo(
     () => [
       {
         id: ExternalNotifySystemType.Ntfy,
         name: t("externalServers.form.typeNtfy"),
+        iconUrl: require("@/assets/icons/ntfy.svg"),
       },
       {
         id: ExternalNotifySystemType.Gotify,
         name: t("externalServers.form.typeGotify"),
+        iconUrl: require("@/assets/icons/gotify.png"),
       },
     ],
     [t]
   );
+
+  const existingExternalSystemOptions: SelectorOption[] = useMemo(() => {
+    return externalSystems.map((sys) => ({
+      id: sys.id,
+      name: sys.name,
+      iconUrl: sys.iconUrl
+        ? { uri: sys.iconUrl }
+        : sys.type === ExternalNotifySystemType.Ntfy
+          ? require("@/assets/icons/ntfy.svg")
+          : require("@/assets/icons/gotify.png"),
+    }));
+  }, [externalSystems]);
 
   const handleCustomServerUrlChange = useCallback((text: string) => {
     setCustomServerUrl(text);
@@ -168,16 +189,40 @@ const Step1 = memo(() => {
             <Text variant="titleMedium" style={styles.sectionTitle}>
               {t("onboardingV2.step1.externalSystemTitle")}
             </Text>
-            <View style={styles.switchRow}>
-              <Text variant="bodyMedium">
-                {t("onboardingV2.step1.createExternalSystem")}
-              </Text>
-              <Switch
-                value={step1CreateExternalSystem}
-                onValueChange={setStep1CreateExternalSystem}
+            <RadioButton.Group
+              value={step1ExternalSystemMode}
+              onValueChange={(value) =>
+                setStep1ExternalSystemMode(value as "none" | "create" | "existing")
+              }
+            >
+              <RadioButton.Item
+                label={t("onboardingV2.step1.externalSystemNone")}
+                value="none"
               />
-            </View>
-            {step1CreateExternalSystem && (
+              <RadioButton.Item
+                label={t("onboardingV2.step1.externalSystemUseExisting")}
+                value="existing"
+              />
+              <RadioButton.Item
+                label={t("onboardingV2.step1.externalSystemCreateNew")}
+                value="create"
+              />
+            </RadioButton.Group>
+            {step1ExternalSystemMode === "existing" && (
+              <View style={styles.customServerSection}>
+                <Selector
+                  mode="inline"
+                  label={t("onboardingV2.step1.selectExistingExternalSystem")}
+                  selectedValue={step1SelectedExistingExternalSystemId ?? ""}
+                  onValueChange={(id) =>
+                    setStep1SelectedExistingExternalSystemId(id || null)
+                  }
+                  options={existingExternalSystemOptions}
+                  placeholder={t("onboardingV2.step1.selectExistingPlaceholder")}
+                />
+              </View>
+            )}
+            {step1ExternalSystemMode === "create" && (
               <View style={styles.customServerSection}>
                 <TextInput
                   mode="outlined"
@@ -189,6 +234,7 @@ const Step1 = memo(() => {
                   autoCapitalize="none"
                 />
                 <Selector
+                  mode="inline"
                   label={t("externalServers.form.type")}
                   selectedValue={step1ExternalSystemType}
                   onValueChange={setStep1ExternalSystemType}
