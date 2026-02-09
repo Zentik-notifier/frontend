@@ -1673,6 +1673,7 @@ export interface Translation {
       authUser: string;
       authPassword: string;
       authToken: string;
+      authTokenPlaceholder: string;
       color: string;
       iconUrl: string;
       save: string;
