@@ -3,11 +3,13 @@ import {
   NotificationAttachmentDto,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Dimensions, StyleSheet, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import SimpleMediaGallery, {
   SimpleMediaGalleryRef,
 } from "@/components/ui/SimpleMediaGallery";
+import { scheduleOnRN } from "react-native-worklets";
 import {
   Icon,
   Surface,
@@ -40,6 +42,8 @@ interface AttachmentGalleryProps {
   onSwipeToClose?: () => void;
   initialIndex?: number;
   onIndexChange?: (index: number) => void;
+  /** When true, touch events pass through so the parent (e.g. list) can scroll */
+  eventsDisabled?: boolean;
 }
 
 const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
@@ -59,6 +63,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   fullScreenTrigger = "tap",
   initialIndex,
   onIndexChange,
+  eventsDisabled = false,
 }) => {
   const theme = useTheme();
   const { t } = useI18n();
@@ -89,7 +94,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
     }
   };
 
-  const handleAttachmentPress = () => {
+  const handleAttachmentPress = useCallback(() => {
     if (enableFullScreen && fullScreenTrigger === "tap") {
       setFullScreenVisible(true);
     }
@@ -99,7 +104,14 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
       currentAttachment.mediaType,
       currentAttachment.name || undefined
     );
-  };
+  }, [
+    enableFullScreen,
+    fullScreenTrigger,
+    currentAttachment?.url,
+    currentAttachment?.mediaType,
+    currentAttachment?.name,
+    onMediaPress,
+  ]);
 
   const effectiveWidth = containerWidth > 0 ? containerWidth : Dimensions.get("window").width;
   const mediaHeight =
@@ -170,7 +182,32 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
       {selectorPosition === "top" && renderSelector()}
 
       <View style={[styles.mediaContainer, { height: mediaHeight }]}>
-        <SimpleMediaGallery
+        {eventsDisabled && enableFullScreen && fullScreenTrigger === "button" && (
+          <View style={[styles.fullScreenButtonContainer, styles.fullScreenButtonOnTop]}>
+            <TouchableRipple
+              onPress={() => setFullScreenVisible(true)}
+              style={[
+                styles.fullScreenButton,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.outline,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <Icon
+                source="arrow-expand-all"
+                size={18}
+                color={theme.colors.onSurface}
+              />
+            </TouchableRipple>
+          </View>
+        )}
+        <View
+          style={StyleSheet.absoluteFill}
+          pointerEvents={eventsDisabled ? "none" : "auto"}
+        >
+          <SimpleMediaGallery
           ref={galleryRef}
           data={attachments}
           initialIndex={Math.min(currentIndex, attachments.length - 1)}
@@ -204,8 +241,18 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
             />
           )}
         />
-
-        {enableFullScreen && fullScreenTrigger === "button" && (
+        </View>
+        {eventsDisabled && (
+          <GestureDetector
+            gesture={Gesture.Tap()
+              .maxDeltaX(15)
+              .maxDeltaY(15)
+              .onEnd(() => scheduleOnRN(handleAttachmentPress))}
+          >
+            <View style={StyleSheet.absoluteFill} />
+          </GestureDetector>
+        )}
+        {!eventsDisabled && enableFullScreen && fullScreenTrigger === "button" && (
           <View style={styles.fullScreenButtonContainer}>
             <TouchableRipple
               onPress={() => setFullScreenVisible(true)}
@@ -322,6 +369,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 8,
     bottom: 8,
+  },
+  fullScreenButtonOnTop: {
+    zIndex: 10,
   },
   fullScreenButton: {
     width: 28,

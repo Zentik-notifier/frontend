@@ -504,6 +504,7 @@ export default function NotificationDetail({
             attachments={attachments}
             selectorPosition="top"
             showTitle
+            eventsDisabled
             autoPlay
             enableFullScreen
             fullScreenTrigger="tap"

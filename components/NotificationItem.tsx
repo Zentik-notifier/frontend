@@ -393,6 +393,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           maxHeight={180}
           selectorPosition="top"
           swipeToChange={false}
+          eventsDisabled
           notificationDate={new Date(notification.createdAt).getTime()}
         />
       )}
