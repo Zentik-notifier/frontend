@@ -76,12 +76,12 @@ export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
   const [createMessage, { loading: isCreating }] = useCreateMessageMutation();
 
   useEffect(() => {
-    const showSub = Keyboard.addListener("keyboardDidShow", (e) =>
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, (e) =>
       setKeyboardHeight(e.endCoordinates.height)
     );
-    const hideSub = Keyboard.addListener("keyboardDidHide", () =>
-      setKeyboardHeight(0)
-    );
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
     return () => {
       showSub.remove();
       hideSub.remove();
