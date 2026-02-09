@@ -2,6 +2,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
+import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import iosBridgeService from "@/services/ios-bridge";
 import { useSegments } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -30,6 +31,9 @@ export default function SettingsSidebar() {
   const { lastUserId } = useAppContext();
   const isLoggedIn = !!lastUserId;
   const [isWatchSupported, setIsWatchSupported] = useState<boolean>(false);
+  const { data: appConfig } = usePublicAppConfigQuery();
+  const externalNotifySystemsEnabled =
+    appConfig?.publicAppConfig?.externalNotifySystemsEnabled ?? true;
 
   useEffect(() => {
     if (Platform.OS !== "ios") return;
@@ -104,15 +108,19 @@ export default function SettingsSidebar() {
       onPress: nav.navigateToWebhooksSettings,
       selectionSegment: "webhook",
     },
-    {
-      id: "external-servers-settings",
-      title: t("externalServers.title"),
-      description: t("externalServers.description"),
-      icon: "server",
-      iconColor: "#0D9488", // Teal
-      onPress: nav.navigateToExternalNotifySystemsSettings,
-      selectionSegment: "external-notify-system",
-    },
+    ...(externalNotifySystemsEnabled
+      ? [
+          {
+            id: "external-servers-settings",
+            title: t("externalServers.title"),
+            description: t("externalServers.description"),
+            icon: "server",
+            iconColor: "#0D9488", // Teal
+            onPress: nav.navigateToExternalNotifySystemsSettings,
+            selectionSegment: "external-notify-system",
+          },
+        ]
+      : []),
     {
       id: "user-attachments",
       title: t("userAttachments.title"),

@@ -16,7 +16,9 @@ import { useI18n } from "@/hooks/useI18n";
 import { useMutation, useQuery } from "@apollo/client";
 import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
+  Button,
   Card,
   Icon,
   SegmentedButtons,
@@ -347,6 +349,11 @@ const settingSections: Record<string, SectionConfig> = {
     title: "System Access Tokens",
     icon: "key",
     settings: [ServerSettingType.EnableSystemTokenRequests],
+  },
+  externalNotifySystems: {
+    title: "External notify systems",
+    icon: "server",
+    settings: [ServerSettingType.ExternalNotifySystemsEnabled],
   },
 };
 
@@ -693,8 +700,11 @@ function SettingField({
   );
 }
 
+const UNSAVED_BANNER_HEIGHT = 56;
+
 export function ServerSettings() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { t } = useI18n();
 
   // State
@@ -784,7 +794,19 @@ export function ServerSettings() {
       setOriginalValues(values);
       Alert.alert(
         t("common.success" as any),
-        t("serverSettings.savedSuccessfully", { count: changes.length } as any)
+        t("serverSettings.savedSuccessfully", { count: changes.length } as any),
+        [
+          {
+            text: t("common.ok" as any),
+            style: "cancel",
+          },
+          {
+            text: t("serverSettings.restartServer" as any),
+            onPress: () => {
+              confirmRestartServer();
+            },
+          },
+        ]
       );
     } catch (error) {
       console.error("Failed to save settings:", error);
@@ -839,6 +861,8 @@ export function ServerSettings() {
     await refetch();
   };
 
+  const stickyBannerBottom = insets.bottom;
+
   const additionalActions: CustomFabAction[] = hasChanges
     ? [
         {
@@ -859,7 +883,7 @@ export function ServerSettings() {
     : [];
 
   return (
-    <>
+    <View style={styles.container}>
       <PaperScrollView
         onRefresh={handleRefresh}
         loading={loading}
@@ -873,6 +897,11 @@ export function ServerSettings() {
             onPress: confirmRestartServer,
           },
         ]}
+        contentContainerStyle={{
+          paddingBottom: hasChanges
+            ? UNSAVED_BANNER_HEIGHT + stickyBannerBottom + 16
+            : undefined,
+        }}
       >
         {/* Setting Sections */}
         {Object.keys(settingSections).map((sectionKey) => (
@@ -901,11 +930,81 @@ export function ServerSettings() {
           </Text>
         </View>
       </PaperScrollView>
-    </>
+
+      {hasChanges && (
+        <View
+          style={[
+            styles.unsavedBanner,
+            {
+              backgroundColor: theme.colors.surfaceVariant,
+              paddingBottom: stickyBannerBottom + 8,
+            },
+          ]}
+        >
+          <View style={styles.unsavedBannerIcon}>
+            <Icon
+              source="alert-circle-outline"
+              size={20}
+              color={theme.colors.primary}
+            />
+          </View>
+          <Text
+            variant="bodyMedium"
+            style={[styles.unsavedBannerText, { color: theme.colors.onSurface }]}
+          >
+            {t("serverSettings.unsavedChangesBanner" as any)}
+          </Text>
+          <View style={styles.unsavedBannerActions}>
+            <Button
+              mode="outlined"
+              compact
+              onPress={() => !saving && resetSettings()}
+              disabled={saving}
+            >
+              {t("serverSettings.reset" as any)}
+            </Button>
+            <Button
+              mode="contained"
+              compact
+              onPress={() => !saving && saveSettings()}
+              loading={saving}
+              disabled={saving}
+            >
+              {t("serverSettings.saveChanges" as any)}
+            </Button>
+          </View>
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  unsavedBanner: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.08)",
+  },
+  unsavedBannerIcon: {
+    marginRight: 8,
+  },
+  unsavedBannerText: {
+    flex: 1,
+  },
+  unsavedBannerActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
   centered: {
     flex: 1,
     justifyContent: "center",

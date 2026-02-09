@@ -1647,6 +1647,8 @@
     "description": "Manage NTFY, Gotify and other notification servers. Link buckets to receive and send messages.",
     "noServersTitle": "No External Servers",
     "noServersSubtext": "Create a server (e.g. NTFY) to link buckets and sync messages",
+    "featureDisabledTitle": "External servers disabled",
+    "featureDisabledSubtext": "This feature is turned off by the server administrator.",
     "create": "Add Server",
     "edit": "Edit Server",
     "delete": "Delete Server",
@@ -2575,6 +2577,7 @@
     "selectSystemToken": "Select system token",
     "customToken": "Custom token (enter below)",
     "warningFooter": "⚠️ Changes to server settings may require a restart to take effect. Some settings are sensitive and should be handled carefully.",
+    "unsavedChangesBanner": "You have unsaved changes",
     "sections": {
       "authentication": "Authentication & JWT",
       "apnPush": "Apple Push Notifications (APN)",
@@ -2592,7 +2595,8 @@
       "logging": "Logging",
       "logStorage": "Log Storage",
       "prometheus": "Prometheus Metrics",
-      "systemAccessTokens": "System Access Tokens"
+      "systemAccessTokens": "System Access Tokens",
+      "externalNotifySystems": "External Notify Systems"
     },
     "authentication": "Authentication & JWT",
     "apnPush": "Apple Push Notifications (APN)",
@@ -2610,6 +2614,7 @@
     "logStorage": "Log Storage",
     "prometheus": "Prometheus Metrics",
     "systemAccessTokens": "System Access Tokens",
+    "externalNotifySystems": "External Notify Systems",
     "fields": {
       "JwtAccessTokenExpiration": "JWT Access Token Expiration",
       "JwtRefreshTokenExpiration": "JWT Refresh Token Expiration",
@@ -2673,7 +2678,8 @@
       "LogStorageDirectory": "Log Storage Directory",
       "PrometheusEnabled": "Enable Prometheus Metrics",
       "ChangelogRemoteServer": "Changelog Remote Server URL",
-      "EnableSystemTokenRequests": "Enable System Token Requests"
+      "EnableSystemTokenRequests": "Enable System Token Requests",
+      "ExternalNotifySystemsEnabled": "Enable external notify systems (NTFY, Gotify)"
     },
     "JwtAccessTokenExpiration": "JWT Access Token Expiration",
     "JwtRefreshTokenExpiration": "JWT Refresh Token Expiration",

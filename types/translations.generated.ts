@@ -1650,6 +1650,8 @@ export interface Translation {
     description: string;
     noServersTitle: string;
     noServersSubtext: string;
+    featureDisabledTitle: string;
+    featureDisabledSubtext: string;
     create: string;
     edit: string;
     delete: string;
@@ -2578,6 +2580,7 @@ export interface Translation {
     selectSystemToken: string;
     customToken: string;
     warningFooter: string;
+    unsavedChangesBanner: string;
     sections: {
       authentication: string;
       apnPush: string;
@@ -2596,6 +2599,7 @@ export interface Translation {
       logStorage: string;
       prometheus: string;
       systemAccessTokens: string;
+      externalNotifySystems: string;
     };
     authentication: string;
     apnPush: string;
@@ -2613,6 +2617,7 @@ export interface Translation {
     logStorage: string;
     prometheus: string;
     systemAccessTokens: string;
+    externalNotifySystems: string;
     fields: {
       JwtAccessTokenExpiration: string;
       JwtRefreshTokenExpiration: string;
@@ -2677,6 +2682,7 @@ export interface Translation {
       PrometheusEnabled: string;
       ChangelogRemoteServer: string;
       EnableSystemTokenRequests: string;
+      ExternalNotifySystemsEnabled: string;
     };
     JwtAccessTokenExpiration: string;
     JwtRefreshTokenExpiration: string;

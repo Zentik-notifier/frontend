@@ -91,7 +91,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   });
   const refreshBucket = useRefreshBucket();
   const { data: appConfig } = usePublicAppConfigQuery();
-  const { uploadEnabled, iconUploaderEnabled } =
+  const { uploadEnabled, iconUploaderEnabled, externalNotifySystemsEnabled = true } =
     appConfig?.publicAppConfig ?? {};
 
   const isProtectedBucket = bucket?.isProtected;
@@ -608,8 +608,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
               </View>
             )}
 
-            {/* Link to external server - when creating or when editing with can write */}
-            {(!isEditing || canWrite) && !isSharedBucket && !isProtectedBucket && (
+            {/* Link to external server - when creating or when editing with can write; hidden when feature disabled */}
+            {externalNotifySystemsEnabled && (!isEditing || canWrite) && !isSharedBucket && !isProtectedBucket && (
               <View style={[styles.externalServerSection, { backgroundColor: theme.colors.surfaceVariant }]}>
                 <Text variant="titleSmall" style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
                   {t("externalServers.linkBucket.title")}

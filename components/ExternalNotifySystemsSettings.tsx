@@ -5,7 +5,10 @@ import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Icon, Text, useTheme } from "react-native-paper";
-import { useGetExternalNotifySystemsQuery } from "@/generated/gql-operations-generated";
+import {
+  useGetExternalNotifySystemsQuery,
+  usePublicAppConfigQuery,
+} from "@/generated/gql-operations-generated";
 import SwipeableExternalNotifySystemItem from "./SwipeableExternalNotifySystemItem";
 
 interface ExternalNotifySystemsSettingsProps {
@@ -18,6 +21,9 @@ export default function ExternalNotifySystemsSettings({
   const theme = useTheme();
   const { t } = useI18n();
   const { navigateToCreateExternalNotifySystem } = useNavigationUtils();
+  const { data: appConfig } = usePublicAppConfigQuery();
+  const externalNotifySystemsEnabled =
+    appConfig?.publicAppConfig?.externalNotifySystemsEnabled ?? true;
 
   const {
     data,
@@ -36,6 +42,26 @@ export default function ExternalNotifySystemsSettings({
   const handleRefresh = async () => {
     await refetch();
   };
+
+  if (!externalNotifySystemsEnabled) {
+    return (
+      <PaperScrollView loading={false}>
+        <View style={styles.emptyState}>
+          <Icon
+            source="server-off"
+            size={64}
+            color={theme.colors.onSurfaceVariant}
+          />
+          <Text variant="headlineSmall" style={styles.emptyText}>
+            {t("externalServers.featureDisabledTitle")}
+          </Text>
+          <Text variant="bodyMedium" style={styles.emptySubtext}>
+            {t("externalServers.featureDisabledSubtext")}
+          </Text>
+        </View>
+      </PaperScrollView>
+    );
+  }
 
   return (
     <PaperScrollView

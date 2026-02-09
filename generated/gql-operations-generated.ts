@@ -430,9 +430,6 @@ export enum ExecutionType {
 
 export type ExternalNotifySystem = {
   __typename?: 'ExternalNotifySystem';
-  authPassword: Maybe<Scalars['String']['output']>;
-  authToken: Maybe<Scalars['String']['output']>;
-  authUser: Maybe<Scalars['String']['output']>;
   baseUrl: Scalars['String']['output'];
   color: Maybe<Scalars['String']['output']>;
   createdAt: Scalars['DateTime']['output'];
@@ -1517,6 +1514,7 @@ export type PostponeResponseDto = {
 export type PublicAppConfig = {
   __typename?: 'PublicAppConfig';
   emailEnabled: Scalars['Boolean']['output'];
+  externalNotifySystemsEnabled: Scalars['Boolean']['output'];
   iconUploaderEnabled: Scalars['Boolean']['output'];
   localRegistrationEnabled: Scalars['Boolean']['output'];
   oauthProviders: Array<OAuthProviderPublicDto>;
@@ -1909,6 +1907,7 @@ export enum ServerSettingType {
   EmailType = 'EmailType',
   EmailUser = 'EmailUser',
   EnableSystemTokenRequests = 'EnableSystemTokenRequests',
+  ExternalNotifySystemsEnabled = 'ExternalNotifySystemsEnabled',
   FirebaseClientEmail = 'FirebaseClientEmail',
   FirebasePrivateKey = 'FirebasePrivateKey',
   FirebaseProjectId = 'FirebaseProjectId',
@@ -1986,6 +1985,12 @@ export type Subscription = {
   bucketDeleted: Scalars['String']['output'];
   bucketUpdated: Bucket;
   entityPermissionUpdated: EntityPermission;
+  /** Emitted when a new message is created and the current user receives a notification for it. Optionally filter by bucketId. */
+  messageCreated: Message;
+  /** Emitted when a message the current user had a notification for is deleted. */
+  messageDeleted: Scalars['String']['output'];
+  /** Same as messageCreated: new messages for the current user only. Use this name when you only care about new messages (optionally in a bucket). */
+  newMessagesForUser: Message;
   notificationCreated: Notification;
   notificationDeleted: Scalars['String']['output'];
   notificationUpdated: Notification;
@@ -1996,6 +2001,16 @@ export type Subscription = {
 
 
 export type SubscriptionEntityPermissionUpdatedArgs = {
+  bucketId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type SubscriptionMessageCreatedArgs = {
+  bucketId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type SubscriptionNewMessagesForUserArgs = {
   bucketId?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -2393,6 +2408,7 @@ export enum UserSettingType {
   DefaultSnoozes = 'DefaultSnoozes',
   DisableUserTracking = 'DisableUserTracking',
   ExpoKey = 'ExpoKey',
+  ExternalNotifyCredentials = 'ExternalNotifyCredentials',
   GithubEventsFilter = 'GithubEventsFilter',
   HomeassistantToken = 'HomeassistantToken',
   HomeassistantUrl = 'HomeassistantUrl',
@@ -3377,7 +3393,7 @@ export type ConfirmEmailMutation = { __typename?: 'Mutation', confirmEmail: { __
 export type PublicAppConfigQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type PublicAppConfigQuery = { __typename?: 'Query', publicAppConfig: { __typename?: 'PublicAppConfig', emailEnabled: boolean, uploadEnabled: boolean, iconUploaderEnabled: boolean, systemTokenRequestsEnabled: boolean, socialLoginEnabled: boolean, localRegistrationEnabled: boolean, socialRegistrationEnabled: boolean, oauthProviders: Array<{ __typename?: 'OAuthProviderPublicDto', id: string, name: string, type: OAuthProviderType, iconUrl: string | null, color: string | null, textColor: string | null, providerKey: string }> } };
+export type PublicAppConfigQuery = { __typename?: 'Query', publicAppConfig: { __typename?: 'PublicAppConfig', emailEnabled: boolean, uploadEnabled: boolean, iconUploaderEnabled: boolean, systemTokenRequestsEnabled: boolean, socialLoginEnabled: boolean, localRegistrationEnabled: boolean, socialRegistrationEnabled: boolean, externalNotifySystemsEnabled: boolean, oauthProviders: Array<{ __typename?: 'OAuthProviderPublicDto', id: string, name: string, type: OAuthProviderType, iconUrl: string | null, color: string | null, textColor: string | null, providerKey: string }> } };
 
 export type EventFragment = { __typename?: 'Event', id: string, type: EventType, userId: string | null, objectId: string | null, createdAt: string, targetId: string | null, additionalInfo: any | null };
 
@@ -7461,7 +7477,7 @@ export function useConfirmEmailMutation(baseOptions?: ApolloReactHooks.MutationH
 export type ConfirmEmailMutationHookResult = ReturnType<typeof useConfirmEmailMutation>;
 export type ConfirmEmailMutationResult = Apollo.MutationResult<ConfirmEmailMutation>;
 export type ConfirmEmailMutationOptions = Apollo.BaseMutationOptions<ConfirmEmailMutation, ConfirmEmailMutationVariables>;
-export const PublicAppConfigDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PublicAppConfig"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"publicAppConfig"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"emailEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"uploadEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"iconUploaderEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"systemTokenRequestsEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"socialLoginEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"localRegistrationEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"socialRegistrationEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"oauthProviders"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"OAuthProviderPublicFragment"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"OAuthProviderPublicFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"OAuthProviderPublicDto"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"iconUrl"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"textColor"}},{"kind":"Field","name":{"kind":"Name","value":"providerKey"}}]}}]} as unknown as DocumentNode;
+export const PublicAppConfigDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PublicAppConfig"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"publicAppConfig"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"emailEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"uploadEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"iconUploaderEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"systemTokenRequestsEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"socialLoginEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"localRegistrationEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"socialRegistrationEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"externalNotifySystemsEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"oauthProviders"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"OAuthProviderPublicFragment"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"OAuthProviderPublicFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"OAuthProviderPublicDto"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"iconUrl"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"textColor"}},{"kind":"Field","name":{"kind":"Name","value":"providerKey"}}]}}]} as unknown as DocumentNode;
 
 /**
  * __usePublicAppConfigQuery__

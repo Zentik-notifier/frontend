@@ -1703,6 +1703,8 @@
     "description": "Gestisci server NTFY, Gotify e altri. Collega i bucket per ricevere e inviare messaggi.",
     "noServersTitle": "Nessun server esterno",
     "noServersSubtext": "Crea un server (es. NTFY) per collegare i bucket e sincronizzare i messaggi",
+    "featureDisabledTitle": "Server esterni disattivati",
+    "featureDisabledSubtext": "Questa funzionalità è disattivata dall'amministratore del server.",
     "create": "Aggiungi server",
     "edit": "Modifica server",
     "delete": "Elimina server",
@@ -2338,6 +2340,7 @@
     "selectSystemToken": "Seleziona token di sistema",
     "customToken": "Token personalizzato (inserisci sotto)",
     "warningFooter": "⚠️ Le modifiche alle impostazioni del server potrebbero richiedere un riavvio per avere effetto. Alcune impostazioni sono sensibili e devono essere gestite con cura.",
+    "unsavedChangesBanner": "Hai modifiche non salvate",
     "sections": {
       "authentication": "Autenticazione & JWT",
       "apnPush": "Notifiche Push Apple (APN)",
@@ -2355,7 +2358,8 @@
       "logging": "Logging",
       "logStorage": "Archiviazione Log",
       "prometheus": "Metriche Prometheus",
-      "systemAccessTokens": "Token di Accesso di Sistema"
+      "systemAccessTokens": "Token di Accesso di Sistema",
+      "externalNotifySystems": "Sistemi di notifica esterni"
     },
     "fields": {
       "JwtAccessTokenExpiration": "Scadenza Token di Accesso JWT",
@@ -2420,6 +2424,7 @@
       "LogStorageDirectory": "Directory Archiviazione Log",
       "PrometheusEnabled": "Abilita Metriche Prometheus",
       "EnableSystemTokenRequests": "Abilita Richieste Token di Sistema",
+      "ExternalNotifySystemsEnabled": "Abilita sistemi di notifica esterni (NTFY, Gotify)",
       "ChangelogRemoteServer": "URL server remoto per i changelog"
     },
     "authentication": "Authentication & JWT",
@@ -2437,6 +2442,7 @@
     "logStorage": "Archiviazione Log",
     "prometheus": "Metriche Prometheus",
     "systemAccessTokens": "Token di Accesso di Sistema",
+    "externalNotifySystems": "Sistemi di notifica esterni",
     "JwtAccessTokenExpiration": "JWT Access Token Expiration",
     "JwtRefreshTokenExpiration": "JWT Refresh Token Expiration",
     "JwtSecret": "JWT Secret",

@@ -1388,6 +1388,7 @@ query PublicAppConfig {
     socialLoginEnabled
     localRegistrationEnabled
     socialRegistrationEnabled
+    externalNotifySystemsEnabled
     oauthProviders {
       ...OAuthProviderPublicFragment
     }
