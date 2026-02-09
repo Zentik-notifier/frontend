@@ -333,6 +333,9 @@ export default function FullScreenMediaViewer({
           <View style={styles.content}>
             <View style={styles.mediaCenter}>
               <AttachmentGalleryContent
+              contentFit="contain"
+              onSwipeLeft={onSwipeLeft}
+              onSwipeRight={onSwipeRight}
               attachments={
                 hasAttachments
                   ? attachments!
@@ -469,12 +472,14 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    width: "100%",
+    alignSelf: "stretch",
+    alignItems: "stretch",
   },
   mediaCenter: {
+    flex: 1,
     width: "100%",
-    height: "80%",
+    minHeight: 200,
   },
   media: { width: "95%", height: "80%" },
   bottomBar: {

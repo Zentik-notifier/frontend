@@ -5,10 +5,10 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  runOnJS,
   interpolate,
   Extrapolation,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 interface PullToRefreshProps {
@@ -63,7 +63,7 @@ export default function PullToRefresh({
           damping: 15,
           stiffness: 150,
         });
-        runOnJS(triggerRefresh)();
+        scheduleOnRN(triggerRefresh);
       } else {
         translateY.value = withSpring(0, {
           damping: 15,

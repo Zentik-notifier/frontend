@@ -24,7 +24,10 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { Pressable } from "react-native-gesture-handler";
+import {
+  Pressable,
+  TouchableOpacity as GestureTouchableOpacity,
+} from "react-native-gesture-handler";
 import {
   Icon,
   List,
@@ -51,6 +54,8 @@ interface CachedMediaProps {
   autoPlay?: boolean;
   showControls?: boolean;
   cache?: boolean;
+  contentFit?: ImageContentFit;
+  disableLongPress?: boolean;
 }
 
 export const CachedMedia = React.memo(function CachedMedia({
@@ -66,6 +71,8 @@ export const CachedMedia = React.memo(function CachedMedia({
   autoPlay,
   cache,
   showControls,
+  contentFit = "cover",
+  disableLongPress = false,
 }: CachedMediaProps) {
   const { t } = useI18n();
   const theme = useTheme();
@@ -582,10 +589,10 @@ export const CachedMedia = React.memo(function CachedMedia({
       const thumbPath = mediaSource?.localThumbPath;
       if (thumbPath) {
         return (
-          <TouchableOpacity
+          <GestureTouchableOpacity
             onPress={handleFrameClick}
-            onLongPress={handleLongPress}
-            activeOpacity={0.9}
+            onLongPress={disableLongPress ? undefined : handleLongPress}
+            activeOpacity={disableLongPress ? 1 : 0.9}
           >
             <ExpoImage
               source={{ uri: thumbPath }}
@@ -597,11 +604,11 @@ export const CachedMedia = React.memo(function CachedMedia({
                     ] as StyleProp<ImageStyle>)
                   : (style as StyleProp<ImageStyle>)
               }
-              contentFit={"cover"}
+              contentFit={contentFit}
               transition={150}
               cachePolicy={cache ? "memory" : "none"}
             />
-          </TouchableOpacity>
+          </GestureTouchableOpacity>
         );
       }
 
@@ -625,10 +632,10 @@ export const CachedMedia = React.memo(function CachedMedia({
         case MediaType.Icon:
         case MediaType.Gif:
           return (
-            <TouchableOpacity
+            <GestureTouchableOpacity
               onPress={handleFrameClick}
-              onLongPress={handleLongPress}
-              activeOpacity={0.9}
+              onLongPress={disableLongPress ? undefined : handleLongPress}
+              activeOpacity={disableLongPress ? 1 : 0.9}
             >
               <ExpoImage
                 source={{ uri: mediaSource.localPath }}
@@ -640,7 +647,7 @@ export const CachedMedia = React.memo(function CachedMedia({
                       ] as StyleProp<ImageStyle>)
                     : (style as StyleProp<ImageStyle>)
                 }
-                contentFit={"cover"}
+                contentFit={contentFit}
                 transition={150}
                 cachePolicy={cache ? "memory" : "none"}
                 onError={(event) => {
@@ -651,7 +658,7 @@ export const CachedMedia = React.memo(function CachedMedia({
                   );
                 }}
               />
-            </TouchableOpacity>
+            </GestureTouchableOpacity>
           );
 
         case MediaType.Video:
@@ -707,7 +714,7 @@ export const CachedMedia = React.memo(function CachedMedia({
                     backgroundColor: "transparent",
                   }}
                   onPress={handleFrameClick}
-                  onLongPress={handleLongPress}
+                  onLongPress={disableLongPress ? undefined : handleLongPress}
                   activeOpacity={1}
                 />
               )}

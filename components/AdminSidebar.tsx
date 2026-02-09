@@ -174,7 +174,9 @@ export default function AdminSidebar() {
   };
 
   return (
-    <PaperScrollView>
+    <PaperScrollView
+      style={isMobile ? styles.mobileContainer : undefined}
+    >
       <View style={styles.listContainer}>
         {adminOptions.filter(Boolean).map(renderListItem)}
       </View>
@@ -184,10 +186,14 @@ export default function AdminSidebar() {
 
 const styles = StyleSheet.create({
   listItem: {
-    marginVertical: 1,
+    marginVertical: 0,
     borderRadius: 8,
   },
   listContainer: {
-    paddingVertical: 4,
+    paddingVertical: 2,
+  },
+  mobileContainer: {
+    paddingHorizontal: 0,
+    paddingVertical: 8,
   },
 });

@@ -216,10 +216,14 @@ export default function GallerySection() {
       {fullscreenIndex >= 0 && flatOrder[fullscreenIndex] && (
         <FullScreenMediaViewer
           visible={true}
-          url={flatOrder[fullscreenIndex].url}
-          mediaType={flatOrder[fullscreenIndex].mediaType}
-          originalFileName={flatOrder[fullscreenIndex].originalFileName}
-          notificationDate={flatOrder[fullscreenIndex].notificationDate}
+          attachments={flatOrder.map((m) => ({
+            url: m.url,
+            mediaType: m.mediaType,
+            name: m.originalFileName,
+          }))}
+          initialIndex={fullscreenIndex}
+          onCurrentIndexChange={setFullscreenIndex}
+          notificationDate={flatOrder[fullscreenIndex].notificationDate ?? Date.now()}
           onClose={() => setFullscreenIndex(-1)}
           onDeleted={() => {
             if (flatOrder.length === 1) {

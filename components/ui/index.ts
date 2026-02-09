@@ -23,4 +23,10 @@ export type {
   LogsListItemHeader,
   LogsListItemLog,
 } from "./LogsListLayout";
+export { default as SimpleMediaGallery } from "./SimpleMediaGallery";
+export type {
+  SimpleMediaGalleryRef,
+  SimpleMediaGalleryProps,
+  RenderItemInfo,
+} from "./SimpleMediaGallery";
 

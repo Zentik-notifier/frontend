@@ -4,8 +4,10 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useEffect, useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
-import Gallery, { GalleryRef } from "react-native-awesome-gallery";
+import { Dimensions, StyleSheet, View } from "react-native";
+import SimpleMediaGallery, {
+  SimpleMediaGalleryRef,
+} from "@/components/ui/SimpleMediaGallery";
 import {
   Icon,
   Surface,
@@ -62,7 +64,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   const { t } = useI18n();
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
   const [containerWidth, setContainerWidth] = useState<number>(0);
-  const galleryRef = useRef<GalleryRef>(null);
+  const galleryRef = useRef<SimpleMediaGalleryRef>(null);
   const [fullScreenVisible, setFullScreenVisible] = useState(false);
 
   useEffect(() => {
@@ -99,8 +101,9 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
     );
   };
 
+  const effectiveWidth = containerWidth > 0 ? containerWidth : Dimensions.get("window").width;
   const mediaHeight =
-    maxHeight ?? (containerWidth > 0 ? containerWidth * 0.6 : 200);
+    maxHeight ?? (containerWidth > 0 ? containerWidth * 0.6 : effectiveWidth * 0.6);
 
   const renderSelector = () => {
     if (!attachments || attachments.length <= 1) return null;
@@ -147,7 +150,8 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   };
 
   return (
-    <View
+      <View
+      style={styles.galleryRoot}
       onLayout={(event) => {
         const { width } = event.nativeEvent.layout;
         setContainerWidth(width);
@@ -166,7 +170,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
       {selectorPosition === "top" && renderSelector()}
 
       <View style={[styles.mediaContainer, { height: mediaHeight }]}>
-        <Gallery
+        <SimpleMediaGallery
           ref={galleryRef}
           data={attachments}
           initialIndex={Math.min(currentIndex, attachments.length - 1)}
@@ -178,12 +182,10 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
           keyExtractor={(_, index) => index.toString()}
           pinchEnabled={zoomEnabled}
           disableVerticalSwipe={!onSwipeToClose}
-          disableSwipeUp
-          disableTransitionOnScaledImage
           swipeEnabled={swipeToChange}
           onSwipeToClose={onSwipeToClose}
           containerDimensions={{
-            width: containerWidth || 0,
+            width: effectiveWidth,
             height: mediaHeight,
           }}
           renderItem={({ item, index }) => (
@@ -191,12 +193,13 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
               key={`${item.url}-${index}`}
               url={item.url!}
               mediaType={item.mediaType}
-              style={[{ height: mediaHeight }]}
+              style={[{ width: effectiveWidth, height: mediaHeight }]}
               originalFileName={item.name || undefined}
               onPress={handleAttachmentPress}
               notificationDate={notificationDate}
               autoPlay={autoPlay && currentIndex === index}
               showControls={!enableFullScreen}
+              disableLongPress={zoomEnabled}
               cache
             />
           )}
@@ -275,6 +278,9 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
 };
 
 const styles = StyleSheet.create({
+  galleryRoot: {
+    width: "100%",
+  },
   headerContainer: {
     flexDirection: "row",
     justifyContent: "space-between",

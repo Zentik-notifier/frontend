@@ -6,8 +6,8 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
-  runOnJS,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { NotificationDeliveryType } from '@/generated/gql-operations-generated';
@@ -96,8 +96,8 @@ export const IncomingNotificationToast: React.FC<
     // Animate out
     translateY.value = withTiming(-200, { duration: 300 });
     opacity.value = withTiming(0, { duration: 300 }, () => {
-      runOnJS(setIsVisible)(false);
-      runOnJS(onDismiss)();
+      scheduleOnRN(setIsVisible, false);
+      scheduleOnRN(onDismiss);
     });
   };
 

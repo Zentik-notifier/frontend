@@ -261,11 +261,11 @@ export default function SettingsSidebar() {
 
 const styles = StyleSheet.create({
   listItem: {
-    marginVertical: 1,
+    marginVertical: 0,
     borderRadius: 8,
   },
   listContainer: {
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   mobileContainer: {
     paddingHorizontal: 0,
