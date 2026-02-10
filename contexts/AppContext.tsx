@@ -43,7 +43,6 @@ import { registerTranslation } from "react-native-paper-dates";
 import { useSettings } from "../hooks/useSettings";
 import { settingsRepository } from "../services/settings-repository";
 import {
-  ChangelogSeenVersions,
   settingsService,
 } from "../services/settings-service";
 
@@ -585,6 +584,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         queryClient.invalidateQueries({ queryKey: ['app-state'] });
         console.log('[AppContext] Invalidated app-state cache to refresh unread count');
 
+        refetchChangelogs().catch(() => {});
+
         if (hasAuth && userId) {
           await connectionStatus.checkForUpdates();
         }
@@ -636,7 +637,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       handleAppStateChange
     );
     return () => subscription?.remove();
-  }, [userId]);
+  }, [userId, refetchChangelogs]);
 
   // // Debounced refetch to avoid excessive requests from multiple subscription events
   // const debouncedRefetchBuckets = useDebounce(() => {
@@ -670,17 +671,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const closeChangelogModal = async () => {
-    if (latestChangelog) {
-      const previous = settingsService.getChangelogSeenVersions() || {};
-      const updated: ChangelogSeenVersions = {
-        ...previous,
-        iosVersion: latestChangelog.iosVersion,
-        androidVersion: latestChangelog.androidVersion,
-        uiVersion: latestChangelog.uiVersion,
-        backendVersion: latestChangelog.backendVersion,
-      };
-
-      await settingsService.setChangelogSeenVersions(updated);
+    if (latestChangelog?.id) {
+      await settingsService.setLastSeenChangelogId(latestChangelog.id);
     }
     setIsChangelogModalOpen(false);
   };

@@ -4,16 +4,19 @@ import {
   useChangelogsForModalQuery,
 } from "@/generated/gql-operations-generated";
 import { useGetVersionsInfo } from "@/hooks/useGetVersionsInfo";
+import { useSettings } from "@/hooks/useSettings";
 import { checkChangelogUpdates } from "@/utils/changelogUtils";
 
 export function useChangelogs() {
   const { versions } = useGetVersionsInfo();
+  const { settings } = useSettings();
   const { data: changelogData, refetch: refetchChangelogs } =
     useChangelogsForModalQuery({
       fetchPolicy: "cache-and-network",
     });
 
   const { appVersion, backendVersion, nativeVersion } = versions;
+  const lastSeenChangelogId = settings.lastSeenChangelogId;
 
   const [latestChangelog, setLatestChangelog] =
     useState<ChangelogForModalFragment | null>(null);
@@ -36,7 +39,6 @@ export function useChangelogs() {
       needsAppUpdateNotice,
       needsBackendBehindNotice,
     } = checkChangelogUpdates(changelogData, {
-      appVersion,
       backendVersion,
       nativeVersion,
     });
@@ -47,7 +49,7 @@ export function useChangelogs() {
     setNeedsChangelogAppUpdateNotice(needsAppUpdateNotice);
     setNeedsChangelogBackendBehindNotice(needsBackendBehindNotice);
     setShouldOpenChangelogModal(shouldOpenModal);
-  }, [changelogData, appVersion, backendVersion, nativeVersion]);
+  }, [changelogData, appVersion, backendVersion, nativeVersion, lastSeenChangelogId]);
 
   return {
     latestChangelog,

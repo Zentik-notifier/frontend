@@ -91,13 +91,6 @@ export interface GalleryVisualization {
   selectedMediaTypes: MediaType[];
 }
 
-export interface ChangelogSeenVersions {
-  iosVersion?: string;
-  androidVersion?: string;
-  uiVersion?: string;
-  backendVersion?: string;
-}
-
 export interface UserSettings {
   theme: ThemeSettings;
   locale: Locale;
@@ -130,7 +123,8 @@ export interface UserSettings {
   hideHints?: boolean;
   lastCleanup?: string;
   lastKeysRotation?: string;
-  changelogSeenVersions?: ChangelogSeenVersions;
+  /** ID of the last changelog entry for which the user has seen the modal */
+  lastSeenChangelogId?: string;
   // List of recently used bucket sharing identifiers (emails/usernames/userIds)
   bucketSharingHints?: string[];
   // Privacy: disable user action tracking for non-commercial purposes
@@ -224,7 +218,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   hideHints: false,
   lastCleanup: undefined,
   lastKeysRotation: undefined,
-  changelogSeenVersions: undefined,
+  lastSeenChangelogId: undefined,
   bucketSharingHints: [],
   disableUserTracking: false,
 };
@@ -309,7 +303,8 @@ class SettingsService {
         'lastCleanup',
         'lastKeysRotation',
         'hideHints',
-        'disableUserTracking'
+        'disableUserTracking',
+        'lastSeenChangelogId',
       ];
 
       // Settings that are stored as JSON objects
@@ -324,7 +319,6 @@ class SettingsService {
         'galleryVisualization',
         'onboarding',
         'termsAcceptance',
-        'changelogSeenVersions',
         'bucketSharingHints',
       ];
 
@@ -460,12 +454,12 @@ class SettingsService {
     await this.savePartialSettings(changedKeys, newSettings);
   }
 
-  public getChangelogSeenVersions(): ChangelogSeenVersions | undefined {
-    return this.settingsSubject.value.changelogSeenVersions;
+  public getLastSeenChangelogId(): string | undefined {
+    return this.settingsSubject.value.lastSeenChangelogId;
   }
 
-  public async setChangelogSeenVersions(versions: ChangelogSeenVersions): Promise<void> {
-    await this.updateSettings({ changelogSeenVersions: versions });
+  public async setLastSeenChangelogId(changelogId: string): Promise<void> {
+    await this.updateSettings({ lastSeenChangelogId: changelogId });
   }
 
   public async setThemeMode(mode: 'light' | 'dark' | 'system'): Promise<void> {
@@ -1126,7 +1120,8 @@ class SettingsService {
         'lastCleanup',
         'lastKeysRotation',
         'hideHints',
-        'disableUserTracking'
+        'disableUserTracking',
+        'lastSeenChangelogId',
       ]);
 
       await Promise.all(
@@ -1176,7 +1171,7 @@ class SettingsService {
         'lastKeysRotation',
         'hideHints',
         'disableUserTracking',
-        'changelogSeenVersions',
+        'lastSeenChangelogId',
         'bucketSharingHints',
       ];
 

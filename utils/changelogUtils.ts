@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import { ChangelogSeenVersions, settingsService } from "@/services/settings-service";
+import { settingsService } from "@/services/settings-service";
 import { ChangelogsForModalQuery } from "@/generated/gql-operations-generated";
 
 export interface ChangelogCheckContext {
@@ -42,7 +42,7 @@ export function checkChangelogUpdates(
   changelogData: ChangelogsForModalQuery | undefined,
   context: ChangelogCheckContext
 ): ChangelogCheckResult {
-  const { appVersion, backendVersion, nativeVersion } = context;
+  const { backendVersion, nativeVersion } = context;
 
   if (!changelogData || !changelogData.changelogs.length) {
     return {
@@ -57,83 +57,23 @@ export function checkChangelogUpdates(
   const allEntries = changelogData.changelogs;
   const latestEntry = allEntries[0];
 
-  const seen: ChangelogSeenVersions | undefined =
-    settingsService.getChangelogSeenVersions();
+  const lastSeenChangelogId = settingsService.getLastSeenChangelogId();
 
-  let shouldShow = false;
-
-  // UI / web app version
-  if (
-    appVersion &&
-    (!seen || isVersionLess(appVersion, latestEntry.uiVersion))
-  ) {
-    shouldShow = true;
-  }
-
-  // Backend version
-  if (
-    backendVersion &&
-    (!seen || isVersionLess(seen.backendVersion, latestEntry.backendVersion))
-  ) {
-    shouldShow = true;
-  }
-
-  // Native versions per platform
-  if (Platform.OS === "ios") {
-    if (
-      nativeVersion &&
-      (!seen ||
-        isVersionLess(seen.iosVersion, latestEntry.iosVersion) ||
-        isVersionLess(nativeVersion, latestEntry.iosVersion))
-    ) {
-      shouldShow = true;
-    }
-  } else if (Platform.OS === "android") {
-    if (
-      nativeVersion &&
-      isVersionLess(nativeVersion, latestEntry.androidVersion) &&
-      (!seen || isVersionLess(seen.androidVersion, latestEntry.androidVersion))
-    ) {
-      shouldShow = true;
-    }
-  }
+  const shouldShow =
+    (!lastSeenChangelogId || lastSeenChangelogId !== latestEntry.id);
 
   const nextUnreadIds: string[] = [];
   for (const entry of allEntries) {
-    let isUnread = false;
-
-    if (!seen) {
-      isUnread = true;
-    } else {
-      if (isVersionLess(seen.uiVersion, entry.uiVersion)) {
-        isUnread = true;
-      }
-      if (isVersionLess(seen.backendVersion, entry.backendVersion)) {
-        isUnread = true;
-      }
-
-      if (Platform.OS === "ios") {
-        if (isVersionLess(seen.iosVersion, entry.iosVersion)) {
-          isUnread = true;
-        }
-      } else if (Platform.OS === "android") {
-        if (isVersionLess(seen.androidVersion, entry.androidVersion)) {
-          isUnread = true;
-        }
-      }
-    }
-
-    if (isUnread) {
-      nextUnreadIds.push(entry.id);
-    }
+    if (entry.id === lastSeenChangelogId) break;
+    nextUnreadIds.push(entry.id);
   }
 
   const latestNativeVersion =
     Platform.OS === "ios"
       ? latestEntry.iosVersion
       : Platform.OS === "android"
-      ? latestEntry.androidVersion
-      : null;
+        ? latestEntry.androidVersion
+        : null;
 
   const needsAppUpdateNotice =
     (Platform.OS === "macos" || Platform.OS === "ios") &&
