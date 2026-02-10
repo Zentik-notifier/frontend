@@ -95,7 +95,10 @@ export interface Translation {
       tintedDark: string;
       clearLight: string;
       clearDark: string;
-      circle: string;
+      ntfy: string;
+      gotify: string;
+      zentikNtfy: string;
+      zentikGotify: string;
       notSupported: string;
     };
     watch: {
