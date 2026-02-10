@@ -6,6 +6,7 @@ import React, {
   ReactNode,
   useCallback,
   useEffect,
+  useMemo,
 } from "react";
 
 // Types
@@ -151,7 +152,7 @@ export function EventsReviewProvider({
     dispatch({ type: "SET_SHOW_FILTERS_MODAL", payload: false });
   }, []);
 
-  const value: EventsReviewContextType = {
+  const value = useMemo<EventsReviewContextType>(() => ({
     state,
     dispatch,
     handleSetFilters,
@@ -159,7 +160,15 @@ export function EventsReviewProvider({
     handleShowFiltersModal,
     handleHideFiltersModal,
     updateActiveFiltersCount,
-  };
+  }), [
+    state,
+    dispatch,
+    handleSetFilters,
+    handleClearFilters,
+    handleShowFiltersModal,
+    handleHideFiltersModal,
+    updateActiveFiltersCount,
+  ]);
 
   return (
     <EventsReviewContext.Provider value={value}>

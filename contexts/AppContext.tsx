@@ -34,8 +34,10 @@ import * as Localization from "expo-localization";
 import React, {
   createContext,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { Alert, AppState, Platform } from "react-native";
@@ -688,39 +690,76 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
 
+  const openLoginModal = useCallback(() => setIsLoginModalOpen(true), []);
+  const closeLoginModal = useCallback(() => setIsLoginModalOpen(false), []);
+  const hideOnboarding = useCallback(() => setIsOnboardingOpen(false), []);
+  const openFeedbackModal = useCallback(() => setIsFeedbackModalOpen(true), []);
+  const closeFeedbackModal = useCallback(() => setIsFeedbackModalOpen(false), []);
+
+  const contextValue = useMemo<AppContextProps>(() => ({
+    logout,
+    login,
+    completeAuth,
+    register,
+    userId,
+    setUserId,
+    refreshUserData,
+    openLoginModal,
+    isLoginModalOpen,
+    closeLoginModal,
+    showOnboarding,
+    isOnboardingOpen,
+    hideOnboarding,
+    openFeedbackModal,
+    closeFeedbackModal,
+    isFeedbackModalOpen,
+    userSettings,
+    connectionStatus,
+    deviceToken: push.deviceToken,
+    isInitializing,
+    lastUserId,
+    push,
+    isChangelogModalOpen,
+    openChangelogModal,
+    closeChangelogModal,
+    latestChangelog,
+    needsChangelogAppUpdateNotice,
+    needsChangelogBackendBehindNotice,
+  }), [
+    logout,
+    login,
+    completeAuth,
+    register,
+    userId,
+    setUserId,
+    refreshUserData,
+    openLoginModal,
+    isLoginModalOpen,
+    closeLoginModal,
+    showOnboarding,
+    isOnboardingOpen,
+    hideOnboarding,
+    openFeedbackModal,
+    closeFeedbackModal,
+    isFeedbackModalOpen,
+    userSettings,
+    connectionStatus,
+    push.deviceToken,
+    isInitializing,
+    lastUserId,
+    push,
+    isChangelogModalOpen,
+    openChangelogModal,
+    closeChangelogModal,
+    latestChangelog,
+    needsChangelogAppUpdateNotice,
+    needsChangelogBackendBehindNotice,
+  ]);
+
   return (
     <AuthUserIdProvider value={lastUserId}>
     <AppContext.Provider
-      value={{
-        logout,
-        login,
-        completeAuth,
-        register,
-        userId,
-        setUserId,
-        refreshUserData,
-        openLoginModal: () => setIsLoginModalOpen(true),
-        isLoginModalOpen,
-        closeLoginModal: () => setIsLoginModalOpen(false),
-        showOnboarding,
-        isOnboardingOpen,
-        hideOnboarding: () => setIsOnboardingOpen(false),
-        openFeedbackModal: () => setIsFeedbackModalOpen(true),
-        closeFeedbackModal: () => setIsFeedbackModalOpen(false),
-        isFeedbackModalOpen,
-        userSettings,
-        connectionStatus,
-        deviceToken: push.deviceToken,
-        isInitializing,
-        lastUserId,
-        push,
-        isChangelogModalOpen,
-        openChangelogModal,
-        closeChangelogModal,
-        latestChangelog,
-        needsChangelogAppUpdateNotice,
-        needsChangelogBackendBehindNotice,
-      }}
+      value={contextValue}
     >
       {children}
       <DatabaseRecoveryModal />

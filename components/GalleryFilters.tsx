@@ -18,12 +18,7 @@ import {
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
-import {
-  Menu,
-  MenuOption,
-  MenuOptions,
-  MenuTrigger,
-} from "react-native-popup-menu";
+import PaperMenu, { PaperMenuItem } from "./ui/PaperMenu";
 import GalleryFiltersModal from "./GalleryFiltersModal";
 
 const availableMediaTypes = Object.values(MediaType);
@@ -204,65 +199,33 @@ export default function GalleryFilters() {
   const renderStatsMenu = () => {
     if (!cacheStats) return null;
 
-    const statsItems = Object.entries(cacheStats.itemsByType).map(
+    const statsItems: PaperMenuItem[] = Object.entries(cacheStats.itemsByType).map(
       ([type, count]) => {
-        // Convert string type to MediaType enum
         const mediaType = type as MediaType;
-        
-        // Use utility functions from useNotificationUtils
         const iconName = getMediaTypeIcon(mediaType);
-        const color = getMediaTypeColor(mediaType);
         const friendlyName = getMediaTypeFriendlyName(mediaType);
 
         return {
           id: type,
           label: `${friendlyName}: ${count}`,
           icon: iconName,
-          color: color,
-          onPress: () => {}, // No action needed
-          disabled: true, // Make it non-clickable
+          onPress: () => {},
         };
       }
     );
 
     return (
-      <Menu>
-        <MenuTrigger>
-          <View style={styles.infoButton}>
-            <Icon source="information" size={20} color={theme.colors.primary} />
-          </View>
-        </MenuTrigger>
-        <MenuOptions
-          optionsContainerStyle={{
-            marginTop: 50,
-            backgroundColor: theme.colors.surface,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: theme.colors.outlineVariant,
-          }}
-        >
-          {/* Stats Items */}
-          {statsItems.map((item, index) => (
-            <MenuOption key={index} onSelect={() => item.onPress()}>
-              <View style={styles.menuItem}>
-                <Icon
-                  source={item.icon}
-                  size={16}
-                  color={item.color || theme.colors.onSurface}
-                />
-                <Text
-                  style={[
-                    styles.menuItemText,
-                    { color: theme.colors.onSurface },
-                  ]}
-                >
-                  {item.label}
-                </Text>
-              </View>
-            </MenuOption>
-          ))}
-        </MenuOptions>
-      </Menu>
+      <PaperMenu
+        items={statsItems}
+        size="small"
+        renderTrigger={(openMenu) => (
+          <TouchableRipple onPress={openMenu}>
+            <View style={styles.infoButton}>
+              <Icon source="information" size={20} color={theme.colors.primary} />
+            </View>
+          </TouchableRipple>
+        )}
+      />
     );
   };
 

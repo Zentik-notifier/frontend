@@ -15,8 +15,8 @@ import * as Linking from "expo-linking";
 import React, { useEffect, useState } from "react";
 import { InteractionManager, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { MenuProvider } from "react-native-popup-menu";
 import "react-native-reanimated";
+import { Portal } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppProvider, useAppContext } from "../contexts/AppContext";
 import { NotificationToastProvider } from "../contexts/NotificationToastContext";
@@ -98,13 +98,13 @@ function AppContent() {
 
   return (
     <AppProvider>
-      <MenuProvider>
+      <Portal.Host>
         <DeepLinkHandler />
         <RequireAuth>
           {isMobile ? <MobileLayout /> : <TabletLayout />}
           {Platform.OS === "web" && <AlertDialog />}
         </RequireAuth>
-      </MenuProvider>
+      </Portal.Host>
     </AppProvider>
   );
 }

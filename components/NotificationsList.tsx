@@ -82,7 +82,8 @@ export default function NotificationsList({
   const queryClient = useQueryClient();
   const { hasUnreadNotifications } = useBadgeSync();
 
-  const [visibleItems, setVisibileItems] = useState<Set<string>>(new Set());
+  const [visibleItems] = useState<Set<string>>(new Set()); // kept for renderItem compat
+  const visibleItemsRef = useRef<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasUnreadAbove, setHasUnreadAbove] = useState(false);
   const [hasUnreadBelow, setHasUnreadBelow] = useState(false);
@@ -264,6 +265,10 @@ export default function NotificationsList({
   const listRef = useRef<any>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
+  // Use a ref for notifications to avoid recreating onViewableItemsChanged on every data change
+  const notificationsRef = useRef(notifications);
+  notificationsRef.current = notifications;
+
   const onViewableItemsChanged = useCallback(
     ({
       viewableItems,
@@ -272,11 +277,14 @@ export default function NotificationsList({
     }) => {
       const visibleIds = viewableItems.map((vi) => vi.item.id);
       const visibleSet = new Set(visibleIds);
-      setVisibileItems(visibleSet);
+      // Update ref only — no setState to avoid re-renders during scroll
+      visibleItemsRef.current = visibleSet;
       visibleIdsRef.current = visibleSet;
 
       // Aggiungi tutte le notifiche attualmente visibili al set di quelle mai visibili
       visibleIds.forEach((id) => everVisibleIdsRef.current.add(id));
+
+      const currentNotifications = notificationsRef.current;
 
       const firstVisibleItem = viewableItems[1];
       const lastVisibleItem = viewableItems[viewableItems.length - 1];
@@ -291,7 +299,7 @@ export default function NotificationsList({
 
         const isOnTop = firstIndex <= 2
 
-        const hasUnread = notifications
+        const hasUnread = currentNotifications
           .slice(0, firstIndex)
           .some((n: NotificationFragment) => !n.readAt);
         setHasUnreadAbove(hasUnread && !isOnTop);
@@ -306,14 +314,14 @@ export default function NotificationsList({
         setLastVisibleIndex(lastIndex);
 
         // Controlla se ci sono notifiche non lette dopo questo indice
-        const hasUnread = notifications
+        const hasUnread = currentNotifications
           .slice(lastIndex + 1)
           .some((n: NotificationFragment) => !n.readAt);
         setHasUnreadBelow(hasUnread);
       }
 
       try {
-        const secondId = notifications[1]?.id;
+        const secondId = currentNotifications[1]?.id;
         setShowScrollTop(secondId ? !visibleSet.has(secondId) : false);
       } catch {}
 
@@ -327,7 +335,7 @@ export default function NotificationsList({
         if (!didUserScrollRef.current) return;
         didUserScrollRef.current = false;
         const candidates: string[] = [];
-        for (const n of notifications) {
+        for (const n of notificationsRef.current) {
           if (everVisibleIdsRef.current.has(n.id) && !n.readAt) {
             candidates.push(n.id);
           }
@@ -344,7 +352,6 @@ export default function NotificationsList({
     [
       settings.notificationsPreferences?.markAsReadMode,
       batchMarkAsReadMutation,
-      notifications,
     ]
   );
 
@@ -439,7 +446,7 @@ export default function NotificationsList({
       return (
         <NotificationItem
           notification={item}
-          isItemVisible={visibleItems.has(item.id)}
+          isItemVisible={visibleItemsRef.current.has(item.id)}
           hideBucketInfo={hideBucketInfo}
           isMultiSelectionMode={selectionMode}
           isSelected={isSelected}
@@ -453,7 +460,6 @@ export default function NotificationsList({
       selectedItems,
       selectionMode,
       hideBucketInfo,
-      visibleItems,
       notificationVisualization.enableHtmlRendering,
     ]
   );
@@ -595,9 +601,8 @@ export default function NotificationsList({
           style={{ flex: 1 }}
           contentContainerStyle={{ flexGrow: 1 }}
           extraData={{
-            selectedItems: Array.from(selectedItems),
+            selectedItems: selectedItems.size,
             selectionMode,
-            visibleItems: Array.from(visibleItems),
           }}
           onViewableItemsChanged={onViewableItemsChanged}
           onScroll={() => {

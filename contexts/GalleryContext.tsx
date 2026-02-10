@@ -28,8 +28,6 @@ interface GalleryState {
   deleteLoading: boolean;
   showFiltersModal: boolean;
   filteredMedia: CacheItem[];
-  sections: GallerySection[];
-  flatOrder: CacheItem[];
 }
 
 type GalleryAction =
@@ -39,9 +37,7 @@ type GalleryAction =
   | { type: "CLEAR_SELECTION" }
   | { type: "SET_DELETE_LOADING"; payload: boolean }
   | { type: "SET_SHOW_FILTERS_MODAL"; payload: boolean }
-  | { type: "SET_FILTERED_MEDIA"; payload: CacheItem[] }
-  | { type: "SET_SECTIONS"; payload: GallerySection[] }
-  | { type: "SET_FLAT_ORDER"; payload: CacheItem[] };
+  | { type: "SET_FILTERED_MEDIA"; payload: CacheItem[] };
 
 // Initial state
 const initialState: GalleryState = {
@@ -50,8 +46,6 @@ const initialState: GalleryState = {
   deleteLoading: false,
   showFiltersModal: false,
   filteredMedia: [],
-  sections: [],
-  flatOrder: [],
 };
 
 // Reducer
@@ -84,10 +78,6 @@ function galleryReducer(
       return { ...state, showFiltersModal: action.payload };
     case "SET_FILTERED_MEDIA":
       return { ...state, filteredMedia: action.payload };
-    case "SET_SECTIONS":
-      return { ...state, sections: action.payload };
-    case "SET_FLAT_ORDER":
-      return { ...state, flatOrder: action.payload };
     default:
       return state;
   }
@@ -95,12 +85,10 @@ function galleryReducer(
 
 // Context
 interface GalleryContextType {
-  state: GalleryState;
+  state: GalleryState & { sections: GallerySection[]; flatOrder: CacheItem[] };
   dispatch: React.Dispatch<GalleryAction>;
   // Helper functions
   handleSetFilteredMedia: (media: CacheItem[]) => void;
-  handleSetSections: (sections: GallerySection[]) => void;
-  handleSetFlatOrder: (flatOrder: CacheItem[]) => void;
   handleToggleMultiSelection: () => void;
   handleToggleItemSelection: (itemId: string) => void;
   handleSelectAll: () => void;
@@ -129,13 +117,67 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
     dispatch({ type: "SET_FILTERED_MEDIA", payload: media });
   }, []);
 
-  const handleSetSections = useCallback((sections: GallerySection[]) => {
-    dispatch({ type: "SET_SECTIONS", payload: sections });
-  }, []);
+  // Derive sections and flatOrder from filteredMedia via useMemo (no duplication in state)
+  const { sections, flatOrder } = useMemo(() => {
+    const filteredMedia = state.filteredMedia;
+    if (filteredMedia.length === 0) {
+      return { sections: [] as GallerySection[], flatOrder: [] as CacheItem[] };
+    }
 
-  const handleSetFlatOrder = useCallback((flatOrder: CacheItem[]) => {
-    dispatch({ type: "SET_FLAT_ORDER", payload: flatOrder });
-  }, []);
+    // Group media by day
+    const mediaByDay = new Map<string, CacheItem[]>();
+    for (const media of filteredMedia) {
+      const ts = media.notificationDate || media.downloadedAt || Date.now();
+      const date = new Date(ts);
+      const dayKey = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime().toString();
+      if (!mediaByDay.has(dayKey)) {
+        mediaByDay.set(dayKey, []);
+      }
+      mediaByDay.get(dayKey)!.push(media);
+    }
+
+    // Sort media within each day (newest first)
+    const sortDesc = (a: CacheItem, b: CacheItem) =>
+      (b.notificationDate ?? 0) - (a.notificationDate ?? 0);
+    mediaByDay.forEach((items) => items.sort(sortDesc));
+
+    // Sort days (newest first)
+    const sortedDays = Array.from(mediaByDay.keys()).sort((a, b) => Number(b) - Number(a));
+
+    const buildRows = (items: CacheItem[]) => {
+      const rows: CacheItem[][] = [];
+      for (let i = 0; i < items.length; i += numColumns) {
+        rows.push(items.slice(i, i + numColumns));
+      }
+      return rows;
+    };
+
+    const userLocale = userSettings.settings.locale || 'en-EN';
+
+    const derivedSections = sortedDays.map((dayKey) => {
+      const items = mediaByDay.get(dayKey)!;
+      const date = new Date(Number(dayKey));
+      const formattedDate = new Intl.DateTimeFormat(userLocale, {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }).format(date);
+      const title = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
+      return { title, data: buildRows(items), key: dayKey };
+    });
+
+    const derivedFlatOrder = sortedDays.flatMap((dayKey) => mediaByDay.get(dayKey)!);
+
+    return { sections: derivedSections, flatOrder: derivedFlatOrder };
+  }, [state.filteredMedia, numColumns, userSettings.settings.locale]);
+
+  // Compose state with derived data for consumers
+  const stateWithDerived = useMemo(() => ({
+    ...state,
+    sections,
+    flatOrder,
+  }), [state, sections, flatOrder]);
 
   const handleToggleMultiSelection = useCallback(() => {
     dispatch({ type: "SET_SELECTION_MODE", payload: !state.selectionMode });
@@ -248,11 +290,9 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
   }, [state.selectedItems, state.filteredMedia, t]);
 
   const value: GalleryContextType = useMemo(() => ({
-    state,
+    state: stateWithDerived,
     dispatch,
     handleSetFilteredMedia,
-    handleSetSections,
-    handleSetFlatOrder,
     handleToggleMultiSelection,
     handleToggleItemSelection,
     handleSelectAll,
@@ -262,10 +302,8 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
     handleHideFiltersModal,
     handleDeleteSelected,
   }), [
-    state,
+    stateWithDerived,
     handleSetFilteredMedia,
-    handleSetSections,
-    handleSetFlatOrder,
     handleToggleMultiSelection,
     handleToggleItemSelection,
     handleSelectAll,
@@ -276,6 +314,7 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
     handleDeleteSelected,
   ]);
 
+  // Only compute filteredMedia from cachedItems — sections/flatOrder are derived via useMemo above
   useEffect(() => {
     const allWithIds = cachedItems.map((item) => ({
       ...item,
@@ -296,79 +335,12 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
       return true;
     });
 
-    // Group media by day
-    const mediaByDay = new Map<string, CacheItem[]>();
-    
-    for (const media of filteredMedia) {
-      const ts = media.notificationDate || media.downloadedAt || Date.now();
-      const date = new Date(ts);
-      // Get start of day (midnight) as key
-      const dayKey = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-      
-      if (!mediaByDay.has(dayKey.toString())) {
-        mediaByDay.set(dayKey.toString(), []);
-      }
-      mediaByDay.get(dayKey.toString())!.push(media);
-    }
-
-    // Sort media within each day (newest first)
-    const sortDesc = (a: CacheItem, b: CacheItem) =>
-      (b.notificationDate ?? 0) - (a.notificationDate ?? 0);
-    
-    mediaByDay.forEach((items) => items.sort(sortDesc));
-
-    // Sort days (newest first)
-    const sortedDays = Array.from(mediaByDay.keys()).sort((a, b) => Number(b) - Number(a));
-
-    const buildRows = (items: CacheItem[]) => {
-      const rows: CacheItem[][] = [];
-      for (let i = 0; i < items.length; i += numColumns) {
-        rows.push(items.slice(i, i + numColumns));
-      }
-      return rows;
-    };
-
-    // Get user's locale from settings or device
-    const userLocale = userSettings.settings.locale || 'en-EN';
-    const locale = userLocale.replace('-', '-'); // e.g., 'en-EN' -> 'en-EN', 'it-IT' -> 'it-IT'
-
-    // Create sections with localized long date format
-    const sections = sortedDays.map((dayKey) => {
-      const items = mediaByDay.get(dayKey)!;
-      const date = new Date(Number(dayKey));
-      
-      // Format date using Intl.DateTimeFormat with long format
-      const formattedDate = new Intl.DateTimeFormat(locale, {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }).format(date);
-      
-      // Capitalize first letter
-      const title = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
-      
-      return {
-        title,
-        data: buildRows(items),
-        key: dayKey,
-      };
-    });
-
-    // Flat order for fullscreen index mapping
-    const flatOrder: CacheItem[] = sortedDays.flatMap(
-      (dayKey) => mediaByDay.get(dayKey)!
-    );
-
     handleSetFilteredMedia(filteredMedia);
-    handleSetSections(sections);
-    handleSetFlatOrder(flatOrder);
   }, [
     cachedItems,
     userSettings.settings.galleryVisualization.selectedMediaTypes,
     userSettings.settings.galleryVisualization.showFaultyMedias,
-    numColumns,
-    t,
+    handleSetFilteredMedia,
   ]);
 
   return (

@@ -1,19 +1,11 @@
-import React, { useState } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useState } from "react";
+import { StyleSheet, TouchableOpacity } from "react-native";
 import {
   Icon,
-  List,
+  Menu,
   Surface,
-  Text,
-  TouchableRipple,
   useTheme,
 } from "react-native-paper";
-import {
-  Menu,
-  MenuTrigger,
-  MenuOptions,
-  MenuOption,
-} from "react-native-popup-menu";
 
 export interface PaperMenuItem {
   id: string;
@@ -30,131 +22,86 @@ export interface PaperMenuItem {
 }
 
 interface PaperMenuProps {
-  items: PaperMenuItem[];
+  /** Simple items mode */
+  items?: PaperMenuItem[];
+  onMenuItemPress?: (item: PaperMenuItem) => void;
+  /** Custom content mode (alternative to items) */
+  children?: React.ReactNode;
+  /** Controlled mode */
   opened?: boolean;
-  onBackdropPress?: () => void;
+  onOpenChange?: (open: boolean) => void;
+  /** Custom trigger as render prop (receives openMenu) */
+  renderTrigger?: (openMenu: () => void) => React.ReactNode;
+  /** Simple trigger content (wrapped in TouchableOpacity) */
+  customTrigger?: React.ReactNode;
   triggerIcon?: string;
   triggerSize?: number;
-  size?: "small" | "medium" | "large";
-  onMenuItemPress?: (item: PaperMenuItem) => void;
-  customTrigger?: React.ReactNode;
   triggerStyle?: any;
+  /** Appearance */
+  size?: "small" | "medium" | "large";
   menuStyle?: any;
-  menuOffset?: number; // ✅ Offset personalizzato per il posizionamento del menu
-  width?: number; // ✅ Width fissa del menu controllata dal parent
+  anchorPosition?: "top" | "bottom";
 }
 
 export default function PaperMenu({
   items,
+  children,
   opened,
-  onBackdropPress,
+  onOpenChange,
+  renderTrigger,
+  customTrigger,
   triggerIcon = "dots-vertical",
   triggerSize = 18,
   size = "medium",
   onMenuItemPress,
-  customTrigger,
   triggerStyle,
   menuStyle,
-  menuOffset = 0, // ✅ Default offset 0
-  width, // ✅ Width controllata dal parent
+  anchorPosition = "bottom",
 }: PaperMenuProps) {
   const theme = useTheme();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
 
-  // ✅ Usa stato interno se non fornito dall'esterno
-  const menuOpened = opened !== undefined ? opened : isMenuOpen;
-  const handleBackdropPress = () => {
-    if (onBackdropPress) {
-      onBackdropPress();
+  const isControlled = opened !== undefined;
+  const menuVisible = isControlled ? opened : internalOpen;
+
+  const openMenu = useCallback(() => {
+    if (isControlled) {
+      onOpenChange?.(true);
     } else {
-      setIsMenuOpen(false);
+      setInternalOpen(true);
     }
-  };
+  }, [isControlled, onOpenChange]);
 
-  const handleTriggerPress = () => {
-    if (opened === undefined) {
-      // ✅ Gestisci stato interno
-      setIsMenuOpen(!isMenuOpen);
-    }
-    // Se opened è fornito dall'esterno, il parent gestisce lo stato
-  };
-
-  const handleMenuItemPress = (item: PaperMenuItem) => {
-    if (onMenuItemPress) {
-      onMenuItemPress(item);
+  const closeMenu = useCallback(() => {
+    if (isControlled) {
+      onOpenChange?.(false);
     } else {
-      item.onPress();
+      setInternalOpen(false);
     }
+  }, [isControlled, onOpenChange]);
 
-    // ✅ Chiudi il menu dopo aver premuto un item
-    if (opened === undefined) {
-      setIsMenuOpen(false);
-    }
-  };
+  const handleMenuItemPress = useCallback(
+    (item: PaperMenuItem) => {
+      if (onMenuItemPress) {
+        onMenuItemPress(item);
+      } else {
+        item.onPress();
+      }
+      closeMenu();
+    },
+    [onMenuItemPress, closeMenu]
+  );
 
-  // ✅ Usa width dal parent se fornita, altrimenti calcola automaticamente
-  const getMenuWidth = () => {
-    if (width !== undefined) {
-      return width; // ✅ Width controllata dal parent
-    }
+  const getTextSize = () => ({ small: 14, medium: 16, large: 18 })[size];
+  const getTriggerSize = () => ({ small: 24, medium: 32, large: 40 })[size];
 
-    // ✅ Fallback: calcolo automatico
-    const longestItem = items.reduce((longest, item) =>
-      item.label.length > longest.label.length ? item : longest
-    );
-
-    // ✅ Calcolo più preciso della width
-    const iconWidth = 24; // spazio per icona
-    const padding = 16; // padding orizzontale totale
-    const charWidth = 10; // larghezza media carattere (più precisa)
-    const textWidth = longestItem.label.length * charWidth;
-
-    const calculatedWidth = iconWidth + padding + textWidth;
-
-    // ✅ Size scaling più conservativo
-    const sizeMultiplier = {
-      small: 0.9,
-      medium: 1.0,
-      large: 1.1,
-    }[size];
-
-    return Math.max(calculatedWidth * sizeMultiplier, 100); // minimo 100px
-  };
-
-  const getTextSize = () => {
-    const sizeMap = {
-      small: 14,
-      medium: 16,
-      large: 18,
-    };
-    return sizeMap[size];
-  };
-
-  const getPadding = () => {
-    const sizeMap = {
-      small: 2,
-      medium: 4,
-      large: 6,
-    };
-    return sizeMap[size];
-  };
-
-  const getTriggerSize = () => {
-    const sizeMap = {
-      small: 24,
-      medium: 32,
-      large: 40,
-    };
-    return sizeMap[size];
-  };
-
-  const defaultTrigger = (
+  const defaultTriggerContent = (
     <Surface
       style={[
         styles.trigger,
         {
           backgroundColor: theme.colors.surface,
-          borderWidth: 0, // ✅ Rimuove completamente il bordo
+          borderWidth: 0,
           width: getTriggerSize(),
           height: getTriggerSize(),
           borderRadius: getTriggerSize() / 2,
@@ -171,74 +118,46 @@ export default function PaperMenu({
     </Surface>
   );
 
+  const anchor = renderTrigger
+    ? renderTrigger(openMenu)
+    : (
+        <TouchableOpacity activeOpacity={0.7} onPress={openMenu}>
+          {customTrigger || defaultTriggerContent}
+        </TouchableOpacity>
+      );
+
   return (
-    <Menu opened={menuOpened} onBackdropPress={handleBackdropPress}>
-      <MenuTrigger
-        customStyles={{
-          TriggerTouchableComponent: TouchableOpacity,
-          triggerTouchable: {
-            activeOpacity: 0.7,
-          },
-        }}
-        onPress={handleTriggerPress}
-      >
-        {customTrigger || defaultTrigger}
-      </MenuTrigger>
-      <MenuOptions
-        customStyles={{
-          optionsContainer: [
-            styles.menuContainer,
-            {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.outlineVariant,
-              padding: getPadding(),
-              width: getMenuWidth(),
-              marginLeft: width !== undefined 
-                ? -(width / 2) + (getTriggerSize() / 2) + menuOffset
-                : -(getMenuWidth() / 2) + (getTriggerSize() / 2) + 20 + menuOffset,
-            },
-            menuStyle,
-          ],
-        }}
-      >
-        {items.map((item) => (
-          <MenuOption key={item.id} onSelect={() => handleMenuItemPress(item)}>
-            <Surface style={styles.menuItem} elevation={0}>
-              <TouchableRipple
-                onPress={() => handleMenuItemPress(item)}
-                style={styles.menuItemContent}
-              >
-                <View style={styles.menuItemInner}>
-                  <List.Icon
-                    icon={item.icon}
-                    color={
-                      item.type === "destructive"
-                        ? theme.colors.error
-                        : theme.colors.onSurface
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.menuItemText,
-                      {
-                        color:
-                          item.type === "destructive"
-                            ? theme.colors.error
-                            : theme.colors.onSurface,
-                        fontSize: getTextSize(),
-                      },
-                    ]}
-                    numberOfLines={2}
-                    ellipsizeMode="tail"
-                  >
-                    {item.label}
-                  </Text>
-                </View>
-              </TouchableRipple>
-            </Surface>
-          </MenuOption>
-        ))}
-      </MenuOptions>
+    <Menu
+      key={Number(menuVisible)}
+      visible={menuVisible}
+      onDismiss={closeMenu}
+      anchor={anchor}
+      anchorPosition={anchorPosition}
+      contentStyle={[
+        styles.menuContainer,
+        {
+          backgroundColor: theme.colors.surface,
+        },
+        menuStyle,
+      ]}
+    >
+      {children
+        ? children
+        : items?.map((item) => (
+            <Menu.Item
+              key={item.id}
+              onPress={() => handleMenuItemPress(item)}
+              title={item.label}
+              leadingIcon={item.icon}
+              titleStyle={{
+                color:
+                  item.type === "destructive"
+                    ? theme.colors.error
+                    : theme.colors.onSurface,
+                fontSize: getTextSize(),
+              }}
+            />
+          ))}
     </Menu>
   );
 }
@@ -250,22 +169,6 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     borderRadius: 8,
-    borderWidth: 1,
-  },
-  menuItem: {
-    backgroundColor: "transparent",
-  },
-  menuItemContent: {
-    flex: 1,
-  },
-  menuItemInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-  },
-  menuItemText: {
-    flex: 1,
-    marginLeft: 12,
+    paddingVertical: 0,
   },
 });

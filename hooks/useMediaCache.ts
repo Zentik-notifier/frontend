@@ -144,37 +144,39 @@ export function useGetCacheStats() {
   const [cachedItems, setCachedItems] = useState<CacheItem[]>([]);
   const [totalSizeBytes, setTotalSizeBytes] = useState(0);
 
-  const updateStats = useCallback(() => {
+  const updateAll = useCallback(() => {
     const { stats, items } = mediaCache.getCacheStats();
     setCacheStats(stats);
     setCachedItems(items);
+    // Single pass for size calculation — no extra Object.values() or filter
+    let size = 0;
+    for (let i = 0; i < items.length; i++) {
+      if (!items[i].isUserDeleted) {
+        size += items[i].size || 0;
+      }
+    }
+    setTotalSizeBytes(size);
   }, []);
 
   useEffect(() => {
-    updateStats();
+    updateAll();
 
-    // Single subscription: update stats and size together
+    // Single subscription: update stats and size together in one pass
     const metadataSub: Subscription = mediaCache.metadata$.subscribe(() => {
-      updateStats();
-      // Calculate size inline to avoid separate subscription
-      const items = Object.values(mediaCache.getMetadata());
-      const size = items
-        .filter(item => !item.isUserDeleted)
-        .reduce((sum, item) => sum + (item.size || 0), 0);
-      setTotalSizeBytes(size);
+      updateAll();
     });
 
     return () => {
       metadataSub.unsubscribe();
     };
-  }, [updateStats]);
+  }, [updateAll]);
 
   return {
     cacheStats,
     cachedItems,
     totalSizeBytes,
     totalSizeMB: totalSizeBytes / 1024 / 1024,
-    updateStats,
+    updateStats: updateAll,
   };
 }
 

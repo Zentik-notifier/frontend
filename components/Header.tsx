@@ -309,11 +309,6 @@ export default function Header() {
           elevated
           statusBarHeight={0}
           style={styles.appbar}
-          onTouchStart={() => {
-            if (isMenuOpen) {
-              setIsMenuOpen(false);
-            }
-          }}
         >
           <View style={styles.leftSection}>
             {/* Feedback Button - always visible */}

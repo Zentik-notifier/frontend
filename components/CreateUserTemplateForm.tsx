@@ -13,7 +13,7 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useRouter } from "expo-router";
-import Handlebars from "handlebars";
+import { compileTemplate } from "@/utils/simple-template";
 import React, { useEffect, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import {
@@ -168,21 +168,21 @@ export default function CreateUserTemplateForm({
         return;
       }
 
-      // Process all templates with input data using Handlebars
+      // Process all templates with input data
       const results: any = {};
       
       if (title.trim()) {
-        const compiledTitle = Handlebars.compile(title);
+        const compiledTitle = compileTemplate(title);
         results.title = compiledTitle(parsedInput);
       }
       
       if (subtitle.trim()) {
-        const compiledSubtitle = Handlebars.compile(subtitle);
+        const compiledSubtitle = compileTemplate(subtitle);
         results.subtitle = compiledSubtitle(parsedInput);
       }
       
       if (body.trim()) {
-        const compiledBody = Handlebars.compile(body);
+        const compiledBody = compileTemplate(body);
         results.body = compiledBody(parsedInput);
       }
 

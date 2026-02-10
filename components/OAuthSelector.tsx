@@ -10,15 +10,9 @@ import { useI18n } from "@/hooks/useI18n";
 import { useAppLog } from "@/hooks/useAppLog";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Device from "expo-device";
-import React, { useEffect, useState } from "react";
-import { Platform, StyleSheet, View } from "react-native";
-import { Button, Divider, Text, useTheme } from "react-native-paper";
-import {
-  MenuOption,
-  MenuOptions,
-  MenuTrigger,
-  Menu as PopupMenu,
-} from "react-native-popup-menu";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Dimensions, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Button, Divider, Menu, Portal, Surface, useTheme } from "react-native-paper";
 import OAuthProviderIcon from "./OAuthProviderIcon";
 
 type Props = {
@@ -32,7 +26,7 @@ export function OAuthSelector({ onProviderSelect, disabled, onSuccess }: Props) 
   const theme = useTheme();
   const { data } = usePublicAppConfigQuery({ fetchPolicy: "cache-first" });
   const providersSrc = data?.publicAppConfig.oauthProviders || [];
-  const [anchorWidth, setAnchorWidth] = useState(0);
+  const [menuVisible, setMenuVisible] = useState(false);
   const { completeAuth } = useAppContext();
   const [appleLoginMobile] = useAppleLoginMobileMutation();
   const [providers, setProviders] = useState<OAuthProviderPublicFragment[]>([]);
@@ -155,86 +149,107 @@ export function OAuthSelector({ onProviderSelect, disabled, onSuccess }: Props) 
     }
   };
 
+  const triggerRef = useRef<View>(null);
+  const [triggerMeasure, setTriggerMeasure] = useState({ x: 0, y: 0, width: 0, height: 0, windowHeight: 0 });
+
+  const openMenu = useCallback(() => {
+    triggerRef.current?.measureInWindow((x, y, width, height) => {
+      const windowHeight = Dimensions.get("window").height;
+      setTriggerMeasure({ x, y, width, height, windowHeight });
+      setMenuVisible(true);
+    });
+  }, []);
+
+  const MAX_DROPDOWN_HEIGHT = 240;
+
   return (
-    <View
-      style={styles.container}
-      onLayout={(e) => setAnchorWidth(e.nativeEvent.layout.width)}
-    >
-      <PopupMenu>
-        <MenuTrigger
-          customStyles={{ triggerWrapper: styles.fullWidth }}
+    <View style={styles.container}>
+      <View ref={triggerRef}>
+        <Button
+          mode="outlined"
+          style={styles.fullWidth}
+          onPress={openMenu}
           disabled={disabled || providers.length === 0}
         >
-          <View style={styles.fullWidth}>
-            <Button
-              mode="outlined"
-              style={styles.fullWidth}
-              pointerEvents="none"
+          {t("login.orContinueWith")}
+        </Button>
+      </View>
+
+      {menuVisible && (
+        <Portal>
+          <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+            {/* Backdrop */}
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setMenuVisible(false)}
+            />
+            {/* Dropdown above trigger */}
+            <Surface
+              elevation={3}
+              style={[
+                styles.dropdownSurface,
+                {
+                  left: triggerMeasure.x,
+                  width: triggerMeasure.width,
+                  bottom:
+                    triggerMeasure.windowHeight -
+                    triggerMeasure.y +
+                    4,
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.outlineVariant,
+                },
+              ]}
             >
-              {t("login.orContinueWith")}
-            </Button>
-          </View>
-        </MenuTrigger>
-        <MenuOptions
-          customStyles={{
-            optionsContainer: {
-              width: anchorWidth || undefined,
-              padding: 0,
-              marginTop: -52,
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.outlineVariant,
-              borderWidth: StyleSheet.hairlineWidth,
-            },
-          }}
-        >
-          {providers.map((p: any, idx: number) => (
-            <React.Fragment key={p.id}>
-              <MenuOption
-                onSelect={() => {
-                  if (p.type === OAuthProviderType.AppleSignin) {
-                    handleAppleSignIn();
-                  } else {
-                    onProviderSelect(p);
-                  }
-                }}
-              >
-                <View
-                  style={[
-                    styles.optionRow,
-                    { backgroundColor: theme.colors.surface },
-                  ]}
+              <View style={styles.dropdownInner}>
+                <ScrollView
+                  style={{ maxHeight: MAX_DROPDOWN_HEIGHT }}
+                  bounces={false}
+                  showsVerticalScrollIndicator
+                  persistentScrollbar
                 >
-                  <OAuthProviderIcon
-                    providerType={p.type}
-                    provider={p}
-                    size={28}
-                    iconSize={18}
-                    backgroundColor={p.color || theme.colors.primary}
-                    style={styles.iconWrapper}
-                  />
-                  <Text
-                    style={[
-                      styles.optionLabel,
-                      { color: theme.colors.onSurface },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {p.name}
-                  </Text>
-                </View>
-              </MenuOption>
-              {idx < providers.length - 1 && (
-                <Divider
-                  style={[
-                    styles.menuDivider,
-                    { backgroundColor: theme.colors.outlineVariant },
-                  ]}
-                />
-              )}
-            </React.Fragment>
-          ))}
-        </MenuOptions>
-      </PopupMenu>
+                {providers.map((p: any, idx: number) => (
+                  <React.Fragment key={p.id}>
+                    <Menu.Item
+                      onPress={() => {
+                        setMenuVisible(false);
+                        if (p.type === OAuthProviderType.AppleSignin) {
+                          handleAppleSignIn();
+                        } else {
+                          onProviderSelect(p);
+                        }
+                      }}
+                      title={p.name}
+                      leadingIcon={() => (
+                        <OAuthProviderIcon
+                          providerType={p.type}
+                          provider={p}
+                          size={28}
+                          iconSize={18}
+                          backgroundColor={p.color || theme.colors.primary}
+                          style={styles.iconWrapper}
+                        />
+                      )}
+                      titleStyle={{
+                        color: theme.colors.onSurface,
+                        fontSize: 16,
+                      }}
+                    />
+                    {idx < providers.length - 1 && (
+                      <Divider
+                        style={[
+                          styles.menuDivider,
+                          { backgroundColor: theme.colors.outlineVariant },
+                        ]}
+                      />
+                    )}
+                  </React.Fragment>
+                ))}
+              </ScrollView>
+              </View>
+            </Surface>
+          </View>
+        </Portal>
+      )}
     </View>
   );
 }
@@ -287,6 +302,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
+  },
+  dropdownSurface: {
+    position: "absolute",
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  dropdownInner: {
+    borderRadius: 8,
+    overflow: "hidden",
   },
   appleButtonWrapper: {
     width: "100%",

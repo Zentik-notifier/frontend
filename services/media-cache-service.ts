@@ -94,6 +94,7 @@ class MediaCacheService {
     private metadata: CacheMetadata = {};
     private repo?: MediaCacheRepository;
     private initializing = false;
+    private emitScheduled = false;
     public metadata$ = new BehaviorSubject<CacheMetadata>(this.metadata);
     private hasFilesystemPermission: boolean = true;
 
@@ -692,8 +693,18 @@ class MediaCacheService {
     }
 
     private emitMetadata(): void {
-        // Shallow clone — subscribers must treat as immutable
-        this.metadata$.next({ ...this.metadata });
+        // Debounce metadata emissions to avoid flooding subscribers
+        // Multiple rapid upserts (download start, complete, thumbnail start, thumbnail complete)
+        // are batched into a single emission per microtask cycle
+        if (!this.emitScheduled) {
+            this.emitScheduled = true;
+            // Use queueMicrotask for same-tick batching (faster than setTimeout)
+            queueMicrotask(() => {
+                this.emitScheduled = false;
+                // Shallow clone — subscribers must treat as immutable
+                this.metadata$.next({ ...this.metadata });
+            });
+        }
     }
 
     public async upsertItem(key: string, patch: Partial<CacheItem>) {

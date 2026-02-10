@@ -6,15 +6,10 @@ import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
 import { Image } from "expo-image";
 import { Linking, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Avatar, Icon, Surface, Text, useTheme } from "react-native-paper";
+import { Avatar, Icon, Menu, Surface, Text, TouchableRipple, useTheme } from "react-native-paper";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { VersionInfo } from "./VersionInfo";
-import {
-  Menu,
-  MenuOption,
-  MenuOptions,
-  MenuTrigger,
-} from "react-native-popup-menu";
+import PaperMenu from "./ui/PaperMenu";
 
 interface UserDropdownProps {
   isMenuOpen: boolean;
@@ -49,13 +44,8 @@ export default function UserDropdown({
     return "?";
   }
 
-
   function closeMenu() {
     setIsMenuOpen(false);
-  }
-
-  function toggleMenu() {
-    setIsMenuOpen(!isMenuOpen);
   }
 
   function getUserDisplayName() {
@@ -69,293 +59,178 @@ export default function UserDropdown({
 
   return (
     <Surface style={styles.container} elevation={2}>
-      <Menu opened={isMenuOpen} onBackdropPress={closeMenu}>
-        <MenuTrigger
-          customStyles={{
-            TriggerTouchableComponent: TouchableOpacity,
-            triggerTouchable: {
-              activeOpacity: 0.7,
-              style: { borderRadius: 18 },
+      <PaperMenu
+        opened={isMenuOpen}
+        onOpenChange={setIsMenuOpen}
+        anchorPosition="bottom"
+        menuStyle={{
+          borderRadius: 12,
+        }}
+        renderTrigger={(openMenu) => (
+          <TouchableOpacity activeOpacity={0.7} onPress={openMenu}>
+            <View style={[styles.avatarButton, { borderRadius: 18 }]}>
+              {user?.avatar && !showInitials ? (
+                <Image
+                  source={{ uri: user.avatar }}
+                  style={styles.avatarImage}
+                  cachePolicy="none"
+                  recyclingKey={`user-avatar-${user.id}`}
+                />
+              ) : (
+                <Avatar.Text label={getInitials()} size={36} />
+              )}
+              <View style={styles.dropdownIcon}>
+                <Icon
+                  source="chevron-down"
+                  size={16}
+                  color={theme.colors.onSurface}
+                />
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+      >
+        {/* User Header */}
+        <View
+          style={[
+            styles.userInfo,
+            {
+              borderBottomColor: theme.colors.outlineVariant,
+              backgroundColor: theme.colors.surfaceVariant,
             },
-          }}
-          onPress={toggleMenu}
+          ]}
         >
-          <View style={[styles.avatarButton, { borderRadius: 18 }]}>
-            {user?.avatar && !showInitials ? (
-              <Image
-                source={{ uri: user.avatar }}
-                style={styles.avatarImage}
-                cachePolicy="none"
-                recyclingKey={`user-avatar-${user.id}`}
-              />
-            ) : (
-              <Avatar.Text label={getInitials()} size={36} />
-            )}
-            <View style={styles.dropdownIcon}>
-              <Icon
-                source="chevron-down"
-                size={16}
-                color={theme.colors.onSurface}
-              />
-            </View>
+          <View style={styles.userDetails}>
+            <Text
+              variant="titleMedium"
+              style={[
+                styles.userDisplayName,
+                { color: theme.colors.onSurface },
+              ]}
+              numberOfLines={1}
+            >
+              {getUserDisplayName()}
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={[
+                styles.userEmail,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+              numberOfLines={1}
+            >
+              {user?.email || t("userDropdown.offlineMode")}
+            </Text>
           </View>
-        </MenuTrigger>
-        <MenuOptions
-          optionsContainerStyle={{
-            backgroundColor: theme.colors.surface,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: theme.colors.outlineVariant,
-            marginTop: 55,
+        </View>
+
+        {/* Getting Started */}
+        <Menu.Item
+          onPress={() => {
+            showOnboarding();
+            closeMenu();
           }}
+          title={t("userDropdown.gettingStarted")}
+          leadingIcon="help-circle-outline"
+          titleStyle={{ color: theme.colors.onSurface }}
+        />
+
+        {/* Documentation */}
+        <Menu.Item
+          onPress={() => {
+            Linking.openURL("https://notifier-docs.zentik.app");
+            closeMenu();
+          }}
+          title={t("userDropdown.documentation")}
+          leadingIcon="book-outline"
+          titleStyle={{ color: theme.colors.onSurface }}
+        />
+
+        {/* Theme Toggle */}
+        <TouchableRipple
+          onPress={() => {
+            const next = themeMode === "system" ? "light" : themeMode === "light" ? "dark" : "system";
+            setThemeMode(next);
+          }}
+          style={styles.themeToggleRow}
         >
-          {/* User Header */}
-          <View
-            style={[
-              styles.userInfo,
-              {
-                borderBottomColor: theme.colors.outlineVariant,
-                backgroundColor: theme.colors.surfaceVariant,
-              },
-            ]}
-          >
-            <View style={styles.userDetails}>
-              <Text
-                variant="titleMedium"
-                style={[
-                  styles.userDisplayName,
-                  { color: theme.colors.onSurface },
-                ]}
-                numberOfLines={1}
-              >
-                {getUserDisplayName()}
-              </Text>
-              <Text
-                variant="bodySmall"
-                style={[
-                  styles.userEmail,
-                  { color: theme.colors.onSurfaceVariant },
-                ]}
-                numberOfLines={1}
-              >
-                {user?.email || t("userDropdown.offlineMode")}
-              </Text>
-            </View>
-          </View>
+          <ThemeSwitcher variant="inline" />
+        </TouchableRipple>
 
-          {/* Getting Started */}
-          <MenuOption
-            onSelect={() => {
-              showOnboarding();
+        {/* Settings */}
+        <Menu.Item
+          onPress={() => {
+            navigateToSettings();
+            closeMenu();
+          }}
+          title={t("userDropdown.settings")}
+          leadingIcon="cog"
+          titleStyle={{ color: theme.colors.onSurface }}
+        />
+
+        {/* Self-service - Only show if enabled in server settings */}
+        {providersData?.publicAppConfig?.systemTokenRequestsEnabled && (
+          <Menu.Item
+            onPress={() => {
+              navigateToSelfService();
               closeMenu();
             }}
-          >
-            <View
-              style={[
-                styles.menuItem,
-                { backgroundColor: theme.colors.surface },
-              ]}
-            >
-              <Icon
-                source="help-circle-outline"
-                size={20}
-                color={theme.colors.onSurface}
-              />
-              <Text
-                style={[styles.menuItemText, { color: theme.colors.onSurface }]}
-              >
-                {t("userDropdown.gettingStarted")}
-              </Text>
-            </View>
-          </MenuOption>
+            title="Self Service"
+            leadingIcon="tools"
+            titleStyle={{ color: theme.colors.onSurface }}
+          />
+        )}
 
-          {/* Documentation */}
-          <MenuOption
-            onSelect={() => {
-              Linking.openURL("https://notifier-docs.zentik.app");
+        {/* Administration (Admin only) */}
+        {user?.role === UserRole.Admin && (
+          <Menu.Item
+            onPress={() => {
+              navigateToAdmin();
               closeMenu();
             }}
-          >
-            <View
-              style={[
-                styles.menuItem,
-                { backgroundColor: theme.colors.surface },
-              ]}
-            >
-              <Icon
-                source="book-outline"
-                size={20}
-                color={theme.colors.onSurface}
-              />
-              <Text
-                style={[styles.menuItemText, { color: theme.colors.onSurface }]}
-              >
-                {t("userDropdown.documentation")}
-              </Text>
-            </View>
-          </MenuOption>
+            title={t("userDropdown.administration")}
+            leadingIcon="shield-outline"
+            titleStyle={{ color: theme.colors.onSurface }}
+          />
+        )}
 
-          {/* Theme Toggle */}
-          <MenuOption
-            onSelect={() => {
-              const next = themeMode === "system" ? "light" : themeMode === "light" ? "dark" : "system";
-              setThemeMode(next);
-            }}
-          >
-            <View
-              style={[
-                styles.menuItem,
-                { backgroundColor: theme.colors.surface },
-              ]}
-            >
-              <ThemeSwitcher variant="inline" />
-            </View>
-          </MenuOption>
-
-          {/* Settings */}
-          <MenuOption
-            onSelect={() => {
-              navigateToSettings();
+        {/* Changelogs (Admin only) */}
+        {user?.role === UserRole.Admin && (
+          <Menu.Item
+            onPress={() => {
+              openChangelogModal();
               closeMenu();
             }}
-          >
-            <View
-              style={[
-                styles.menuItem,
-                { backgroundColor: theme.colors.surface },
-              ]}
-            >
-              <Icon source="cog" size={20} color={theme.colors.onSurface} />
-              <Text
-                style={[styles.menuItemText, { color: theme.colors.onSurface }]}
-              >
-                {t("userDropdown.settings")}
-              </Text>
-            </View>
-          </MenuOption>
+            title={t("userDropdown.changelog")}
+            leadingIcon="new-box"
+            titleStyle={{ color: theme.colors.onSurface }}
+          />
+        )}
 
-          {/* Self-service - Only show if enabled in server settings */}
-          {providersData?.publicAppConfig?.systemTokenRequestsEnabled && (
-            <MenuOption
-              onSelect={() => {
-                navigateToSelfService();
-                closeMenu();
-              }}
-            >
-              <View
-                style={[
-                  styles.menuItem,
-                  { backgroundColor: theme.colors.surface },
-                ]}
-              >
-                <Icon source="tools" size={20} color={theme.colors.onSurface} />
-                <Text
-                  style={[styles.menuItemText, { color: theme.colors.onSurface }]}
-                >
-                  Self Service
-                </Text>
-              </View>
-            </MenuOption>
-          )}
+        {/* Logout */}
+        <Menu.Item
+          onPress={() => {
+            logout();
+            closeMenu();
+          }}
+          title={t("userDropdown.logout")}
+          leadingIcon="logout"
+          titleStyle={{ color: theme.colors.error }}
+        />
 
-          {/* Administration (Admin only) */}
-          {user?.role === UserRole.Admin && (
-            <MenuOption
-              onSelect={() => {
-                navigateToAdmin();
-                closeMenu();
-              }}
-            >
-              <View
-                style={[
-                  styles.menuItem,
-                  { backgroundColor: theme.colors.surface },
-                ]}
-              >
-                <Icon
-                  source="shield-outline"
-                  size={20}
-                  color={theme.colors.onSurface}
-                />
-                <Text
-                  style={[
-                    styles.menuItemText,
-                    { color: theme.colors.onSurface },
-                  ]}
-                >
-                  {t("userDropdown.administration")}
-                </Text>
-              </View>
-            </MenuOption>
-          )}
-
-          {/* Changelogs (Admin only) */}
-          {user?.role === UserRole.Admin && (
-            <MenuOption
-              onSelect={() => {
-                openChangelogModal();
-                closeMenu();
-              }}
-            >
-              <View
-                style={[
-                  styles.menuItem,
-                  { backgroundColor: theme.colors.surface },
-                ]}
-              >
-                <Icon
-                  source="new-box"
-                  size={20}
-                  color={theme.colors.onSurface}
-                />
-                <Text
-                  style={[
-                    styles.menuItemText,
-                    { color: theme.colors.onSurface },
-                  ]}
-                >
-                  {t("userDropdown.changelog")}
-                </Text>
-              </View>
-            </MenuOption>
-          )}
-
-          {/* Logout */}
-          <MenuOption
-            onSelect={() => {
-              logout();
-              closeMenu();
-            }}
-          >
-            <View
-              style={[
-                styles.menuItem,
-                { backgroundColor: theme.colors.surface },
-              ]}
-            >
-              <Icon source="logout" size={20} color={theme.colors.error} />
-              <Text
-                style={[styles.menuItemText, { color: theme.colors.error }]}
-              >
-                {t("userDropdown.logout")}
-              </Text>
-            </View>
-          </MenuOption>
-
-          {/* Version Info Footer */}
-          <View
-            style={[
-              styles.versionInfoBox,
-              {
-                backgroundColor: theme.colors.surfaceVariant,
-                borderTopColor: theme.colors.outlineVariant,
-              },
-            ]}
-          >
-            <VersionInfo compact />
-          </View>
-        </MenuOptions>
-      </Menu>
+        {/* Version Info Footer */}
+        <View
+          style={[
+            styles.versionInfoBox,
+            {
+              backgroundColor: theme.colors.surfaceVariant,
+              borderTopColor: theme.colors.outlineVariant,
+            },
+          ]}
+        >
+          <VersionInfo compact />
+        </View>
+      </PaperMenu>
     </Surface>
   );
 }
@@ -430,5 +305,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
+  },
+  themeToggleRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
 });
