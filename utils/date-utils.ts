@@ -3,6 +3,14 @@ export function parseISO(dateString: string): Date {
   return d;
 }
 
+export function toDate(input: Date | string | number): Date {
+  if (input instanceof Date) return input;
+  if (typeof input === 'number') return new Date(input);
+  const num = Number(input);
+  if (!Number.isNaN(num) && String(input).trim() === String(num)) return new Date(num);
+  return new Date(input);
+}
+
 export function isValid(d: Date): boolean {
   return !isNaN(d.getTime());
 }

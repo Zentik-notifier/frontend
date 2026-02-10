@@ -1,12 +1,11 @@
 import { mediaCache } from "@/services/media-cache-service";
 import { saveMediaToGallery } from "@/services/media-gallery";
 import { useEvent } from "expo";
-import { useAudioPlayer } from "expo-audio";
+import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import * as Clipboard from "expo-clipboard";
 import {
   Image as ExpoImage,
   ImageContentFit,
-  ImageProps,
   ImageStyle,
 } from "expo-image";
 import * as Sharing from "expo-sharing";
@@ -53,40 +52,27 @@ interface CachedMediaProps {
   useThumbnail?: boolean;
   autoPlay?: boolean;
   showControls?: boolean;
-  cache?: boolean;
   contentFit?: ImageContentFit;
   disableLongPress?: boolean;
 }
 
-export const CachedMedia = React.memo(function CachedMedia({
-  url,
-  mediaType,
-  style,
-  originalFileName,
-  notificationDate,
-  onPress: onPressParent,
-  isCompact,
-  showMediaIndicator,
-  useThumbnail,
-  autoPlay,
-  cache,
-  showControls,
-  contentFit = "cover",
-  disableLongPress = false,
-}: CachedMediaProps) {
+const CachedMediaVideo = React.memo(function CachedMediaVideo(props: CachedMediaProps) {
+  const {
+    url,
+    mediaType,
+    style,
+    originalFileName,
+    notificationDate,
+    onPress: onPressParent,
+    isCompact,
+    showMediaIndicator,
+    autoPlay,
+    showControls,
+    disableLongPress = false,
+  } = props;
   const { t } = useI18n();
   const theme = useTheme();
-  const [audioState, setAudioState] = useState({
-    isLoaded: false,
-    duration: 0,
-    currentTime: 0,
-  });
-  const [isSeeking, setIsSeeking] = useState(false);
-  const [seekTime, setSeekTime] = useState(0);
-  const [videoSize, setVideoSize] = useState<{
-    width: number;
-    height: number;
-  } | null>(null);
+  const [videoSize, setVideoSize] = useState<{ width: number; height: number } | null>(null);
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
 
   const {
@@ -97,34 +83,25 @@ export const CachedMedia = React.memo(function CachedMedia({
     forceDownload,
     remove,
   } = useCachedItem(url, mediaType, {
-    priority: useThumbnail ? 3 : 7, // Priorità più alta per media completi
+    priority: 7,
     notificationDate,
   });
 
-  const isVideoType = mediaType === MediaType.Video && !useThumbnail;
-  const isAudioType = mediaType === MediaType.Audio && !useThumbnail;
   const localSource = mediaSource?.localPath;
-  const videoSource = localSource && isVideoType ? localSource : null;
-
-  const supportsThumbnail = mediaCache.isThumbnailSupported(mediaType);
+  const videoSource = localSource || null;
 
   const videoPlayer = useVideoPlayer(videoSource || "", (player) => {
     if (videoSource) {
       player.loop = true;
       player.muted = true;
-
-      if (autoPlay) {
-        player.play();
-      }
+      if (autoPlay) player.play();
     }
   });
 
-  // Get video dimensions when video track changes
   const { videoTrack } = useEvent(videoPlayer, "videoTrackChange", {
     videoTrack: videoPlayer.videoTrack,
   });
 
-  // Update video size when track changes
   useEffect(() => {
     if (videoTrack?.size) {
       setVideoSize({
@@ -134,21 +111,720 @@ export const CachedMedia = React.memo(function CachedMedia({
     }
   }, [videoTrack]);
 
-  const { status: videoStatus, error: videoError } = useEvent(
-    videoPlayer,
-    "statusChange",
-    {
-      status: videoPlayer.status,
-    }
-  );
+  const { status: videoStatus } = useEvent(videoPlayer, "statusChange", {
+    status: videoPlayer.status,
+  });
   const isVideoError = videoSource && videoStatus === "error";
   const isVideoLoading = videoSource && videoStatus === "loading";
 
   useEffect(() => {
-    if (isVideoError && videoError) {
-      // mediaCache.markAsPermanentFailure(url, mediaType, videoError.message);
+    if (videoSource && videoPlayer) {
+      videoPlayer
+        .replaceAsync(videoSource)
+        .then(() => {
+          if (autoPlay) videoPlayer.play();
+        })
+        .catch((error) => {
+          console.error("Failed to update video player source:", error);
+        });
     }
-  }, [videoSource, videoError]);
+  }, [videoSource, videoPlayer, autoPlay]);
+
+  const handleFrameClick = useCallback(
+    async (event?: any) => {
+      if (!isContextMenuOpen) onPressParent?.();
+    },
+    [onPressParent, isContextMenuOpen]
+  );
+
+  const handleLongPress = useCallback(() => setIsContextMenuOpen(true), []);
+  const handleCloseContextMenu = useCallback(() => setIsContextMenuOpen(false), []);
+
+  const handleCopyUrl = useCallback(async () => {
+    try {
+      await Clipboard.setStringAsync(url);
+      handleCloseContextMenu();
+    } catch (error) {
+      console.error("Failed to copy URL:", error);
+    }
+  }, [url, handleCloseContextMenu]);
+
+  const handleShare = useCallback(async () => {
+    try {
+      if (Platform.OS === "web") {
+        Alert.alert(t("common.error"), t("common.notAvailableOnWeb"));
+        handleCloseContextMenu();
+        return;
+      }
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        Alert.alert(t("common.error"), t("common.shareNotAvailable"));
+        handleCloseContextMenu();
+        return;
+      }
+      const localPath = mediaSource?.localPath;
+      if (localPath) {
+        await Sharing.shareAsync(localPath);
+      } else {
+        Alert.alert(t("common.error"), t("common.unableToShare"));
+      }
+      handleCloseContextMenu();
+    } catch (error) {
+      console.error("Failed to share:", error);
+      Alert.alert(t("common.error"), t("common.unableToShare"));
+      handleCloseContextMenu();
+    }
+  }, [mediaSource?.localPath, t, handleCloseContextMenu]);
+
+  const handleDeleteCachedMedia = useCallback(
+    async (event?: any) => {
+      event?.stopPropagation?.();
+      await remove();
+    },
+    [remove]
+  );
+
+  const handleForceDownload = useCallback(
+    async (event?: any) => {
+      event?.stopPropagation?.();
+      await forceDownload();
+    },
+    [forceDownload]
+  );
+
+  const contextMenuItems = useMemo(() => {
+    const items: Array<{ id: string; label: string; icon: string; onPress: () => void }> = [
+      { id: "copy", label: t("common.copy"), icon: "content-copy", onPress: handleCopyUrl },
+    ];
+    if (Platform.OS !== "web" && mediaSource?.localPath) {
+      items.push({
+        id: "share",
+        label: t("buckets.sharing.share"),
+        icon: "share",
+        onPress: handleShare,
+      });
+    }
+    return items;
+  }, [mediaType, mediaSource?.localPath, t, handleCopyUrl, handleShare]);
+
+  const stateColors = {
+    loading: theme.colors.onSurfaceVariant,
+    downloading: theme.colors.primary,
+    deleted: theme.colors.primary,
+    failed: theme.colors.error,
+    videoError: theme.colors.tertiary,
+  };
+  const stateBackgrounds = {
+    loading: theme.colors.surfaceVariant,
+    downloading: theme.colors.primaryContainer,
+    deleted: theme.colors.surface,
+    failed: theme.colors.errorContainer,
+    videoError: theme.colors.tertiaryContainer,
+  };
+
+  const getStateContainerStyle = (stateType: keyof typeof stateColors) => {
+    const baseStyle = isCompact ? defaultStyles.stateContainerCompact : defaultStyles.stateContainer;
+    if (!isCompact) {
+      return [
+        baseStyle,
+        {
+          backgroundColor: stateBackgrounds[stateType],
+          borderColor: stateColors[stateType],
+          borderStyle: "dashed",
+        },
+        style,
+      ];
+    }
+    return [baseStyle, style];
+  };
+
+  const renderForceDownloadButton = (icon: string, withDelete?: boolean) => {
+    const primaryColor = theme.colors.primary;
+    const errorColor = theme.colors.error;
+    const onPrimaryColor = theme.colors.onPrimary;
+    const onErrorColor = theme.colors.onError;
+    return (
+      <View style={defaultStyles.buttonContainer}>
+        <Pressable
+          onPress={handleForceDownload}
+          style={[
+            defaultStyles.actionButton,
+            isCompact ? { backgroundColor: "transparent" } : { backgroundColor: primaryColor },
+            isCompact ? defaultStyles.compactButton : defaultStyles.rectangularButton,
+          ]}
+        >
+          <Icon
+            source={icon}
+            size={isCompact ? 25 : 20}
+            color={isCompact ? primaryColor : onPrimaryColor}
+          />
+          {!isCompact && (
+            <Text style={[defaultStyles.buttonText, { color: onPrimaryColor }]}>
+              {t("cachedMedia.forceDownload")}
+            </Text>
+          )}
+        </Pressable>
+        {withDelete && !isCompact && (
+          <Pressable
+            onPress={handleDeleteCachedMedia}
+            style={[
+              defaultStyles.actionButton,
+              defaultStyles.rectangularButton,
+              { backgroundColor: errorColor },
+            ]}
+          >
+            <Icon source="delete" size={20} color={onErrorColor} />
+            <Text style={[defaultStyles.buttonText, { color: onErrorColor }]}>
+              {t("cachedMedia.delete")}
+            </Text>
+          </Pressable>
+        )}
+      </View>
+    );
+  };
+
+  const canShowContextMenu = !!(mediaSource?.localPath || mediaSource?.localThumbPath);
+
+  const renderContent = () => {
+    if (isLoading || isVideoLoading) {
+      return (
+        <View style={getStateContainerStyle("downloading") as any}>
+          <ActivityIndicator size="small" color={stateColors.downloading} />
+          {!isCompact && (
+            <Text style={[defaultStyles.stateText, { color: stateColors.downloading }]}>
+              {isLoading ? t("cachedMedia.downloadProgress") : t("cachedMedia.loadingProgress")}
+            </Text>
+          )}
+        </View>
+      );
+    }
+    if (isError || isVideoError) {
+      return (
+        <View
+          style={[
+            getStateContainerStyle("failed") as any,
+            defaultStyles.stateContent,
+            { borderColor: stateColors.failed },
+          ]}
+        >
+          {renderForceDownloadButton("alert-circle-outline", true)}
+        </View>
+      );
+    }
+    if (isDeleted) {
+      return (
+        <View
+          style={[
+            getStateContainerStyle("deleted") as any,
+            defaultStyles.stateContent,
+            { borderColor: stateColors.failed },
+          ]}
+        >
+          {renderForceDownloadButton("refresh", false)}
+        </View>
+      );
+    }
+    if (!mediaSource?.localPath) {
+      return (
+        <View
+          style={[
+            getStateContainerStyle("deleted") as any,
+            defaultStyles.stateContent,
+            { color: stateColors.failed },
+          ]}
+        >
+          {renderForceDownloadButton("download", false)}
+        </View>
+      );
+    }
+    return (
+      <View
+        style={{
+          position: "relative",
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <VideoView
+          style={
+            isCompact
+              ? [defaultStyles.stateContainerCompact, style]
+              : [
+                  style,
+                  {
+                    position: "relative",
+                    maxWidth: "100%",
+                    maxHeight: "100%",
+                    aspectRatio: videoSize ? videoSize.width / videoSize.height : 16 / 9,
+                    ...(videoSize &&
+                      !isCompact && {
+                        width: Math.min(videoSize.width, 400),
+                        height: Math.min(videoSize.height, 300),
+                      }),
+                  },
+                ]
+          }
+          player={videoPlayer}
+          nativeControls={showControls && !isCompact}
+          allowsPictureInPicture={showControls}
+          fullscreenOptions={{
+            enable: !!showControls && !isCompact,
+            orientation: "default",
+            autoExitOnRotate: false,
+          }}
+        />
+        {!showControls && (
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            onPress={handleFrameClick}
+            onLongPress={disableLongPress ? undefined : handleLongPress}
+            activeOpacity={1}
+          />
+        )}
+      </View>
+    );
+  };
+
+  return (
+    <View style={style}>
+      {renderContent()}
+      {showMediaIndicator &&
+        (isCompact ? (
+          <View style={defaultStyles.smallTypeIndicator}>
+            <MediaTypeIcon mediaType={MediaType.Video} size={12} secondary />
+          </View>
+        ) : (
+          <View style={defaultStyles.typeIndicator}>
+            <MediaTypeIcon mediaType={MediaType.Video} size={20} secondary />
+          </View>
+        ))}
+      {canShowContextMenu && (
+        <Modal
+          visible={isContextMenuOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseContextMenu}
+        >
+          <View style={defaultStyles.modalContent}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={handleCloseContextMenu}
+            />
+            <Surface
+              style={[
+                defaultStyles.contextMenu,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.outlineVariant,
+                },
+              ]}
+              elevation={4}
+            >
+              <View style={defaultStyles.contextMenuInner}>
+                {contextMenuItems.map((item) => (
+                  <TouchableRipple
+                    key={item.id}
+                    onPress={item.onPress}
+                    style={defaultStyles.contextMenuItem}
+                  >
+                    <View style={defaultStyles.contextMenuItemContent}>
+                      <List.Icon icon={item.icon} color={theme.colors.onSurface} />
+                      <Text
+                        style={[
+                          defaultStyles.contextMenuItemText,
+                          { color: theme.colors.onSurface },
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+                    </View>
+                  </TouchableRipple>
+                ))}
+              </View>
+            </Surface>
+          </View>
+        </Modal>
+      )}
+    </View>
+  );
+});
+
+const CachedMediaAudio = React.memo(function CachedMediaAudio(props: CachedMediaProps) {
+  const {
+    url,
+    mediaType,
+    style,
+    originalFileName,
+    notificationDate,
+    onPress: onPressParent,
+    isCompact,
+    showMediaIndicator,
+    showControls,
+    disableLongPress = false,
+  } = props;
+  const { t } = useI18n();
+  const theme = useTheme();
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [seekTime, setSeekTime] = useState(0);
+  const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
+
+  const {
+    item: mediaSource,
+    isLoading,
+    isError,
+    isDeleted,
+    forceDownload,
+    remove,
+  } = useCachedItem(url, mediaType, {
+    priority: 7,
+    notificationDate,
+  });
+
+  const localSource = mediaSource?.localPath;
+  const audioPlayer = useAudioPlayer(localSource || "");
+  const audioStatus = useAudioPlayerStatus(audioPlayer);
+  const audioState = {
+    isLoaded: audioStatus?.isLoaded ?? false,
+    duration: audioStatus?.duration ?? 0,
+    currentTime: audioStatus?.currentTime ?? 0,
+  };
+
+  const handleFrameClick = useCallback(
+    async (event?: any) => {
+      if (!isContextMenuOpen) onPressParent?.();
+    },
+    [onPressParent, isContextMenuOpen]
+  );
+
+  const handleLongPress = useCallback(() => setIsContextMenuOpen(true), []);
+  const handleCloseContextMenu = useCallback(() => setIsContextMenuOpen(false), []);
+
+  const handleCopyUrl = useCallback(async () => {
+    try {
+      await Clipboard.setStringAsync(url);
+      handleCloseContextMenu();
+    } catch (error) {
+      console.error("Failed to copy URL:", error);
+    }
+  }, [url, handleCloseContextMenu]);
+
+  const handleShare = useCallback(async () => {
+    try {
+      if (Platform.OS === "web") {
+        Alert.alert(t("common.error"), t("common.notAvailableOnWeb"));
+        handleCloseContextMenu();
+        return;
+      }
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        Alert.alert(t("common.error"), t("common.shareNotAvailable"));
+        handleCloseContextMenu();
+        return;
+      }
+      const localPath = mediaSource?.localPath;
+      if (localPath) {
+        await Sharing.shareAsync(localPath);
+      } else {
+        Alert.alert(t("common.error"), t("common.unableToShare"));
+      }
+      handleCloseContextMenu();
+    } catch (error) {
+      console.error("Failed to share:", error);
+      Alert.alert(t("common.error"), t("common.unableToShare"));
+      handleCloseContextMenu();
+    }
+  }, [mediaSource?.localPath, t, handleCloseContextMenu]);
+
+  const handleDeleteCachedMedia = useCallback(
+    async (event?: any) => {
+      event?.stopPropagation?.();
+      await remove();
+    },
+    [remove]
+  );
+
+  const handleForceDownload = useCallback(
+    async (event?: any) => {
+      event?.stopPropagation?.();
+      await forceDownload();
+    },
+    [forceDownload]
+  );
+
+  const handleSeek = useCallback(
+    (time: number) => {
+      if (audioPlayer && audioState.duration > 0) {
+        audioPlayer.seekTo(time);
+        setSeekTime(time);
+      }
+    },
+    [audioPlayer, audioState.duration]
+  );
+
+  const renderSeekBar = () => {
+    if (!audioState.isLoaded || audioState.duration <= 0) return null;
+    const progress = isSeeking
+      ? (seekTime / audioState.duration) * 100
+      : (audioState.currentTime / audioState.duration) * 100;
+    const panResponder = PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        setIsSeeking(true);
+        const { locationX } = evt.nativeEvent;
+        const seekBarWidth = 200;
+        const newSeekTime = (locationX / seekBarWidth) * audioState.duration;
+        setSeekTime(Math.max(0, Math.min(audioState.duration, newSeekTime)));
+      },
+      onPanResponderMove: (evt) => {
+        const { locationX } = evt.nativeEvent;
+        const seekBarWidth = 200;
+        const newSeekTime = (locationX / seekBarWidth) * audioState.duration;
+        setSeekTime(Math.max(0, Math.min(audioState.duration, newSeekTime)));
+      },
+      onPanResponderRelease: () => {
+        handleSeek(seekTime);
+        setIsSeeking(false);
+      },
+    });
+    return (
+      <View style={defaultStyles.seekBarContainer}>
+        <View style={defaultStyles.seekBar} {...panResponder.panHandlers}>
+          <View style={defaultStyles.seekBarTrack}>
+            <View style={[defaultStyles.seekBarProgress, { width: `${progress}%` }]} />
+          </View>
+          <View style={[defaultStyles.seekBarThumb, { left: `${progress}%` }]} />
+        </View>
+      </View>
+    );
+  };
+
+  const stateColors = {
+    loading: theme.colors.onSurfaceVariant,
+    downloading: theme.colors.primary,
+    deleted: theme.colors.primary,
+    failed: theme.colors.error,
+    videoError: theme.colors.tertiary,
+  };
+  const stateBackgrounds = {
+    loading: theme.colors.surfaceVariant,
+    downloading: theme.colors.primaryContainer,
+    deleted: theme.colors.surface,
+    failed: theme.colors.errorContainer,
+    videoError: theme.colors.tertiaryContainer,
+  };
+
+  const getStateContainerStyle = (stateType: keyof typeof stateColors) => {
+    const baseStyle = isCompact ? defaultStyles.stateContainerCompact : defaultStyles.stateContainer;
+    if (!isCompact) {
+      return [
+        baseStyle,
+        { backgroundColor: stateBackgrounds[stateType], borderColor: stateColors[stateType], borderStyle: "dashed" },
+        style,
+      ];
+    }
+    return [baseStyle, style];
+  };
+
+  const renderForceDownloadButton = (icon: string, withDelete?: boolean) => {
+    const primaryColor = theme.colors.primary;
+    const errorColor = theme.colors.error;
+    const onPrimaryColor = theme.colors.onPrimary;
+    const onErrorColor = theme.colors.onError;
+    return (
+      <View style={defaultStyles.buttonContainer}>
+        <Pressable
+          onPress={handleForceDownload}
+          style={[
+            defaultStyles.actionButton,
+            isCompact ? { backgroundColor: "transparent" } : { backgroundColor: primaryColor },
+            isCompact ? defaultStyles.compactButton : defaultStyles.rectangularButton,
+          ]}
+        >
+          <Icon source={icon} size={isCompact ? 25 : 20} color={isCompact ? primaryColor : onPrimaryColor} />
+          {!isCompact && (
+            <Text style={[defaultStyles.buttonText, { color: onPrimaryColor }]}>
+              {t("cachedMedia.forceDownload")}
+            </Text>
+          )}
+        </Pressable>
+        {withDelete && !isCompact && (
+          <Pressable
+            onPress={handleDeleteCachedMedia}
+            style={[
+              defaultStyles.actionButton,
+              defaultStyles.rectangularButton,
+              { backgroundColor: errorColor },
+            ]}
+          >
+            <Icon source="delete" size={20} color={onErrorColor} />
+            <Text style={[defaultStyles.buttonText, { color: onErrorColor }]}>
+              {t("cachedMedia.delete")}
+            </Text>
+          </Pressable>
+        )}
+      </View>
+    );
+  };
+
+  const canShowContextMenu = false;
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <View style={getStateContainerStyle("downloading") as any}>
+          <ActivityIndicator size="small" color={stateColors.downloading} />
+          {!isCompact && (
+            <Text style={[defaultStyles.stateText, { color: stateColors.downloading }]}>
+              {t("cachedMedia.downloadProgress")}
+            </Text>
+          )}
+        </View>
+      );
+    }
+    if (isError) {
+      return (
+        <View style={[getStateContainerStyle("failed") as any, defaultStyles.stateContent, { borderColor: stateColors.failed }]}>
+          {renderForceDownloadButton("alert-circle-outline", true)}
+        </View>
+      );
+    }
+    if (isDeleted) {
+      return (
+        <View style={[getStateContainerStyle("deleted") as any, defaultStyles.stateContent, { borderColor: stateColors.failed }]}>
+          {renderForceDownloadButton("refresh", false)}
+        </View>
+      );
+    }
+    if (!mediaSource?.localPath) {
+      return (
+        <View style={[getStateContainerStyle("deleted") as any, defaultStyles.stateContent, { color: stateColors.failed }]}>
+          {renderForceDownloadButton("download", false)}
+        </View>
+      );
+    }
+    if (isCompact) {
+      return (
+        <Pressable onPress={handleFrameClick}>
+          <View style={[defaultStyles.stateContainerCompact, style]}>
+            <Pressable
+              onPress={() => (audioPlayer?.playing ? audioPlayer.pause() : audioPlayer.play())}
+            >
+              <View style={defaultStyles.compactAudioButton}>
+                <Icon source={audioPlayer?.playing ? "pause" : "play"} size={16} color="#007AFF" />
+              </View>
+            </Pressable>
+          </View>
+        </Pressable>
+      );
+    }
+    return (
+      <View style={[defaultStyles.audioContainer, style]}>
+        <View style={defaultStyles.audioContent}>
+          {!!showControls && (
+            <Pressable onPress={() => (audioPlayer?.playing ? audioPlayer.pause() : audioPlayer.play())}>
+              <View style={defaultStyles.playButton}>
+                <Icon source={audioPlayer?.playing ? "pause" : "play"} size={24} color="white" />
+              </View>
+            </Pressable>
+          )}
+          <Pressable onPress={handleFrameClick} style={defaultStyles.audioInfoPressable}>
+            <View style={defaultStyles.audioInfo}>
+              <Text style={defaultStyles.audioTitle}>{originalFileName || "Audio"}</Text>
+              {!isCompact && (
+                <Text style={defaultStyles.audioDuration}>
+                  {audioState.isLoaded && audioState.duration > 0
+                    ? `${Math.floor(audioState.currentTime / 60)}:${Math.floor(audioState.currentTime % 60).toString().padStart(2, "0")} / ${Math.floor(audioState.duration / 60)}:${Math.floor(audioState.duration % 60).toString().padStart(2, "0")}`
+                    : audioState.isLoaded
+                    ? "Pronto per la riproduzione"
+                    : "Caricamento..."}
+                </Text>
+              )}
+            </View>
+          </Pressable>
+        </View>
+        {renderSeekBar()}
+      </View>
+    );
+  };
+
+  return (
+    <View style={style}>
+      {renderContent()}
+      {showMediaIndicator &&
+        (isCompact ? (
+          <View style={defaultStyles.smallTypeIndicator}>
+            <MediaTypeIcon mediaType={MediaType.Audio} size={12} secondary />
+          </View>
+        ) : (
+          <View style={defaultStyles.typeIndicator}>
+            <MediaTypeIcon mediaType={MediaType.Audio} size={20} secondary />
+          </View>
+        ))}
+    </View>
+  );
+});
+
+export const CachedMedia = React.memo(function CachedMedia(props: CachedMediaProps) {
+  const {
+    url,
+    mediaType,
+    style,
+    originalFileName,
+    notificationDate,
+    onPress: onPressParent,
+    isCompact,
+    showMediaIndicator,
+    useThumbnail,
+    autoPlay,
+    showControls,
+    contentFit = "cover",
+    disableLongPress = false,
+  } = props;
+
+  if (mediaType === MediaType.Video && !useThumbnail) {
+    return <CachedMediaVideo {...props} />;
+  }
+
+  if (mediaType === MediaType.Audio) {
+    return <CachedMediaAudio {...props} />;
+  }
+
+  const { t } = useI18n();
+  const theme = useTheme();
+  const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
+  const [displayUri, setDisplayUri] = useState<string | null>(null);
+
+  const {
+    item: mediaSource,
+    isLoading,
+    isError,
+    isDeleted,
+    forceDownload,
+    remove,
+  } = useCachedItem(url, mediaType, {
+    priority: useThumbnail ? 3 : 7,
+    notificationDate,
+  });
+
+  const supportsThumbnail = mediaCache.isThumbnailSupported(mediaType);
+
+  useEffect(() => {
+    if (
+      !useThumbnail &&
+      (mediaType === MediaType.Image || mediaType === MediaType.Gif) &&
+      mediaSource?.localPath
+    ) {
+      mediaCache
+        .getOrCreateDisplayVersion(url, mediaType)
+        .then((path) => setDisplayUri(path))
+        .catch(() => setDisplayUri(null));
+    } else {
+      setDisplayUri(null);
+    }
+  }, [useThumbnail, mediaType, url, mediaSource?.localPath]);
 
   // Auto-generate thumbnail if using thumbnail mode but thumbnail doesn't exist
   useEffect(() => {
@@ -182,10 +858,6 @@ export const CachedMedia = React.memo(function CachedMedia({
     url,
     mediaType,
   ]);
-
-  const audioPlayer = useAudioPlayer(
-    localSource && isAudioType ? localSource : ""
-  );
 
   const handleForceDownload = useCallback(
     async (event?: any) => {
@@ -317,31 +989,6 @@ export const CachedMedia = React.memo(function CachedMedia({
     [remove]
   );
 
-  const handleSeek = useCallback(
-    (seekTime: number) => {
-      if (audioPlayer && audioState.duration > 0) {
-        audioPlayer.seekTo(seekTime);
-        setSeekTime(seekTime);
-      }
-    },
-    [audioPlayer, audioState.duration]
-  );
-
-  useEffect(() => {
-    if (videoSource && isVideoType && videoPlayer) {
-      videoPlayer
-        .replaceAsync(videoSource)
-        .then(() => {
-          if (autoPlay) {
-            videoPlayer.play();
-          }
-        })
-        .catch((error) => {
-          console.error("Failed to update video player source:", error);
-        });
-    }
-  }, [videoSource, isVideoType, videoPlayer, autoPlay]);
-
   // useEffect(() => {
   //   if (isAudioType || !audioPlayer) return;
 
@@ -360,51 +1007,6 @@ export const CachedMedia = React.memo(function CachedMedia({
 
   //   return () => clearInterval(interval);
   // }, [mediaSource?.localPath, audioPlayer, audioProps, mediaType]);
-
-  const renderSeekBar = () => {
-    if (!audioState.isLoaded || audioState.duration <= 0) return null;
-
-    const progress = isSeeking
-      ? (seekTime / audioState.duration) * 100
-      : (audioState.currentTime / audioState.duration) * 100;
-
-    const panResponder = PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt) => {
-        setIsSeeking(true);
-        const { locationX } = evt.nativeEvent;
-        const seekBarWidth = 200; // Larghezza fissa della seek bar
-        const newSeekTime = (locationX / seekBarWidth) * audioState.duration;
-        setSeekTime(Math.max(0, Math.min(audioState.duration, newSeekTime)));
-      },
-      onPanResponderMove: (evt) => {
-        const { locationX } = evt.nativeEvent;
-        const seekBarWidth = 200; // Larghezza fissa della seek bar
-        const newSeekTime = (locationX / seekBarWidth) * audioState.duration;
-        setSeekTime(Math.max(0, Math.min(audioState.duration, newSeekTime)));
-      },
-      onPanResponderRelease: () => {
-        handleSeek(seekTime);
-        setIsSeeking(false);
-      },
-    });
-
-    return (
-      <View style={defaultStyles.seekBarContainer}>
-        <View style={defaultStyles.seekBar} {...panResponder.panHandlers}>
-          <View style={defaultStyles.seekBarTrack}>
-            <View
-              style={[defaultStyles.seekBarProgress, { width: `${progress}%` }]}
-            />
-          </View>
-          <View
-            style={[defaultStyles.seekBarThumb, { left: `${progress}%` }]}
-          />
-        </View>
-      </View>
-    );
-  };
 
   const renderTypeIndicator = () => {
     return (
@@ -519,11 +1121,9 @@ export const CachedMedia = React.memo(function CachedMedia({
   };
 
   const renderMedia = () => {
-    // Loading states (ora usa isLoading dal hook)
     if (
       isLoading ||
-      (mediaSource?.generatingThumbnail && useThumbnail) ||
-      isVideoLoading
+      (mediaSource?.generatingThumbnail && useThumbnail)
     ) {
       const stateType = isLoading ? "downloading" : "loading";
       return (
@@ -540,8 +1140,7 @@ export const CachedMedia = React.memo(function CachedMedia({
       );
     }
 
-    // Permanent failure - click to retry (ora usa isError dal hook)
-    if (isError || isVideoError) {
+    if (isError) {
       return (
         <View
           style={[
@@ -589,7 +1188,7 @@ export const CachedMedia = React.memo(function CachedMedia({
       const thumbPath = mediaSource?.localThumbPath;
       if (thumbPath) {
         return (
-          <GestureTouchableOpacity
+          <TouchableOpacity
             onPress={handleFrameClick}
             onLongPress={disableLongPress ? undefined : handleLongPress}
             activeOpacity={disableLongPress ? 1 : 0.9}
@@ -606,9 +1205,10 @@ export const CachedMedia = React.memo(function CachedMedia({
               }
               contentFit={contentFit}
               transition={150}
-              cachePolicy={cache ? "memory" : "none"}
+              cachePolicy="none"
+              recyclingKey={`thumb-${url}`}
             />
-          </GestureTouchableOpacity>
+          </TouchableOpacity>
         );
       }
 
@@ -638,7 +1238,7 @@ export const CachedMedia = React.memo(function CachedMedia({
               activeOpacity={disableLongPress ? 1 : 0.9}
             >
               <ExpoImage
-                source={{ uri: mediaSource.localPath }}
+                source={{ uri: displayUri || mediaSource.localPath }}
                 style={
                   isCompact
                     ? ([
@@ -649,7 +1249,8 @@ export const CachedMedia = React.memo(function CachedMedia({
                 }
                 contentFit={contentFit}
                 transition={150}
-                cachePolicy={cache ? "memory" : "none"}
+                cachePolicy="none"
+                recyclingKey={`media-${url}`}
                 onError={(event) => {
                   mediaCache.markAsPermanentFailure(
                     url,
@@ -664,141 +1265,18 @@ export const CachedMedia = React.memo(function CachedMedia({
         case MediaType.Video:
           return (
             <View
-              style={{
-                position: "relative",
-                flex: 1,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
+              style={[
+                getStateContainerStyle("videoError") as any,
+                defaultStyles.stateContent,
+                { borderColor: stateColors.failed },
+              ]}
             >
-              <VideoView
-                style={
-                  isCompact
-                    ? [defaultStyles.stateContainerCompact, style]
-                    : [
-                        style,
-                        {
-                          position: "relative",
-                          maxWidth: "100%",
-                          maxHeight: "100%",
-                          // Use actual video dimensions if available, otherwise fallback to 16:9
-                          aspectRatio: videoSize
-                            ? videoSize.width / videoSize.height
-                            : 16 / 9,
-                          // Set specific dimensions based on video size when available
-                          ...(videoSize &&
-                            !isCompact && {
-                              width: Math.min(videoSize.width, 400), // Max width constraint
-                              height: Math.min(videoSize.height, 300), // Max height constraint
-                            }),
-                        },
-                      ]
-                }
-                player={videoPlayer}
-                nativeControls={showControls && !isCompact}
-                allowsPictureInPicture={showControls}
-                fullscreenOptions={{
-                  enable: !!showControls && !isCompact,
-                  orientation: "default", // Allow device orientation changes
-                  autoExitOnRotate: false, // Don't exit fullscreen on rotation
-                }}
-              />
-              {!showControls && (
-                <TouchableOpacity
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: "transparent",
-                  }}
-                  onPress={handleFrameClick}
-                  onLongPress={disableLongPress ? undefined : handleLongPress}
-                  activeOpacity={1}
-                />
-              )}
+              {renderForceDownloadButton("image-outline", true)}
             </View>
           );
 
-        case MediaType.Audio:
-          if (isCompact) {
-            return (
-              <Pressable onPress={handleFrameClick}>
-                <View style={[defaultStyles.stateContainerCompact, style]}>
-                  <Pressable
-                    onPress={() => {
-                      audioPlayer?.playing
-                        ? audioPlayer.pause()
-                        : audioPlayer?.play();
-                    }}
-                  >
-                    <View style={defaultStyles.compactAudioButton}>
-                      <Icon
-                        source={audioPlayer?.playing ? "pause" : "play"}
-                        size={16}
-                        color="#007AFF"
-                      />
-                    </View>
-                  </Pressable>
-                </View>
-              </Pressable>
-            );
-          }
-
-          return (
-            <View style={[defaultStyles.audioContainer, style]}>
-              <View style={defaultStyles.audioContent}>
-                {!!showControls && (
-                  <Pressable
-                    onPress={() => {
-                      audioPlayer?.playing
-                        ? audioPlayer.pause()
-                        : audioPlayer?.play();
-                    }}
-                  >
-                    <View style={defaultStyles.playButton}>
-                      <Icon
-                        source={audioPlayer?.playing ? "pause" : "play"}
-                        size={24}
-                        color="white"
-                      />
-                    </View>
-                  </Pressable>
-                )}
-
-                <Pressable
-                  onPress={handleFrameClick}
-                  style={defaultStyles.audioInfoPressable}
-                >
-                  <View style={defaultStyles.audioInfo}>
-                    <Text style={defaultStyles.audioTitle}>
-                      {originalFileName || "Audio"}
-                    </Text>
-                    {!isCompact && (
-                      <Text style={defaultStyles.audioDuration}>
-                        {audioState.isLoaded && audioState.duration > 0
-                          ? `${Math.floor(
-                              audioState.currentTime / 60
-                            )}:${Math.floor(audioState.currentTime % 60)
-                              .toString()
-                              .padStart(2, "0")} / ${Math.floor(
-                              audioState.duration / 60
-                            )}:${Math.floor(audioState.duration % 60)
-                              .toString()
-                              .padStart(2, "0")}`
-                          : audioState.isLoaded
-                          ? "Pronto per la riproduzione"
-                          : "Caricamento..."}
-                      </Text>
-                    )}
-                  </View>
-                </Pressable>
-              </View>
-
-              {renderSeekBar()}
-            </View>
-          );
+        default:
+          return null;
       }
     }
   };
@@ -815,7 +1293,7 @@ export const CachedMedia = React.memo(function CachedMedia({
   }, [mediaType, mediaSource?.localPath, mediaSource?.localThumbPath]);
 
   return (
-    <View style={style}>
+    <View style={style} onStartShouldSetResponder={() => true}>
       {renderMedia()}
       {showMediaIndicator &&
         (isCompact ? renderSmallTypeIndicator() : renderTypeIndicator())}

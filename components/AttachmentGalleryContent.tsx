@@ -111,7 +111,6 @@ export default function AttachmentGalleryContent({
             showControls={showControls}
             contentFit={contentFit}
             disableLongPress
-            cache
           />
         )}
       />

@@ -151,6 +151,8 @@ export const IncomingNotificationToast: React.FC<
                 style={styles.image}
                 contentFit="cover"
                 transition={200}
+                cachePolicy="none"
+                recyclingKey={`toast-${imageUrl}`}
               />
             ) : icon ? (
               <IconButton

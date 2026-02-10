@@ -50,6 +50,8 @@ function DownloadEntryRow({ entry }: { entry: DownloadHistoryEntry }) {
             source={{ uri: previewUri }}
             style={styles.entryThumbImage}
             contentFit="cover"
+            cachePolicy="none"
+            recyclingKey={`download-${entry.url}`}
           />
         ) : (
           <View style={styles.entryThumbIcon}>

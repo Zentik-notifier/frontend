@@ -60,6 +60,8 @@ export const BucketPresetSelector: React.FC<BucketPresetSelectorProps> = ({
                   source={{ uri: preset.iconUrl }}
                   style={[styles.icon, { backgroundColor }]}
                   contentFit="cover"
+                  cachePolicy="none"
+                  recyclingKey={`preset-${preset.id}`}
                 />
               ) : (
                 <View

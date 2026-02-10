@@ -1,7 +1,8 @@
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
-import { Alert, Image, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
+import { Image } from "expo-image";
 import {
   Button,
   Divider,
@@ -321,6 +322,8 @@ export default function UserProfile() {
                         <Image
                           source={{ uri: user.avatar }}
                           style={styles.avatarIcon}
+                          cachePolicy="none"
+                          recyclingKey={`profile-avatar-${user.id}`}
                           onError={() =>
                             console.warn("Failed to load avatar image")
                           }
@@ -346,6 +349,8 @@ export default function UserProfile() {
                         <Image
                           source={{ uri: user.avatar }}
                           style={styles.avatarPreviewImage}
+                          cachePolicy="none"
+                          recyclingKey={`profile-avatar-preview-${user.id}`}
                           onError={() =>
                             console.warn("Failed to load avatar image")
                           }
@@ -480,6 +485,8 @@ export default function UserProfile() {
                       <Image
                         source={{ uri: provider?.iconUrl! }}
                         style={styles.providerIconImage}
+                        cachePolicy="none"
+                        recyclingKey={`profile-provider-${provider?.type}`}
                       />
                     )
                   }

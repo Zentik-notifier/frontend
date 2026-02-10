@@ -113,9 +113,12 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const attachment = attachments[selectedPreviewIndex];
 
   useEffect(() => {
-    canAutoDownload &&
+    const shouldDownload =
+      canAutoDownload && (loadOnlyVisible ? isItemVisible : true);
+    if (shouldDownload) {
       mediaCache.tryAutoDownload(notification).catch(console.error);
-  }, [notification, canAutoDownload]);
+    }
+  }, [notification, canAutoDownload, loadOnlyVisible, isItemVisible]);
 
   const handlePress = () => {
     if (mediaPressRef.current) {
@@ -158,8 +161,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const visibleAttachment = !isCompactMode && attachments.length > 0;
 
   const handleVisualPress = (visualUri: string) => {
-    // Navigate to notification detail instead of opening fullscreen
-    navigateToNotificationDetail(notification.id);
+    const attachmentIndex = attachments.findIndex((att) => att.url === visualUri);
+    navigateToNotificationDetail(notification.id, {
+      attachmentIndex: attachmentIndex >= 0 ? attachmentIndex : undefined,
+    });
   };
 
   const handleFullscreenPress = (visualUri: string) => {
@@ -382,9 +387,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       {visibleAttachment && (
         <AttachmentGallery
           attachments={attachments}
-          onMediaPress={() => {
+          onMediaPress={(imageUri) => {
             mediaPressRef.current = true;
-            handleVisualPress(attachment.url!);
+            handleVisualPress(imageUri);
           }}
           itemsToRender={1}
           enableFullScreen

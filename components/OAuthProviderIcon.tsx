@@ -55,6 +55,7 @@ export default function OAuthProviderIcon({
             uri: "https://cdn-icons-png.flaticon.com/128/15/15476.png",
           }}
           style={{ width: iconSize, height: iconSize }}
+          cachePolicy="none"
         />
       </View>
     );
@@ -66,6 +67,8 @@ export default function OAuthProviderIcon({
         <Image
           source={{ uri: provider.iconUrl }}
           style={{ width: iconSize, height: iconSize }}
+          cachePolicy="none"
+          recyclingKey={`oauth-${provider.type}`}
         />
       </View>
     );

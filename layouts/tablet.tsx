@@ -21,11 +21,12 @@ export default function TabletLayout() {
     <View style={{ flex: 1 }}>
       <Header />
       <View style={{ flex: 1, paddingTop: headerHeight }}>
-        <Stack 
-          screenOptions={{ 
-            headerShown: false, // Header custom, non mostrare quello di default
-            animation: 'slide_from_right',
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: "slide_from_right",
             animationDuration: 200,
+            freezeOnBlur: true,
           }}
         >
           <Stack.Screen

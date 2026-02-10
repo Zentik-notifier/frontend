@@ -138,7 +138,7 @@ export default function BucketIcon({
                   borderRadius: currentSize.icon / 2,
                 }}
                 contentFit="cover"
-                cachePolicy="memory-disk"
+                cachePolicy="none"
                 recyclingKey={`${bucketId}-${iconUri}`}
                 priority="high"
               />
@@ -181,6 +181,7 @@ export default function BucketIcon({
             source={subiconSource}
             style={{ width: subiconSize, height: subiconSize }}
             contentFit="contain"
+            cachePolicy="none"
           />
         </View>
       )}

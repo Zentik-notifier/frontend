@@ -127,6 +127,8 @@ function ZoomableCell({
     });
 
   const panGesture = Gesture.Pan()
+    .activeOffsetX(15)
+    .activeOffsetY(15)
     .onUpdate((e) => {
       if (scale.value > 1) {
         const maxTx = (width * (scale.value - 1)) / 2;
@@ -280,6 +282,9 @@ function SimpleMediaGalleryInner<T>(
 
   currentIndexRef.current = currentIndex;
 
+  const onIndexChangeRef = useRef(onIndexChange);
+  onIndexChangeRef.current = onIndexChange;
+
   useImperativeHandle(
     ref,
     () => ({
@@ -288,6 +293,7 @@ function SimpleMediaGalleryInner<T>(
         setCurrentIndex(safe);
         prevIndexRef.current = safe;
         setIsZoomed(false);
+        onIndexChangeRef.current?.(safe);
         flatListRef.current?.scrollToOffset({
           offset: safe * width,
           animated,
@@ -329,10 +335,19 @@ function SimpleMediaGalleryInner<T>(
     [width]
   );
 
+  const needsGestures = !!pinchEnabled || !!onSwipeToClose;
+
   const render = useCallback(
     ({ item, index }: { item: T; index: number }) => {
       const content = renderItem({ item, index });
       if (!content) return <View style={{ width, height }} />;
+      if (!needsGestures) {
+        return (
+          <View style={[styles.cell, { width, height }]}>
+            {content}
+          </View>
+        );
+      }
       return (
         <ZoomableCell
           width={width}
@@ -351,6 +366,7 @@ function SimpleMediaGalleryInner<T>(
       renderItem,
       width,
       height,
+      needsGestures,
       pinchEnabled,
       onSwipeToClose,
       disableVerticalSwipe,
@@ -376,9 +392,9 @@ function SimpleMediaGalleryInner<T>(
         onMomentumScrollEnd={onMomentumScrollEnd}
         getItemLayout={getItemLayout}
         initialScrollIndex={Math.min(initialIndex, data.length - 1)}
-        initialNumToRender={numToRender ?? 3}
-        maxToRenderPerBatch={2}
-        windowSize={5}
+        initialNumToRender={numToRender ?? 1}
+        maxToRenderPerBatch={numToRender ?? 1}
+        windowSize={numToRender ?? 1}
         removeClippedSubviews={false}
         scrollEventThrottle={16}
       />

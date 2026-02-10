@@ -79,14 +79,6 @@ export const BUCKET_PRESETS: BucketPreset[] = [
     docsUrl: "https://notifier-docs.zentik.app/docs/integrations/authentik",
   },
   {
-    id: "f4409bef-b8df-40bd-90a5-e5022147d236",
-    name: "Anime downloader",
-    iconUrl:
-      "https://icons.iconarchive.com/icons/crountch/one-piece-jolly-roger/256/Luffys-flag-icon.png",
-    color: "#0a7ea4",
-    docsUrl: "https://github.com/anime-dl/anime-downloader",
-  },
-  {
     id: "e6e0e9ad-a88b-4e8a-8856-6794415745d3",
     name: "Railway",
     iconUrl: "https://railway.app/brand/logo-dark.svg",

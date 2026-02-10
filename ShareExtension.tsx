@@ -81,7 +81,8 @@ const MediaPreviewItem: React.FC<MediaPreviewItemProps> = ({
             { backgroundColor: theme.colors.surfaceVariant },
           ]}
           contentFit="cover"
-          cachePolicy="memory-disk"
+          cachePolicy="none"
+          recyclingKey={`share-preview-${media.url}-${index}`}
         />
       ) : (
         <View
@@ -462,7 +463,8 @@ function ShareExtensionContent(props: InitialProps) {
               source={{ uri: iconUri }}
               style={[styles.bucketIconImage, { borderRadius: BUCKET_SIZE / 2 }]}
               contentFit="cover"
-              cachePolicy="memory-disk"
+              cachePolicy="none"
+              recyclingKey={`share-bucket-${bucket.id}-${iconUri}`}
             />
           ) : (
             <Text style={styles.bucketInitial}>{initials}</Text>

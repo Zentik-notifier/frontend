@@ -85,7 +85,8 @@ export default function UserDropdown({
               <Image
                 source={{ uri: user.avatar }}
                 style={styles.avatarImage}
-                cachePolicy={"memory-disk"}
+                cachePolicy="none"
+                recyclingKey={`user-avatar-${user.id}`}
               />
             ) : (
               <Avatar.Text label={getInitials()} size={36} />

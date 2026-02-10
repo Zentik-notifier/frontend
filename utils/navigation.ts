@@ -16,11 +16,12 @@ export function useNavigationUtils() {
             router.back();
         },
 
-        navigateToNotificationDetail: (notificationId: string) => {
+        navigateToNotificationDetail: (notificationId: string, params?: { attachmentIndex?: number }) => {
+            const query = params?.attachmentIndex != null ? `?attachmentIndex=${params.attachmentIndex}` : "";
             if (isMobile) {
-                router.push(`/(phone)/(home)/notification/${notificationId}`);
+                router.push(`/(phone)/(home)/notification/${notificationId}${query}`);
             } else {
-                router.push(`/(desktop)/(home)/notification/${notificationId}`);
+                router.push(`/(desktop)/(home)/notification/${notificationId}${query}`);
             }
         },
 

@@ -5,7 +5,7 @@ import {
   isToday,
   isValid,
   isYesterday,
-  parseISO,
+  toDate,
 } from '@/utils/date-utils';
 import { DateFormatPreferences, DateFormatStyle, settingsService } from './settings-service';
 
@@ -47,8 +47,8 @@ export const DATE_FORMAT_STYLES: Record<DateFormatStyle, { name: string; example
 };
 
 export class DateFormatService {
-  formatRelativeTime(date: Date | string): string {
-    const targetDate = typeof date === 'string' ? parseISO(date) : date;
+  formatRelativeTime(date: Date | string | number): string {
+    const targetDate = toDate(date);
 
     if (!isValid(targetDate)) {
       return 'Invalid Date';
@@ -100,8 +100,8 @@ export class DateFormatService {
     }
   }
 
-  formatDate(date: Date | string, includeTime: boolean = false): string {
-    const targetDate = typeof date === 'string' ? parseISO(date) : date;
+  formatDate(date: Date | string | number, includeTime: boolean = false): string {
+    const targetDate = toDate(date);
 
     if (!isValid(targetDate)) {
       return 'Invalid Date';
@@ -127,8 +127,8 @@ export class DateFormatService {
     }
   }
 
-  formatTime(date: Date | string): string {
-    const targetDate = typeof date === 'string' ? parseISO(date) : date;
+  formatTime(date: Date | string | number): string {
+    const targetDate = toDate(date);
 
     if (!isValid(targetDate)) {
       return 'Invalid Time';

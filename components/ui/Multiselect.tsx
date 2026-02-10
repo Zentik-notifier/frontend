@@ -565,7 +565,8 @@ export default function Multiselect({
         ) : item.iconUrl ? (
           <Image
             source={item.iconUrl}
-            cachePolicy="memory-disk"
+            cachePolicy="none"
+            recyclingKey={`multiselect-${item.id}`}
             style={{ width: 24, height: 24, borderRadius: 12 }}
             contentFit="fill"
           />

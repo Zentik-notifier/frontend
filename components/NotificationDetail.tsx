@@ -38,11 +38,13 @@ import PaperScrollView from "./ui/PaperScrollView";
 interface NotificationDetailProps {
   notificationId: string;
   onBack?: () => void;
+  initialAttachmentIndex?: number;
 }
 
 export default function NotificationDetail({
   notificationId,
   onBack,
+  initialAttachmentIndex,
 }: NotificationDetailProps) {
   const theme = useTheme();
   const { t } = useI18n();
@@ -508,6 +510,8 @@ export default function NotificationDetail({
             autoPlay
             enableFullScreen
             fullScreenTrigger="tap"
+            itemsToRender={1}
+            initialIndex={initialAttachmentIndex}
             notificationDate={new Date(notification.createdAt).getTime()}
           />
         )}

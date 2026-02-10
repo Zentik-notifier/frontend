@@ -2298,6 +2298,8 @@ export default function CachedData() {
                         }}
                         contentFit={mediaViewMode === "thumbnail" ? "cover" : "contain"}
                         transition={200}
+                        cachePolicy="none"
+                        recyclingKey={`cached-data-${(selectedRecord.data as CacheItem).url}`}
                       />
                     ) : (
                       <View

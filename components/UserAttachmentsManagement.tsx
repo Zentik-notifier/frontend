@@ -200,6 +200,8 @@ export function UserAttachmentsManagement() {
               style={styles.previewImage}
               contentFit="contain"
               transition={200}
+              cachePolicy="none"
+              recyclingKey={`attachment-preview-${previewUrl}`}
             />
           </View>
         </DetailModal>

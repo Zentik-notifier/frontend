@@ -1,8 +1,8 @@
 import { MediaType } from "@/generated/gql-operations-generated";
-// import { Image, ImageStyle } from "expo-image";
+import { Image } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
 import React from "react";
-import { ImageStyle, Image, StyleProp, ViewStyle } from "react-native";
+import { ImageStyle, StyleProp, ViewStyle } from "react-native";
 
 interface MediaViewerProps {
   url: string;
@@ -25,28 +25,50 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
   isLooping = false,
   isMuted = true,
 }) => {
-  const isVideo = mediaType === MediaType.Video;
-
-  const videoPlayer = useVideoPlayer(isVideo ? url : "", (player) => {
-    player.muted = isMuted;
-    player.loop = isLooping;
-
-    if (autoPlay) {
-      player.play();
-    }
-  });
-  // For video types, we need to use VideoView with useVideoPlayer
-  if (isVideo) {
+  if (mediaType === MediaType.Video) {
     return (
-      <VideoView
+      <MediaViewerVideo
+        url={url}
         style={style}
-        player={videoPlayer}
-        nativeControls={showVideoControls}
-        allowsPictureInPicture={showVideoControls}
+        showVideoControls={showVideoControls}
+        autoPlay={autoPlay}
+        isLooping={isLooping}
+        isMuted={isMuted}
       />
     );
   }
 
-  // For image types (IMAGE, ICON), use expo-image
-  return <Image source={{ uri: url }} style={style as StyleProp<ImageStyle>} />;
+  return (
+    <Image
+      source={{ uri: url }}
+      style={style as StyleProp<ImageStyle>}
+      contentFit={contentFit}
+      cachePolicy="none"
+      recyclingKey={`media-viewer-${url}`}
+    />
+  );
+};
+
+const MediaViewerVideo: React.FC<{
+  url: string;
+  style?: StyleProp<ViewStyle | ImageStyle>;
+  showVideoControls: boolean;
+  autoPlay: boolean;
+  isLooping: boolean;
+  isMuted: boolean;
+}> = ({ url, style, showVideoControls, autoPlay, isLooping, isMuted }) => {
+  const videoPlayer = useVideoPlayer(url, (player) => {
+    player.muted = isMuted;
+    player.loop = isLooping;
+    if (autoPlay) player.play();
+  });
+
+  return (
+    <VideoView
+      style={style}
+      player={videoPlayer}
+      nativeControls={showVideoControls}
+      allowsPictureInPicture={showVideoControls}
+    />
+  );
 };

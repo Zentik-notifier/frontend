@@ -77,7 +77,6 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             //     dark: "./assets/icons/generators/glas_dark.png",
             //     tinted: "./assets/icons/generators/glas_tinted_light.png",
             // },
-            googleServicesFile: process.env.GOOGLE_SERVICE_INFO_PLIST ?? './keys/GoogleService-Info.plist',
             infoPlist: {
                 NSUserNotificationUsageDescription: "This app uses notifications to send you important updates about your buckets and notifications.",
                 UIBackgroundModes: ["remote-notification", "fetch"],
@@ -101,7 +100,6 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             },
             package: bundleIdentifier,
             versionCode: 108,
-            googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './keys/google-services.json',
             permissions: [
                 "android.permission.RECEIVE_BOOT_COMPLETED",
                 "android.permission.WAKE_LOCK",
@@ -280,8 +278,6 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                     sounds: [],
                 },
             ],
-            ["@react-native-firebase/app"],
-            ["@react-native-firebase/messaging"],
             [
                 "expo-build-properties",
                 {

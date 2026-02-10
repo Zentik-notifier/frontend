@@ -81,7 +81,6 @@ export default function GallerySection() {
                   autoPlay
                   showMediaIndicator
                   isCompact
-                  cache
                   onPress={() => {
                     if (selectionMode) {
                       handleToggleItemSelection(mediaItem.key);

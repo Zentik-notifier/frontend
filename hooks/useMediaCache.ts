@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Subscription } from 'rxjs';
 import { MediaType } from '../generated/gql-operations-generated';
 import { CacheItem, CacheStats, DownloadQueueState, mediaCache } from '../services/media-cache-service';
-import { Platform } from 'react-native';
+import { InteractionManager, Platform } from 'react-native';
 import { useAppContext } from '@/contexts/AppContext';
 
 const isWeb = Platform.OS === 'web';
@@ -32,22 +32,37 @@ export const useCachedItem = (url: string, mediaType: MediaType, options?: {
   const shouldAutoDownload =
     mediaType === MediaType.Icon || (autoDownloadEnabled);
 
-  const [item, setItem] = useState<CacheItem | undefined>();
-  const [isLoading, setIsLoading] = useState(true);
+  const [item, setItem] = useState<CacheItem | undefined>(() =>
+    mediaCache.getCachedItemSync(url, mediaType)
+  );
+  const [isLoading, setIsLoading] = useState(() => {
+    const cached = mediaCache.getCachedItemSync(url, mediaType);
+    return cached?.isDownloading ?? true;
+  });
 
   useEffect(() => {
-    // Usa il nuovo watchCacheItem$ observable per aggiornamenti specifici
+    const cached = mediaCache.getCachedItemSync(url, mediaType);
+    setItem(cached);
+    setIsLoading(cached?.isDownloading ?? true);
+
     const sub: Subscription = mediaCache.watchCacheItem$(url, mediaType).subscribe(async (newItem) => {
-      if (!isWeb) {
-        setItem(newItem);
-        setIsLoading(newItem?.isDownloading ?? false);
-      } else {
-        let localUrl: string | undefined;
-        if (newItem?.localPath) {
-          localUrl = await mediaCache.getMediaUrl(newItem.localPath) || undefined;
+      const applyUpdate = () => {
+        if (!isWeb) {
+          setItem(newItem);
+          setIsLoading(newItem?.isDownloading ?? false);
+        } else {
+          let localUrl: string | undefined;
+          if (newItem?.localPath) {
+            localUrl = mediaCache.getMediaUrl(newItem.localPath) || undefined;
+          }
+          setItem(newItem ? { ...newItem, localPath: localUrl } : undefined);
+          setIsLoading(newItem?.isDownloading ?? false);
         }
-        setItem(newItem ? { ...newItem, localPath: localUrl } : undefined);
-        setIsLoading(newItem?.isDownloading ?? false);
+      };
+      if (isWeb) {
+        applyUpdate();
+      } else {
+        InteractionManager.runAfterInteractions(applyUpdate);
       }
     });
 

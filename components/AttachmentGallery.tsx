@@ -5,11 +5,9 @@ import {
 import { useI18n } from "@/hooks/useI18n";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Dimensions, StyleSheet, View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import SimpleMediaGallery, {
   SimpleMediaGalleryRef,
 } from "@/components/ui/SimpleMediaGallery";
-import { scheduleOnRN } from "react-native-worklets";
 import {
   Icon,
   Surface,
@@ -203,55 +201,42 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
             </TouchableRipple>
           </View>
         )}
-        <View
-          style={StyleSheet.absoluteFill}
-          pointerEvents={eventsDisabled ? "none" : "auto"}
-        >
+        <View style={StyleSheet.absoluteFill} pointerEvents="auto">
           <SimpleMediaGallery
-          ref={galleryRef}
-          data={attachments}
-          initialIndex={Math.min(currentIndex, attachments.length - 1)}
-          onIndexChange={(index) => {
-            setCurrentIndex(index);
-            onIndexChange?.(index);
-          }}
-          numToRender={itemsToRender}
-          keyExtractor={(_, index) => index.toString()}
-          pinchEnabled={zoomEnabled}
-          disableVerticalSwipe={!onSwipeToClose}
-          swipeEnabled={swipeToChange}
-          onSwipeToClose={onSwipeToClose}
-          containerDimensions={{
-            width: effectiveWidth,
-            height: mediaHeight,
-          }}
-          renderItem={({ item, index }) => (
-            <CachedMedia
-              key={`${item.url}-${index}`}
-              url={item.url!}
-              mediaType={item.mediaType}
-              style={[{ width: effectiveWidth, height: mediaHeight }]}
-              originalFileName={item.name || undefined}
-              onPress={handleAttachmentPress}
-              notificationDate={notificationDate}
-              autoPlay={autoPlay && currentIndex === index}
-              showControls={!enableFullScreen}
-              disableLongPress={zoomEnabled}
-              cache
-            />
-          )}
-        />
+            ref={galleryRef}
+            data={attachments}
+            initialIndex={Math.min(currentIndex, attachments.length - 1)}
+            onIndexChange={(index) => {
+              setCurrentIndex(index);
+              onIndexChange?.(index);
+            }}
+            numToRender={itemsToRender}
+            keyExtractor={(_, index) => index.toString()}
+            pinchEnabled={zoomEnabled}
+            disableVerticalSwipe={!onSwipeToClose}
+            swipeEnabled={swipeToChange}
+            onSwipeToClose={onSwipeToClose}
+            containerDimensions={{
+              width: effectiveWidth,
+              height: mediaHeight,
+            }}
+            renderItem={({ item, index }) => (
+              <CachedMedia
+                key={`${item.url}-${index}`}
+                url={item.url!}
+                mediaType={item.mediaType}
+                style={[{ width: effectiveWidth, height: mediaHeight }]}
+                originalFileName={item.name || undefined}
+                onPress={handleAttachmentPress}
+                notificationDate={notificationDate}
+                autoPlay={autoPlay && currentIndex === index}
+                showControls={!enableFullScreen}
+                disableLongPress={zoomEnabled}
+                useThumbnail={!!maxHeight}
+              />
+            )}
+          />
         </View>
-        {eventsDisabled && (
-          <GestureDetector
-            gesture={Gesture.Tap()
-              .maxDeltaX(15)
-              .maxDeltaY(15)
-              .onEnd(() => scheduleOnRN(handleAttachmentPress))}
-          >
-            <View style={StyleSheet.absoluteFill} />
-          </GestureDetector>
-        )}
         {!eventsDisabled && enableFullScreen && fullScreenTrigger === "button" && (
           <View style={styles.fullScreenButtonContainer}>
             <TouchableRipple

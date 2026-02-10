@@ -572,6 +572,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                           source={{ uri: bucketIcon }}
                           style={styles.previewIcon}
                           contentFit="cover"
+                          cachePolicy="none"
+                          recyclingKey={`bucket-preview-${bucketIcon}`}
                         />
                       </View>
                     </View>

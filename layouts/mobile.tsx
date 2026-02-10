@@ -15,6 +15,7 @@ export default function TabletLayout() {
         <Stack
           screenOptions={{
             headerShown: false,
+            freezeOnBlur: true,
           }}
         >
         </Stack>

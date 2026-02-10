@@ -1,6 +1,6 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { Platform } from 'react-native';
+import { Dimensions, Platform } from 'react-native';
 import { BehaviorSubject, Observable, Subject, Subscription, firstValueFrom } from "rxjs";
 import {
     catchError,
@@ -376,6 +376,9 @@ class MediaCacheService {
                 }).catch(() => {});
 
                 await this.generateThumbnail({ url, mediaType, force, notificationId: item.notificationId });
+                if (mediaType === MediaType.Image || mediaType === MediaType.Gif) {
+                    this.getOrCreateDisplayVersion(url, mediaType).catch(() => {});
+                }
             } catch (error: any) {
                 console.error('[MediaCache] Download failed:', url, key, JSON.stringify(error));
 
@@ -525,12 +528,17 @@ class MediaCacheService {
                 directory.create()
             }
 
-            // Ensure thumbnails subdirectory INSIDE each media type folder (except BUCKET_ICON)
+            // Ensure thumbnails and display subdirectories INSIDE each media type folder (except BUCKET_ICON)
             if (type !== 'BUCKET_ICON') {
                 const thumbPath = `${dirPath}thumbnails/`;
                 const thumbDirectory = new Directory(thumbPath);
                 if (!thumbDirectory.exists) {
                     thumbDirectory.create()
+                }
+                const displayPath = `${dirPath}display/`;
+                const displayDirectory = new Directory(displayPath);
+                if (!displayDirectory.exists) {
+                    displayDirectory.create()
                 }
             }
         }
@@ -566,8 +574,13 @@ class MediaCacheService {
     private getThumbnailPath(url: string, mediaType: MediaType): string {
         const longHash = this.generateLongHash(url);
         const fileName = `${String(mediaType).toLowerCase()}_${longHash}.jpg`;
-        // Save thumbnails inside the media type folder under a thumbnails subfolder
         return `${this.cacheDir}${mediaType}/thumbnails/${fileName}`;
+    }
+
+    private getDisplayPath(url: string, mediaType: MediaType): string {
+        const longHash = this.generateLongHash(url);
+        const fileName = `${String(mediaType).toLowerCase()}_${longHash}.jpg`;
+        return `${this.cacheDir}${mediaType}/display/${fileName}`;
     }
 
     private async loadMetadata(): Promise<void> {
@@ -1065,7 +1078,8 @@ class MediaCacheService {
         return 'dat';
     }
 
-    async getOrCreateThumbnail(url: string, mediaType: MediaType, maxSize: number = 256): Promise<string | null> {
+    async getOrCreateThumbnail(url: string, mediaType: MediaType, maxSize?: number): Promise<string | null> {
+        const thumbSize = maxSize ?? Math.max(Dimensions.get('window').width, Dimensions.get('window').height);
         await this.initialize();
         const key = this.generateCacheKey(url, mediaType);
 
@@ -1115,7 +1129,7 @@ class MediaCacheService {
                 if (mediaType === MediaType.Image || mediaType === MediaType.Gif) {
                     const result = await ImageManipulator.manipulateAsync(
                         cached.localPath,
-                        [{ resize: { width: maxSize } }],
+                        [{ resize: { width: thumbSize } }],
                         { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
                     );
                     tempUri = result.uri;
@@ -1141,9 +1155,11 @@ class MediaCacheService {
 
             if (!tempUri) return null;
 
-            const src = new File(tempUri);
             const dest = new File(thumbPath);
-            src.copy(dest as any);
+            if (!dest.exists) {
+                const src = new File(tempUri);
+                await src.copy(dest as any);
+            }
             // Don't update timestamp when saving thumbnail - preserve original media date
             await this.upsertItem(key, { localThumbPath: thumbPath });
             console.log('[MediaCache] Thumbnail saved at:', thumbPath, url);
@@ -1161,6 +1177,51 @@ class MediaCacheService {
                 await this.upsertItem(key, { isPermanentFailure: true });
             }
 
+            return null;
+        }
+    }
+
+    private static readonly DISPLAY_MAX_SIZE = 1200;
+
+    async getOrCreateDisplayVersion(url: string, mediaType: MediaType, maxSize: number = MediaCacheService.DISPLAY_MAX_SIZE): Promise<string | null> {
+        if (mediaType !== MediaType.Image && mediaType !== MediaType.Gif) {
+            return null;
+        }
+        await this.initialize();
+        try {
+            const cached = await this.getCachedItem(url, mediaType);
+            if (!cached?.localPath) return null;
+
+            const displayPath = this.getDisplayPath(url, mediaType);
+            const file = new File(displayPath);
+            if (file.exists) {
+                return displayPath;
+            }
+
+            const sourceFile = new File(cached.localPath);
+            if (!sourceFile.exists || isWeb || !this.hasFilesystemPermission) {
+                return null;
+            }
+
+            await this.ensureDirectories();
+
+            const result = await ImageManipulator.manipulateAsync(
+                cached.localPath,
+                [{ resize: { width: maxSize } }],
+                { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+            );
+            const dest = new File(displayPath);
+            if (dest.exists) {
+                return displayPath;
+            }
+            const src = new File(result.uri);
+            await src.copy(dest as any);
+            return displayPath;
+        } catch (error: any) {
+            const isPermissionError = error?.message?.includes('ERR_FILE_SYSTEM') || error?.code === 'ERR_FILE_SYSTEM_READ_PERMISSION';
+            if (!isPermissionError) {
+                console.warn('[MediaCache] Display version generation failed:', url, error?.message);
+            }
             return null;
         }
     }
@@ -1904,6 +1965,7 @@ class MediaCacheService {
                 prev?.localPath === curr?.localPath &&
                 prev?.localThumbPath === curr?.localThumbPath &&
                 prev?.isDownloading === curr?.isDownloading &&
+                prev?.generatingThumbnail === curr?.generatingThumbnail &&
                 prev?.isUserDeleted === curr?.isUserDeleted &&
                 prev?.isPermanentFailure === curr?.isPermanentFailure
             )
