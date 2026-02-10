@@ -46,23 +46,23 @@ export const useCachedItem = (url: string, mediaType: MediaType, options?: {
     setIsLoading(cached?.isDownloading ?? true);
 
     const sub: Subscription = mediaCache.watchCacheItem$(url, mediaType).subscribe(async (newItem) => {
-      const applyUpdate = () => {
+      const applyUpdate = async () => {
         if (!isWeb) {
           setItem(newItem);
           setIsLoading(newItem?.isDownloading ?? false);
         } else {
           let localUrl: string | undefined;
           if (newItem?.localPath) {
-            localUrl = mediaCache.getMediaUrl(newItem.localPath) || undefined;
+            localUrl = (await mediaCache.getMediaUrl(newItem.localPath)) || undefined;
           }
           setItem(newItem ? { ...newItem, localPath: localUrl } : undefined);
           setIsLoading(newItem?.isDownloading ?? false);
         }
       };
       if (isWeb) {
-        applyUpdate();
+        await applyUpdate();
       } else {
-        InteractionManager.runAfterInteractions(applyUpdate);
+        InteractionManager.runAfterInteractions(() => applyUpdate());
       }
     });
 
