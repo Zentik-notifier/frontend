@@ -7,7 +7,7 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Alert, FlatList, StyleSheet, View } from "react-native";
 import {
   Card,
@@ -27,7 +27,7 @@ interface UserListItemProps {
   onDelete: (userId: string) => void;
 }
 
-const UserListItem: React.FC<UserListItemProps> = ({ user, onDelete }) => {
+const UserListItem: React.FC<UserListItemProps> = React.memo(({ user, onDelete }) => {
   const { t } = useI18n();
   const { navigateToUserDetails } = useNavigationUtils();
 
@@ -89,7 +89,9 @@ const UserListItem: React.FC<UserListItemProps> = ({ user, onDelete }) => {
       </Card.Content>
     </Card>
   );
-};
+});
+
+const userKeyExtractor = (item: UserFragment) => item.id;
 
 export default function UserManagement() {
   const theme = useTheme();
@@ -164,7 +166,7 @@ export default function UserManagement() {
     await refetch();
   };
 
-  const filteredUsers = users.filter((user) => {
+  const filteredUsers = useMemo(() => users.filter((user) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -172,11 +174,11 @@ export default function UserManagement() {
       user.email?.toLowerCase().includes(query) ||
       user.id.toLowerCase().includes(query)
     );
-  });
+  }), [users, searchQuery]);
 
-  const renderUserItem = ({ item }: { item: UserFragment }) => (
+  const renderUserItem = useCallback(({ item }: { item: UserFragment }) => (
     <UserListItem user={item} onDelete={handleDeleteUser} />
-  );
+  ), [handleDeleteUser]);
 
   return (
     <PaperScrollView
@@ -232,7 +234,7 @@ export default function UserManagement() {
         <FlatList
           data={filteredUsers}
           renderItem={renderUserItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={userKeyExtractor}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.usersList}
           scrollEnabled={false}

@@ -4,7 +4,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useSettings } from "@/hooks/useSettings";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { CacheItem } from "@/services/media-cache-service";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Dimensions,
   Pressable,
@@ -54,7 +54,7 @@ export default function GallerySection() {
     return availableWidth / numColumns;
   }, [numColumns, containerWidth]);
 
-  const renderMediaRow = ({ item }: { item: CacheItem[] }) => {
+  const renderMediaRow = useCallback(({ item }: { item: CacheItem[] }) => {
     return (
       <View style={styles.gridRow}>
         {item.map((mediaItem) => {
@@ -112,7 +112,7 @@ export default function GallerySection() {
         ))}
       </View>
     );
-  };
+  }, [itemWidth, numColumns, selectionMode, selectedItems, flatOrder, theme, userSettings.settings.galleryVisualization.autoPlay]);
 
   const renderEmptyState = () => {
     return (
@@ -160,7 +160,7 @@ export default function GallerySection() {
     [sections]
   );
 
-  const renderFlashItem = ({ item }: ListRenderItemInfo<any>) => {
+  const renderFlashItem = useCallback(({ item }: ListRenderItemInfo<any>) => {
     if (item.type === "header") {
       return (
         <View style={styles.dateSection}>
@@ -177,7 +177,7 @@ export default function GallerySection() {
     }
     // row with media items
     return renderMediaRow({ item: item.items as CacheItem[] });
-  };
+  }, [renderMediaRow, theme]);
 
   const getItemType = (item: any) => item.type;
 

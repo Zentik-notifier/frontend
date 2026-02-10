@@ -1,10 +1,15 @@
-import React, { useCallback } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import React, { Suspense, useCallback } from "react";
+import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
 import { Text, TextInput } from "react-native-paper";
-import CodeEditorNative, {
-  CodeEditorSyntaxStyles,
-  type CodeEditorStyleType,
-} from "@rivascva/react-native-code-editor";
+
+const CodeEditorNative = React.lazy(() => import("@rivascva/react-native-code-editor"));
+
+let CodeEditorSyntaxStyles: any;
+let CodeEditorStyleType: any;
+try {
+  const mod = require("@rivascva/react-native-code-editor");
+  CodeEditorSyntaxStyles = mod.CodeEditorSyntaxStyles;
+} catch {}
 
 interface CodeEditorProps {
   value: string;
@@ -52,7 +57,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   if (useCodeEditorNative) {
     const calculatedHeight =
       typeof height === "number" ? height : parseInt(String(height), 10) || 300;
-    const editorStyle: CodeEditorStyleType = {
+    const editorStyle = {
       height: calculatedHeight,
       fontSize: 14,
       backgroundColor: "#1e1e1e",
@@ -60,15 +65,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     };
     return (
       <View style={[styles.codeEditor, { borderWidth: 0 }]}>
-        <CodeEditorNative
-          style={editorStyle}
-          language={languageToHljs(language)}
-          syntaxStyle={CodeEditorSyntaxStyles.vs2015}
-          initialValue={value}
-          onChange={readOnly ? undefined : handleChange}
-          showLineNumbers
-          readOnly={readOnly}
-        />
+        <Suspense fallback={<ActivityIndicator size="small" />}>
+          <CodeEditorNative
+            style={editorStyle}
+            language={languageToHljs(language)}
+            syntaxStyle={CodeEditorSyntaxStyles?.vs2015}
+            initialValue={value}
+            onChange={readOnly ? undefined : handleChange}
+            showLineNumbers
+            readOnly={readOnly}
+          />
+        </Suspense>
         {error && errorText && <Text style={styles.errorText}>{errorText}</Text>}
       </View>
     );

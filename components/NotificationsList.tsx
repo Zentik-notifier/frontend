@@ -43,7 +43,6 @@ import NotificationItem from "./NotificationItem";
 import NotificationFilters from "./NotificationFilters";
 import { useBadgeSync } from "@/hooks/useBadgeSync";
 import IosBridgeService from "@/services/ios-bridge";
-import { FlatList } from "react-native-gesture-handler";
 
 interface NotificationsListProps {
   bucketId?: string;

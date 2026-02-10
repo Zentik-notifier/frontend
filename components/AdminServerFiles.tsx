@@ -7,7 +7,7 @@ import { settingsService } from "@/services/settings-service";
 import { formatFileSize } from "@/utils/fileUtils";
 import { gql, useQuery } from "@apollo/client";
 import * as DocumentPicker from "expo-document-picker";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -71,7 +71,7 @@ export default function AdminServerFiles() {
     setRefreshing(false);
   };
 
-  const onDelete = async (name: string, filePath?: string) => {
+  const onDelete = useCallback(async (name: string, filePath?: string) => {
     const title = t("administration.serverFiles.confirmDeleteTitle");
     const message = String(
       t("administration.serverFiles.confirmDeleteMessage")
@@ -105,9 +105,9 @@ export default function AdminServerFiles() {
         },
       },
     ]);
-  };
+  }, [t, path, viewMode, deleteFile, refetch, refetchAllFiles]);
 
-  const onDownload = async (name: string, filePath?: string) => {
+  const onDownload = useCallback(async (name: string, filePath?: string) => {
     try {
       const apiBase = settingsService.getApiBaseWithPrefix();
       let downloadPath: string | null = null;
@@ -152,7 +152,7 @@ export default function AdminServerFiles() {
         t("administration.serverFiles.downloadError")
       );
     }
-  };
+  }, [t, path, viewMode]);
 
   const onUpload = async () => {
     try {

@@ -3,7 +3,7 @@ import {
   NotificationAttachmentDto,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, StyleSheet, View } from "react-native";
 import SimpleMediaGallery, {
   SimpleMediaGalleryRef,
@@ -18,6 +18,8 @@ import {
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
 import { MediaTypeIcon } from "./MediaTypeIcon";
+
+const galleryKeyExtractor = (_: any, index: number) => index.toString();
 
 interface AttachmentGalleryProps {
   attachments: NotificationAttachmentDto[];
@@ -115,6 +117,27 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   const mediaHeight =
     maxHeight ?? (containerWidth > 0 ? containerWidth * 0.6 : effectiveWidth * 0.6);
 
+  const containerDimensions = useMemo(() => ({
+    width: effectiveWidth,
+    height: mediaHeight,
+  }), [effectiveWidth, mediaHeight]);
+
+  const renderGalleryItem = useCallback(({ item, index }: { item: any; index: number }) => (
+    <CachedMedia
+      key={`${item.url}-${index}`}
+      url={item.url!}
+      mediaType={item.mediaType}
+      style={[{ width: effectiveWidth, height: mediaHeight }]}
+      originalFileName={item.name || undefined}
+      onPress={handleAttachmentPress}
+      notificationDate={notificationDate}
+      autoPlay={autoPlay && currentIndex === index}
+      showControls={!enableFullScreen}
+      disableLongPress={zoomEnabled}
+      useThumbnail={!!maxHeight}
+    />
+  ), [effectiveWidth, mediaHeight, handleAttachmentPress, notificationDate, autoPlay, currentIndex, enableFullScreen, zoomEnabled, maxHeight]);
+
   const renderSelector = () => {
     if (!attachments || attachments.length <= 1) return null;
 
@@ -211,30 +234,13 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
               onIndexChange?.(index);
             }}
             numToRender={itemsToRender}
-            keyExtractor={(_, index) => index.toString()}
+            keyExtractor={galleryKeyExtractor}
             pinchEnabled={zoomEnabled}
             disableVerticalSwipe={!onSwipeToClose}
             swipeEnabled={swipeToChange}
             onSwipeToClose={onSwipeToClose}
-            containerDimensions={{
-              width: effectiveWidth,
-              height: mediaHeight,
-            }}
-            renderItem={({ item, index }) => (
-              <CachedMedia
-                key={`${item.url}-${index}`}
-                url={item.url!}
-                mediaType={item.mediaType}
-                style={[{ width: effectiveWidth, height: mediaHeight }]}
-                originalFileName={item.name || undefined}
-                onPress={handleAttachmentPress}
-                notificationDate={notificationDate}
-                autoPlay={autoPlay && currentIndex === index}
-                showControls={!enableFullScreen}
-                disableLongPress={zoomEnabled}
-                useThumbnail={!!maxHeight}
-              />
-            )}
+            containerDimensions={containerDimensions}
+            renderItem={renderGalleryItem}
           />
         </View>
         {!eventsDisabled && enableFullScreen && fullScreenTrigger === "button" && (

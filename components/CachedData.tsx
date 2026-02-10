@@ -18,8 +18,6 @@ import { getSharedMediaCacheDirectoryAsync } from "@/utils/shared-cache";
 import { FlashList } from "@shopify/flash-list";
 import { Paths } from "expo-file-system";
 import { Image } from "expo-image";
-import * as Sharing from "expo-sharing";
-import * as DocumentPicker from "expo-document-picker";
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { Card, IconButton, Text, useTheme, SegmentedButtons, Button } from "react-native-paper";
@@ -29,6 +27,16 @@ import PaperScrollView from "./ui/PaperScrollView";
 import { exportSQLiteDatabaseToFile, importSQLiteDatabaseFromFile, deleteSQLiteDatabase } from "@/services/db-setup";
 import { getLatestAutoDbBackup, restoreLatestAutoDbBackup } from "@/services/db-auto-backup";
 import { NotificationFragment } from "@/generated/gql-operations-generated";
+
+const FlashListSeparator = () => <View style={{ height: 8 }} />;
+const keyById = (item: any) => item.id;
+const keyByPath = (item: any) => item.path;
+const keyByFirst = (item: any) => item[0];
+const keyByKey = (item: any) => item.key;
+
+// Lazy-loaded heavy modules
+const getSharing = () => import("expo-sharing");
+const getDocumentPicker = () => import("expo-document-picker");
 
 type DetailRecord = {
   type: "bucket" | "notification" | "log" | "setting" | "media";
@@ -230,8 +238,8 @@ export default function CachedData() {
         const file = new File(fileUri);
         await file.write(jsonData);
 
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri, {
+        if (await (await getSharing()).isAvailableAsync()) {
+          await (await getSharing()).shareAsync(fileUri, {
             mimeType: "application/json",
           });
         }
@@ -384,8 +392,8 @@ export default function CachedData() {
           const file = new File(fileUri);
           await file.write(jsonData);
 
-          if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(fileUri, {
+          if (await (await getSharing()).isAvailableAsync()) {
+            await (await getSharing()).shareAsync(fileUri, {
               mimeType: "application/json",
             });
           }
@@ -457,8 +465,8 @@ export default function CachedData() {
           const file = new File(fileUri);
           await file.write(jsonData);
 
-          if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(fileUri, {
+          if (await (await getSharing()).isAvailableAsync()) {
+            await (await getSharing()).shareAsync(fileUri, {
               mimeType: "application/json",
             });
           }
@@ -492,8 +500,8 @@ export default function CachedData() {
         const file = new File(fileUri);
         await file.write(jsonData);
 
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri, {
+        if (await (await getSharing()).isAvailableAsync()) {
+          await (await getSharing()).shareAsync(fileUri, {
             mimeType: "application/json",
           });
         }
@@ -644,8 +652,8 @@ export default function CachedData() {
           const file = new File(fileUri);
           await file.write(jsonData);
 
-          if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(fileUri, {
+          if (await (await getSharing()).isAvailableAsync()) {
+            await (await getSharing()).shareAsync(fileUri, {
               mimeType: "application/json",
             });
           }
@@ -679,8 +687,8 @@ export default function CachedData() {
         const file = new File(fileUri);
         await file.write(jsonData);
 
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri, {
+        if (await (await getSharing()).isAvailableAsync()) {
+          await (await getSharing()).shareAsync(fileUri, {
             mimeType: "application/json",
           });
         }
@@ -1007,8 +1015,8 @@ export default function CachedData() {
         const file = new File(fileUri);
         await file.write(jsonData);
 
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri, {
+        if (await (await getSharing()).isAvailableAsync()) {
+          await (await getSharing()).shareAsync(fileUri, {
             mimeType: "application/json",
           });
         }
@@ -1122,8 +1130,8 @@ export default function CachedData() {
         const file = new File(fileUri);
         await file.write(jsonData);
 
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri, {
+        if (await (await getSharing()).isAvailableAsync()) {
+          await (await getSharing()).shareAsync(fileUri, {
             mimeType: "application/json",
           });
         }
@@ -1208,8 +1216,8 @@ export default function CachedData() {
     try {
       const fileUri = await exportSQLiteDatabaseToFile();
 
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, {
+      if (await (await getSharing()).isAvailableAsync()) {
+        await (await getSharing()).shareAsync(fileUri, {
           mimeType: 'application/sql',
           dialogTitle: t("cachedData.sqliteBackup.shareTitle"),
         });
@@ -1304,7 +1312,7 @@ export default function CachedData() {
           onPress: async () => {
             setIsRestoring(true);
             try {
-              const result = await DocumentPicker.getDocumentAsync({
+              const result = await (await getDocumentPicker()).getDocumentAsync({
                 type: ['application/sql', 'text/plain'],
                 copyToCacheDirectory: true,
               });
@@ -1387,6 +1395,307 @@ export default function CachedData() {
       ]
     );
   }, [t, latestAutoBackupName, refreshData, refreshLatestAutoBackup]);
+
+  // Stable renderItem callbacks for FlashLists
+  const renderNotificationItem = useCallback(
+    ({ item: notification }: { item: any }) => (
+      <Card style={styles.itemCard}>
+        <Card.Content style={styles.itemCardContent}>
+          <View style={styles.itemInfo}>
+            <Text variant="titleSmall" numberOfLines={1}>
+              {notification.message.title || "No title"}
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onSurfaceVariant }}
+            >
+              {notification.message.body?.substring(0, 100) || ""}
+            </Text>
+          </View>
+          <View style={styles.itemActions}>
+            <IconButton
+              icon="eye"
+              size={20}
+              iconColor={theme.colors.primary}
+              onPress={() => handleViewNotification(notification)}
+            />
+            <IconButton
+              icon="delete"
+              size={20}
+              iconColor={theme.colors.error}
+              onPress={() => handleDeleteNotification(notification.id)}
+            />
+          </View>
+        </Card.Content>
+      </Card>
+    ),
+    [theme, handleViewNotification, handleDeleteNotification, styles]
+  );
+
+  const renderBucketItem = useCallback(
+    ({ item: bucket }: { item: any }) => (
+      <Card style={styles.itemCard}>
+        <Card.Content style={styles.itemCardContent}>
+          <View style={styles.itemInfo}>
+            <Text variant="titleSmall" numberOfLines={1}>
+              {bucket.name || bucket.id}
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onSurfaceVariant }}
+            >
+              {`${bucket.totalMessages || 0} notifications`}
+            </Text>
+          </View>
+          <View style={styles.itemActions}>
+            <IconButton
+              icon="eye"
+              size={20}
+              iconColor={theme.colors.primary}
+              onPress={() => handleViewBucket(bucket)}
+            />
+          </View>
+        </Card.Content>
+      </Card>
+    ),
+    [theme, handleViewBucket, styles]
+  );
+
+  const renderLogEntryItem = useCallback(
+    ({ item: log }: { item: any }) => (
+      <Card style={styles.itemCard}>
+        <Card.Content style={styles.itemCardContent}>
+          <View style={styles.itemInfo}>
+            <Text variant="titleSmall" numberOfLines={1}>
+              [{log.level.toUpperCase()}] {log.tag || "General"}
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onSurfaceVariant }}
+            >
+              {log.message.substring(0, 100)}
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={{
+                color: theme.colors.onSurfaceVariant,
+                fontSize: 10,
+              }}
+            >
+              {new Date(log.timestamp).toLocaleString()}
+            </Text>
+          </View>
+          <View style={styles.itemActions}>
+            <IconButton
+              icon="eye"
+              size={20}
+              iconColor={theme.colors.primary}
+              onPress={() => handleViewLogEntry(log)}
+            />
+            <IconButton
+              icon="download"
+              size={20}
+              iconColor={theme.colors.primary}
+              onPress={() => handleExportSingleLog(log)}
+            />
+            <IconButton
+              icon="delete"
+              size={20}
+              iconColor={theme.colors.error}
+              onPress={() => handleDeleteLogEntry(log.id, log.source)}
+            />
+          </View>
+        </Card.Content>
+      </Card>
+    ),
+    [theme, handleViewLogEntry, handleExportSingleLog, handleDeleteLogEntry, styles]
+  );
+
+  const renderLogFileItem = useCallback(
+    ({ item: file }: { item: any }) => (
+      <Card style={styles.itemCard}>
+        <Card.Content style={styles.itemCardContent}>
+          <View style={styles.itemInfo}>
+            <Text variant="titleSmall" numberOfLines={1}>
+              {file.name}
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={{
+                color: theme.colors.onSurfaceVariant,
+              }}
+            >
+              {file.size
+                ? `${(file.size / 1024).toFixed(2)} KB`
+                : t("cachedData.unknownSize")}
+            </Text>
+          </View>
+          <View style={styles.itemActions}>
+            <IconButton
+              icon="folder-open"
+              size={20}
+              iconColor={theme.colors.primary}
+              onPress={() => loadLogEntriesFromFile(file.name)}
+              disabled={loadingLogs}
+            />
+            <IconButton
+              icon="download"
+              size={20}
+              iconColor={theme.colors.primary}
+              onPress={() => handleExportLogFile(file.name)}
+            />
+            <IconButton
+              icon="delete"
+              size={20}
+              iconColor={theme.colors.error}
+              onPress={() => handleDeleteLogFile(file.name)}
+            />
+          </View>
+        </Card.Content>
+      </Card>
+    ),
+    [theme, t, loadLogEntriesFromFile, loadingLogs, handleExportLogFile, handleDeleteLogFile, styles]
+  );
+
+  const renderSettingItem = useCallback(
+    ({ item: [key, value] }: { item: [string, string] }) => (
+      <Card style={styles.itemCard}>
+        <Card.Content style={styles.itemCardContent}>
+          <View style={styles.itemInfo}>
+            <Text variant="titleSmall" numberOfLines={1}>
+              {key}
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={{
+                color: theme.colors.onSurfaceVariant,
+              }}
+              numberOfLines={2}
+            >
+              {value}
+            </Text>
+          </View>
+          <View style={styles.itemActions}>
+            <IconButton
+              icon="eye"
+              size={20}
+              iconColor={theme.colors.primary}
+              onPress={() => handleViewSetting(key, value)}
+            />
+            <IconButton
+              icon="download"
+              size={20}
+              iconColor={theme.colors.primary}
+              onPress={() => handleExportSingleSetting(key, value)}
+            />
+            <IconButton
+              icon="delete"
+              size={20}
+              iconColor={theme.colors.error}
+              onPress={() => handleDeleteSetting(key)}
+            />
+          </View>
+        </Card.Content>
+      </Card>
+    ),
+    [theme, handleViewSetting, handleExportSingleSetting, handleDeleteSetting, styles]
+  );
+
+  const renderMediaFileItem = useCallback(
+    ({ item: file }: { item: any }) => (
+      <Card style={styles.itemCard}>
+        <Card.Content style={styles.itemCardContent}>
+          <View style={styles.itemInfo}>
+            <Text variant="titleSmall" numberOfLines={1}>
+              {file.name}
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={{
+                color: theme.colors.onSurfaceVariant,
+              }}
+            >
+              {file.isDirectory
+                ? t("cachedData.folder")
+                : file.size
+                  ? `${(file.size / 1024).toFixed(2)} KB`
+                  : t("cachedData.unknown")}
+            </Text>
+          </View>
+          <View style={styles.itemActions}>
+            {file.isDirectory && (
+              <IconButton
+                icon="folder-open"
+                size={20}
+                iconColor={theme.colors.primary}
+                onPress={() => loadMediaFromFolder(file.path, file.name)}
+                disabled={loadingMedia}
+              />
+            )}
+            <IconButton
+              icon="eye"
+              size={20}
+              iconColor={theme.colors.primary}
+              onPress={() => handleViewMedia(file)}
+            />
+            <IconButton
+              icon="delete"
+              size={20}
+              iconColor={theme.colors.error}
+              onPress={() => handleDeleteMediaFile(file.path)}
+            />
+          </View>
+        </Card.Content>
+      </Card>
+    ),
+    [theme, t, loadMediaFromFolder, loadingMedia, handleViewMedia, handleDeleteMediaFile, styles]
+  );
+
+  const renderMediaMetadataItem = useCallback(
+    ({ item: media }: { item: any }) => (
+      <Card style={styles.itemCard}>
+        <Card.Content style={styles.itemCardContent}>
+          <View style={styles.itemInfo}>
+            <Text variant="titleSmall" numberOfLines={1}>
+              {media.originalFileName || media.key}
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onSurfaceVariant }}
+            >
+              {media.mediaType} - {(media.size / 1024).toFixed(2)} KB
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={{
+                color: theme.colors.onSurfaceVariant,
+                fontSize: 10,
+              }}
+            >
+              {media.downloadedAt
+                ? new Date(media.downloadedAt).toLocaleString()
+                : t("cachedData.notDownloaded")}
+            </Text>
+          </View>
+          <View style={styles.itemActions}>
+            <IconButton
+              icon="code-json"
+              size={20}
+              iconColor={theme.colors.primary}
+              onPress={() => handleViewMetadata(media)}
+            />
+            <IconButton
+              icon="delete"
+              size={20}
+              iconColor={theme.colors.error}
+              onPress={() => handleDeleteMetadata(media)}
+            />
+          </View>
+        </Card.Content>
+      </Card>
+    ),
+    [theme, t, handleViewMetadata, handleDeleteMetadata, styles]
+  );
 
   return (
     <PaperScrollView onRefresh={refreshData} loading={isLoading}>
@@ -1493,39 +1802,9 @@ export default function CachedData() {
         {cachedNotifications.length ? (
           <FlashList
             data={cachedNotifications}
-            renderItem={({ item: notification }) => (
-              <Card style={styles.itemCard}>
-                <Card.Content style={styles.itemCardContent}>
-                  <View style={styles.itemInfo}>
-                    <Text variant="titleSmall" numberOfLines={1}>
-                      {notification.message.title || "No title"}
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={{ color: theme.colors.onSurfaceVariant }}
-                    >
-                      {notification.message.body?.substring(0, 100) || ""}
-                    </Text>
-                  </View>
-                  <View style={styles.itemActions}>
-                    <IconButton
-                      icon="eye"
-                      size={20}
-                      iconColor={theme.colors.primary}
-                      onPress={() => handleViewNotification(notification)}
-                    />
-                    <IconButton
-                      icon="delete"
-                      size={20}
-                      iconColor={theme.colors.error}
-                      onPress={() => handleDeleteNotification(notification.id)}
-                    />
-                  </View>
-                </Card.Content>
-              </Card>
-            )}
-            keyExtractor={(item) => item.id}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+            renderItem={renderNotificationItem}
+            keyExtractor={keyById}
+            ItemSeparatorComponent={FlashListSeparator}
             showsVerticalScrollIndicator={true}
             style={{ maxHeight: 400 }}
           />
@@ -1571,33 +1850,9 @@ export default function CachedData() {
         {appState?.buckets.length ? (
           <FlashList
             data={appState.buckets}
-            renderItem={({ item: bucket }) => (
-              <Card style={styles.itemCard}>
-                <Card.Content style={styles.itemCardContent}>
-                  <View style={styles.itemInfo}>
-                    <Text variant="titleSmall" numberOfLines={1}>
-                      {bucket.name || bucket.id}
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={{ color: theme.colors.onSurfaceVariant }}
-                    >
-                      {`${bucket.totalMessages || 0} notifications`}
-                    </Text>
-                  </View>
-                  <View style={styles.itemActions}>
-                    <IconButton
-                      icon="eye"
-                      size={20}
-                      iconColor={theme.colors.primary}
-                      onPress={() => handleViewBucket(bucket)}
-                    />
-                  </View>
-                </Card.Content>
-              </Card>
-            )}
-            keyExtractor={(item) => item.id}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+            renderItem={renderBucketItem}
+            keyExtractor={keyById}
+            ItemSeparatorComponent={FlashListSeparator}
             showsVerticalScrollIndicator={true}
             style={{ maxHeight: 400 }}
           />
@@ -1646,54 +1901,9 @@ export default function CachedData() {
           logEntries.length ? (
             <FlashList
               data={logEntries}
-              renderItem={({ item: log }) => (
-                <Card style={styles.itemCard}>
-                  <Card.Content style={styles.itemCardContent}>
-                    <View style={styles.itemInfo}>
-                      <Text variant="titleSmall" numberOfLines={1}>
-                        [{log.level.toUpperCase()}] {log.tag || "General"}
-                      </Text>
-                      <Text
-                        variant="bodySmall"
-                        style={{ color: theme.colors.onSurfaceVariant }}
-                      >
-                        {log.message.substring(0, 100)}
-                      </Text>
-                      <Text
-                        variant="bodySmall"
-                        style={{
-                          color: theme.colors.onSurfaceVariant,
-                          fontSize: 10,
-                        }}
-                      >
-                        {new Date(log.timestamp).toLocaleString()}
-                      </Text>
-                    </View>
-                    <View style={styles.itemActions}>
-                      <IconButton
-                        icon="eye"
-                        size={20}
-                        iconColor={theme.colors.primary}
-                        onPress={() => handleViewLogEntry(log)}
-                      />
-                      <IconButton
-                        icon="download"
-                        size={20}
-                        iconColor={theme.colors.primary}
-                        onPress={() => handleExportSingleLog(log)}
-                      />
-                      <IconButton
-                        icon="delete"
-                        size={20}
-                        iconColor={theme.colors.error}
-                        onPress={() => handleDeleteLogEntry(log.id)}
-                      />
-                    </View>
-                  </Card.Content>
-                </Card>
-              )}
-              keyExtractor={(item) => item.id}
-              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+              renderItem={renderLogEntryItem}
+              keyExtractor={keyById}
+              ItemSeparatorComponent={FlashListSeparator}
               showsVerticalScrollIndicator={true}
               style={{ maxHeight: 400 }}
             />
@@ -1715,50 +1925,9 @@ export default function CachedData() {
               logFiles.length ? (
                 <FlashList
                   data={logFiles}
-                  renderItem={({ item: file }) => (
-                    <Card style={styles.itemCard}>
-                      <Card.Content style={styles.itemCardContent}>
-                        <View style={styles.itemInfo}>
-                          <Text variant="titleSmall" numberOfLines={1}>
-                            {file.name}
-                          </Text>
-                          <Text
-                            variant="bodySmall"
-                            style={{
-                              color: theme.colors.onSurfaceVariant,
-                            }}
-                          >
-                            {file.size
-                              ? `${(file.size / 1024).toFixed(2)} KB`
-                              : t("cachedData.unknownSize")}
-                          </Text>
-                        </View>
-                        <View style={styles.itemActions}>
-                          <IconButton
-                            icon="folder-open"
-                            size={20}
-                            iconColor={theme.colors.primary}
-                            onPress={() => loadLogEntriesFromFile(file.name)}
-                            disabled={loadingLogs}
-                          />
-                          <IconButton
-                            icon="download"
-                            size={20}
-                            iconColor={theme.colors.primary}
-                            onPress={() => handleExportLogFile(file.name)}
-                          />
-                          <IconButton
-                            icon="delete"
-                            size={20}
-                            iconColor={theme.colors.error}
-                            onPress={() => handleDeleteLogFile(file.name)}
-                          />
-                        </View>
-                      </Card.Content>
-                    </Card>
-                  )}
-                  keyExtractor={(item) => item.path}
-                  ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                  renderItem={renderLogFileItem}
+                  keyExtractor={keyByPath}
+                  ItemSeparatorComponent={FlashListSeparator}
                   showsVerticalScrollIndicator={true}
                   style={{ maxHeight: 400 }}
                 />
@@ -1791,60 +1960,9 @@ export default function CachedData() {
                 {logEntries.length ? (
                   <FlashList
                     data={logEntries}
-                    renderItem={({ item: log }) => (
-                      <Card style={styles.itemCard}>
-                        <Card.Content style={styles.itemCardContent}>
-                          <View style={styles.itemInfo}>
-                            <Text variant="titleSmall" numberOfLines={1}>
-                              [{log.level.toUpperCase()}] {log.tag || "General"}
-                            </Text>
-                            <Text
-                              variant="bodySmall"
-                              style={{
-                                color: theme.colors.onSurfaceVariant,
-                              }}
-                            >
-                              {log.message.substring(0, 100)}
-                            </Text>
-                            <Text
-                              variant="bodySmall"
-                              style={{
-                                color: theme.colors.onSurfaceVariant,
-                                fontSize: 10,
-                              }}
-                            >
-                              {new Date(log.timestamp).toLocaleString()}
-                            </Text>
-                          </View>
-                          <View style={styles.itemActions}>
-                            <IconButton
-                              icon="eye"
-                              size={20}
-                              iconColor={theme.colors.primary}
-                              onPress={() => handleViewLogEntry(log)}
-                            />
-                            <IconButton
-                              icon="download"
-                              size={20}
-                              iconColor={theme.colors.primary}
-                              onPress={() => handleExportSingleLog(log)}
-                            />
-                            <IconButton
-                              icon="delete"
-                              size={20}
-                              iconColor={theme.colors.error}
-                              onPress={() =>
-                                handleDeleteLogEntry(log.id, log.source)
-                              }
-                            />
-                          </View>
-                        </Card.Content>
-                      </Card>
-                    )}
-                    keyExtractor={(item) => item.id}
-                    ItemSeparatorComponent={() => (
-                      <View style={{ height: 8 }} />
-                    )}
+                    renderItem={renderLogEntryItem}
+                    keyExtractor={keyById}
+                    ItemSeparatorComponent={FlashListSeparator}
                     showsVerticalScrollIndicator={true}
                     style={{ maxHeight: 400 }}
                   />
@@ -1898,48 +2016,9 @@ export default function CachedData() {
         ) : settings.size > 0 ? (
           <FlashList
             data={Array.from(settings.entries())}
-            renderItem={({ item: [key, value] }) => (
-              <Card style={styles.itemCard}>
-                <Card.Content style={styles.itemCardContent}>
-                  <View style={styles.itemInfo}>
-                    <Text variant="titleSmall" numberOfLines={1}>
-                      {key}
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={{
-                        color: theme.colors.onSurfaceVariant,
-                      }}
-                      numberOfLines={2}
-                    >
-                      {value}
-                    </Text>
-                  </View>
-                  <View style={styles.itemActions}>
-                    <IconButton
-                      icon="eye"
-                      size={20}
-                      iconColor={theme.colors.primary}
-                      onPress={() => handleViewSetting(key, value)}
-                    />
-                    <IconButton
-                      icon="download"
-                      size={20}
-                      iconColor={theme.colors.primary}
-                      onPress={() => handleExportSingleSetting(key, value)}
-                    />
-                    <IconButton
-                      icon="delete"
-                      size={20}
-                      iconColor={theme.colors.error}
-                      onPress={() => handleDeleteSetting(key)}
-                    />
-                  </View>
-                </Card.Content>
-              </Card>
-            )}
-            keyExtractor={(item) => item[0]}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+            renderItem={renderSettingItem}
+            keyExtractor={keyByFirst}
+            ItemSeparatorComponent={FlashListSeparator}
             showsVerticalScrollIndicator={true}
             style={{ maxHeight: 400 }}
           />
@@ -1978,54 +2057,9 @@ export default function CachedData() {
               mediaFiles.length ? (
                 <FlashList
                   data={mediaFiles}
-                  renderItem={({ item: file }) => (
-                    <Card style={styles.itemCard}>
-                      <Card.Content style={styles.itemCardContent}>
-                        <View style={styles.itemInfo}>
-                          <Text variant="titleSmall" numberOfLines={1}>
-                            {file.name}
-                          </Text>
-                          <Text
-                            variant="bodySmall"
-                            style={{
-                              color: theme.colors.onSurfaceVariant,
-                            }}
-                          >
-                            {file.isDirectory
-                              ? t("cachedData.folder")
-                              : file.size
-                                ? `${(file.size / 1024).toFixed(2)} KB`
-                                : t("cachedData.unknown")}
-                          </Text>
-                        </View>
-                        <View style={styles.itemActions}>
-                          {file.isDirectory && (
-                            <IconButton
-                              icon="folder-open"
-                              size={20}
-                              iconColor={theme.colors.primary}
-                              onPress={() => loadMediaFromFolder(file.path, file.name)}
-                              disabled={loadingMedia}
-                            />
-                          )}
-                          <IconButton
-                            icon="eye"
-                            size={20}
-                            iconColor={theme.colors.primary}
-                            onPress={() => handleViewMedia(file)}
-                          />
-                          <IconButton
-                            icon="delete"
-                            size={20}
-                            iconColor={theme.colors.error}
-                            onPress={() => handleDeleteMediaFile(file.path)}
-                          />
-                        </View>
-                      </Card.Content>
-                    </Card>
-                  )}
-                  keyExtractor={(item) => item.path}
-                  ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                  renderItem={renderMediaFileItem}
+                  keyExtractor={keyByPath}
+                  ItemSeparatorComponent={FlashListSeparator}
                   showsVerticalScrollIndicator={true}
                   style={{ maxHeight: 400 }}
                 />
@@ -2055,56 +2089,9 @@ export default function CachedData() {
                 {mediaFiles.length ? (
                   <FlashList
                     data={mediaFiles}
-                    renderItem={({ item: file }) => (
-                      <Card style={styles.itemCard}>
-                        <Card.Content style={styles.itemCardContent}>
-                          <View style={styles.itemInfo}>
-                            <Text variant="titleSmall" numberOfLines={1}>
-                              {file.name}
-                            </Text>
-                            <Text
-                              variant="bodySmall"
-                              style={{
-                                color: theme.colors.onSurfaceVariant,
-                              }}
-                            >
-                              {file.isDirectory
-                                ? t("cachedData.folder")
-                                : file.size
-                                  ? `${(file.size / 1024).toFixed(2)} KB`
-                                  : t("cachedData.unknown")}
-                            </Text>
-                          </View>
-                          <View style={styles.itemActions}>
-                            {file.isDirectory && (
-                              <IconButton
-                                icon="folder-open"
-                                size={20}
-                                iconColor={theme.colors.primary}
-                                onPress={() => loadMediaFromFolder(file.path, file.name)}
-                                disabled={loadingMedia}
-                              />
-                            )}
-                            <IconButton
-                              icon="eye"
-                              size={20}
-                              iconColor={theme.colors.primary}
-                              onPress={() => handleViewMedia(file)}
-                            />
-                            <IconButton
-                              icon="delete"
-                              size={20}
-                              iconColor={theme.colors.error}
-                              onPress={() => handleDeleteMediaFile(file.path)}
-                            />
-                          </View>
-                        </Card.Content>
-                      </Card>
-                    )}
-                    keyExtractor={(item) => item.path}
-                    ItemSeparatorComponent={() => (
-                      <View style={{ height: 8 }} />
-                    )}
+                    renderItem={renderMediaFileItem}
+                    keyExtractor={keyByPath}
+                    ItemSeparatorComponent={FlashListSeparator}
                     showsVerticalScrollIndicator={true}
                     style={{ maxHeight: 400 }}
                   />
@@ -2149,50 +2136,9 @@ export default function CachedData() {
         {mediaItems.length ? (
           <FlashList
             data={mediaItems}
-            renderItem={({ item: media }) => (
-              <Card style={styles.itemCard}>
-                <Card.Content style={styles.itemCardContent}>
-                  <View style={styles.itemInfo}>
-                    <Text variant="titleSmall" numberOfLines={1}>
-                      {media.originalFileName || media.key}
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={{ color: theme.colors.onSurfaceVariant }}
-                    >
-                      {media.mediaType} - {(media.size / 1024).toFixed(2)} KB
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={{
-                        color: theme.colors.onSurfaceVariant,
-                        fontSize: 10,
-                      }}
-                    >
-                      {media.downloadedAt
-                        ? new Date(media.downloadedAt).toLocaleString()
-                        : t("cachedData.notDownloaded")}
-                    </Text>
-                  </View>
-                  <View style={styles.itemActions}>
-                    <IconButton
-                      icon="code-json"
-                      size={20}
-                      iconColor={theme.colors.primary}
-                      onPress={() => handleViewMetadata(media)}
-                    />
-                    <IconButton
-                      icon="delete"
-                      size={20}
-                      iconColor={theme.colors.error}
-                      onPress={() => handleDeleteMetadata(media)}
-                    />
-                  </View>
-                </Card.Content>
-              </Card>
-            )}
-            keyExtractor={(item) => item.key}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+            renderItem={renderMediaMetadataItem}
+            keyExtractor={keyByKey}
+            ItemSeparatorComponent={FlashListSeparator}
             showsVerticalScrollIndicator={true}
             style={{ maxHeight: 400 }}
           />

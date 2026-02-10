@@ -197,16 +197,16 @@ export default function Multiselect({
     }
   };
 
-  const handleToggleOption = (option: MultiselectOption) => {
+  const handleToggleOption = useCallback((option: MultiselectOption) => {
     const isSelected = selectedValues.includes(option.id);
     if (isSelected) {
       onValuesChange(selectedValues.filter((id) => id !== option.id));
     } else {
       onValuesChange([...selectedValues, option.id]);
     }
-  };
+  }, [selectedValues, onValuesChange]);
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     if (selectedValues.length === options.length) {
       // Deselect all
       onValuesChange([]);
@@ -214,11 +214,11 @@ export default function Multiselect({
       // Select all
       onValuesChange(options.map((option) => option.id));
     }
-  };
+  }, [selectedValues.length, options, onValuesChange]);
 
-  const handleClearSelection = () => {
+  const handleClearSelection = useCallback(() => {
     onValuesChange([]);
-  };
+  }, [onValuesChange]);
 
   const allSelected = selectedValues.length === options.length;
   const someSelected = selectedValues.length > 0 && !allSelected;
@@ -555,7 +555,7 @@ export default function Multiselect({
     );
   };
 
-  const renderOptionItem = (item: MultiselectOption) => {
+  const renderOptionItem = useCallback((item: MultiselectOption) => {
     const isSelected = selectedValues.includes(item.id);
 
     return (
@@ -592,7 +592,58 @@ export default function Multiselect({
         </View>
       </View>
     );
-  };
+  }, [selectedValues, theme, styles]);
+
+  const renderInlineItem = useCallback(({ item }: { item: MultiselectOption }) => {
+    const isSelected = selectedValues.includes(item.id);
+    return (
+      <TouchableOpacity
+        style={[
+          styles.inlineOptionItem,
+          isSelected && styles.inlineSelectedOption,
+        ]}
+        onPress={() => handleToggleOption(item)}
+      >
+        {renderOptionItem(item)}
+        <Icon
+          source={
+            isSelected
+              ? "checkbox-marked"
+              : "checkbox-blank-outline"
+          }
+          size={24}
+          color={
+            isSelected
+              ? theme.colors.primary
+              : theme.colors.onSurfaceVariant
+          }
+        />
+      </TouchableOpacity>
+    );
+  }, [selectedValues, handleToggleOption, renderOptionItem, styles, theme]);
+
+  const renderModalItem = useCallback(({ item }: { item: MultiselectOption }) => {
+    const isSelected = selectedValues.includes(item.id);
+    return (
+      <TouchableOpacity
+        style={[styles.optionItem, isSelected && styles.selectedOption]}
+        onPress={() => handleToggleOption(item)}
+      >
+        {renderOptionItem(item)}
+        <Icon
+          source={
+            isSelected ? "checkbox-marked" : "checkbox-blank-outline"
+          }
+          size={24}
+          color={
+            isSelected
+              ? theme.colors.primary
+              : theme.colors.onSurfaceVariant
+          }
+        />
+      </TouchableOpacity>
+    );
+  }, [selectedValues, handleToggleOption, renderOptionItem, styles, theme]);
 
   const renderInlineMode = () => (
     <View ref={containerRef}>
@@ -685,33 +736,7 @@ export default function Multiselect({
               windowSize={8}
               nestedScrollEnabled
               showsVerticalScrollIndicator
-              renderItem={({ item }) => {
-                const isSelected = selectedValues.includes(item.id);
-                return (
-                  <TouchableOpacity
-                    style={[
-                      styles.inlineOptionItem,
-                      isSelected && styles.inlineSelectedOption,
-                    ]}
-                    onPress={() => handleToggleOption(item)}
-                  >
-                    {renderOptionItem(item)}
-                    <Icon
-                      source={
-                        isSelected
-                          ? "checkbox-marked"
-                          : "checkbox-blank-outline"
-                      }
-                      size={24}
-                      color={
-                        isSelected
-                          ? theme.colors.primary
-                          : theme.colors.onSurfaceVariant
-                      }
-                    />
-                  </TouchableOpacity>
-                );
-              }}
+              renderItem={renderInlineItem}
               ListEmptyComponent={
                 <View style={styles.inlineEmptyState}>
                   <Text style={styles.inlineEmptyStateText}>
@@ -812,28 +837,7 @@ export default function Multiselect({
           style={styles.optionsList}
           data={filteredOptions}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => {
-            const isSelected = selectedValues.includes(item.id);
-            return (
-              <TouchableOpacity
-                style={[styles.optionItem, isSelected && styles.selectedOption]}
-                onPress={() => handleToggleOption(item)}
-              >
-                {renderOptionItem(item)}
-                <Icon
-                  source={
-                    isSelected ? "checkbox-marked" : "checkbox-blank-outline"
-                  }
-                  size={24}
-                  color={
-                    isSelected
-                      ? theme.colors.primary
-                      : theme.colors.onSurfaceVariant
-                  }
-                />
-              </TouchableOpacity>
-            );
-          }}
+          renderItem={renderModalItem}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>

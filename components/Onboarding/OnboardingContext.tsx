@@ -794,7 +794,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     setMagicCode(null);
   }, []);
 
-  const value: OnboardingContextType = {
+  const value = useMemo<OnboardingContextType>(() => ({
     currentStep,
     goToNextStep,
     goToPreviousStep,
@@ -874,7 +874,27 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     createStep4Resources,
     resetOnboarding,
     bucketId,
-  };
+  }), [
+    currentStep, goToNextStep, goToPreviousStep,
+    customServerUrl, useCustomServer, testingServer, testResult,
+    testServerConnection, createStep1ExternalSystemIfNeeded,
+    step1ExternalSystemMode, step1SelectedExistingExternalSystemId,
+    step1ExternalSystemType, step1ExternalSystemName,
+    step1ExternalSystemBaseUrl, step1ExternalSystemAuthUser,
+    step1ExternalSystemAuthPassword, step1ExternalSystemAuthToken,
+    step1CreatedExternalSystemId,
+    selectedLanguage, selectedThemePreset, selectedDateFormat,
+    selectedTimezone, selectedMarkAsReadMode,
+    step3RetentionPreset, step3MaxCacheSizeMB, step3MaxCacheAgeDays,
+    step3MaxNotifications, step3MaxNotificationsDays,
+    step3AutoDownloadEnabled, step3WifiOnlyDownload,
+    deviceRegistered,
+    step4SelectedBucketId, step4BucketName, step4BucketSelectionMode,
+    step4MagicCode, step4SelectedTemplateId, step4TemplateColor,
+    step4TemplateIconUrl, step4ExternalSystemChannel,
+    isStep4Complete, sendTestNotification, magicCode,
+    push, applySettings, createStep4Resources, resetOnboarding, bucketId,
+  ]);
 
   return (
     <OnboardingContext.Provider value={value}>

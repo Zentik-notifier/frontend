@@ -1,7 +1,7 @@
 import { UserSettingType, useUpsertUserSettingMutation } from '@/generated/gql-operations-generated';
 import { AuthData, DateFormatPreferences, DownloadSettings, DynamicThemeColors, GalleryVisualization, LayoutMode, MarkAsReadMode, NotificationVisualization, RetentionPolicies, settingsService, UserSettings } from '@/services/settings-service';
 import { ThemePreset } from '@/services/theme-presets';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export function useSettings() {
   const [settings, setSettings] = useState<UserSettings>(settingsService.getSettings());
@@ -225,7 +225,23 @@ export function useSettings() {
     await settingsService.importSettings(settingsJson);
   }, []);
 
-  return {
+  const shouldFilterNotification = useCallback(
+    (n: any) => settingsService.shouldFilterNotification(n),
+    []
+  );
+  const getNotificationSortComparator = useCallback(
+    () => settingsService.getNotificationSortComparator(),
+    []
+  );
+  const getApiUrl = useCallback(() => settingsService.getApiUrl(), []);
+  const getApiBaseWithPrefix = useCallback(() => settingsService.getApiBaseWithPrefix(), []);
+  const getCustomApiUrl = useCallback(() => settingsService.getCustomApiUrl(), []);
+  const hasCustomApiUrl = useCallback(() => settingsService.hasCustomApiUrl(), []);
+  const saveApiEndpoint = useCallback((endpoint: string) => settingsService.saveApiEndpoint(endpoint), []);
+  const resetApiEndpoint = useCallback(() => settingsService.resetApiEndpoint(), []);
+  const clearApiEndpoint = useCallback(() => settingsService.clearApiEndpoint(), []);
+
+  return useMemo(() => ({
     settings,
     isInitialized,
     updateSettings,
@@ -268,21 +284,73 @@ export function useSettings() {
     setLastSeenChangelogId,
     exportSettings,
     importSettings,
-    shouldFilterNotification: settingsService.shouldFilterNotification.bind(settingsService),
-    getNotificationSortComparator: settingsService.getNotificationSortComparator.bind(settingsService),
-    getApiUrl: useCallback(() => settingsService.getApiUrl(), []),
-    getApiBaseWithPrefix: useCallback(() => settingsService.getApiBaseWithPrefix(), []),
-    getCustomApiUrl: useCallback(() => settingsService.getCustomApiUrl(), []),
-    hasCustomApiUrl: useCallback(() => settingsService.hasCustomApiUrl(), []),
-    saveApiEndpoint: useCallback((endpoint: string) => settingsService.saveApiEndpoint(endpoint), []),
-    resetApiEndpoint: useCallback(() => settingsService.resetApiEndpoint(), []),
-    clearApiEndpoint: useCallback(() => settingsService.clearApiEndpoint(), []),
+    shouldFilterNotification,
+    getNotificationSortComparator,
+    getApiUrl,
+    getApiBaseWithPrefix,
+    getCustomApiUrl,
+    hasCustomApiUrl,
+    saveApiEndpoint,
+    resetApiEndpoint,
+    clearApiEndpoint,
     // Legacy methods for backward compatibility
     setNotificationFilters: setNotificationVisualization,
     updateMediaCacheRetentionPolicies: updateRetentionPolicies,
     updateMediaCacheDownloadSettings: updateDownloadSettings,
     updateGallerySettings: updateGalleryVisualization,
-  };
+  }), [
+    settings,
+    isInitialized,
+    updateSettings,
+    setThemeMode,
+    setLayoutMode,
+    getLayoutMode,
+    setCustomThemeSettings,
+    setTextScale,
+    setNotificationVisualization,
+    setLocale,
+    setTimezone,
+    setDateFormatPreferences,
+    setIsCompactMode,
+    setMaxCachedNotifications,
+    setMaxCachedNotificationsDay,
+    updateRetentionPolicies,
+    updateDownloadSettings,
+    setNotificationsLastSeenId,
+    setUnencryptOnBigPayload,
+    setMarkAsReadMode,
+    setGenerateBucketIconWithInitials,
+    setAutoAddDeleteAction,
+    setAutoAddMarkAsReadAction,
+    setAutoAddOpenNotificationAction,
+    setDefaultPostpones,
+    setDefaultSnoozes,
+    setGithubEventsFilter,
+    setDisableUserTracking,
+    updateGalleryVisualization,
+    setGalleryGridSize,
+    updateOnboardingSettings,
+    completeOnboarding,
+    skipOnboarding,
+    updateTermsAcceptanceSettings,
+    acceptTerms,
+    clearTermsAcceptance,
+    setLastCleanup,
+    shouldRunCleanup,
+    resetSettings,
+    setLastSeenChangelogId,
+    exportSettings,
+    importSettings,
+    shouldFilterNotification,
+    getNotificationSortComparator,
+    getApiUrl,
+    getApiBaseWithPrefix,
+    getCustomApiUrl,
+    hasCustomApiUrl,
+    saveApiEndpoint,
+    resetApiEndpoint,
+    clearApiEndpoint,
+  ]);
 }
 
 export function useSettingsValue<K extends keyof UserSettings>(key: K): UserSettings[K] {

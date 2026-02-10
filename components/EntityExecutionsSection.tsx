@@ -38,7 +38,7 @@ export interface ExecutionItemProps {
   showEntityName?: boolean;
 }
 
-export function ExecutionItem({ execution, isExpanded, onToggle, showEntityName }: ExecutionItemProps) {
+export const ExecutionItem = React.memo(function ExecutionItem({ execution, isExpanded, onToggle, showEntityName }: ExecutionItemProps) {
   const theme = useTheme();
   const { t } = useI18n();
 
@@ -108,7 +108,7 @@ export function ExecutionItem({ execution, isExpanded, onToggle, showEntityName 
       )}
     </Card>
   );
-}
+});
 
 export interface ExecutionExpandedContentProps {
   execution: EntityExecutionFragment;

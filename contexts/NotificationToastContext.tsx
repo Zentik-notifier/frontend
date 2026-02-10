@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { IncomingNotificationToast } from '../components/IncomingNotificationToast';
 import { NotificationDeliveryType } from '@/generated/gql-operations-generated';
 
@@ -59,10 +59,10 @@ export const NotificationToastProvider: React.FC<{
     }, 300);
   }, []);
 
-  const value: NotificationToastContextValue = {
+  const value = useMemo<NotificationToastContextValue>(() => ({
     showNotification,
     hideNotification,
-  };
+  }), [showNotification, hideNotification]);
 
   return (
     <NotificationToastContext.Provider value={value}>

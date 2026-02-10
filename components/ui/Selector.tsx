@@ -197,7 +197,7 @@ export default function Selector({
     }
   };
 
-  const handleSelectOption = (option: SelectorOption) => {
+  const handleSelectOption = useCallback((option: SelectorOption) => {
     // Toggle selection: deselect if already selected, otherwise select
     const newValue = option.id === selectedValue ? null : option.id;
     onValueChange(newValue);
@@ -206,7 +206,7 @@ export default function Selector({
     } else {
       setIsInlineDropdownOpen(false);
     }
-  };
+  }, [selectedValue, onValueChange, mode]);
 
   const styles = StyleSheet.create({
     label: {
@@ -468,6 +468,33 @@ export default function Selector({
 
   const selectedItem = renderItem(selectedOption);
 
+  const renderInlineSelectorItem = useCallback(({ item }: { item: SelectorOption }) => {
+    const isSelected = item.id === selectedValue;
+    return (
+      <TouchableOpacity
+        style={[
+          styles.inlineOptionItem,
+          isSelected && styles.inlineSelectedOption,
+        ]}
+        onPress={() => handleSelectOption(item)}
+      >
+        {renderItem(item)}
+      </TouchableOpacity>
+    );
+  }, [selectedValue, handleSelectOption, styles]);
+
+  const renderModalSelectorItem = useCallback(({ item }: { item: SelectorOption }) => {
+    const isSelected = item.id === selectedValue;
+    return (
+      <TouchableOpacity
+        style={[styles.optionItem, isSelected && styles.selectedOption]}
+        onPress={() => handleSelectOption(item)}
+      >
+        {renderItem(item)}
+      </TouchableOpacity>
+    );
+  }, [selectedValue, handleSelectOption, styles]);
+
   const renderInlineMode = () => (
     <View ref={containerRef}>
       {label && <Text style={styles.label}>{label}</Text>}
@@ -523,20 +550,7 @@ export default function Selector({
               style={styles.inlineOptionsList}
               data={filteredOptions}
               keyExtractor={(item) => String(item.id)}
-              renderItem={({ item }) => {
-                const isSelected = item.id === selectedValue;
-                return (
-                  <TouchableOpacity
-                    style={[
-                      styles.inlineOptionItem,
-                      isSelected && styles.inlineSelectedOption,
-                    ]}
-                    onPress={() => handleSelectOption(item)}
-                  >
-                    {renderItem(item)}
-                  </TouchableOpacity>
-                );
-              }}
+              renderItem={renderInlineSelectorItem}
               ListEmptyComponent={
                 <View style={styles.inlineEmptyState}>
                   <Text style={styles.inlineEmptyStateText}>
@@ -609,17 +623,7 @@ export default function Selector({
           style={styles.optionsList}
           data={filteredOptions}
           keyExtractor={(item) => item.id != null ? String(item.id) : "empty"}
-          renderItem={({ item }) => {
-            const isSelected = item.id === selectedValue;
-            return (
-              <TouchableOpacity
-                style={[styles.optionItem, isSelected && styles.selectedOption]}
-                onPress={() => handleSelectOption(item)}
-              >
-                {renderItem(item)}
-              </TouchableOpacity>
-            );
-          }}
+          renderItem={renderModalSelectorItem}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>

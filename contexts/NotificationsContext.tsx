@@ -19,6 +19,8 @@ interface NotificationsState {
 type NotificationsAction =
   | { type: "SET_ALL_NOTIFICATION_IDS"; payload: string[] }
   | { type: "SET_SELECTION_MODE"; payload: boolean }
+  | { type: "TOGGLE_SELECTION_MODE" }
+  | { type: "SELECT_ALL" }
   | { type: "SET_SELECTED_ITEMS"; payload: Set<string> }
   | { type: "TOGGLE_ITEM_SELECTION"; payload: string }
   | { type: "CLEAR_SELECTION" }
@@ -56,6 +58,22 @@ function notificationsReducer(
         selectionMode: action.payload,
         selectedItems: action.payload ? state.selectedItems : new Set(),
       };
+    case "TOGGLE_SELECTION_MODE":
+      return {
+        ...state,
+        selectionMode: !state.selectionMode,
+        selectedItems: !state.selectionMode ? state.selectedItems : new Set(),
+      };
+    case "SELECT_ALL": {
+      const allSelected = state.allNotificationIds.length > 0 &&
+        state.selectedItems.size === state.allNotificationIds.length &&
+        state.allNotificationIds.every(id => state.selectedItems.has(id));
+      if (allSelected) {
+        return { ...state, selectedItems: new Set() };
+      } else {
+        return { ...state, selectedItems: new Set(state.allNotificationIds) };
+      }
+    }
     case "SET_SELECTED_ITEMS":
       return { ...state, selectedItems: action.payload };
     case "TOGGLE_ITEM_SELECTION":
@@ -125,28 +143,16 @@ export function NotificationsProvider({
   }, []);
 
   const handleToggleMultiSelection = useCallback(() => {
-    dispatch({ type: "SET_SELECTION_MODE", payload: !state.selectionMode });
-  }, [state.selectionMode]);
+    dispatch({ type: "TOGGLE_SELECTION_MODE" });
+  }, []);
 
   const handleToggleItemSelection = useCallback((itemId: string) => {
     dispatch({ type: "TOGGLE_ITEM_SELECTION", payload: itemId });
   }, []);
 
   const handleSelectAll = useCallback(() => {
-    // Se tutte le notifiche sono già selezionate, deseleziona tutto
-    const allSelected = state.allNotificationIds.length > 0 && 
-                        state.selectedItems.size === state.allNotificationIds.length &&
-                        state.allNotificationIds.every(id => state.selectedItems.has(id));
-    
-    if (allSelected) {
-      console.log("handleSelectAll - All already selected, deselecting all");
-      dispatch({ type: "CLEAR_SELECTION" });
-    } else {
-      console.log("handleSelectAll - Selecting all", state.allNotificationIds.length);
-      const allIds = new Set(state.allNotificationIds);
-      dispatch({ type: "SET_SELECTED_ITEMS", payload: allIds });
-    }
-  }, [state.allNotificationIds, state.selectedItems]);
+    dispatch({ type: "SELECT_ALL" });
+  }, []);
 
   const handleDeselectAll = useCallback(() => {
     dispatch({ type: "CLEAR_SELECTION" });

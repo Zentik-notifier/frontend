@@ -8,12 +8,14 @@ import {
 import SimpleMediaGallery, {
   SimpleMediaGalleryRef,
 } from "@/components/ui/SimpleMediaGallery";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Dimensions, View } from "react-native";
 import { ImageContentFit } from "expo-image";
 import { CachedMedia } from "./CachedMedia";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+
+const galleryContentKeyExtractor = (_: any, index: number) => index.toString();
 
 export interface AttachmentGalleryContentProps {
   attachments: NotificationAttachmentDto[];
@@ -56,6 +58,26 @@ export default function AttachmentGalleryContent({
     containerHeight > 0 ? containerHeight : containerWidth * 0.6;
   const mediaWidth = containerWidth > 0 ? containerWidth : screenWidth;
 
+  const containerDimensions = useMemo(() => ({
+    width: containerWidth || 0,
+    height: mediaHeight,
+  }), [containerWidth, mediaHeight]);
+
+  const renderContentItem = useCallback(({ item, index }: { item: any; index: number }) => (
+    <CachedMedia
+      key={`${item.url}-${index}`}
+      url={item.url!}
+      mediaType={item.mediaType}
+      style={[{ width: mediaWidth, height: mediaHeight }]}
+      originalFileName={item.name || undefined}
+      notificationDate={notificationDate}
+      autoPlay={autoPlay && currentIndex === index}
+      showControls={showControls}
+      contentFit={contentFit}
+      disableLongPress
+    />
+  ), [mediaWidth, mediaHeight, notificationDate, autoPlay, currentIndex, showControls, contentFit]);
+
   useEffect(() => {
     const safe = Math.min(
       Math.max(initialIndex, 0),
@@ -88,31 +110,15 @@ export default function AttachmentGalleryContent({
           onIndexChange?.(index);
         }}
         numToRender={itemsToRender}
-        keyExtractor={(_, index) => index.toString()}
+        keyExtractor={galleryContentKeyExtractor}
         pinchEnabled={zoomEnabled}
         disableVerticalSwipe={!onSwipeToClose}
         swipeEnabled
         onSwipeToClose={onSwipeToClose}
         onSwipeLeft={onSwipeLeft}
         onSwipeRight={onSwipeRight}
-        containerDimensions={{
-          width: containerWidth || 0,
-          height: mediaHeight,
-        }}
-        renderItem={({ item, index }) => (
-          <CachedMedia
-            key={`${item.url}-${index}`}
-            url={item.url!}
-            mediaType={item.mediaType}
-            style={[{ width: mediaWidth, height: mediaHeight }]}
-            originalFileName={item.name || undefined}
-            notificationDate={notificationDate}
-            autoPlay={autoPlay && currentIndex === index}
-            showControls={showControls}
-            contentFit={contentFit}
-            disableLongPress
-          />
-        )}
+        containerDimensions={containerDimensions}
+        renderItem={renderContentItem}
       />
     </View>
   );

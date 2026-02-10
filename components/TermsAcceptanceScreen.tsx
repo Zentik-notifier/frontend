@@ -1,5 +1,5 @@
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import {
   Alert,
   BackHandler,
@@ -8,7 +8,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import Markdown from "react-native-markdown-display";
+const Markdown = React.lazy(() => import("react-native-markdown-display"));
 import {
   ActivityIndicator,
   Button,
@@ -311,7 +311,13 @@ export const TermsAcceptanceScreen: React.FC = () => {
         )}
 
         <View style={styles.contentContainer}>
-          <Markdown style={markdownStyle}>{content}</Markdown>
+          <Suspense fallback={
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+            </View>
+          }>
+            <Markdown style={markdownStyle}>{content}</Markdown>
+          </Suspense>
         </View>
       </ScrollView>
 

@@ -3,14 +3,14 @@ import {
   getLegalDocumentContent,
   type LegalDocument,
 } from "@/services/legal-documents";
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import {
   Dimensions,
   ScrollView,
   StyleSheet,
   View
 } from "react-native";
-import Markdown from "react-native-markdown-display";
+const Markdown = React.lazy(() => import("react-native-markdown-display"));
 import {
   ActivityIndicator,
   Button,
@@ -136,7 +136,13 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
               </Text>
             </View>
           ) : (
-            <Markdown style={markdownStyles}>{content}</Markdown>
+            <Suspense fallback={
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+              </View>
+            }>
+              <Markdown style={markdownStyles}>{content}</Markdown>
+            </Suspense>
           )}
         </ScrollView>
 
