@@ -20,6 +20,7 @@ import { LegalDocumentViewer } from "./LegalDocumentViewer";
 import { LEGAL_DOCUMENTS } from "../services/legal-documents";
 import ThemeSettings from "./ThemeSettings";
 import UnifiedCacheSettings from "./UnifiedCacheSettings";
+import { AppIconSettings } from "./AppIconSettings";
 import { VersionInfo } from "./VersionInfo";
 import { useSettings } from "@/hooks/useSettings";
 
@@ -183,6 +184,9 @@ export function AppSettings() {
         <Surface style={styles.settingsSurface} elevation={1}>
           <ThemeSettings />
         </Surface>
+
+        {/* App Icon */}
+        <AppIconSettings />
 
         {/* Unified Cache Settings */}
         <UnifiedCacheSettings />

@@ -38,6 +38,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "regen:icons": "node scripts/regen-icons.js",
+    "regen:ntfy-icon": "node scripts/convert-ntfy-svg-to-png.js",
     "generate:i18n-types": "node scripts/generate-i18n-types.js",
     "sync-ios-extensions": "bash scripts/sync-ios-extensions.sh",
     "eas-build-pre-install": "npm config set legacy-peer-deps true"
@@ -47,8 +48,8 @@
     "@bacons/apple-targets": "^3.0.5",
     "@expo/metro-runtime": "~6.1.2",
     "@material/material-color-utilities": "^0.3.0",
+    "@mozzius/expo-dynamic-app-icon": "^1.8.1",
     "@react-native-community/hooks": "^3.0.0",
-    "@rivascva/react-native-code-editor": "^1.2.2",
     "@react-native-community/netinfo": "^11.4.1",
     "@react-native-community/slider": "^5.0.1",
     "@react-native-firebase/app": "^23.0.1",
@@ -57,6 +58,7 @@
     "@react-navigation/core": "^7.12.4",
     "@react-navigation/elements": "^2.6.4",
     "@react-navigation/native": "^7.1.8",
+    "@rivascva/react-native-code-editor": "^1.2.2",
     "@shopify/flash-list": "2.0.2",
     "@tanstack/react-query": "^5.90.2",
     "expo": "~54.0.31",
@@ -111,7 +113,6 @@
     "reanimated-color-picker": "^4.1.0"
   },
   "devDependencies": {
-    "sharp": "^0.34.3",
     "@0no-co/graphqlsp": "^1.15.0",
     "@babel/core": "^7.25.2",
     "@graphql-codegen/cli": "^5.0.7",
@@ -123,6 +124,7 @@
     "dotenv": "^17.2.1",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "sharp": "^0.34.3",
     "tsx": "^4.20.4",
     "typescript": "~5.9.2"
   },

@@ -86,6 +86,18 @@ export interface Translation {
       description: string;
       showHintsTitle: string;
     };
+    appIcon: {
+      title: string;
+      description: string;
+      default: string;
+      dark: string;
+      tintedLight: string;
+      tintedDark: string;
+      clearLight: string;
+      clearDark: string;
+      circle: string;
+      notSupported: string;
+    };
     watch: {
       title: string;
       description: string;

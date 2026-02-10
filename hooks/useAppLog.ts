@@ -21,13 +21,17 @@ export interface AppLogPayload {
 }
 
 /**
- * Get all app version information
+ * Get app version info for logs. Logs are sent to the same backend the app is
+ * configured with (createUserLog mutation on the active API URL).
+ * dockerVersion is from package.json at build time; isSelfHostedBuild indicates
+ * the build variant (EXPO_PUBLIC_SELFHOSTED), not which server the app is connected to.
  */
 function getAppVersions() {
   const versions: Record<string, any> = {
     appVersion: packageJson.version || null,
     dockerVersion: packageJson.dockerVersion || null,
     platform: Platform.OS,
+    isSelfHostedBuild: process.env.EXPO_PUBLIC_SELFHOSTED === "true",
   };
 
   if (Constants.expoConfig?.version) {

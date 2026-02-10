@@ -83,6 +83,21 @@
       "description": "Configure the display of hints and guides in the app",
       "showHintsTitle": "Show Hints"
     },
+    "appIcon": {
+      "title": "App Icon",
+      "description": "Choose the icon displayed on your home screen",
+      "default": "Default",
+      "dark": "Dark",
+      "tintedLight": "Tinted light",
+      "tintedDark": "Tinted dark",
+      "clearLight": "Clear light",
+      "clearDark": "Clear dark",
+      "ntfy": "ntfy",
+      "gotify": "Gotify",
+      "zentikNtfy": "Zentik + ntfy",
+      "zentikGotify": "Zentik + Gotify",
+      "notSupported": "Alternate app icons are only available on iOS and Android."
+    },
     "watch": {
       "title": "Watch",
       "description": "Apple Watch related settings, including watch authentication."

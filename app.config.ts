@@ -22,7 +22,7 @@ export const commonEntitlements = {
         "CloudKit",
         "CloudDocuments"
     ],
-    "com.apple.developer.icloud-container-identifiers": isDev 
+    "com.apple.developer.icloud-container-identifiers": isDev
         ? [
             `iCloud.${bundleIdentifier}`, // Dev container
             `iCloud.${productionBundleIdentifier}` // Production container (for testing)
@@ -166,6 +166,13 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                         "expo-splash-screen",
                         "expo-updates",
                         "expo-font",
+                        "expo-web-browser",
+                        "expo-router",
+                        "expo-background-task",
+                        "expo-screen-orientation",
+                        "expo-notifications",
+                        "@mozzius/expo-dynamic-app-icon",
+                        "expo-video",
                     ],
                     "activationRules": [
                         {
@@ -207,6 +214,61 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                         image: "./assets/icons/generators/glas_dark.png",
                         backgroundColor: "#6c6363"
                     }
+                },
+            ],
+            [
+                "@mozzius/expo-dynamic-app-icon",
+                {
+                    default: {
+                        ios: "./assets/icons/generators/glas_default.png",
+                        android: "./assets/icons/generators/glas_default.png",
+                        prerendered: true,
+                    },
+                    dark: {
+                        ios: "./assets/icons/generators/glas_dark.png",
+                        android: "./assets/icons/generators/glas_dark.png",
+                        prerendered: true,
+                    },
+                    tintedLight: {
+                        ios: "./assets/icons/generators/glas_tinted_light.png",
+                        android: "./assets/icons/generators/glas_tinted_light.png",
+                        prerendered: true,
+                    },
+                    tintedDark: {
+                        ios: "./assets/icons/generators/glas_tinted_dark.png",
+                        android: "./assets/icons/generators/glas_tinted_dark.png",
+                        prerendered: true,
+                    },
+                    clearLight: {
+                        ios: "./assets/icons/generators/glas_clear_light.png",
+                        android: "./assets/icons/generators/glas_clear_light.png",
+                        prerendered: true,
+                    },
+                    clearDark: {
+                        ios: "./assets/icons/generators/glas_clear_dark.png",
+                        android: "./assets/icons/generators/glas_clear_dark.png",
+                        prerendered: true,
+                    },
+                    ntfy: {
+                        ios: "./assets/icons/generators/ntfy_glas.png",
+                        android: "./assets/icons/generators/ntfy_glas.png",
+                        prerendered: true,
+                    },
+                    gotify: {
+                        ios: "./assets/icons/generators/gotify_glas.png",
+                        android: "./assets/icons/generators/gotify_glas.png",
+                        prerendered: true,
+                    },
+                    zentikNtfy: {
+                        ios: "./assets/icons/generators/zentik_ntfy_glas.png",
+                        android: "./assets/icons/generators/zentik_ntfy_glas.png",
+                        prerendered: true,
+                    },
+                    zentikGotify: {
+                        ios: "./assets/icons/generators/zentik_gotify_glas.png",
+                        android: "./assets/icons/generators/zentik_gotify_glas.png",
+                        prerendered: true,
+                    },
                 },
             ],
             [
@@ -303,7 +365,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             },
         },
         owner: "zentik-notifier",
-        runtimeVersion: "1.0.4",
+        runtimeVersion: "1.0.5",
         updates: {
             url: "https://u.expo.dev/17f4d8f2-e90d-4862-ae67-97592dbcb8b7",
         },

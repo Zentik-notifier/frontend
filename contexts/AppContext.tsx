@@ -42,6 +42,7 @@ import { Alert, AppState, Platform } from "react-native";
 import { registerTranslation } from "react-native-paper-dates";
 import { useSettings } from "../hooks/useSettings";
 import { settingsRepository } from "../services/settings-repository";
+import { applyStoredAppIcon } from "../services/app-icon-service";
 import {
   settingsService,
 } from "../services/settings-service";
@@ -543,6 +544,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     userSettings.isInitialized,
     userSettings.settings.onboarding,
   ]);
+
+  useEffect(() => {
+    if (
+      userSettings.isInitialized &&
+      (Platform.OS === "ios" || Platform.OS === "android")
+    ) {
+      applyStoredAppIcon().catch(() => {});
+    }
+  }, [userSettings.isInitialized]);
 
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {

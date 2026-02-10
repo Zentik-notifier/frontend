@@ -83,6 +83,21 @@
       "description": "Configura la visualizzazione dei suggerimenti e delle guide nell'app",
       "showHintsTitle": "Mostra Suggerimenti"
     },
+    "appIcon": {
+      "title": "Icona app",
+      "description": "Scegli l'icona mostrata nella schermata Home",
+      "default": "Predefinita",
+      "dark": "Scura",
+      "tintedLight": "Tinta chiara",
+      "tintedDark": "Tinta scura",
+      "clearLight": "Trasparente chiara",
+      "clearDark": "Trasparente scura",
+      "ntfy": "ntfy",
+      "gotify": "Gotify",
+      "zentikNtfy": "Zentik + ntfy",
+      "zentikGotify": "Zentik + Gotify",
+      "notSupported": "Le icona alternative sono disponibili solo su iOS e Android."
+    },
     "watch": {
       "title": "Watch",
       "description": "Impostazioni relative ad Apple Watch, incluse l'autenticazione del watch."

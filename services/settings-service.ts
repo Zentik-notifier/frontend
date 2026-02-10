@@ -125,6 +125,8 @@ export interface UserSettings {
   lastKeysRotation?: string;
   /** ID of the last changelog entry for which the user has seen the modal */
   lastSeenChangelogId?: string;
+  /** Selected app icon id (alternate icon); only on native; "default" or plugin key */
+  appIconId?: string;
   // List of recently used bucket sharing identifiers (emails/usernames/userIds)
   bucketSharingHints?: string[];
   // Privacy: disable user action tracking for non-commercial purposes
@@ -219,6 +221,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   lastCleanup: undefined,
   lastKeysRotation: undefined,
   lastSeenChangelogId: undefined,
+  appIconId: undefined,
   bucketSharingHints: [],
   disableUserTracking: false,
 };
@@ -305,6 +308,7 @@ class SettingsService {
         'hideHints',
         'disableUserTracking',
         'lastSeenChangelogId',
+        'appIconId',
       ];
 
       // Settings that are stored as JSON objects
@@ -460,6 +464,14 @@ class SettingsService {
 
   public async setLastSeenChangelogId(changelogId: string): Promise<void> {
     await this.updateSettings({ lastSeenChangelogId: changelogId });
+  }
+
+  public getAppIconId(): string | undefined {
+    return this.settingsSubject.value.appIconId;
+  }
+
+  public async setAppIconId(iconId: string | null): Promise<void> {
+    await this.updateSettings({ appIconId: iconId ?? undefined });
   }
 
   public async setThemeMode(mode: 'light' | 'dark' | 'system'): Promise<void> {
@@ -1122,6 +1134,7 @@ class SettingsService {
         'hideHints',
         'disableUserTracking',
         'lastSeenChangelogId',
+        'appIconId',
       ]);
 
       await Promise.all(
@@ -1172,6 +1185,7 @@ class SettingsService {
         'hideHints',
         'disableUserTracking',
         'lastSeenChangelogId',
+        'appIconId',
         'bucketSharingHints',
       ];
 

@@ -1,8 +1,4 @@
-import { QueryProviders } from "@/components/QueryProviders";
-import { ThemeSwitcher } from "@/components/ThemeSwitcher";
-import { MediaType, MediaViewer } from "@/components/ui";
 import { useI18n } from "@/hooks/useI18n";
-import { ThemeProvider } from "@/hooks/useTheme";
 import { authService } from "@/services/auth-service";
 import { mediaCache } from "@/services/media-cache-service";
 import { settingsService } from "@/services/settings-service";
@@ -14,6 +10,7 @@ import {
   clearAppGroupContainer,
   close,
 } from "expo-share-extension";
+import * as DocumentPicker from "expo-document-picker";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -24,11 +21,23 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from "react-native";
-import { useTheme } from "react-native-paper";
-import { NotificationDeliveryType } from "./generated/gql-operations-generated";
-import * as DocumentPicker from "expo-document-picker";
+import { MD3DarkTheme, MD3LightTheme, PaperProvider, useTheme } from "react-native-paper";
+
+const DeliveryType = {
+  Normal: "NORMAL",
+  Silent: "SILENT",
+  Critical: "CRITICAL",
+} as const;
+type DeliveryTypeValue = (typeof DeliveryType)[keyof typeof DeliveryType];
+
+function ShareExtensionThemeProvider({ children }: { children: React.ReactNode }) {
+  const colorScheme = useColorScheme();
+  const theme = colorScheme === "dark" ? MD3DarkTheme : MD3LightTheme;
+  return <PaperProvider theme={theme}>{children}</PaperProvider>;
+}
 
 // Bucket type from REST (GET /api/v1/buckets)
 type Bucket = {
@@ -47,7 +56,7 @@ const EXTERNAL_SYSTEM_ICONS: Record<string, number> = {
 };
 
 const BUCKET_SIZE = 80;
-const EXTERNAL_SUBICON_SIZE = 20;
+const EXTERNAL_SUBICON_SIZE = 30;
 const BUCKETS_PER_ROW = 3;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -61,21 +70,33 @@ const MediaPreviewItem: React.FC<MediaPreviewItemProps> = ({
   index,
 }) => {
   const theme = useTheme();
+  const isImage = media.mediaType === "IMAGE";
   return (
     <View style={styles.mediaPreviewItem}>
-      <MediaViewer
-        url={media.url}
-        mediaType={media.mediaType as MediaType}
-        style={[
-          styles.mediaPreview,
-          { backgroundColor: theme.colors.surfaceVariant },
-        ]}
-        contentFit="cover"
-        showVideoControls={false}
-        isMuted
-        autoPlay
-        isLooping
-      />
+      {isImage ? (
+        <Image
+          source={{ uri: media.url }}
+          style={[
+            styles.mediaPreview,
+            { backgroundColor: theme.colors.surfaceVariant },
+          ]}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
+      ) : (
+        <View
+          style={[
+            styles.mediaPreview,
+            {
+              backgroundColor: theme.colors.surfaceVariant,
+              justifyContent: "center",
+              alignItems: "center",
+            },
+          ]}
+        >
+          <Text style={{ color: theme.colors.onSurfaceVariant }}>Video</Text>
+        </View>
+      )}
       <Text
         style={[
           styles.mediaPreviewLabel,
@@ -83,9 +104,7 @@ const MediaPreviewItem: React.FC<MediaPreviewItemProps> = ({
         ]}
         numberOfLines={1}
       >
-        {media.mediaType === "IMAGE"
-          ? `Image ${index + 1}`
-          : `Video ${index + 1}`}
+        {isImage ? `Image ${index + 1}` : `Video ${index + 1}`}
       </Text>
     </View>
   );
@@ -101,8 +120,8 @@ function ShareExtensionContent(props: InitialProps) {
   const [title, setTitle] = useState("Upload from Zentik");
   const [message, setMessage] = useState(url || "");
   const [subtitle, setSubtitle] = useState("");
-  const [deliveryType, setDeliveryType] = useState<NotificationDeliveryType>(
-    NotificationDeliveryType.Normal
+  const [deliveryType, setDeliveryType] = useState<DeliveryTypeValue>(
+    DeliveryType.Normal
   );
   const [optionsExpanded, setOptionsExpanded] = useState(false);
   const [snoozeInput, setSnoozeInput] = useState("");
@@ -130,11 +149,11 @@ function ShareExtensionContent(props: InitialProps) {
       });
       if (!resp.ok) throw new Error(`Failed to load buckets (${resp.status})`);
       const data = await resp.json();
-      setBuckets(data);
-
-      setSelectedBucket(data[0]);
+      setBuckets(Array.isArray(data) ? data : []);
+      setSelectedBucket(
+        Array.isArray(data) && data.length > 0 ? data[0] : null
+      );
     } catch (e: any) {
-      console.log(e);
       setError(e);
       setBuckets([]);
     } finally {
@@ -354,7 +373,7 @@ function ShareExtensionContent(props: InitialProps) {
       if (snoozes.length > 0) payload.snoozes = snoozes;
       if (postpones.length > 0) payload.postpones = postpones;
 
-      const response = await fetch(`${apiUrl}/message`, {
+      const response = await fetch(`${apiUrl}/api/v1/messages`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -373,7 +392,7 @@ function ShareExtensionContent(props: InitialProps) {
       Alert.alert(
         t("shareExtension.success.title"),
         t("shareExtension.success.message"),
-        [{ text: t("common.ok"), onPress: () => {} }]
+        [{ text: t("common.ok"), onPress: () => { } }]
       );
 
       setTitle("");
@@ -451,18 +470,13 @@ function ShareExtensionContent(props: InitialProps) {
         </View>
         {externalIcon && (
           <View
-            style={[
-              styles.externalSubicon,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.outline,
-              },
-            ]}
+            style={[styles.externalSubicon, { width: EXTERNAL_SUBICON_SIZE, height: EXTERNAL_SUBICON_SIZE }]}
+            pointerEvents="none"
           >
             <Image
               source={externalIcon}
-              style={styles.externalSubiconImage}
-              contentFit="cover"
+              style={{ width: EXTERNAL_SUBICON_SIZE, height: EXTERNAL_SUBICON_SIZE }}
+              contentFit="contain"
             />
           </View>
         )}
@@ -718,9 +732,9 @@ function ShareExtensionContent(props: InitialProps) {
               </Text>
               <View style={styles.deliveryTypeRow}>
                 {[
-                  NotificationDeliveryType.Normal,
-                  NotificationDeliveryType.Critical,
-                  NotificationDeliveryType.Silent,
+                  DeliveryType.Normal,
+                  DeliveryType.Critical,
+                  DeliveryType.Silent,
                 ].map((type) => (
                   <TouchableOpacity
                     key={type}
@@ -748,9 +762,9 @@ function ShareExtensionContent(props: InitialProps) {
                       ]}
                       numberOfLines={1}
                     >
-                      {type === NotificationDeliveryType.Normal
+                      {type === DeliveryType.Normal
                         ? t("compose.messageBuilder.deliveryType.normal" as any)
-                        : type === NotificationDeliveryType.Critical
+                        : type === DeliveryType.Critical
                           ? t("compose.messageBuilder.deliveryType.critical" as any)
                           : t("compose.messageBuilder.deliveryType.silent" as any)}
                     </Text>
@@ -1022,17 +1036,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 0,
     right: 0,
-    width: EXTERNAL_SUBICON_SIZE,
-    height: EXTERNAL_SUBICON_SIZE,
-    borderRadius: EXTERNAL_SUBICON_SIZE / 2,
-    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-  },
-  externalSubiconImage: {
-    width: EXTERNAL_SUBICON_SIZE - 4,
-    height: EXTERNAL_SUBICON_SIZE - 4,
-    borderRadius: (EXTERNAL_SUBICON_SIZE - 4) / 2,
   },
   bucketInitial: {
     color: "#fff",
@@ -1146,10 +1151,8 @@ const styles = StyleSheet.create({
 
 export default function ShareExtension(props: InitialProps) {
   return (
-    <QueryProviders>
-      <ThemeProvider>
-        <ShareExtensionContent {...props} />
-      </ThemeProvider>
-    </QueryProviders>
+    <ShareExtensionThemeProvider>
+      <ShareExtensionContent {...props} />
+    </ShareExtensionThemeProvider>
   );
 }
