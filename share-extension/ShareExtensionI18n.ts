@@ -1,16 +1,43 @@
+import { useEffect, useState } from "react";
 import enTranslations from "./en-EN.json";
-import itTranslations from "./it-IT.json";
 
 type ShareLocale = "en-EN" | "it-IT";
 
-const SHARE_TRANSLATIONS: Record<ShareLocale, Record<string, string>> = {
+const shareTranslationsCache: Record<ShareLocale, Record<string, string> | null> = {
   "en-EN": enTranslations as Record<string, string>,
-  "it-IT": itTranslations as Record<string, string>,
+  "it-IT": null,
 };
+
+let loadShareLocalePromise: Promise<void> | null = null;
+
+function loadShareLocale(locale: ShareLocale): Promise<void> {
+  if (shareTranslationsCache[locale]) return Promise.resolve();
+  if (locale === "en-EN") return Promise.resolve();
+
+  if (loadShareLocalePromise) return loadShareLocalePromise;
+
+  loadShareLocalePromise = import("./it-IT.json").then((mod) => {
+    shareTranslationsCache["it-IT"] = mod.default as Record<string, string>;
+    loadShareLocalePromise = null;
+  });
+
+  return loadShareLocalePromise;
+}
 
 export function useShareI18n(): { t: (key: string) => string } {
   const locale = getShareLocale();
-  const dict = SHARE_TRANSLATIONS[locale] ?? SHARE_TRANSLATIONS["en-EN"];
+  const [, setLocaleReady] = useState(!!shareTranslationsCache[locale]);
+
+  useEffect(() => {
+    if (locale === "en-EN") {
+      setLocaleReady(true);
+      return;
+    }
+    loadShareLocale(locale).then(() => setLocaleReady(true));
+  }, [locale]);
+
+  const dict = shareTranslationsCache[locale] ?? shareTranslationsCache["en-EN"]!;
+
   return {
     t: (key: string) => dict[key] ?? key,
   };

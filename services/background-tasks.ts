@@ -10,7 +10,7 @@ import {
   NotificationDeliveryType,
   NotificationFragment,
 } from '@/generated/gql-operations-generated';
-import { translateInstant, Locale } from '@/hooks/useI18n';
+import { ensureLocaleLoaded, translateInstant, Locale } from '@/hooks/useI18n';
 import { settingsService } from '@/services/settings-service';
 import { checkChangelogUpdates } from '@/utils/changelogUtils';
 import Constants from 'expo-constants';
@@ -166,6 +166,8 @@ if (!isWeb) {
 
           const settings = settingsService.getSettings();
           const locale = (settings.locale || 'en-EN') as Locale;
+
+          await ensureLocaleLoaded(locale);
 
           const title = translateInstant(locale, 'changelog.backgroundNotificationTitle') as string;
           const bodyTemplate = translateInstant(locale, 'changelog.backgroundNotificationBody') as string;
