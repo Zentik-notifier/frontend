@@ -33,6 +33,7 @@ interface AttachmentGalleryProps {
   autoPlay?: boolean;
   showMediaName?: boolean;
   zoomEnabled?: boolean;
+  useThumbnail?: boolean;
   swipeToChange?: boolean;
   selectorPosition?: "top" | "bottom";
   maxHeight?: number;
@@ -54,6 +55,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   showMediaName,
   selectorPosition,
   zoomEnabled = false,
+  useThumbnail = false,
   swipeToChange = true,
   maxHeight,
   itemsToRender,
@@ -71,12 +73,6 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const galleryRef = useRef<SimpleMediaGalleryRef>(null);
   const [fullScreenVisible, setFullScreenVisible] = useState(false);
-
-  useEffect(() => {
-    if (typeof initialIndex === "number") {
-      setCurrentIndex(initialIndex);
-    }
-  }, [initialIndex]);
 
   if (!attachments || attachments.length === 0) {
     return null;
@@ -134,7 +130,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
       autoPlay={autoPlay && currentIndex === index}
       showControls={!enableFullScreen}
       disableLongPress={zoomEnabled}
-      useThumbnail={!!maxHeight}
+      useThumbnail={useThumbnail && item.mediaType === MediaType.Image}
     />
   ), [effectiveWidth, mediaHeight, handleAttachmentPress, notificationDate, autoPlay, currentIndex, enableFullScreen, zoomEnabled, maxHeight]);
 
@@ -183,7 +179,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   };
 
   return (
-      <View
+    <View
       style={styles.galleryRoot}
       onLayout={(event) => {
         const { width } = event.nativeEvent.layout;
@@ -272,7 +268,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
           {currentAttachment.name}
         </Text>
       )}
-      {enableFullScreen && (
+      {enableFullScreen && fullScreenVisible && (
         <FullScreenMediaViewer
           visible={fullScreenVisible}
           attachments={attachments}
@@ -287,30 +283,6 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
           }}
         />
       )}
-      {/* {attachments.length > 1 && (
-        <View style={styles.paginationContainer}>
-          {attachments.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.paginationDot,
-                {
-                  backgroundColor:
-                    index === currentIndex
-                      ? theme.colors.primary
-                      : theme.colors.outline,
-                  opacity:
-                    currentIndex === -1
-                      ? 0.3
-                      : index === currentIndex
-                      ? 1
-                      : 0.3,
-                },
-              ]}
-            />
-          ))}
-        </View>
-      )} */}
     </View>
   );
 };

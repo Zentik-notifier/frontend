@@ -102,6 +102,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
   const [selectedPreviewIndex, setSelectedPreviewIndex] =
     useRecyclingState<number>(0, [notification.id]);
+  const [galleryIndex, setGalleryIndex] = useRecyclingState<number>(0, [
+    notification.id,
+  ]);
   const [fullScreenIndex, setFullScreenIndex] = useRecyclingState<number>(-1, [
     notification.id,
   ]);
@@ -385,22 +388,32 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       </Pressable>
 
       {visibleAttachment && (
-        <AttachmentGallery
-          attachments={attachments}
-          onMediaPress={(imageUri) => {
-            mediaPressRef.current = true;
-            handleVisualPress(imageUri);
+        <Pressable
+          onPress={() => {
+            const url = attachments[galleryIndex]?.url ?? attachments[0]?.url;
+            if (url) handleVisualPress(url);
           }}
-          itemsToRender={1}
-          enableFullScreen
-          autoPlay
-          fullScreenTrigger="button"
-          maxHeight={180}
-          selectorPosition="top"
-          swipeToChange={false}
-          eventsDisabled
-          notificationDate={new Date(notification.createdAt).getTime()}
-        />
+          style={styles.galleryPressable}
+        >
+          <AttachmentGallery
+            attachments={attachments}
+            onMediaPress={(imageUri) => {
+              mediaPressRef.current = true;
+              handleVisualPress(imageUri);
+            }}
+            onIndexChange={setGalleryIndex}
+            itemsToRender={1}
+            enableFullScreen
+            useThumbnail
+            autoPlay
+            fullScreenTrigger="button"
+            maxHeight={180}
+            selectorPosition="top"
+            swipeToChange={false}
+            eventsDisabled
+            notificationDate={new Date(notification.createdAt).getTime()}
+          />
+        </Pressable>
       )}
     </SwipeableItem>
   );
@@ -484,6 +497,9 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginBottom: 2,
     marginTop: 1,
+  },
+  galleryPressable: {
+    width: "100%",
   },
   expandedImage: {
     width: "100%",

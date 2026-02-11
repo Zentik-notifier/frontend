@@ -42,6 +42,7 @@ export interface SimpleMediaGalleryProps<T> {
   renderItem: (info: RenderItemInfo<T>) => React.ReactElement | null;
   keyExtractor?: (item: T, index: number) => string | number;
   numToRender?: number;
+  removeClippedSubviews?: boolean;
   containerDimensions: { width: number; height: number };
   pinchEnabled?: boolean;
   swipeEnabled?: boolean;
@@ -260,6 +261,7 @@ function SimpleMediaGalleryInner<T>(
     renderItem,
     keyExtractor = (_, i) => String(i),
     numToRender = 3,
+    removeClippedSubviews = false,
     containerDimensions,
     pinchEnabled = false,
     swipeEnabled = true,
@@ -395,7 +397,7 @@ function SimpleMediaGalleryInner<T>(
         initialNumToRender={numToRender ?? 1}
         maxToRenderPerBatch={numToRender ?? 1}
         windowSize={numToRender ?? 1}
-        removeClippedSubviews={false}
+        removeClippedSubviews={removeClippedSubviews}
         scrollEventThrottle={16}
       />
     </View>

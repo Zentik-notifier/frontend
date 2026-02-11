@@ -23,7 +23,9 @@ import {
   SafeAreaProvider,
   SafeAreaView,
 } from "react-native-safe-area-context";
-import AttachmentGalleryContent from "./AttachmentGalleryContent";
+import AttachmentGalleryContent, {
+  AttachmentGalleryContentRef,
+} from "./AttachmentGalleryContent";
 
 interface FullScreenMediaViewerProps {
   visible: boolean;
@@ -70,6 +72,7 @@ export default function FullScreenMediaViewer({
   const { formatDate } = useDateFormat();
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
+  const galleryContentRef = React.useRef<AttachmentGalleryContentRef>(null);
 
   const [cacheInfo, setCacheInfo] = useState<{
     localPath?: string;
@@ -97,13 +100,6 @@ export default function FullScreenMediaViewer({
   const computedPosition = hasAttachments
     ? `${safeIndex + 1} / ${attachments!.length}`
     : currentPosition;
-
-  // Sincronizza l'indice interno quando cambia initialIndex
-  React.useEffect(() => {
-    if (typeof initialIndex === "number") {
-      setCurrentIndex(initialIndex);
-    }
-  }, [initialIndex]);
 
   // Load cache info when modal opens
   useEffect(() => {
@@ -246,6 +242,7 @@ export default function FullScreenMediaViewer({
                         ? attachments!.length - 1
                         : safeIndex - 1;
                     setCurrentIndex(nextIndex);
+                    galleryContentRef.current?.scrollToIndex(nextIndex);
                     onCurrentIndexChange?.(nextIndex);
                   } else {
                     onSwipeRight?.();
@@ -263,6 +260,7 @@ export default function FullScreenMediaViewer({
                   if (hasAttachments) {
                     const nextIndex = (safeIndex + 1) % attachments!.length;
                     setCurrentIndex(nextIndex);
+                    galleryContentRef.current?.scrollToIndex(nextIndex);
                     onCurrentIndexChange?.(nextIndex);
                   } else {
                     onSwipeLeft?.();
@@ -333,8 +331,9 @@ export default function FullScreenMediaViewer({
           <View style={styles.content}>
             <View style={styles.mediaCenter}>
               <AttachmentGalleryContent
+              ref={galleryContentRef}
               contentFit="contain"
-              itemsToRender={3}
+              itemsToRender={1}
               onSwipeLeft={onSwipeLeft}
               onSwipeRight={onSwipeRight}
               attachments={

@@ -8,7 +8,7 @@ import {
 import SimpleMediaGallery, {
   SimpleMediaGalleryRef,
 } from "@/components/ui/SimpleMediaGallery";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Dimensions, View } from "react-native";
 import { ImageContentFit } from "expo-image";
 import { CachedMedia } from "./CachedMedia";
@@ -32,7 +32,11 @@ export interface AttachmentGalleryContentProps {
   onSwipeRight?: () => void;
 }
 
-export default function AttachmentGalleryContent({
+export interface AttachmentGalleryContentRef {
+  scrollToIndex: (index: number) => void;
+}
+
+const AttachmentGalleryContent = forwardRef<AttachmentGalleryContentRef, AttachmentGalleryContentProps>(function AttachmentGalleryContent({
   attachments,
   initialIndex = 0,
   onIndexChange,
@@ -45,11 +49,10 @@ export default function AttachmentGalleryContent({
   contentFit = "cover",
   onSwipeLeft,
   onSwipeRight,
-}: AttachmentGalleryContentProps) {
+}, ref) {
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const galleryRef = React.useRef<SimpleMediaGalleryRef>(null);
-  const lastSyncedIndexRef = React.useRef<number | null>(null);
+  const galleryRef = useRef<SimpleMediaGalleryRef>(null);
   const { width: layoutWidth, height: layoutHeight } = containerSize;
   const containerWidth =
     layoutWidth > 0 ? layoutWidth : screenWidth;
@@ -79,17 +82,13 @@ export default function AttachmentGalleryContent({
     />
   ), [mediaWidth, mediaHeight, notificationDate, autoPlay, currentIndex, showControls, contentFit]);
 
-  useEffect(() => {
-    const safe = Math.min(
-      Math.max(initialIndex, 0),
-      attachments.length - 1
-    );
-    if (lastSyncedIndexRef.current !== safe) {
-      lastSyncedIndexRef.current = safe;
+  useImperativeHandle(ref, () => ({
+    scrollToIndex: (index: number) => {
+      const safe = Math.min(Math.max(index, 0), attachments.length - 1);
       setCurrentIndex(safe);
       galleryRef.current?.setIndex(safe, true);
-    }
-  }, [initialIndex, attachments.length]);
+    },
+  }), [attachments.length]);
 
   if (!attachments || attachments.length === 0) {
     return null;
@@ -110,11 +109,11 @@ export default function AttachmentGalleryContent({
         data={attachments}
         initialIndex={safeIndex}
         onIndexChange={(index) => {
-          lastSyncedIndexRef.current = index;
           setCurrentIndex(index);
           onIndexChange?.(index);
         }}
-        numToRender={itemsToRender}
+        numToRender={itemsToRender ?? 1}
+        removeClippedSubviews
         keyExtractor={galleryContentKeyExtractor}
         pinchEnabled={zoomEnabled}
         disableVerticalSwipe={!onSwipeToClose}
@@ -127,4 +126,6 @@ export default function AttachmentGalleryContent({
       />
     </View>
   );
-}
+});
+
+export default AttachmentGalleryContent;

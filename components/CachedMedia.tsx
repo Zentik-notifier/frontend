@@ -1188,7 +1188,7 @@ export const CachedMedia = React.memo(function CachedMedia(props: CachedMediaPro
       );
     }
 
-    if (useThumbnail && supportsThumbnail) {
+    if (useThumbnail && supportsThumbnail && mediaType !== MediaType.Gif) {
       const thumbPath = mediaSource?.localThumbPath;
       if (thumbPath) {
         return (
@@ -1231,12 +1231,14 @@ export const CachedMedia = React.memo(function CachedMedia(props: CachedMediaPro
 
     // Media content rendering (full media when not using thumbnails)
     if (mediaSource.localPath) {
+      const ImageTouchable =
+        mediaType === MediaType.Gif ? TouchableOpacity : GestureTouchableOpacity;
       switch (mediaType) {
         case MediaType.Image:
         case MediaType.Icon:
         case MediaType.Gif:
           return (
-            <GestureTouchableOpacity
+            <ImageTouchable
               onPress={handleFrameClick}
               onLongPress={disableLongPress ? undefined : handleLongPress}
               activeOpacity={disableLongPress ? 1 : 0.9}
@@ -1263,7 +1265,7 @@ export const CachedMedia = React.memo(function CachedMedia(props: CachedMediaPro
                   );
                 }}
               />
-            </GestureTouchableOpacity>
+            </ImageTouchable>
           );
 
         case MediaType.Video:
