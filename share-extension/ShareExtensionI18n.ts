@@ -17,12 +17,5 @@ export function useShareI18n(): { t: (key: string) => string } {
 }
 
 function getShareLocale(): ShareLocale {
-  try {
-    const { settingsService } = require("@/services/settings-service");
-    const locale = settingsService.getSettings?.()?.locale;
-    if (locale === "it-IT" || locale === "en-EN") return locale;
-  } catch {
-    // ignore
-  }
   return "en-EN";
 }

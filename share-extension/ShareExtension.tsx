@@ -1,9 +1,7 @@
-import { getBucketIconFromCacheOnly } from "@/share-extension/bucket-icon-cache";
-import { useShareI18n } from "@/share-extension/ShareExtensionI18n";
-import { ShareThemeProvider, useShareTheme } from "@/ShareThemeContext";
-import { authService } from "@/services/auth-service";
-import { settingsService } from "@/services/settings-service";
-import { getCustomScheme } from "@/utils/universal-links";
+import { getBucketIconFromCacheOnly } from "./bucket-icon-cache";
+import { useShareI18n } from "./ShareExtensionI18n";
+import { ShareThemeProvider, useShareTheme } from "./ShareThemeContext";
+import { shareExtensionService } from "./share-extension-service";
 import * as Linking from "expo-linking";
 import {
   InitialProps,
@@ -44,8 +42,8 @@ type Bucket = {
 };
 
 const EXTERNAL_SYSTEM_ICONS: Record<string, number> = {
-  NTFY: require("@/assets/icons/ntfy.svg"),
-  Gotify: require("@/assets/icons/gotify.png"),
+  NTFY: require("../assets/icons/ntfy.svg"),
+  Gotify: require("../assets/icons/gotify.png"),
 };
 
 const BUCKET_SIZE = 80;
@@ -154,29 +152,29 @@ function ShareExtensionContent(props: InitialProps) {
   };
 
   useEffect(() => {
-    const sub = settingsService.isInitialized$.subscribe(
+    const sub = shareExtensionService.isInitialized$.subscribe(
       async (initialized) => {
         if (!initialized) return;
         try {
-          const apiUrl = settingsService.getApiUrl();
-          if (!apiUrl) throw new Error("API URL not configured");
+          const api = shareExtensionService.getApiUrl();
+          if (!api) throw new Error("API URL not configured");
 
-          const authData = settingsService.getAuthData();
+          const authData = shareExtensionService.getAuthData();
           if (!authData.accessToken || !authData.refreshToken) {
             setNeedsLogin(true);
             setLoading(false);
             return;
           }
 
-          const token = await authService.ensureValidToken(true);
-          if (!token) {
+          const validToken = await shareExtensionService.ensureValidToken();
+          if (!validToken) {
             setNeedsLogin(true);
             setLoading(false);
             return;
           }
 
-          setToken(token);
-          setApiUrl(apiUrl);
+          setToken(validToken);
+          setApiUrl(api);
         } catch (e: any) {
           setError(e);
           setLoading(false);
@@ -408,9 +406,9 @@ function ShareExtensionContent(props: InitialProps) {
 
   const handleOpenApp = async () => {
     try {
-      const scheme = getCustomScheme();
-      const url = `${scheme}://`;
-      const canOpen = await Linking.canOpenURL(url);
+      const scheme = shareExtensionService.getCustomScheme();
+      const schemeUrl = `${scheme}://`;
+      const canOpen = await Linking.canOpenURL(schemeUrl);
       if (!canOpen) {
         Alert.alert(
           t("common.error") || "Errore",
@@ -418,7 +416,7 @@ function ShareExtensionContent(props: InitialProps) {
         );
         return;
       }
-      await Linking.openURL(url);
+      await Linking.openURL(schemeUrl);
     } catch (error) {
       console.error("[ShareExtension] Error opening app:", error);
       Alert.alert(
@@ -542,22 +540,6 @@ function ShareExtensionContent(props: InitialProps) {
           {t("shareExtension.loginRequired")}
         </Text>
         <View style={styles.loginButtonsContainer}>
-          {/* <TouchableOpacity
-              style={[
-                styles.openAppButton,
-                { backgroundColor: colors.primary },
-              ]}
-              onPress={handleOpenApp}
-            >
-              <Text
-                style={[
-                  styles.openAppButtonText,
-                  { color: colors.onPrimary },
-                ]}
-              >
-                {t("shareExtension.openApp")}
-              </Text>
-            </TouchableOpacity> */}
           <TouchableOpacity
             style={[styles.closeButton, { borderColor: colors.outline }]}
             onPress={close}
@@ -616,14 +598,8 @@ function ShareExtensionContent(props: InitialProps) {
     <View
       style={[styles.container, { backgroundColor: colors.background }]}
     >
-      {/* Header + Form inputs at the top */}
       <View style={[styles.topForm, { backgroundColor: colors.surface }]}>
-        <View style={styles.headerRow}>
-          {/* <Text style={[styles.headerTitle, { color: colors.onSurface }]}>
-            Zentik
-          </Text>
-          <ThemeSwitcher variant="button" /> */}
-        </View>
+        <View style={styles.headerRow} />
 
         <View style={styles.formSection}>
           <Text style={[styles.formLabel, { color: colors.onSurface }]}>
@@ -668,7 +644,6 @@ function ShareExtensionContent(props: InitialProps) {
         </View>
       </View>
 
-      {/* Media preview section */}
       <View
         style={[
           styles.mediaPreviewSection,
@@ -701,7 +676,6 @@ function ShareExtensionContent(props: InitialProps) {
         </ScrollView>
       </View>
 
-      {/* More options */}
       <View style={[styles.moreOptionsSection, { backgroundColor: colors.surface }]}>
         <TouchableOpacity
           style={[styles.moreOptionsRow, { borderBottomColor: colors.outline }]}
@@ -814,7 +788,6 @@ function ShareExtensionContent(props: InitialProps) {
         )}
       </View>
 
-      {/* Buckets selection */}
       <ScrollView
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollContentContainer}
@@ -828,7 +801,6 @@ function ShareExtensionContent(props: InitialProps) {
         </View>
       </ScrollView>
 
-      {/* Send button at bottom */}
       <View
         style={[
           styles.bottomButton,
@@ -875,16 +847,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 12,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
   scrollContent: {
     flex: 1,
   },
   scrollContentContainer: {
     padding: 16,
-    paddingBottom: 80, // Space for bottom button
+    paddingBottom: 80,
   },
   bottomButton: {
     padding: 16,
