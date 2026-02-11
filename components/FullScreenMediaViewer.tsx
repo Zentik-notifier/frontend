@@ -334,6 +334,7 @@ export default function FullScreenMediaViewer({
             <View style={styles.mediaCenter}>
               <AttachmentGalleryContent
               contentFit="contain"
+              itemsToRender={3}
               onSwipeLeft={onSwipeLeft}
               onSwipeRight={onSwipeRight}
               attachments={

@@ -817,10 +817,14 @@ export const CachedMedia = React.memo(function CachedMedia(props: CachedMediaPro
       (mediaType === MediaType.Image || mediaType === MediaType.Gif) &&
       mediaSource?.localPath
     ) {
-      mediaCache
-        .getOrCreateDisplayVersion(url, mediaType)
-        .then((path) => setDisplayUri(path))
-        .catch(() => setDisplayUri(null));
+      if (mediaType === MediaType.Gif) {
+        setDisplayUri(mediaSource.localPath);
+      } else {
+        mediaCache
+          .getOrCreateDisplayVersion(url, mediaType)
+          .then((path) => setDisplayUri(path))
+          .catch(() => setDisplayUri(null));
+      }
     } else {
       setDisplayUri(null);
     }

@@ -1,7 +1,7 @@
 {
   "name": "zentik-mobile",
   "main": "index.js",
-  "version": "0.1.215",
+  "version": "0.1.216",
   "dockerVersion": "0.0.161",
   "scripts": {
     "start": "expo start",
@@ -98,6 +98,7 @@
     "react-native-markdown-display": "^7.0.2",
     "react-native-paper": "^5.15.0",
     "react-native-paper-dates": "^0.23.3",
+    "react-native-promise-rejection-utils": "^0.0.1",
     "react-native-reanimated": "~4.1.1",
     "react-native-render-html": "^6.3.4",
     "react-native-safe-area-context": "~5.6.2",

@@ -49,6 +49,7 @@ export default function AttachmentGalleryContent({
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const galleryRef = React.useRef<SimpleMediaGalleryRef>(null);
+  const lastSyncedIndexRef = React.useRef<number | null>(null);
   const { width: layoutWidth, height: layoutHeight } = containerSize;
   const containerWidth =
     layoutWidth > 0 ? layoutWidth : screenWidth;
@@ -83,8 +84,11 @@ export default function AttachmentGalleryContent({
       Math.max(initialIndex, 0),
       attachments.length - 1
     );
-    setCurrentIndex(safe);
-    galleryRef.current?.setIndex(safe, true);
+    if (lastSyncedIndexRef.current !== safe) {
+      lastSyncedIndexRef.current = safe;
+      setCurrentIndex(safe);
+      galleryRef.current?.setIndex(safe, true);
+    }
   }, [initialIndex, attachments.length]);
 
   if (!attachments || attachments.length === 0) {
@@ -106,6 +110,7 @@ export default function AttachmentGalleryContent({
         data={attachments}
         initialIndex={safeIndex}
         onIndexChange={(index) => {
+          lastSyncedIndexRef.current = index;
           setCurrentIndex(index);
           onIndexChange?.(index);
         }}
