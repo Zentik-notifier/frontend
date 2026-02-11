@@ -10,6 +10,7 @@ const DEFAULT_API_URL =
 
 const SERVICE = "zentik-auth";
 const API_ENDPOINT_SERVICE = "zentik-api-endpoint";
+const LOCALE_SERVICE = "zentik-locale";
 
 const bundleIdentifier =
   process.env.EXPO_PUBLIC_APP_VARIANT === "development"
@@ -30,8 +31,11 @@ const defaultAuthData: ShareAuthData = {
   apiEndpoint: null,
 };
 
+type ShareLocale = "en-EN" | "it-IT";
+
 class ShareExtensionService {
   private authData: ShareAuthData = defaultAuthData;
+  private locale: ShareLocale = "en-EN";
   private initialized = false;
   private initPromise: Promise<void> | null = null;
   private initResolve: (() => void) | null = null;
@@ -50,14 +54,16 @@ class ShareExtensionService {
 
   async initialize(): Promise<void> {
     try {
-      const [auth, apiEndpoint] = await Promise.all([
+      const [auth, apiEndpoint, locale] = await Promise.all([
         this.loadAuthFromKeychain(),
         this.loadApiEndpointFromKeychain(),
+        this.loadLocaleFromKeychain(),
       ]);
       this.authData = {
         ...auth,
         apiEndpoint: apiEndpoint ?? DEFAULT_API_URL,
       };
+      this.locale = locale;
     } catch (e) {
       this.authData = {
         ...defaultAuthData,
@@ -69,25 +75,41 @@ class ShareExtensionService {
     }
   }
 
+  private localeKeychainOptions(): Keychain.GetOptions {
+    return Device.isDevice
+      ? { service: LOCALE_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
+      : { service: LOCALE_SERVICE };
+  }
+
+  private async loadLocaleFromKeychain(): Promise<ShareLocale> {
+    if (Platform.OS !== "ios" && Platform.OS !== "macos") return "en-EN";
+    try {
+      const creds = await Keychain.getGenericPassword(this.localeKeychainOptions());
+      if (creds !== false && creds.username === "locale" && creds.password) {
+        const loc = creds.password.trim();
+        return loc === "it-IT" ? "it-IT" : "en-EN";
+      }
+    } catch { }
+    return "en-EN";
+  }
+
+  getLocale(): ShareLocale {
+    return this.locale;
+  }
+
   private keychainOptions(): Keychain.SetOptions {
-    if (Platform.OS !== "ios" && Platform.OS !== "macos") {
-      return { service: SERVICE, accessible: ACCESSIBLE };
-    }
     return Device.isDevice
       ? { service: SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
       : { service: SERVICE, accessible: ACCESSIBLE };
   }
 
   private apiKeychainOptions(): Keychain.SetOptions {
-    if (Platform.OS !== "ios" && Platform.OS !== "macos") {
-      return { service: API_ENDPOINT_SERVICE, accessible: ACCESSIBLE };
-    }
     return Device.isDevice
       ? {
-          service: API_ENDPOINT_SERVICE,
-          accessGroup: KEYCHAIN_ACCESS_GROUP,
-          accessible: ACCESSIBLE,
-        }
+        service: API_ENDPOINT_SERVICE,
+        accessGroup: KEYCHAIN_ACCESS_GROUP,
+        accessible: ACCESSIBLE,
+      }
       : { service: API_ENDPOINT_SERVICE, accessible: ACCESSIBLE };
   }
 

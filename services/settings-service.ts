@@ -242,6 +242,7 @@ const DEFAULT_AUTH_DATA: AuthData = {
 const SERVICE = 'zentik-auth';
 const PRIVATE_KEY_SERVICE = 'zentik-private-key';
 const API_ENDPOINT_SERVICE = 'zentik-api-endpoint';
+const LOCALE_SERVICE = 'zentik-locale';
 
 const bundleIdentifier = process.env.EXPO_PUBLIC_APP_VARIANT === 'development' ?
   'com.apocaliss92.zentik.dev' :
@@ -268,17 +269,25 @@ class SettingsService {
         this.loadAuthData()
       ]);
 
-      // Ensure API endpoint is set in database for iOS extensions (NCE/NSE/Share)
-      // Never allow empty API endpoint - always use default as fallback
+      // Ensure API endpoint and locale are synced to Keychain for iOS extensions (NCE/NSE/Share)
       const currentEndpoint = this.authDataSubject.value.apiEndpoint;
       if (!currentEndpoint || currentEndpoint.trim() === '') {
         await this.saveApiEndpoint(DEFAULT_API_URL);
       } else if (Platform.OS === 'ios' || Platform.OS === 'macos') {
         try {
-          const options: Keychain.SetOptions = Device.isDevice
+          const opts: Keychain.SetOptions = Device.isDevice
             ? { service: API_ENDPOINT_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
             : { service: API_ENDPOINT_SERVICE, accessible: ACCESSIBLE };
-          await Keychain.setGenericPassword('api', currentEndpoint.trim(), options);
+          await Keychain.setGenericPassword('api', currentEndpoint.trim(), opts);
+        } catch { }
+      }
+
+      if (Platform.OS === 'ios' || Platform.OS === 'macos') {
+        try {
+          const localeOpts: Keychain.SetOptions = Device.isDevice
+            ? { service: LOCALE_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
+            : { service: LOCALE_SERVICE, accessible: ACCESSIBLE };
+          await Keychain.setGenericPassword('locale', this.settingsSubject.value.locale, localeOpts);
         } catch { }
       }
 
@@ -358,9 +367,20 @@ class SettingsService {
 
       const merged = this.deepMerge(DEFAULT_SETTINGS, settings);
       this.settingsSubject.next(merged);
+      await this.syncLocaleToKeychain(merged.locale);
     } catch (error) {
       console.error('Failed to load user settings:', error);
     }
+  }
+
+  private async syncLocaleToKeychain(locale: string): Promise<void> {
+    if (Platform.OS !== 'ios' && Platform.OS !== 'macos') return;
+    try {
+      const opts: Keychain.SetOptions = Device.isDevice
+        ? { service: LOCALE_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
+        : { service: LOCALE_SERVICE, accessible: ACCESSIBLE };
+      await Keychain.setGenericPassword('locale', locale, opts);
+    } catch { }
   }
 
   private async loadAuthData(): Promise<void> {
@@ -534,6 +554,7 @@ class SettingsService {
     const newSettings = { ...current, locale: locale as Locale };
     this.settingsSubject.next(newSettings);
     await this.saveSettings(newSettings);
+    await this.syncLocaleToKeychain(locale);
   }
 
   public async setTimezone(timezone: string): Promise<void> {

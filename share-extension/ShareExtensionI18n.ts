@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import enTranslations from "./en-EN.json";
+import { shareExtensionService } from "./share-extension-service";
 
 type ShareLocale = "en-EN" | "it-IT";
 
@@ -25,8 +26,14 @@ function loadShareLocale(locale: ShareLocale): Promise<void> {
 }
 
 export function useShareI18n(): { t: (key: string) => string } {
-  const locale = getShareLocale();
-  const [, setLocaleReady] = useState(!!shareTranslationsCache[locale]);
+  const [locale, setLocale] = useState<ShareLocale>("en-EN");
+  const [, setLocaleReady] = useState(false);
+
+  useEffect(() => {
+    shareExtensionService.waitInitialized().then(() => {
+      setLocale(shareExtensionService.getLocale());
+    });
+  }, []);
 
   useEffect(() => {
     if (locale === "en-EN") {
@@ -41,8 +48,4 @@ export function useShareI18n(): { t: (key: string) => string } {
   return {
     t: (key: string) => dict[key] ?? key,
   };
-}
-
-function getShareLocale(): ShareLocale {
-  return "en-EN";
 }
