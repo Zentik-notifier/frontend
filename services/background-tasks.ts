@@ -33,17 +33,29 @@ type TaskRunResult = {
   meta?: Record<string, any>;
 };
 
-async function runTask(taskName: string, fn: () => Promise<TaskRunResult>, startedMessage?: string) {
+const MIN_INTERVAL_MINUTES = 15;
+
+async function runTask(
+  taskName: string,
+  fn: () => Promise<TaskRunResult>,
+  startedMessage?: string
+): Promise<typeof BackgroundFetch.BackgroundTaskResult.Success | typeof BackgroundFetch.BackgroundTaskResult.Failed> {
   installConsoleLoggerBridge();
   await saveTaskToFile(taskName, 'started', startedMessage ?? `${taskName} started`);
 
   try {
     const result = await fn();
     await saveTaskToFile(taskName, 'completed', result.message, result.meta);
+    return BackgroundFetch.BackgroundTaskResult.Success;
   } catch (e) {
     console.warn(`[Tasks] ${taskName} failed:`, e);
     await saveTaskToFile(taskName, 'failed', `${taskName} failed`, { error: String(e) });
+    return BackgroundFetch.BackgroundTaskResult.Failed;
   }
+}
+
+function secondsToMinutes(seconds: number): number {
+  return Math.max(MIN_INTERVAL_MINUTES, Math.ceil(seconds / 60));
 }
 
 // Global references for task callbacks (set by hooks during runtime)
@@ -69,7 +81,7 @@ export function setPushBackgroundTaskCallbacks(callbacks: {
 if (!isWeb) {
   try {
     TaskManager.defineTask(DB_AUTO_BACKUP_TASK, async () => {
-      await runTask(
+      return runTask(
         DB_AUTO_BACKUP_TASK,
         async () => {
           const backup = await createAutoDbBackupNow({ keepCopies: 3 });
@@ -91,7 +103,7 @@ if (!isWeb) {
 
   try {
     TaskManager.defineTask(NOTIFICATION_REFRESH_TASK, async () => {
-      await runTask(
+      return runTask(
         NOTIFICATION_REFRESH_TASK,
         async () => {
           if (!globalCleanupCallback || !globalRegisterDeviceCallback) {
@@ -114,7 +126,7 @@ if (!isWeb) {
 
   try {
     TaskManager.defineTask(CHANGELOG_CHECK_TASK, async () => {
-      await runTask(
+      return runTask(
         CHANGELOG_CHECK_TASK,
         async () => {
           const apiBase = settingsService.getApiBaseWithPrefix().replace(/\/$/, '');
@@ -205,7 +217,7 @@ if (!isWeb) {
 
   try {
     TaskManager.defineTask(NO_PUSH_CHECK_TASK, async () => {
-      await runTask(
+      return runTask(
         NO_PUSH_CHECK_TASK,
         async () => {
           if (!apolloClient) {
@@ -287,7 +299,7 @@ if (!isWeb) {
 
   try {
     TaskManager.defineTask(CLOUDKIT_SYNC_TASK, async () => {
-      await runTask(
+      return runTask(
         CLOUDKIT_SYNC_TASK,
         async () => {
           if (Platform.OS !== 'ios') {
@@ -308,10 +320,10 @@ if (!isWeb) {
   }
 }
 
-export async function enableDbAutoBackupTask(options?: { intervalSeconds?: number }): Promise<void> {
+export async function enableDbAutoBackupTask(options?: { intervalMinutes?: number }): Promise<void> {
   if (isWeb) return;
 
-  const intervalSeconds = options?.intervalSeconds ?? 6 * 60 * 60;
+  const intervalMinutes = options?.intervalMinutes ?? 6 * 60;
 
   try {
     const status = await BackgroundFetch.getStatusAsync();
@@ -322,7 +334,7 @@ export async function enableDbAutoBackupTask(options?: { intervalSeconds?: numbe
 
     try {
       await BackgroundFetch.registerTaskAsync(DB_AUTO_BACKUP_TASK, {
-        minimumInterval: intervalSeconds,
+        minimumInterval: intervalMinutes,
       });
     } catch {
       console.debug('[Tasks] ℹ️ DB auto-backup already registered or not supported');
@@ -340,17 +352,17 @@ export async function disableDbAutoBackupTask(): Promise<void> {
 }
 
 export async function enablePushBackgroundTasks(options?: {
-  notificationsRefreshMinimumInterval?: number;
-  changelogCheckMinimumInterval?: number;
-  noPushCheckMinimumInterval?: number;
-  cloudKitSyncMinimumInterval?: number;
+  notificationsRefreshMinimumIntervalSeconds?: number;
+  changelogCheckMinimumIntervalMinutes?: number;
+  noPushCheckMinimumIntervalMinutes?: number;
+  cloudKitSyncMinimumIntervalMinutes?: number;
 }): Promise<void> {
   if (isWeb) return;
 
-  const notificationsRefreshMinimumInterval = options?.notificationsRefreshMinimumInterval ?? 180;
-  const changelogCheckMinimumInterval = options?.changelogCheckMinimumInterval ?? 15;
-  const noPushCheckMinimumInterval = options?.noPushCheckMinimumInterval ?? 15;
-  const cloudKitSyncMinimumInterval = options?.cloudKitSyncMinimumInterval ?? 15;
+  const notificationsRefreshMinutes = secondsToMinutes(options?.notificationsRefreshMinimumIntervalSeconds ?? 180);
+  const changelogCheckMinutes = options?.changelogCheckMinimumIntervalMinutes ?? 15;
+  const noPushCheckMinutes = options?.noPushCheckMinimumIntervalMinutes ?? 15;
+  const cloudKitSyncMinutes = options?.cloudKitSyncMinimumIntervalMinutes ?? 15;
 
   try {
     const status = await BackgroundFetch.getStatusAsync();
@@ -359,14 +371,14 @@ export async function enablePushBackgroundTasks(options?: {
       return;
     }
 
-    const registerWithLog = async (taskName: string, minimumInterval: number) => {
+    const registerWithLog = async (taskName: string, minimumIntervalMinutes: number) => {
       if (!TaskManager.isTaskDefined(taskName)) {
         console.warn(`[Tasks] Cannot register '${taskName}': task is not defined`);
         return;
       }
 
       try {
-        await BackgroundFetch.registerTaskAsync(taskName, { minimumInterval });
+        await BackgroundFetch.registerTaskAsync(taskName, { minimumInterval: minimumIntervalMinutes });
       } catch (e) {
         console.debug(`[Tasks] ℹ️ ${taskName} already registered or not supported`, e);
       }
@@ -385,11 +397,11 @@ export async function enablePushBackgroundTasks(options?: {
       await BackgroundFetch.unregisterTaskAsync(CLOUDKIT_SYNC_TASK);
     } catch {}
 
-    await registerWithLog(NOTIFICATION_REFRESH_TASK, notificationsRefreshMinimumInterval);
-    await registerWithLog(CHANGELOG_CHECK_TASK, changelogCheckMinimumInterval);
-    await registerWithLog(NO_PUSH_CHECK_TASK, noPushCheckMinimumInterval);
+    await registerWithLog(NOTIFICATION_REFRESH_TASK, notificationsRefreshMinutes);
+    await registerWithLog(CHANGELOG_CHECK_TASK, changelogCheckMinutes);
+    await registerWithLog(NO_PUSH_CHECK_TASK, noPushCheckMinutes);
     if (Platform.OS === 'ios') {
-      await registerWithLog(CLOUDKIT_SYNC_TASK, cloudKitSyncMinimumInterval);
+      await registerWithLog(CLOUDKIT_SYNC_TASK, cloudKitSyncMinutes);
     }
   } catch (error) {
     console.error('[Tasks] Error enabling push background tasks:', error);
@@ -397,6 +409,5 @@ export async function enablePushBackgroundTasks(options?: {
 }
 
 export async function initializeBackgroundTasks(): Promise<void> {
-  // Best-effort initialization of tasks that do not require hook callbacks.
-  await enableDbAutoBackupTask({ intervalSeconds: 6 * 60 * 60 });
+  await enableDbAutoBackupTask({ intervalMinutes: 6 * 60 });
 }
