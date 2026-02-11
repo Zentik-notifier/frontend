@@ -38,6 +38,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "regen:icons": "node scripts/regen-icons.js",
+    "optimize:generator-icons": "node scripts/optimize-generator-icons.js",
     "regen:ntfy-icon": "node scripts/convert-ntfy-svg-to-png.js",
     "generate:i18n-types": "node scripts/generate-i18n-types.js",
     "sync-ios-extensions": "bash scripts/sync-ios-extensions.sh",

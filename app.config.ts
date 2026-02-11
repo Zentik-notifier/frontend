@@ -53,7 +53,25 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                 backgroundColor: "#6c6363",
             },
         },
-        assetBundlePatterns: ["**/*"],
+        assetBundlePatterns: [
+            "assets/images/**/*",
+            "assets/icons/icon-*.png",
+            "assets/icons/gotify.png",
+            "assets/icons/ntfy.svg",
+            "assets/icons/notification-*.png",
+            "assets/icons/generators/glas_default.png",
+            "assets/icons/generators/glas_dark.png",
+            "assets/icons/generators/glas_tinted_light.png",
+            "assets/icons/generators/glas_tinted_dark.png",
+            "assets/icons/generators/glas_clear_light.png",
+            "assets/icons/generators/glas_clear_dark.png",
+            "assets/icons/generators/ntfy_glas.png",
+            "assets/icons/generators/gotify_glas.png",
+            "assets/icons/generators/zentik_ntfy_glas.png",
+            "assets/icons/generators/zentik_gotify_glas.png",
+            "assets/fonts/**/*",
+            "assets/legal/**/*",
+        ],
         ios: {
             privacyManifests: {
                 NSPrivacyAccessedAPITypes: [
