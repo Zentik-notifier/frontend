@@ -99,7 +99,7 @@
     "react-native-paper": "^5.15.0",
     "react-native-paper-dates": "^0.23.3",
     "react-native-promise-rejection-utils": "^0.0.1",
-    "react-native-reanimated": "~4.1.1",
+    "react-native-reanimated": "~4.1.2",
     "react-native-render-html": "^6.3.4",
     "react-native-safe-area-context": "~5.6.2",
     "react-native-screens": "~4.16.0",
