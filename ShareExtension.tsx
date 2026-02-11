@@ -1,9 +1,9 @@
-import { useI18n } from "@/hooks/useI18n";
+import { useShareI18n } from "@/share-extension/ShareExtensionI18n";
+import { ShareThemeProvider, useShareTheme } from "@/ShareThemeContext";
 import { authService } from "@/services/auth-service";
 import { mediaCache } from "@/services/media-cache-service";
 import { settingsService } from "@/services/settings-service";
 import { getCustomScheme } from "@/utils/universal-links";
-import { Image } from "expo-image";
 import * as Linking from "expo-linking";
 import {
   InitialProps,
@@ -16,15 +16,14 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  useColorScheme,
   View,
 } from "react-native";
-import { MD3DarkTheme, MD3LightTheme, PaperProvider, useTheme } from "react-native-paper";
 
 const DeliveryType = {
   Normal: "NORMAL",
@@ -32,12 +31,6 @@ const DeliveryType = {
   Critical: "CRITICAL",
 } as const;
 type DeliveryTypeValue = (typeof DeliveryType)[keyof typeof DeliveryType];
-
-function ShareExtensionThemeProvider({ children }: { children: React.ReactNode }) {
-  const colorScheme = useColorScheme();
-  const theme = colorScheme === "dark" ? MD3DarkTheme : MD3LightTheme;
-  return <PaperProvider theme={theme}>{children}</PaperProvider>;
-}
 
 // Bucket type from REST (GET /api/v1/buckets)
 type Bucket = {
@@ -69,7 +62,7 @@ const MediaPreviewItem: React.FC<MediaPreviewItemProps> = ({
   media,
   index,
 }) => {
-  const theme = useTheme();
+  const { colors } = useShareTheme();
   const isImage = media.mediaType === "IMAGE";
   return (
     <View style={styles.mediaPreviewItem}>
@@ -78,30 +71,28 @@ const MediaPreviewItem: React.FC<MediaPreviewItemProps> = ({
           source={{ uri: media.url }}
           style={[
             styles.mediaPreview,
-            { backgroundColor: theme.colors.surfaceVariant },
+            { backgroundColor: colors.surfaceVariant },
           ]}
-          contentFit="cover"
-          cachePolicy="none"
-          recyclingKey={`share-preview-${media.url}-${index}`}
+          resizeMode="cover"
         />
       ) : (
         <View
           style={[
             styles.mediaPreview,
             {
-              backgroundColor: theme.colors.surfaceVariant,
+              backgroundColor: colors.surfaceVariant,
               justifyContent: "center",
               alignItems: "center",
             },
           ]}
         >
-          <Text style={{ color: theme.colors.onSurfaceVariant }}>Video</Text>
+          <Text style={{ color: colors.onSurfaceVariant }}>Video</Text>
         </View>
       )}
       <Text
         style={[
           styles.mediaPreviewLabel,
-          { color: theme.colors.onSurfaceVariant },
+          { color: colors.onSurfaceVariant },
         ]}
         numberOfLines={1}
       >
@@ -113,8 +104,8 @@ const MediaPreviewItem: React.FC<MediaPreviewItemProps> = ({
 
 function ShareExtensionContent(props: InitialProps) {
   const { url, images = [], videos = [] } = props;
-  const { t } = useI18n();
-  const theme = useTheme();
+  const { t } = useShareI18n();
+  const { colors } = useShareTheme();
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedBucket, setSelectedBucket] = useState<Bucket | null>(null);
@@ -449,7 +440,7 @@ function ShareExtensionContent(props: InitialProps) {
   };
 
   const renderBucketIcon = (bucket: Bucket) => {
-    const backgroundColor = bucket.color || theme.colors.primary;
+    const backgroundColor = bucket.color || colors.primary;
     const initials = bucket.name.substring(0, 2).toUpperCase();
     const iconUri = cachedIconUris[bucket.id] ?? resolveIconUri(bucket);
     const externalType = bucket.externalNotifySystem?.type;
@@ -462,9 +453,7 @@ function ShareExtensionContent(props: InitialProps) {
             <Image
               source={{ uri: iconUri }}
               style={[styles.bucketIconImage, { borderRadius: BUCKET_SIZE / 2 }]}
-              contentFit="cover"
-              cachePolicy="none"
-              recyclingKey={`share-bucket-${bucket.id}-${iconUri}`}
+              resizeMode="cover"
             />
           ) : (
             <Text style={styles.bucketInitial}>{initials}</Text>
@@ -478,7 +467,7 @@ function ShareExtensionContent(props: InitialProps) {
             <Image
               source={externalIcon}
               style={{ width: EXTERNAL_SUBICON_SIZE, height: EXTERNAL_SUBICON_SIZE }}
-              contentFit="contain"
+              resizeMode="contain"
             />
           </View>
         )}
@@ -495,13 +484,13 @@ function ShareExtensionContent(props: InitialProps) {
         style={[
           styles.bucketItem,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor: colors.surface,
           },
           isSelected && [
             styles.bucketItemSelected,
             {
-              borderColor: theme.colors.primary,
-              backgroundColor: theme.colors.primaryContainer,
+              borderColor: colors.primary,
+              backgroundColor: colors.primaryContainer,
             },
           ],
         ]}
@@ -509,7 +498,7 @@ function ShareExtensionContent(props: InitialProps) {
       >
         {renderBucketIcon(bucket)}
         <Text
-          style={[styles.bucketName, { color: theme.colors.onSurface }]}
+          style={[styles.bucketName, { color: colors.onSurface }]}
           numberOfLines={1}
         >
           {bucket.name}
@@ -523,10 +512,10 @@ function ShareExtensionContent(props: InitialProps) {
       <View
         style={[
           styles.centerContainer,
-          { backgroundColor: theme.colors.background },
+          { backgroundColor: colors.background },
         ]}
       >
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>
           {error.message || "Failed to load buckets"}
         </Text>
         <TouchableOpacity style={styles.retryButton} onPress={loadBuckets}>
@@ -541,14 +530,14 @@ function ShareExtensionContent(props: InitialProps) {
       <View
         style={[
           styles.centerContainer,
-          { backgroundColor: theme.colors.background },
+          { backgroundColor: colors.background },
         ]}
       >
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>
           {t("shareExtension.errors.notAuthenticated")}
         </Text>
         <Text
-          style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}
+          style={[styles.helperText, { color: colors.onSurfaceVariant }]}
         >
           {t("shareExtension.loginRequired")}
         </Text>
@@ -556,27 +545,27 @@ function ShareExtensionContent(props: InitialProps) {
           {/* <TouchableOpacity
               style={[
                 styles.openAppButton,
-                { backgroundColor: theme.colors.primary },
+                { backgroundColor: colors.primary },
               ]}
               onPress={handleOpenApp}
             >
               <Text
                 style={[
                   styles.openAppButtonText,
-                  { color: theme.colors.onPrimary },
+                  { color: colors.onPrimary },
                 ]}
               >
                 {t("shareExtension.openApp")}
               </Text>
             </TouchableOpacity> */}
           <TouchableOpacity
-            style={[styles.closeButton, { borderColor: theme.colors.outline }]}
+            style={[styles.closeButton, { borderColor: colors.outline }]}
             onPress={close}
           >
             <Text
               style={[
                 styles.closeButtonText,
-                { color: theme.colors.onSurface },
+                { color: colors.onSurface },
               ]}
             >
               {"Chiudi"}
@@ -592,11 +581,11 @@ function ShareExtensionContent(props: InitialProps) {
       <View
         style={[
           styles.centerContainer,
-          { backgroundColor: theme.colors.background },
+          { backgroundColor: colors.background },
         ]}
       >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.onSurface }]}>
           {t("shareExtension.loading")}
         </Text>
       </View>
@@ -608,14 +597,14 @@ function ShareExtensionContent(props: InitialProps) {
       <View
         style={[
           styles.centerContainer,
-          { backgroundColor: theme.colors.background },
+          { backgroundColor: colors.background },
         ]}
       >
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>
           {t("shareExtension.noBuckets")}
         </Text>
         <Text
-          style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}
+          style={[styles.helperText, { color: colors.onSurfaceVariant }]}
         >
           {t("shareExtension.noBucketsHelper")}
         </Text>
@@ -625,19 +614,19 @@ function ShareExtensionContent(props: InitialProps) {
 
   return (
     <View
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[styles.container, { backgroundColor: colors.background }]}
     >
       {/* Header + Form inputs at the top */}
-      <View style={[styles.topForm, { backgroundColor: theme.colors.surface }]}>
+      <View style={[styles.topForm, { backgroundColor: colors.surface }]}>
         <View style={styles.headerRow}>
-          {/* <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>
+          {/* <Text style={[styles.headerTitle, { color: colors.onSurface }]}>
             Zentik
           </Text>
           <ThemeSwitcher variant="button" /> */}
         </View>
 
         <View style={styles.formSection}>
-          <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>
+          <Text style={[styles.formLabel, { color: colors.onSurface }]}>
             {t("shareExtension.titleRequired")}
           </Text>
           <TextInput
@@ -645,19 +634,19 @@ function ShareExtensionContent(props: InitialProps) {
               styles.input,
               styles.inputCompact,
               {
-                borderColor: theme.colors.outline,
-                color: theme.colors.onSurface,
+                borderColor: colors.outline,
+                color: colors.onSurface,
               },
             ]}
             value={title}
             onChangeText={setTitle}
             placeholder={t("shareExtension.titlePlaceholder")}
-            placeholderTextColor={theme.colors.onSurfaceVariant}
+            placeholderTextColor={colors.onSurfaceVariant}
           />
         </View>
 
         <View style={styles.formSection}>
-          <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>
+          <Text style={[styles.formLabel, { color: colors.onSurface }]}>
             {t("shareExtension.messageLabel")}
           </Text>
           <TextInput
@@ -665,14 +654,14 @@ function ShareExtensionContent(props: InitialProps) {
               styles.input,
               styles.textArea,
               {
-                borderColor: theme.colors.outline,
-                color: theme.colors.onSurface,
+                borderColor: colors.outline,
+                color: colors.onSurface,
               },
             ]}
             value={message}
             onChangeText={setMessage}
             placeholder={t("shareExtension.messagePlaceholder")}
-            placeholderTextColor={theme.colors.onSurfaceVariant}
+            placeholderTextColor={colors.onSurfaceVariant}
             multiline
             numberOfLines={3}
           />
@@ -684,8 +673,8 @@ function ShareExtensionContent(props: InitialProps) {
         style={[
           styles.mediaPreviewSection,
           {
-            backgroundColor: theme.colors.surface,
-            borderBottomColor: theme.colors.outline,
+            backgroundColor: colors.surface,
+            borderBottomColor: colors.outline,
           },
         ]}
       >
@@ -695,41 +684,41 @@ function ShareExtensionContent(props: InitialProps) {
               <MediaPreviewItem media={media} index={index} />
               {index >= sharedMedia.length && (
                 <TouchableOpacity
-                  style={[styles.removeMediaBtn, { backgroundColor: theme.colors.error }]}
+                  style={[styles.removeMediaBtn, { backgroundColor: colors.error }]}
                   onPress={() => removeExtraMedia(index - sharedMedia.length)}
                 >
-                  <Text style={[styles.iconChar, { color: theme.colors.onError, fontSize: 16 }]}>×</Text>
+                  <Text style={[styles.iconChar, { color: colors.onError, fontSize: 16 }]}>×</Text>
                 </TouchableOpacity>
               )}
             </View>
           ))}
           <TouchableOpacity
-            style={[styles.addMediaSlot, { borderColor: theme.colors.primary }]}
+            style={[styles.addMediaSlot, { borderColor: colors.primary }]}
             onPress={handleAddMoreMedia}
           >
-            <Text style={[styles.iconChar, { color: theme.colors.primary, fontSize: 28 }]}>+</Text>
+            <Text style={[styles.iconChar, { color: colors.primary, fontSize: 28 }]}>+</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
 
       {/* More options */}
-      <View style={[styles.moreOptionsSection, { backgroundColor: theme.colors.surface }]}>
+      <View style={[styles.moreOptionsSection, { backgroundColor: colors.surface }]}>
         <TouchableOpacity
-          style={[styles.moreOptionsRow, { borderBottomColor: theme.colors.outline }]}
+          style={[styles.moreOptionsRow, { borderBottomColor: colors.outline }]}
           onPress={() => setOptionsExpanded((e) => !e)}
         >
-          <Text style={[styles.iconChar, { color: theme.colors.primary, fontSize: 20 }]}>⋯</Text>
-          <Text style={[styles.moreOptionsRowText, { color: theme.colors.onSurface }]}>
+          <Text style={[styles.iconChar, { color: colors.primary, fontSize: 20 }]}>⋯</Text>
+          <Text style={[styles.moreOptionsRowText, { color: colors.onSurface }]}>
             {t("compose.messageBuilder.more" as any)}
           </Text>
-          <Text style={[styles.iconChar, { color: theme.colors.onSurfaceVariant, fontSize: 18 }]}>
+          <Text style={[styles.iconChar, { color: colors.onSurfaceVariant, fontSize: 18 }]}>
             {optionsExpanded ? "▲" : "▼"}
           </Text>
         </TouchableOpacity>
         {optionsExpanded && (
           <View style={styles.moreOptionsContent}>
             <View style={styles.formSection}>
-              <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>
+              <Text style={[styles.formLabel, { color: colors.onSurface }]}>
                 {t("notifications.settings.deliveryType" as any)}
               </Text>
               <View style={styles.deliveryTypeRow}>
@@ -744,11 +733,11 @@ function ShareExtensionContent(props: InitialProps) {
                     style={[
                       styles.deliveryChip,
                       {
-                        borderColor: theme.colors.outline,
+                        borderColor: colors.outline,
                         backgroundColor:
                           deliveryType === type
-                            ? theme.colors.primaryContainer
-                            : theme.colors.surfaceVariant,
+                            ? colors.primaryContainer
+                            : colors.surfaceVariant,
                       },
                     ]}
                   >
@@ -758,8 +747,8 @@ function ShareExtensionContent(props: InitialProps) {
                         {
                           color:
                             deliveryType === type
-                              ? theme.colors.onPrimaryContainer
-                              : theme.colors.onSurfaceVariant,
+                              ? colors.onPrimaryContainer
+                              : colors.onSurfaceVariant,
                         },
                       ]}
                       numberOfLines={1}
@@ -775,49 +764,49 @@ function ShareExtensionContent(props: InitialProps) {
               </View>
             </View>
             <View style={styles.formSection}>
-              <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>
+              <Text style={[styles.formLabel, { color: colors.onSurface }]}>
                 {t("compose.messageBuilder.subtitle" as any)}
               </Text>
               <TextInput
                 style={[
                   styles.input,
-                  { borderColor: theme.colors.outline, color: theme.colors.onSurface },
+                  { borderColor: colors.outline, color: colors.onSurface },
                 ]}
                 value={subtitle}
                 onChangeText={setSubtitle}
                 placeholder={t("compose.messageBuilder.subtitlePlaceholder" as any)}
-                placeholderTextColor={theme.colors.onSurfaceVariant}
+                placeholderTextColor={colors.onSurfaceVariant}
               />
             </View>
             <View style={styles.formSection}>
-              <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>
+              <Text style={[styles.formLabel, { color: colors.onSurface }]}>
                 {t("notifications.automaticActions.snoozeTimes" as any)}
               </Text>
               <TextInput
                 style={[
                   styles.input,
-                  { borderColor: theme.colors.outline, color: theme.colors.onSurface },
+                  { borderColor: colors.outline, color: colors.onSurface },
                 ]}
                 value={snoozeInput}
                 onChangeText={setSnoozeInput}
                 placeholder={t("notifications.automaticActions.snoozeTimePlaceholder" as any)}
-                placeholderTextColor={theme.colors.onSurfaceVariant}
+                placeholderTextColor={colors.onSurfaceVariant}
                 keyboardType="numbers-and-punctuation"
               />
             </View>
             <View style={styles.formSection}>
-              <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>
+              <Text style={[styles.formLabel, { color: colors.onSurface }]}>
                 {t("notifications.automaticActions.postponeTimes" as any)}
               </Text>
               <TextInput
                 style={[
                   styles.input,
-                  { borderColor: theme.colors.outline, color: theme.colors.onSurface },
+                  { borderColor: colors.outline, color: colors.onSurface },
                 ]}
                 value={postponeInput}
                 onChangeText={setPostponeInput}
                 placeholder={t("notifications.automaticActions.postponeTimePlaceholder" as any)}
-                placeholderTextColor={theme.colors.onSurfaceVariant}
+                placeholderTextColor={colors.onSurfaceVariant}
                 keyboardType="numbers-and-punctuation"
               />
             </View>
@@ -830,7 +819,7 @@ function ShareExtensionContent(props: InitialProps) {
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollContentContainer}
       >
-        <Text style={[styles.sectionLabel, { color: theme.colors.onSurface }]}>
+        <Text style={[styles.sectionLabel, { color: colors.onSurface }]}>
           {t("shareExtension.selectBucket")}
         </Text>
 
@@ -844,8 +833,8 @@ function ShareExtensionContent(props: InitialProps) {
         style={[
           styles.bottomButton,
           {
-            backgroundColor: theme.colors.surface,
-            borderTopColor: theme.colors.outline,
+            backgroundColor: colors.surface,
+            borderTopColor: colors.outline,
           },
         ]}
       >
@@ -854,15 +843,15 @@ function ShareExtensionContent(props: InitialProps) {
           disabled={sending}
           style={[
             styles.sendButton,
-            { backgroundColor: theme.colors.primary },
+            { backgroundColor: colors.primary },
             sending && styles.sendButtonDisabled,
           ]}
         >
           {sending ? (
-            <ActivityIndicator color={theme.colors.onPrimary} />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text
-              style={[styles.sendButtonText, { color: theme.colors.onPrimary }]}
+              style={[styles.sendButtonText, { color: colors.onPrimary }]}
             >
               {t("shareExtension.sendButton")}
             </Text>
@@ -1153,8 +1142,8 @@ const styles = StyleSheet.create({
 
 export default function ShareExtension(props: InitialProps) {
   return (
-    <ShareExtensionThemeProvider>
+    <ShareThemeProvider>
       <ShareExtensionContent {...props} />
-    </ShareExtensionThemeProvider>
+    </ShareThemeProvider>
   );
 }

@@ -189,6 +189,8 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                         "expo-notifications",
                         "@mozzius/expo-dynamic-app-icon",
                         "expo-video",
+                        "expo-image",
+                        "react-native-paper",
                     ],
                     "activationRules": [
                         {
