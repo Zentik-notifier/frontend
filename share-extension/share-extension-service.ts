@@ -58,7 +58,7 @@ class ShareExtensionService {
     }
   }
 
-  private keychainOptions(): Keychain.Options {
+  private keychainOptions(): Keychain.SetOptions {
     if (Platform.OS !== "ios" && Platform.OS !== "macos") {
       return { service: SERVICE, accessible: ACCESSIBLE };
     }
@@ -67,7 +67,7 @@ class ShareExtensionService {
       : { service: SERVICE, accessible: ACCESSIBLE };
   }
 
-  private apiKeychainOptions(): Keychain.Options {
+  private apiKeychainOptions(): Keychain.SetOptions {
     if (Platform.OS !== "ios" && Platform.OS !== "macos") {
       return { service: API_ENDPOINT_SERVICE, accessible: ACCESSIBLE };
     }
@@ -100,7 +100,7 @@ class ShareExtensionService {
     try {
       const opts = this.apiKeychainOptions();
       const creds = await Keychain.getGenericPassword(opts);
-      if (creds?.username === "api" && creds?.password) {
+      if (creds !== false && creds.username === "api" && creds.password) {
         return creds.password.trim() || null;
       }
     } catch {
