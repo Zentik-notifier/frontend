@@ -27,7 +27,7 @@ export default function UserSystemAccessTokenRequests() {
   const [createRequest, { loading: creating }] =
     useCreateSystemAccessTokenRequestMutation();
 
-  const [maxRequests, setMaxRequests] = useState<string>("1000");
+  const [maxRequests, setMaxRequests] = useState<string>("5000");
   const [description, setDescription] = useState<string>("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
