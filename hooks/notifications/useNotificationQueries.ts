@@ -24,7 +24,13 @@ import {
     UseNotificationsOptions
 } from '@/types/notifications';
 import { useContext } from 'react';
-import { useInfiniteQuery, useQuery, useQueryClient, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
+import {
+    useInfiniteQuery,
+    useQuery,
+    useQueryClient,
+    UseQueryOptions,
+    UseQueryResult,
+} from '@tanstack/react-query';
 import { useNetworkSync } from './useNetworkSync';
 import { notificationKeys } from './notificationKeys';
 import { AuthUserIdContext } from '../../contexts/AuthUserIdContext';
@@ -121,9 +127,33 @@ export function useInfiniteNotifications(
     });
 }
 
+function getCachedNotification(
+    queryClient: ReturnType<typeof import('@tanstack/react-query').useQueryClient>,
+    notificationId: string
+): NotificationFragment | null {
+    const fromDetail = queryClient.getQueryData<NotificationFragment | null>(
+        notificationKeys.detail(notificationId)
+    );
+    if (fromDetail) return fromDetail;
+
+    const queriesData = queryClient.getQueriesData<{ pages: NotificationQueryResult[] }>({
+        queryKey: notificationKeys.lists(),
+    });
+    for (const [, data] of queriesData) {
+        if (!data?.pages) continue;
+        for (const page of data.pages) {
+            const found = page.notifications?.find((n) => n.id === notificationId);
+            if (found) return found;
+        }
+    }
+    return null;
+}
+
 /**
  * Hook for fetching a single notification by ID
- * 
+ * Uses SQLite cache - shows data from list cache immediately if available,
+ * then fetches from SQLite for full/standalone access.
+ *
  * @example
  * ```tsx
  * const { data: notification, isLoading } = useNotification('notification-id');
@@ -133,6 +163,9 @@ export function useNotification(
     notificationId: string,
     queryOptions?: Omit<UseQueryOptions<NotificationFragment | null>, 'queryKey' | 'queryFn'>
 ): UseQueryResult<NotificationFragment | null> {
+    const queryClient = useQueryClient();
+    const initialFromCache = getCachedNotification(queryClient, notificationId);
+
     return useQuery({
         queryKey: notificationKeys.detail(notificationId),
         queryFn: async (): Promise<NotificationFragment | null> => {
@@ -144,6 +177,8 @@ export function useNotification(
                 throw error;
             }
         },
+        initialData: initialFromCache ?? undefined,
+        initialDataUpdatedAt: initialFromCache ? 0 : undefined,
         ...queryOptions,
     });
 }
