@@ -609,6 +609,7 @@ export type MassMarkResult = {
 
 export enum MediaType {
   Audio = 'AUDIO',
+  File = 'FILE',
   Gif = 'GIF',
   Icon = 'ICON',
   Image = 'IMAGE',

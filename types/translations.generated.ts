@@ -433,6 +433,8 @@ export interface Translation {
       moreDescription: string;
       actions: string;
       attachments: string;
+      uploadImages: string;
+      uploadFiles: string;
       titlePlaceholder: string;
       subtitlePlaceholder: string;
       bodyPlaceholder: string;
@@ -1277,6 +1279,7 @@ export interface Translation {
     AUDIO: string;
     GIF: string;
     ICON: string;
+    FILE: string;
     undefined: string;
   };
   common: {

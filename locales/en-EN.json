@@ -430,6 +430,8 @@
       "moreDescription": "Additional options",
       "actions": "Actions",
       "attachments": "Attachments",
+      "uploadImages": "Images",
+      "uploadFiles": "Images & files",
       "titlePlaceholder": "Enter message title",
       "subtitlePlaceholder": "Enter subtitle (optional)",
       "bodyPlaceholder": "Enter message content",
@@ -1274,6 +1276,7 @@
     "AUDIO": "Audio",
     "GIF": "GIF",
     "ICON": "Icon",
+    "FILE": "File",
     "undefined": "Others"
   },
   "common": {

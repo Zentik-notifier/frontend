@@ -69,6 +69,8 @@ export const useNotificationUtils = () => {
         return "music";
       case MediaType.Icon:
         return "star";
+      case MediaType.File:
+        return "file-document";
       default:
         return "image";
     }
@@ -77,17 +79,19 @@ export const useNotificationUtils = () => {
   const getMediaTypeColor = (mediaType: MediaType) => {
     switch (mediaType) {
       case MediaType.Image:
-        return '#2196F3'; // Blue - represents static images
+        return '#2196F3';
       case MediaType.Gif:
-        return '#FF9800'; // Orange - represents animation/movement
+        return '#FF9800';
       case MediaType.Video:
-        return '#F44336'; // Red - represents video/playback
+        return '#F44336';
       case MediaType.Audio:
-        return '#4CAF50'; // Green - represents audio/sound
+        return '#4CAF50';
       case MediaType.Icon:
-        return '#9C27B0'; // Purple - represents icons/symbols
+        return '#9C27B0';
+      case MediaType.File:
+        return '#607D8B';
       default:
-        return '#2196F3'; // Default to blue for images
+        return '#2196F3';
     }
   };
 

@@ -430,6 +430,8 @@
       "moreDescription": "Opzioni aggiuntive",
       "actions": "Azioni",
       "attachments": "Allegati",
+      "uploadImages": "Immagini",
+      "uploadFiles": "Immagini e file",
       "titlePlaceholder": "Inserisci il titolo del messaggio",
       "subtitlePlaceholder": "Inserisci un sottotitolo (opzionale)",
       "bodyPlaceholder": "Inserisci il contenuto del messaggio",
@@ -1296,6 +1298,7 @@
     "AUDIO": "Audio",
     "GIF": "GIF",
     "ICON": "Icona",
+    "FILE": "File",
     "undefined": "Others"
   },
   "eventTypes": {

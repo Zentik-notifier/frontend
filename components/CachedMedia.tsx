@@ -14,6 +14,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   PanResponder,
   Platform,
@@ -451,6 +452,107 @@ const CachedMediaVideo = React.memo(function CachedMediaVideo(props: CachedMedia
   );
 });
 
+const CachedMediaFile = React.memo(function CachedMediaFile(props: CachedMediaProps) {
+  const {
+    url,
+    mediaType,
+    style,
+    originalFileName,
+    notificationDate,
+    onPress: onPressParent,
+    showMediaIndicator,
+    useThumbnail,
+  } = props;
+  const { t } = useI18n();
+  const theme = useTheme();
+
+  const { item: mediaSource } = useCachedItem(url, mediaType, {
+    priority: useThumbnail ? 3 : 7,
+    notificationDate,
+  });
+
+  useEffect(() => {
+    if (useThumbnail && mediaCache.isThumbnailSupported(MediaType.File)) {
+      mediaCache
+        .tryGenerateThumbnail({
+          url,
+          mediaType,
+          notificationId: mediaSource?.notificationId,
+        })
+        .catch(() => {});
+    }
+  }, [useThumbnail, mediaSource?.localPath, mediaSource?.localThumbPath, mediaSource?.notificationId, url, mediaType]);
+
+  const handleOpen = useCallback(async () => {
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else if (Platform.OS === "web") {
+        window.open(url, "_blank");
+      } else {
+        Alert.alert(t("common.error"), t("common.navigationFailed"));
+      }
+    } catch (error) {
+      console.error("Error opening file:", error);
+      Alert.alert(t("common.error"), t("common.actionFailed"));
+    }
+  }, [url, t]);
+
+  const fileName = originalFileName || url.split("/").pop() || t("mediaTypes.FILE");
+  const thumbPath = useThumbnail ? mediaSource?.localThumbPath : null;
+  const showThumbnail = !!thumbPath;
+
+  return (
+    <View style={[defaultStyles.stateContainer, style]}>
+      <TouchableOpacity
+        style={[
+          defaultStyles.filePreviewContainer,
+          !showThumbnail && {
+            backgroundColor: theme.colors.surfaceVariant,
+            borderColor: theme.colors.outline,
+          },
+        ]}
+        onPress={handleOpen}
+        activeOpacity={0.8}
+      >
+        {showThumbnail ? (
+          <>
+            <ExpoImage
+              source={{ uri: thumbPath }}
+              style={defaultStyles.fileThumbnailImage}
+              contentFit="cover"
+            />
+            <View style={defaultStyles.fileThumbnailTextOverlay}>
+              <Text
+                style={[defaultStyles.filePreviewFileName, { color: "#fff" }]}
+                numberOfLines={3}
+              >
+                {fileName}
+              </Text>
+            </View>
+          </>
+        ) : (
+          <Text
+            style={[
+              defaultStyles.filePreviewFileName,
+              { color: theme.colors.onSurfaceVariant },
+            ]}
+            numberOfLines={3}
+          >
+            {fileName}
+          </Text>
+        )}
+      </TouchableOpacity>
+      {showMediaIndicator && (
+        <View style={defaultStyles.smallTypeIndicator}>
+          <MediaTypeIcon mediaType={MediaType.File} size={12} secondary />
+        </View>
+      )}
+    </View>
+  );
+});
+
 const CachedMediaAudio = React.memo(function CachedMediaAudio(props: CachedMediaProps) {
   const {
     url,
@@ -790,6 +892,10 @@ export const CachedMedia = React.memo(function CachedMedia(props: CachedMediaPro
 
   if (mediaType === MediaType.Audio) {
     return <CachedMediaAudio {...props} />;
+  }
+
+  if (mediaType === MediaType.File) {
+    return <CachedMediaFile {...props} />;
   }
 
   const { t } = useI18n();
@@ -1388,6 +1494,62 @@ const defaultStyles = StyleSheet.create({
   stateContent: {
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  fileContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    width: "100%",
+    minHeight: 120,
+  },
+  filePreviewContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    width: "100%",
+    minHeight: 120,
+  },
+  filePreviewFileName: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  fileThumbnailImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: "100%",
+    height: "100%",
+  },
+  fileThumbnailTextOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  fileName: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  fileOpenButton: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fileOpenButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
 
   // Button per azioni specifiche (testi + icone)

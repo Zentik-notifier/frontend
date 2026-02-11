@@ -12,6 +12,7 @@ import {
     shareReplay,
     tap
 } from "rxjs/operators";
+import { File as ExpoFile } from 'expo-file-system';
 import { MediaType, NotificationFragment } from '../generated/gql-operations-generated';
 import { Directory, File } from '../utils/filesystem-wrapper';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
@@ -20,6 +21,9 @@ import { MediaCacheRepository } from './media-cache-repository';
 import { settingsService } from './settings-service';
 
 const isWeb = Platform.OS === 'web';
+
+/** Base64 1x1 gray PNG for FILE thumbnail dummy background (ImageManipulator resize yields solid color block) */
+const FILE_PLACEHOLDER_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
 export interface CacheItem {
     key: string;
@@ -73,6 +77,7 @@ export interface DownloadQueueItem {
     priority?: number;
     bucketId?: string;
     bucketName?: string;
+    originalFileName?: string;
 }
 
 export interface DownloadQueueState {
@@ -366,6 +371,7 @@ class MediaCacheService {
                     downloadedAt: Date.now(),
                     timestamp: Date.now(),
                     notificationId: item.notificationId,
+                    originalFileName: item.originalFileName ?? this.metadata[key]?.originalFileName,
                 });
 
                 downloadHistoryService.append({
@@ -812,9 +818,10 @@ class MediaCacheService {
             notificationDate?: number,
             notificationId?: string,
             priority?: number,
+            originalFileName?: string,
         },
     ): Promise<void> {
-        const { url, mediaType, force, notificationDate, notificationId, priority = 0 } = props;
+        const { url, mediaType, force, notificationDate, notificationId, priority = 0, originalFileName } = props;
         await this.initialize();
 
         if (!url || !mediaType || !this.repo) return;
@@ -870,6 +877,7 @@ class MediaCacheService {
             mediaType,
             isDownloading: true,
             timestamp: Date.now(),
+            originalFileName: originalFileName ?? this.metadata[key]?.originalFileName,
         });
 
         await this.addToQueue({
@@ -879,7 +887,8 @@ class MediaCacheService {
             notificationDate,
             notificationId,
             force,
-            priority
+            priority,
+            originalFileName: originalFileName ?? this.metadata[key]?.originalFileName,
         });
     }
 
@@ -953,6 +962,7 @@ class MediaCacheService {
             [MediaType.Gif]: 0,
             [MediaType.Audio]: 0,
             [MediaType.Icon]: 0,
+            [MediaType.File]: 0,
         };
 
         items.forEach(item => {
@@ -1085,6 +1095,8 @@ class MediaCacheService {
                 return 'gif';
             case MediaType.Audio:
                 return 'mp3';
+            case MediaType.File:
+                return 'dat';
         }
         return 'dat';
     }
@@ -1150,6 +1162,18 @@ class MediaCacheService {
                         quality: 0.6,
                     });
                     tempUri = uri;
+                } else if (mediaType === MediaType.File) {
+                    const tempPath = `${this.cacheDir}FILE/temp_placeholder_${Date.now()}.png`;
+                    const tempFile = new ExpoFile(tempPath);
+                    tempFile.create({ overwrite: true });
+                    tempFile.write(FILE_PLACEHOLDER_BASE64, { encoding: 'base64' });
+                    const result = await ImageManipulator.manipulateAsync(
+                        tempFile.uri,
+                        [{ resize: { width: thumbSize } }],
+                        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+                    );
+                    tempUri = result.uri;
+                    try { tempFile.delete(); } catch { /* ignore */ }
                 } else {
                     return null;
                 }
@@ -1263,7 +1287,7 @@ class MediaCacheService {
     }
 
     isThumbnailSupported(mediaType: MediaType): boolean {
-        return isWeb ? false : [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType);
+        return isWeb ? false : [MediaType.Image, MediaType.Gif, MediaType.Video, MediaType.File].includes(mediaType);
     }
 
     /**
@@ -1909,6 +1933,7 @@ class MediaCacheService {
                 notificationDate: new Date(notification.createdAt).getTime(),
                 notificationId: notification.id,
                 priority,
+                originalFileName: attachment.name ?? undefined,
             });
         }
     }

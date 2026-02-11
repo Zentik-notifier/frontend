@@ -88,97 +88,110 @@ export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
     };
   }, []);
 
-  const handleUploadImages = useCallback(async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        copyToCacheDirectory: true,
-        type: "image/*",
-        multiple: true,
-      } as any);
+  const uploadFiles = useCallback(
+    async ( acceptedTypes: string | string[]) => {
+      try {
+        const result = await DocumentPicker.getDocumentAsync({
+          copyToCacheDirectory: true,
+          type: acceptedTypes,
+          multiple: true,
+        } as any);
 
-      if ((result as any).canceled) {
-        return;
-      }
+        if ((result as any).canceled) {
+          return;
+        }
 
-      const apiUrl = settingsService.getApiUrl();
-      const token = settingsService.getAuthData().accessToken;
+        const apiUrl = settingsService.getApiUrl();
+        const token = settingsService.getAuthData().accessToken;
 
-      if (!apiUrl || !token) {
-        Alert.alert(
-          t("common.error"),
-          t("notifications.attachments.unableToUpload" as any)
-        );
-        return;
-      }
+        if (!apiUrl || !token) {
+          Alert.alert(
+            t("common.error"),
+            t("notifications.attachments.unableToUpload" as any)
+          );
+          return;
+        }
 
-      const assets = (result as any).assets || [result];
+        const assets = (result as any).assets || [result];
 
-      const uploadPromises = assets
-        .filter((asset: any) => asset?.uri)
-        .map(async (asset: any) => {
-          const formData: any = new FormData();
+        const uploadPromises = assets
+          .filter((asset: any) => asset?.uri)
+          .map(async (asset: any) => {
+            const formData: any = new FormData();
 
-          if (Platform.OS === "web") {
-            const response = await fetch(asset.uri);
-            const blob = await response.blob();
-            formData.append("file", blob, asset.name || "image.jpg");
-          } else {
-            formData.append("file", {
-              uri: asset.uri,
-              name: asset.name || "image.jpg",
-              type: asset.mimeType || "image/jpeg",
+            if (Platform.OS === "web") {
+              const response = await fetch(asset.uri);
+              const blob = await response.blob();
+              formData.append("file", blob, asset.name || "file");
+            } else {
+              formData.append("file", {
+                uri: asset.uri,
+                name: asset.name || "file",
+                type: asset.mimeType || "application/octet-stream",
+              });
+            }
+
+            const filename = asset.name || `file-${Date.now()}`;
+            formData.append("filename", filename);
+
+            const response = await fetch(`${apiUrl}/api/v1/attachments/upload`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              body: formData,
             });
-          }
 
-          const filename = asset.name || `image-${Date.now()}.jpg`;
-          formData.append("filename", filename);
-          formData.append("mediaType", MediaType.Image);
+            if (!response.ok) {
+              throw new Error(
+                `Upload failed: ${response.status} ${response.statusText}`
+              );
+            }
 
-          const response = await fetch(`${apiUrl}/api/v1/attachments/upload`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            body: formData,
+            const attachment = await response.json();
+            return attachment;
           });
 
-          if (!response.ok) {
-            throw new Error(
-              `Upload failed: ${response.status} ${response.statusText}`
-            );
-          }
+        const uploaded = (await Promise.all(uploadPromises)).filter(
+          Boolean
+        ) as any[];
 
-          const attachment = await response.json();
-          return attachment;
-        });
+        if (!uploaded.length) {
+          return;
+        }
 
-      const uploaded = (await Promise.all(uploadPromises)).filter(
-        Boolean
-      ) as any[];
-
-      if (!uploaded.length) {
-        return;
+        setMessageData((prev) => ({
+          ...prev,
+          attachments: [
+            ...(prev.attachments || []),
+            ...uploaded.map((attachment) => ({
+              attachmentUuid: attachment.id,
+              mediaType: attachment.mediaType || MediaType.File,
+              name: attachment.filename || attachment.name,
+            })),
+          ] as any,
+        }));
+      } catch (error) {
+        console.error("Error uploading files:", error);
+        Alert.alert(
+          t("common.error"),
+          t("notifications.attachments.uploadError" as any)
+        );
       }
+    },
+    [t]
+  );
 
-      setMessageData((prev) => ({
-        ...prev,
-        attachments: [
-          ...(prev.attachments || []),
-          ...uploaded.map((attachment) => ({
-            attachmentUuid: attachment.id,
-            mediaType: attachment.mediaType || MediaType.Image,
-            name: attachment.filename || attachment.name,
-          })),
-        ] as any,
-      }));
-    } catch (error) {
-      console.error("Error uploading images:", error);
-      Alert.alert(
-        t("common.error"),
-        t("notifications.attachments.uploadError" as any)
-      );
-    }
-  }, [t]);
+  const handleUploadImages = useCallback(
+    () => uploadFiles("image/*"),
+    [uploadFiles]
+  );
+
+  const handleUploadFiles = useCallback(
+    () =>
+      uploadFiles("*/*"),
+    [uploadFiles]
+  );
 
   const handleSaveMessage = useCallback(async () => {
     try {
@@ -425,6 +438,12 @@ export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
     },
     uploadButton: {
       marginBottom: 8,
+      flex: 1,
+    },
+    uploadButtonsRow: {
+      flexDirection: "row",
+      gap: 8,
+      marginBottom: 8,
     },
     resetButton: {
       marginTop: 8,
@@ -670,9 +689,14 @@ export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
                         </View>
                         <View style={styles.inputGroup}>
                           <Text style={styles.inputLabel}>{t("compose.messageBuilder.attachments")}</Text>
-                          <Button mode="outlined" icon="file-upload" onPress={handleUploadImages} style={styles.uploadButton}>
-                            Upload image(s)
-                          </Button>
+                          <View style={styles.uploadButtonsRow}>
+                            <Button mode="outlined" icon="image" onPress={handleUploadImages} style={styles.uploadButton}>
+                              {t("compose.messageBuilder.uploadImages")}
+                            </Button>
+                            <Button mode="outlined" icon="file-document" onPress={handleUploadFiles} style={styles.uploadButton}>
+                              {t("compose.messageBuilder.uploadFiles")}
+                            </Button>
+                          </View>
                           <MediaAttachmentsSelector
                             attachments={messageData.attachments || []}
                             onAttachmentsChange={(attachments) =>

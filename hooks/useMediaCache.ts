@@ -139,6 +139,7 @@ export function useGetCacheStats() {
       [MediaType.Gif]: 0,
       [MediaType.Audio]: 0,
       [MediaType.Icon]: 0,
+      [MediaType.File]: 0,
     }
   });
   const [cachedItems, setCachedItems] = useState<CacheItem[]>([]);

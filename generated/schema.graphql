@@ -580,6 +580,7 @@ type MassMarkResult {
 
 enum MediaType {
   AUDIO
+  FILE
   GIF
   ICON
   IMAGE
