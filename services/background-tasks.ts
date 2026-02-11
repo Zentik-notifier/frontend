@@ -40,15 +40,17 @@ async function runTask(
   fn: () => Promise<TaskRunResult>,
   startedMessage?: string
 ): Promise<typeof BackgroundFetch.BackgroundTaskResult.Success | typeof BackgroundFetch.BackgroundTaskResult.Failed> {
+  console.log(`[Tasks] ▶️ ${taskName} started`);
   installConsoleLoggerBridge();
   await saveTaskToFile(taskName, 'started', startedMessage ?? `${taskName} started`);
 
   try {
     const result = await fn();
+    console.log(`[Tasks] ✅ ${taskName} completed:`, result.message);
     await saveTaskToFile(taskName, 'completed', result.message, result.meta);
     return BackgroundFetch.BackgroundTaskResult.Success;
   } catch (e) {
-    console.warn(`[Tasks] ${taskName} failed:`, e);
+    console.warn(`[Tasks] ❌ ${taskName} failed:`, e);
     await saveTaskToFile(taskName, 'failed', `${taskName} failed`, { error: String(e) });
     return BackgroundFetch.BackgroundTaskResult.Failed;
   }
@@ -327,6 +329,7 @@ export async function enableDbAutoBackupTask(options?: { intervalMinutes?: numbe
 
   try {
     const status = await BackgroundFetch.getStatusAsync();
+    console.log('[Tasks] Background task status:', BackgroundFetch.BackgroundTaskStatus[status]);
     if (status === BackgroundFetch.BackgroundTaskStatus.Restricted) {
       console.warn('[Tasks] Background task restricted on this device');
       return;
@@ -336,8 +339,9 @@ export async function enableDbAutoBackupTask(options?: { intervalMinutes?: numbe
       await BackgroundFetch.registerTaskAsync(DB_AUTO_BACKUP_TASK, {
         minimumInterval: intervalMinutes,
       });
-    } catch {
-      console.debug('[Tasks] ℹ️ DB auto-backup already registered or not supported');
+      console.log(`[Tasks] DB auto-backup task registered (interval: ${intervalMinutes} min)`);
+    } catch (e) {
+      console.log('[Tasks] DB auto-backup registration:', (e as any)?.message ?? e);
     }
   } catch (e) {
     console.warn('[Tasks] Error enabling DB auto-backup:', e);
@@ -359,6 +363,7 @@ export async function enablePushBackgroundTasks(options?: {
 }): Promise<void> {
   if (isWeb) return;
 
+  console.log('[Tasks] Enabling push background tasks...');
   const notificationsRefreshMinutes = secondsToMinutes(options?.notificationsRefreshMinimumIntervalSeconds ?? 180);
   const changelogCheckMinutes = options?.changelogCheckMinimumIntervalMinutes ?? 15;
   const noPushCheckMinutes = options?.noPushCheckMinimumIntervalMinutes ?? 15;
@@ -366,6 +371,7 @@ export async function enablePushBackgroundTasks(options?: {
 
   try {
     const status = await BackgroundFetch.getStatusAsync();
+    console.log('[Tasks] Push background tasks status:', BackgroundFetch.BackgroundTaskStatus[status]);
     if (status === BackgroundFetch.BackgroundTaskStatus.Restricted) {
       console.warn('[Tasks] Background tasks are restricted on this device');
       return;
@@ -379,8 +385,9 @@ export async function enablePushBackgroundTasks(options?: {
 
       try {
         await BackgroundFetch.registerTaskAsync(taskName, { minimumInterval: minimumIntervalMinutes });
+        console.log(`[Tasks] ${taskName} registered (interval: ${minimumIntervalMinutes} min)`);
       } catch (e) {
-        console.debug(`[Tasks] ℹ️ ${taskName} already registered or not supported`, e);
+        console.log(`[Tasks] ${taskName} registration:`, (e as any)?.message ?? e);
       }
     };
 
@@ -409,5 +416,7 @@ export async function enablePushBackgroundTasks(options?: {
 }
 
 export async function initializeBackgroundTasks(): Promise<void> {
+  if (isWeb) return;
+  console.log('[Tasks] Initializing background tasks...');
   await enableDbAutoBackupTask({ intervalMinutes: 6 * 60 });
 }
