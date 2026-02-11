@@ -1,7 +1,7 @@
+import { getBucketIconFromCacheOnly } from "@/share-extension/bucket-icon-cache";
 import { useShareI18n } from "@/share-extension/ShareExtensionI18n";
 import { ShareThemeProvider, useShareTheme } from "@/ShareThemeContext";
 import { authService } from "@/services/auth-service";
-import { mediaCache } from "@/services/media-cache-service";
 import { settingsService } from "@/services/settings-service";
 import { getCustomScheme } from "@/utils/universal-links";
 import * as Linking from "expo-linking";
@@ -204,7 +204,7 @@ function ShareExtensionContent(props: InitialProps) {
       for (const bucket of buckets) {
         if (cancelled) return;
         try {
-          const uri = await mediaCache.getBucketIconFromCacheOnly(bucket.id, bucket.name);
+          const uri = await getBucketIconFromCacheOnly(bucket.id, bucket.name);
           if (uri && !cancelled) next[bucket.id] = uri;
         } catch {
           // ignore
