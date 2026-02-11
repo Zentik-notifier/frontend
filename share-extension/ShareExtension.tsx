@@ -59,7 +59,7 @@ interface MediaPreviewItemProps {
 const MediaPreviewItem: React.FC<MediaPreviewItemProps> = ({
   media,
   index,
-}) => {
+}: MediaPreviewItemProps) => {
   const { colors } = useShareTheme();
   const isImage = media.mediaType === "IMAGE";
   return (
@@ -152,37 +152,36 @@ function ShareExtensionContent(props: InitialProps) {
   };
 
   useEffect(() => {
-    const sub = shareExtensionService.isInitialized$.subscribe(
-      async (initialized) => {
-        if (!initialized) return;
-        try {
-          const api = shareExtensionService.getApiUrl();
-          if (!api) throw new Error("API URL not configured");
-
-          const authData = shareExtensionService.getAuthData();
-          if (!authData.accessToken || !authData.refreshToken) {
-            setNeedsLogin(true);
-            setLoading(false);
-            return;
-          }
-
-          const validToken = await shareExtensionService.ensureValidToken();
-          if (!validToken) {
-            setNeedsLogin(true);
-            setLoading(false);
-            return;
-          }
-
-          setToken(validToken);
-          setApiUrl(api);
-        } catch (e: any) {
+    let cancelled = false;
+    (async () => {
+      try {
+        await shareExtensionService.waitInitialized();
+        if (cancelled) return;
+        const api = shareExtensionService.getApiUrl();
+        if (!api) throw new Error("API URL not configured");
+        const authData = shareExtensionService.getAuthData();
+        if (!authData.accessToken || !authData.refreshToken) {
+          setNeedsLogin(true);
+          setLoading(false);
+          return;
+        }
+        const validToken = await shareExtensionService.ensureValidToken();
+        if (cancelled) return;
+        if (!validToken) {
+          setNeedsLogin(true);
+          setLoading(false);
+          return;
+        }
+        setToken(validToken);
+        setApiUrl(api);
+      } catch (e: any) {
+        if (!cancelled) {
           setError(e);
           setLoading(false);
         }
       }
-    );
-
-    return () => sub.unsubscribe();
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -208,7 +207,7 @@ function ShareExtensionContent(props: InitialProps) {
           // ignore
         }
       }
-      if (!cancelled) setCachedIconUris((prev) => ({ ...prev, ...next }));
+      if (!cancelled) setCachedIconUris((prev: Record<string, string>) => ({ ...prev, ...next }));
     };
     loadCachedIcons();
     return () => {
@@ -230,14 +229,14 @@ function ShareExtensionContent(props: InitialProps) {
         const mediaType = mt.startsWith("video/") ? "VIDEO" : "IMAGE";
         return { url: f.uri, mediaType };
       });
-      setExtraMedia((prev) => [...prev, ...newItems]);
+      setExtraMedia((prev: { url: string; mediaType: string }[]) => [...prev, ...newItems]);
     } catch (e) {
       console.warn("[ShareExtension] Document picker not available or failed:", e);
     }
   };
 
   const removeExtraMedia = (index: number) => {
-    setExtraMedia((prev) => prev.filter((_, i) => i !== index));
+    setExtraMedia((prev: { url: string; mediaType: string }[]) => prev.filter((_: unknown, i: number) => i !== index));
   };
 
   const sendMessage = async () => {
@@ -345,12 +344,12 @@ function ShareExtensionContent(props: InitialProps) {
       }
       const snoozes = snoozeInput
         .split(",")
-        .map((s) => parseInt(s.trim(), 10))
-        .filter((n) => !Number.isNaN(n) && n >= 1);
+        .map((s: string) => parseInt(s.trim(), 10))
+        .filter((n: number) => !Number.isNaN(n) && n >= 1);
       const postpones = postponeInput
         .split(",")
-        .map((s) => parseInt(s.trim(), 10))
-        .filter((n) => !Number.isNaN(n) && n >= 1);
+        .map((s: string) => parseInt(s.trim(), 10))
+        .filter((n: number) => !Number.isNaN(n) && n >= 1);
 
       const payload: Record<string, unknown> = {
         title: title.trim(),
@@ -679,7 +678,7 @@ function ShareExtensionContent(props: InitialProps) {
       <View style={[styles.moreOptionsSection, { backgroundColor: colors.surface }]}>
         <TouchableOpacity
           style={[styles.moreOptionsRow, { borderBottomColor: colors.outline }]}
-          onPress={() => setOptionsExpanded((e) => !e)}
+          onPress={() => setOptionsExpanded((prev: boolean) => !prev)}
         >
           <Text style={[styles.iconChar, { color: colors.primary, fontSize: 20 }]}>⋯</Text>
           <Text style={[styles.moreOptionsRowText, { color: colors.onSurface }]}>
@@ -797,7 +796,7 @@ function ShareExtensionContent(props: InitialProps) {
         </Text>
 
         <View style={styles.bucketsGrid}>
-          {buckets.map((bucket, index) => renderBucket(bucket, index))}
+          {buckets.map((bucket: Bucket, index: number) => renderBucket(bucket, index))}
         </View>
       </ScrollView>
 
@@ -1110,8 +1109,6 @@ const styles = StyleSheet.create({
 
 export default function ShareExtension(props: InitialProps) {
   return (
-    <ShareThemeProvider>
-      <ShareExtensionContent {...props} />
-    </ShareThemeProvider>
+    <ShareThemeProvider children={<ShareExtensionContent {...props} />} />
   );
 }

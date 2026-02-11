@@ -1,4 +1,3 @@
-import { BehaviorSubject } from "rxjs";
 import * as Keychain from "react-native-keychain";
 import * as Device from "expo-device";
 import { Platform } from "react-native";
@@ -32,11 +31,22 @@ const defaultAuthData: ShareAuthData = {
 };
 
 class ShareExtensionService {
-  private authDataSubject = new BehaviorSubject<ShareAuthData>(defaultAuthData);
-  private initializedSubject = new BehaviorSubject<boolean>(false);
+  private authData: ShareAuthData = defaultAuthData;
+  private initialized = false;
+  private initPromise: Promise<void> | null = null;
+  private initResolve: (() => void) | null = null;
   private refreshPromise: Promise<string | null> | null = null;
 
-  readonly isInitialized$ = this.initializedSubject.asObservable();
+  constructor() {
+    this.initPromise = new Promise<void>((resolve) => {
+      this.initResolve = resolve;
+    });
+  }
+
+  async waitInitialized(): Promise<void> {
+    if (this.initialized) return;
+    await this.initPromise;
+  }
 
   async initialize(): Promise<void> {
     try {
@@ -44,17 +54,18 @@ class ShareExtensionService {
         this.loadAuthFromKeychain(),
         this.loadApiEndpointFromKeychain(),
       ]);
-      this.authDataSubject.next({
+      this.authData = {
         ...auth,
         apiEndpoint: apiEndpoint ?? DEFAULT_API_URL,
-      });
+      };
     } catch (e) {
-      this.authDataSubject.next({
+      this.authData = {
         ...defaultAuthData,
         apiEndpoint: DEFAULT_API_URL,
-      });
+      };
     } finally {
-      this.initializedSubject.next(true);
+      this.initialized = true;
+      this.initResolve?.();
     }
   }
 
@@ -110,13 +121,13 @@ class ShareExtensionService {
   }
 
   getApiUrl(): string {
-    const endpoint = this.authDataSubject.value.apiEndpoint;
+    const endpoint = this.authData.apiEndpoint;
     if (endpoint?.trim()) return endpoint.trim();
     return DEFAULT_API_URL;
   }
 
   getAuthData(): ShareAuthData {
-    return this.authDataSubject.value;
+    return this.authData;
   }
 
   getCustomScheme(): string {
@@ -141,7 +152,7 @@ class ShareExtensionService {
   }
 
   async ensureValidToken(): Promise<string | null> {
-    const { accessToken, refreshToken } = this.authDataSubject.value;
+    const { accessToken, refreshToken } = this.authData;
     if (!accessToken) return null;
     if (!this.isTokenExpired(accessToken)) return accessToken;
 
@@ -164,11 +175,11 @@ class ShareExtensionService {
 
         const opts = this.keychainOptions();
         await Keychain.setGenericPassword(newAccess, newRefresh, opts);
-        this.authDataSubject.next({
-          ...this.authDataSubject.value,
+        this.authData = {
+          ...this.authData,
           accessToken: newAccess,
           refreshToken: newRefresh,
-        });
+        };
         return newAccess;
       } catch {
         return null;

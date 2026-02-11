@@ -6,30 +6,19 @@ import {
   StyleSheet,
   Text,
   TextStyle,
-  useWindowDimensions,
-  View,
-  ViewStyle,
 } from "react-native";
 import { useTheme } from "react-native-paper";
-import RenderHTML from "react-native-render-html";
 import { useI18n } from "@/hooks/useI18n";
+import { parseHtml, type HtmlNode } from "@/utils/html-parser";
 
-// Pure helper functions - moved outside component to prevent recreation
 const autoLinkText = (text: string): string => {
   let processed = text;
-
-  // Regex patterns (migliorati per supportare trattini e caratteri speciali)
   const urlRegex = /(?<!href=["'])(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/gi;
   const emailRegex = /\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})\b/g;
   const phoneRegex = /\b(\+?[\d\s\-()]{10,})\b/g;
 
-  // Auto-link URLs (skip already in href attributes)
   processed = processed.replace(urlRegex, '<a href="$1">$1</a>');
-
-  // Auto-link emails
   processed = processed.replace(emailRegex, '<a href="mailto:$1">$1</a>');
-
-  // Auto-link phone numbers (Italian format priority)
   processed = processed.replace(phoneRegex, (match) => {
     const cleaned = match.replace(/\s/g, "");
     if (cleaned.match(/^\+?[\d\-()]{10,}$/)) {
@@ -41,28 +30,29 @@ const autoLinkText = (text: string): string => {
   return processed;
 };
 
-// Convert Markdown to HTML
 const convertMarkdownToHtml = (text: string): string => {
   let processed = text;
-
-  // Convert [text](url) to <a href="url">text</a>
   processed = processed.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
     '<a href="$2">$1</a>'
   );
-
-  // Convert **text** to <strong>text</strong>
   processed = processed.replace(/\*\*([^\*]+)\*\*/g, "<strong>$1</strong>");
-
-  // Convert *text* or _text_ to <em>text</em>
   processed = processed.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
   processed = processed.replace(/_([^_]+)_/g, "<em>$1</em>");
-
-  // Convert `code` to <code>code</code>
   processed = processed.replace(/`([^`]+)`/g, "<code>$1</code>");
-
   return processed;
 };
+
+const SAFE_URL_SCHEMES = ["http:", "https:", "mailto:", "tel:"];
+
+function isSafeHref(href: string): boolean {
+  try {
+    const lower = href.trim().toLowerCase();
+    return SAFE_URL_SCHEMES.some((s) => lower.startsWith(s));
+  } catch {
+    return false;
+  }
+}
 
 export interface HtmlTextRendererProps {
   content: string;
@@ -70,6 +60,67 @@ export interface HtmlTextRendererProps {
   variant?: "body" | "title" | "subtitle" | "caption";
   color?: "primary" | "secondary" | "muted" | "error" | "success";
   maxLines?: number;
+}
+
+interface RenderContext {
+  baseStyle: TextStyle;
+  tagStyles: Record<string, TextStyle>;
+  onLinkPress: (href: string) => void;
+}
+
+const CONTAINER_TAGS = new Set(["div", "body"]);
+const BLOCK_TAGS = new Set(["p", "h1", "h2", "h3", "ul", "ol", "li", "blockquote", "pre"]);
+
+function renderNodes(ctx: RenderContext, nodes: HtmlNode[], keyPrefix = ""): React.ReactNode[] {
+  return nodes.flatMap((node, idx) => {
+    const key = `${keyPrefix}-${idx}`;
+    if (node.type === "text") {
+      return <Text key={key} style={ctx.baseStyle}>{node.value}</Text>;
+    }
+
+    const { tag, attrs, children } = node;
+    const tagStyle = ctx.tagStyles[tag] ?? {};
+
+    if (tag === "br") {
+      return <Text key={key}>{"\n"}</Text>;
+    }
+
+    if (tag === "a") {
+      const href = attrs.href ?? "#";
+      if (!isSafeHref(href)) {
+        return renderNodes(ctx, children, key);
+      }
+      return (
+        <Text
+          key={key}
+          style={[ctx.baseStyle, tagStyle]}
+          onPress={() => ctx.onLinkPress(href)}
+        >
+          {renderNodes(ctx, children, key)}
+        </Text>
+      );
+    }
+
+    const childContent = renderNodes(ctx, children, key);
+    if (CONTAINER_TAGS.has(tag)) {
+      return childContent;
+    }
+    if (BLOCK_TAGS.has(tag)) {
+      return (
+        <Text key={key} style={[ctx.baseStyle, tagStyle]}>
+          {"\n"}
+          {childContent}
+          {"\n"}
+        </Text>
+      );
+    }
+
+    return (
+      <Text key={key} style={[ctx.baseStyle, tagStyle]}>
+        {childContent}
+      </Text>
+    );
+  });
 }
 
 const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
@@ -80,10 +131,8 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
   maxLines,
 }) => {
   const theme = useTheme();
-  const { width } = useWindowDimensions();
   const { t } = useI18n();
 
-  // Extract only the theme colors we need to prevent unnecessary rerenders
   const themeColors = useMemo(
     () => ({
       onSurface: theme.colors.onSurface,
@@ -103,7 +152,6 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
     ]
   );
 
-  // Get text color based on color prop
   const textColor = useMemo(() => {
     switch (color) {
       case "primary":
@@ -123,49 +171,24 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
 
   const linkColor = useMemo(() => themeColors.primary, [themeColors]);
 
-  // Get variant styles - memoized
   const variantStyle = useMemo((): TextStyle => {
-    const baseStyle: TextStyle = {
-      color: textColor,
-    };
-
+    const baseStyle: TextStyle = { color: textColor };
     switch (variant) {
       case "title":
-        return {
-          ...baseStyle,
-          fontSize: 24,
-          fontWeight: "700",
-          lineHeight: 32,
-        };
+        return { ...baseStyle, fontSize: 24, fontWeight: "700", lineHeight: 32 };
       case "subtitle":
-        return {
-          ...baseStyle,
-          fontSize: 18,
-          fontWeight: "600",
-          lineHeight: 24,
-        };
+        return { ...baseStyle, fontSize: 18, fontWeight: "600", lineHeight: 24 };
       case "body":
-        return {
-          ...baseStyle,
-          fontSize: 16,
-          fontWeight: "400",
-          lineHeight: 22,
-        };
+        return { ...baseStyle, fontSize: 16, fontWeight: "400", lineHeight: 22 };
       case "caption":
-        return {
-          ...baseStyle,
-          fontSize: 14,
-          fontWeight: "400",
-          lineHeight: 20,
-        };
+        return { ...baseStyle, fontSize: 14, fontWeight: "400", lineHeight: 20 };
       default:
         return baseStyle;
     }
   }, [variant, textColor]);
 
-  // Handle link presses - memoized to prevent renderersProps recreation
   const handleLinkPress = useCallback(
-    (evt: any, href: string) => {
+    (href: string) => {
       if (href.startsWith("mailto:")) {
         const email = href.replace("mailto:", "");
         Alert.alert(
@@ -175,11 +198,10 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
             { text: t("common.cancel"), style: "cancel" },
             {
               text: t("common.send"),
-              onPress: () => {
-                Linking.openURL(href).catch(() => {
-                  Alert.alert(t("common.error"), t("common.cannotOpenEmail"));
-                });
-              },
+              onPress: () =>
+                Linking.openURL(href).catch(() =>
+                  Alert.alert(t("common.error"), t("common.cannotOpenEmail"))
+                ),
             },
           ]
         );
@@ -189,11 +211,10 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
           { text: t("common.cancel"), style: "cancel" },
           {
             text: t("common.call"),
-            onPress: () => {
-              Linking.openURL(href).catch(() => {
-                Alert.alert(t("common.error"), t("common.cannotMakeCall"));
-              });
-            },
+            onPress: () =>
+              Linking.openURL(href).catch(() =>
+                Alert.alert(t("common.error"), t("common.cannotMakeCall"))
+              ),
           },
         ]);
       } else {
@@ -204,11 +225,10 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
             { text: t("common.cancel"), style: "cancel" },
             {
               text: t("common.open"),
-              onPress: () => {
-                Linking.openURL(href).catch(() => {
-                  Alert.alert(t("common.error"), t("common.cannotOpenLink"));
-                });
-              },
+              onPress: () =>
+                Linking.openURL(href).catch(() =>
+                  Alert.alert(t("common.error"), t("common.cannotOpenLink"))
+                ),
             },
           ]
         );
@@ -217,85 +237,36 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
     [t]
   );
 
-  // Process content: convert Markdown to HTML, auto-link, and handle newlines
   const processedContent = useMemo(() => {
     let processed = content;
-
-    // First, convert Markdown syntax to HTML
     processed = convertMarkdownToHtml(processed);
-
-    // Only auto-link if content doesn't already contain HTML anchor tags
-    // This prevents interfering with existing <a href="..."> tags
     if (!/<a\s+[^>]*href\s*=/i.test(processed)) {
       processed = autoLinkText(processed);
     }
-
-    // Convert newlines to <br> tags
     processed = processed.replace(/\n/g, "<br/>");
-
-    // Wrap in a div to ensure proper rendering
     return `<div>${processed}</div>`;
   }, [content]);
 
-  // Custom tags styles for react-native-render-html
-  const tagsStyles = useMemo(
+  const tagStyles = useMemo(
     () => ({
-      body: {
-        // Don't set styles on body tag - let baseStyle handle it
-        // This prevents overriding parent styles
-      },
-      div: {
-        // Don't set color here either - baseStyle handles it
-      },
-      a: {
-        color: linkColor,
-        textDecorationLine: "underline" as const,
-      },
-      strong: {
-        fontWeight: "700",
-      },
-      b: {
-        fontWeight: "700",
-      },
-      em: {
-        fontStyle: "italic",
-      },
-      i: {
-        fontStyle: "italic",
-      },
-      h1: {
-        fontSize: 28,
-        fontWeight: "700",
-        marginVertical: 8,
-      },
-      h2: {
-        fontSize: 24,
-        fontWeight: "600",
-        marginVertical: 6,
-      },
-      h3: {
-        fontSize: 20,
-        fontWeight: "600",
-        marginVertical: 4,
-      },
-      p: {
-        marginVertical: 4,
-      },
-      ul: {
-        marginVertical: 4,
-      },
-      ol: {
-        marginVertical: 4,
-      },
-      li: {
-        marginVertical: 2,
-      },
+      a: { color: linkColor, textDecorationLine: "underline" as const },
+      strong: { fontWeight: "700" as const },
+      b: { fontWeight: "700" as const },
+      em: { fontStyle: "italic" as const },
+      i: { fontStyle: "italic" as const },
+      h1: { fontSize: 28, fontWeight: "700" as const, marginVertical: 8 },
+      h2: { fontSize: 24, fontWeight: "600" as const, marginVertical: 6 },
+      h3: { fontSize: 20, fontWeight: "600" as const, marginVertical: 4 },
+      p: { marginVertical: 4 },
+      ul: { marginVertical: 4 },
+      ol: { marginVertical: 4 },
+      li: { marginVertical: 2 },
       blockquote: {
         borderLeftWidth: 4,
         borderLeftColor: textColor,
         paddingLeft: 12,
         marginVertical: 8,
-        fontStyle: "italic",
+        fontStyle: "italic" as const,
       },
       code: {
         backgroundColor: themeColors.surfaceVariant,
@@ -311,12 +282,9 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
         marginVertical: 8,
       },
     }),
-    [textColor, linkColor, variantStyle, themeColors]
+    [textColor, linkColor, themeColors]
   );
 
-  // Merge external styles with variant styles
-  // IMPORTANT: Parent styles have priority over variant styles
-  // Use JSON.stringify for stable comparison of style object
   const styleKey = useMemo(
     () => JSON.stringify(StyleSheet.flatten(style) || {}),
     [style]
@@ -324,76 +292,44 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
 
   const mergedBaseStyle = useMemo(() => {
     const flattenedExternalStyle = JSON.parse(styleKey);
-
-    // Parent styles override variant styles for proper inheritance
-    return {
-      ...variantStyle,
-      ...flattenedExternalStyle,
-    };
+    return { ...variantStyle, ...flattenedExternalStyle };
   }, [styleKey, variantStyle]);
 
-  // Create stable renderersProps to prevent RenderHTML re-renders
-  // Use a ref to maintain the same object reference across renders
-  const renderersPropsRef = React.useRef({
-    a: {
-      onPress: handleLinkPress,
-    },
-  });
+  const ast = useMemo(() => parseHtml(processedContent), [processedContent]);
 
-  // Update the onPress function when handleLinkPress changes
-  renderersPropsRef.current.a.onPress = handleLinkPress;
+  const ctx: RenderContext = useMemo(
+    () => ({
+      baseStyle: mergedBaseStyle,
+      tagStyles,
+      onLinkPress: handleLinkPress,
+    }),
+    [mergedBaseStyle, tagStyles, handleLinkPress]
+  );
 
-  const renderersProps = renderersPropsRef.current;
-
-  // When maxLines is specified, wrap in a View to enable ellipsis
-  // Note: react-native-render-html doesn't support numberOfLines directly,
-  // but we can limit the container height as a workaround
-  const containerStyle = useMemo(() => {
-    if (!maxLines) return undefined;
-
-    const lineHeight = mergedBaseStyle.lineHeight || 22;
-    const maxHeight = lineHeight * maxLines;
-
-    return {
-      maxHeight,
-    };
-  }, [maxLines, mergedBaseStyle.lineHeight]);
-
-  // If no content, return null
   if (!content || content.trim() === "") {
     return null;
   }
 
-  const renderedHtml = (
-    <RenderHTML
-      contentWidth={width}
-      source={{ html: processedContent }}
-      tagsStyles={tagsStyles as any}
-      baseStyle={mergedBaseStyle as any}
-      renderersProps={renderersProps as any}
-    />
+  const renderedContent = renderNodes(ctx, ast);
+
+  return (
+    <Text
+      style={mergedBaseStyle}
+      numberOfLines={maxLines}
+      ellipsizeMode={maxLines ? "tail" : undefined}
+    >
+      {renderedContent}
+    </Text>
   );
-
-  // Wrap in View with maxHeight when maxLines is specified
-  if (maxLines && containerStyle) {
-    return <View style={containerStyle}>{renderedHtml}</View>;
-  }
-
-  return renderedHtml;
 };
 
-// Memoize the entire component to prevent unnecessary rerenders
 export const HtmlTextRenderer = React.memo(
   HtmlTextRendererComponent,
-  (prevProps, nextProps) => {
-    // Custom comparison: only rerender if these props actually changed
-    return (
-      prevProps.content === nextProps.content &&
-      prevProps.variant === nextProps.variant &&
-      prevProps.color === nextProps.color &&
-      prevProps.maxLines === nextProps.maxLines &&
-      JSON.stringify(StyleSheet.flatten(prevProps.style)) ===
-        JSON.stringify(StyleSheet.flatten(nextProps.style))
-    );
-  }
+  (prevProps, nextProps) =>
+    prevProps.content === nextProps.content &&
+    prevProps.variant === nextProps.variant &&
+    prevProps.color === nextProps.color &&
+    prevProps.maxLines === nextProps.maxLines &&
+    JSON.stringify(StyleSheet.flatten(prevProps.style)) ===
+      JSON.stringify(StyleSheet.flatten(nextProps.style))
 );

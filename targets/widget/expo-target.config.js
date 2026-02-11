@@ -1,4 +1,4 @@
-const { commonEntitlements } = require('../../app.config');
+const { commonEntitlements } = require('../../config-shared');
 
 /** @type {import('@bacons/apple-targets/app.plugin').ConfigFunction} */
 module.exports = config => ({

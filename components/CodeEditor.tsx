@@ -5,11 +5,10 @@ import { Text, TextInput } from "react-native-paper";
 const CodeEditorNative = React.lazy(() => import("@rivascva/react-native-code-editor"));
 
 let CodeEditorSyntaxStyles: any;
-let CodeEditorStyleType: any;
 try {
   const mod = require("@rivascva/react-native-code-editor");
   CodeEditorSyntaxStyles = mod.CodeEditorSyntaxStyles;
-} catch {}
+} catch { }
 
 interface CodeEditorProps {
   value: string;

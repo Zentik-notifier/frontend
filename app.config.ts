@@ -1,37 +1,15 @@
 import { ConfigContext, ExpoConfig } from '@expo/config';
-import 'tsx/cjs';
 
 // Set these in .env locally
 // APP_VARIANT=development
 
 const isDev = process.env.APP_VARIANT === "development";
 const bundleIdentifier = isDev ? "com.apocaliss92.zentik.dev" : "com.apocaliss92.zentik";
-const productionBundleIdentifier = "com.apocaliss92.zentik";
-export const name = isDev ? "Zentik Dev" : "Zentik";
-const scheme = isDev ? "zentik.dev" : "zentik";
+const { name: _name, commonEntitlements: _commonEntitlements } = require('./config-shared');
+export const name = _name;
+export const commonEntitlements = _commonEntitlements;
 
-export const commonEntitlements = {
-    "com.apple.security.application-groups": [
-        `group.${bundleIdentifier}`
-    ],
-    "keychain-access-groups": [
-        `$(AppIdentifierPrefix)${bundleIdentifier}.keychain`,
-        "$(AppIdentifierPrefix)*"
-    ],
-    "com.apple.developer.icloud-services": [
-        "CloudKit",
-        "CloudDocuments"
-    ],
-    "com.apple.developer.icloud-container-identifiers": isDev
-        ? [
-            `iCloud.${bundleIdentifier}`, // Dev container
-            `iCloud.${productionBundleIdentifier}` // Production container (for testing)
-        ]
-        : [
-            `iCloud.${bundleIdentifier}` // Production container only
-        ],
-    "com.apple.developer.ubiquity-kvstore-identifier": `$(TeamIdentifierPrefix)${bundleIdentifier}`,
-}
+const scheme = isDev ? "zentik.dev" : "zentik";
 
 const config = ({ config }: ConfigContext): ExpoConfig => {
     return {
@@ -323,11 +301,11 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             "expo-audio",
             "expo-media-library",
             "@bacons/apple-targets",
-            ["./plugins/withIosNotificationExtensions/withIosNotificationExtensions.ts"],
-            ["./plugins/withAndroidManifestFix/withAndroidManifestFix.ts"],
-            ["./plugins/withCustomAppDelegate/withCustomAppDelegate.ts"],
-            ["./plugins/withWidgetReload/withWidgetReload.ts"],
-            ["./plugins/withDatabaseAccessBridge/withDatabaseAccessBridge.ts"]
+            ["./plugins/withIosNotificationExtensions/app.plugin.js"],
+            ["./plugins/withAndroidManifestFix/app.plugin.js"],
+            ["./plugins/withCustomAppDelegate/app.plugin.js"],
+            ["./plugins/withWidgetReload/app.plugin.js"],
+            ["./plugins/withDatabaseAccessBridge/app.plugin.js"]
         ],
 
         experiments: {
