@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as BackgroundFetch from 'expo-background-task';
+import * as Device from 'expo-device';
 import * as TaskManager from 'expo-task-manager';
 import { apolloClient } from '@/config/apollo-client';
 import {
@@ -18,7 +19,7 @@ import * as Notifications from 'expo-notifications';
 import packageJson from '../package.json';
 import { createAutoDbBackupNow } from './db-auto-backup';
 import { installConsoleLoggerBridge } from './console-logger-hook';
-import { saveTaskToFile } from './logger';
+import { logger, saveTaskToFile } from './logger';
 
 export const DB_AUTO_BACKUP_TASK = 'zentik-db-auto-backup';
 export const NOTIFICATION_REFRESH_TASK = 'zentik-notifications-refresh';
@@ -40,17 +41,14 @@ async function runTask(
   fn: () => Promise<TaskRunResult>,
   startedMessage?: string
 ): Promise<typeof BackgroundFetch.BackgroundTaskResult.Success | typeof BackgroundFetch.BackgroundTaskResult.Failed> {
-  console.log(`[Tasks] ▶️ ${taskName} started`);
   installConsoleLoggerBridge();
   await saveTaskToFile(taskName, 'started', startedMessage ?? `${taskName} started`);
 
   try {
     const result = await fn();
-    console.log(`[Tasks] ✅ ${taskName} completed:`, result.message);
     await saveTaskToFile(taskName, 'completed', result.message, result.meta);
     return BackgroundFetch.BackgroundTaskResult.Success;
   } catch (e) {
-    console.warn(`[Tasks] ❌ ${taskName} failed:`, e);
     await saveTaskToFile(taskName, 'failed', `${taskName} failed`, { error: String(e) });
     return BackgroundFetch.BackgroundTaskResult.Failed;
   }
@@ -100,7 +98,7 @@ if (!isWeb) {
       );
     });
   } catch (e) {
-    console.warn('[Tasks] Failed to define DB auto-backup task:', e);
+    logger.warn('Failed to define DB auto-backup task', e, 'Tasks');
   }
 
   try {
@@ -123,7 +121,7 @@ if (!isWeb) {
       );
     });
   } catch (e) {
-    console.warn('[Tasks] Failed to define notifications refresh task:', e);
+    logger.warn('Failed to define notifications refresh task', e, 'Tasks');
   }
 
   try {
@@ -137,13 +135,13 @@ if (!isWeb) {
           try {
             const res = await fetch(`${apiBase}/changelogs`);
             if (!res.ok) {
-              console.warn('[ChangelogBackgroundTask] Failed to fetch changelogs via REST:', res.status);
+              logger.warn('Failed to fetch changelogs via REST', { status: res.status }, 'ChangelogBackgroundTask');
             } else {
               const list = (await res.json()) as ChangelogsForModalQuery['changelogs'];
               changelogData = { changelogs: list };
             }
           } catch (e) {
-            console.warn('[ChangelogBackgroundTask] Error fetching changelogs via REST', e);
+            logger.warn('Error fetching changelogs via REST', e, 'ChangelogBackgroundTask');
           }
 
           let backendVersion: string | null | undefined = undefined;
@@ -156,7 +154,7 @@ if (!isWeb) {
               backendVersion = (backendRes.data as any)?.getBackendVersion;
             }
           } catch (e) {
-            console.warn('[ChangelogBackgroundTask] Failed to fetch backend version', e);
+            logger.warn('Failed to fetch backend version', e, 'ChangelogBackgroundTask');
           }
 
           const showNativeVersion = Platform.OS !== 'web';
@@ -214,7 +212,7 @@ if (!isWeb) {
       );
     });
   } catch (e) {
-    console.warn('[Tasks] Failed to define changelog task:', e);
+    logger.warn('Failed to define changelog task', e, 'Tasks');
   }
 
   try {
@@ -266,7 +264,7 @@ if (!isWeb) {
                 trigger: null,
               });
             } catch (error) {
-              console.warn(`[NoPushCheckTask] Failed to schedule notification for ${notification.id}:`, error);
+              logger.warn(`Failed to schedule notification for ${notification.id}`, error, 'NoPushCheckTask');
             }
           }
 
@@ -277,7 +275,7 @@ if (!isWeb) {
               await globalUpdateReceivedNotificationsCallback({ id: latestNotificationId });
               markedReceived = true;
             } catch (e) {
-              console.warn('[NoPushCheckTask] Failed to mark notifications as received:', e);
+              logger.warn('Failed to mark notifications as received', e, 'NoPushCheckTask');
             }
           }
 
@@ -296,7 +294,7 @@ if (!isWeb) {
       );
     });
   } catch (e) {
-    console.warn('[Tasks] Failed to define NO_PUSH check task:', e);
+    logger.warn('Failed to define NO_PUSH check task', e, 'Tasks');
   }
 
   try {
@@ -318,20 +316,24 @@ if (!isWeb) {
       );
     });
   } catch (e) {
-    console.warn('[Tasks] Failed to define CloudKit sync task:', e);
+    logger.warn('Failed to define CloudKit sync task', e, 'Tasks');
   }
 }
 
 export async function enableDbAutoBackupTask(options?: { intervalMinutes?: number }): Promise<void> {
   if (isWeb) return;
 
+  if (Platform.OS === 'ios' && !Device.isDevice) {
+    logger.info('Background tasks unavailable on iOS simulator', undefined, 'Tasks');
+    return;
+  }
+
   const intervalMinutes = options?.intervalMinutes ?? 6 * 60;
 
   try {
     const status = await BackgroundFetch.getStatusAsync();
-    console.log('[Tasks] Background task status:', BackgroundFetch.BackgroundTaskStatus[status]);
     if (status === BackgroundFetch.BackgroundTaskStatus.Restricted) {
-      console.warn('[Tasks] Background task restricted on this device');
+      logger.warn('Background task restricted on this device', { status: BackgroundFetch.BackgroundTaskStatus[status] }, 'Tasks');
       return;
     }
 
@@ -339,12 +341,12 @@ export async function enableDbAutoBackupTask(options?: { intervalMinutes?: numbe
       await BackgroundFetch.registerTaskAsync(DB_AUTO_BACKUP_TASK, {
         minimumInterval: intervalMinutes,
       });
-      console.log(`[Tasks] DB auto-backup task registered (interval: ${intervalMinutes} min)`);
+      logger.info(`DB auto-backup task registered (interval: ${intervalMinutes} min)`, undefined, 'Tasks');
     } catch (e) {
-      console.log('[Tasks] DB auto-backup registration:', (e as any)?.message ?? e);
+      logger.warn('DB auto-backup registration failed', (e as any)?.message ?? e, 'Tasks');
     }
   } catch (e) {
-    console.warn('[Tasks] Error enabling DB auto-backup:', e);
+    logger.warn('Error enabling DB auto-backup', e, 'Tasks');
   }
 }
 
@@ -363,7 +365,11 @@ export async function enablePushBackgroundTasks(options?: {
 }): Promise<void> {
   if (isWeb) return;
 
-  console.log('[Tasks] Enabling push background tasks...');
+  if (Platform.OS === 'ios' && !Device.isDevice) {
+    logger.info('Background tasks unavailable on iOS simulator', undefined, 'Tasks');
+    return;
+  }
+
   const notificationsRefreshMinutes = secondsToMinutes(options?.notificationsRefreshMinimumIntervalSeconds ?? 180);
   const changelogCheckMinutes = options?.changelogCheckMinimumIntervalMinutes ?? 15;
   const noPushCheckMinutes = options?.noPushCheckMinimumIntervalMinutes ?? 15;
@@ -371,23 +377,22 @@ export async function enablePushBackgroundTasks(options?: {
 
   try {
     const status = await BackgroundFetch.getStatusAsync();
-    console.log('[Tasks] Push background tasks status:', BackgroundFetch.BackgroundTaskStatus[status]);
     if (status === BackgroundFetch.BackgroundTaskStatus.Restricted) {
-      console.warn('[Tasks] Background tasks are restricted on this device');
+      logger.warn('Background tasks restricted on this device', { status: BackgroundFetch.BackgroundTaskStatus[status] }, 'Tasks');
       return;
     }
 
     const registerWithLog = async (taskName: string, minimumIntervalMinutes: number) => {
       if (!TaskManager.isTaskDefined(taskName)) {
-        console.warn(`[Tasks] Cannot register '${taskName}': task is not defined`);
+        logger.warn(`Cannot register '${taskName}': task is not defined`, undefined, 'Tasks');
         return;
       }
 
       try {
         await BackgroundFetch.registerTaskAsync(taskName, { minimumInterval: minimumIntervalMinutes });
-        console.log(`[Tasks] ${taskName} registered (interval: ${minimumIntervalMinutes} min)`);
+        logger.info(`${taskName} registered (interval: ${minimumIntervalMinutes} min)`, undefined, 'Tasks');
       } catch (e) {
-        console.log(`[Tasks] ${taskName} registration:`, (e as any)?.message ?? e);
+        logger.warn(`${taskName} registration failed`, (e as any)?.message ?? e, 'Tasks');
       }
     };
 
@@ -411,12 +416,21 @@ export async function enablePushBackgroundTasks(options?: {
       await registerWithLog(CLOUDKIT_SYNC_TASK, cloudKitSyncMinutes);
     }
   } catch (error) {
-    console.error('[Tasks] Error enabling push background tasks:', error);
+    logger.error('Error enabling push background tasks', error, 'Tasks');
   }
 }
 
 export async function initializeBackgroundTasks(): Promise<void> {
   if (isWeb) return;
-  console.log('[Tasks] Initializing background tasks...');
   await enableDbAutoBackupTask({ intervalMinutes: 6 * 60 });
+}
+
+export async function triggerBackgroundTasksForTesting(): Promise<boolean> {
+  if (isWeb) return false;
+  try {
+    return await BackgroundFetch.triggerTaskWorkerForTestingAsync();
+  } catch (e) {
+    logger.warn('Failed to trigger background tasks for testing', e, 'Tasks');
+    return false;
+  }
 }

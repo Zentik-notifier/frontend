@@ -76,6 +76,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             infoPlist: {
                 NSUserNotificationUsageDescription: "This app uses notifications to send you important updates about your buckets and notifications.",
                 UIBackgroundModes: ["remote-notification", "fetch"],
+                BGTaskSchedulerPermittedIdentifiers: ["com.expo.modules.backgroundtask.processing"],
                 NSPhotoLibraryAddUsageDescription: "Zentik needs access to your photo library to save media attachments to your gallery.",
                 NSPhotoLibraryUsageDescription: "Zentik needs access to your photo library to save and show media attachments.",
                 NSAppTransportSecurity: {

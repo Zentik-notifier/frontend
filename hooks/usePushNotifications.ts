@@ -1,27 +1,27 @@
 import { apolloClient } from '@/config/apollo-client';
 import { deviceRegistrationInvalidatedVar } from '@/config/apollo-vars';
-import { ChangelogsForModalQuery, DevicePlatform, GetBackendVersionDocument, GetNotificationsDocument, GetNotificationsQuery, GetUserDevicesDocument, NotificationDeliveryType, NotificationFragment, NotificationServiceType, RegisterDeviceDto, useGetNotificationServicesLazyQuery, useGetUserDevicesLazyQuery, useRegisterDeviceMutation, useRemoveDeviceMutation, useUpdateReceivedNotificationsMutation } from '@/generated/gql-operations-generated';
+import { DevicePlatform, GetNotificationsDocument, GetNotificationsQuery, GetUserDevicesDocument, NotificationDeliveryType, NotificationFragment, NotificationServiceType, RegisterDeviceDto, useGetNotificationServicesLazyQuery, useGetUserDevicesLazyQuery, useRegisterDeviceMutation, useRemoveDeviceMutation, useUpdateReceivedNotificationsMutation } from '@/generated/gql-operations-generated';
 import { useNotificationActions } from '@/hooks/useNotificationActions';
-import { translateInstant, Locale } from '@/hooks/useI18n';
-import { settingsService } from '@/services/settings-service';
+import {
+  enablePushBackgroundTasks,
+  NO_PUSH_CHECK_TASK,
+  setPushBackgroundTaskCallbacks,
+  triggerBackgroundTasksForTesting,
+} from '@/services/background-tasks';
 import { iosNativePushNotificationService } from '@/services/ios-push-notifications';
 import { localNotifications } from '@/services/local-notifications';
+import { logger } from '@/services/logger';
+import { settingsService } from '@/services/settings-service';
 import { webPushNotificationService } from '@/services/web-push-notifications';
+import { useReactiveVar } from '@apollo/client';
+import * as BackgroundFetch from 'expo-background-task';
 import { getRandomBytesAsync } from 'expo-crypto';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import packageJson from '../package.json';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useCleanup } from './useCleanup';
-import { useReactiveVar } from '@apollo/client';
 import { VersionsInfo } from './useGetVersionsInfo';
-import * as BackgroundFetch from 'expo-background-task';
-import {
-  enablePushBackgroundTasks,
-  setPushBackgroundTaskCallbacks,
-  NO_PUSH_CHECK_TASK,
-} from '@/services/background-tasks';
 
 const isWeb = Platform.OS === 'web';
 const isAndroid = Platform.OS === 'android';
@@ -416,12 +416,18 @@ export function usePushNotifications(versions: VersionsInfo) {
   const checkBackgroundTaskStatus = async (): Promise<void> => {
     try {
       const status = await BackgroundFetch.getStatusAsync();
-      console.log('[usePushNotifications] Background fetch status:', BackgroundFetch.BackgroundTaskStatus[status]);
-      console.log('[usePushNotifications] Task registered:', NO_PUSH_CHECK_TASK);
-      console.log('[usePushNotifications] Minimum interval: 15 minutes');
+      logger.info('Background task status', {
+        status: BackgroundFetch.BackgroundTaskStatus[status],
+        task: NO_PUSH_CHECK_TASK,
+        minInterval: '15 min',
+      }, 'usePushNotifications');
     } catch (e) {
-      console.warn('[usePushNotifications] Failed to check background task status:', e);
+      logger.warn('Failed to check background task status', e, 'usePushNotifications');
     }
+  };
+
+  const triggerBackgroundTasks = async (): Promise<boolean> => {
+    return triggerBackgroundTasksForTesting();
   };
 
   return {
@@ -439,6 +445,7 @@ export function usePushNotifications(versions: VersionsInfo) {
     needsPwa,
     testNoPushCheckTask,
     checkBackgroundTaskStatus,
+    triggerBackgroundTasks,
   };
 }
 
