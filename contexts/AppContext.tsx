@@ -28,7 +28,7 @@ import {
   usePushNotifications,
 } from "@/hooks/usePushNotifications";
 import { initializeBackgroundTasks } from "@/services/background-tasks";
-import { openSharedCacheDb } from "@/services/db-setup";
+import { closeSharedCacheDb, openSharedCacheDb } from "@/services/db-setup";
 import { logger } from "@/services/logger";
 import * as Localization from "expo-localization";
 import React, {
@@ -48,6 +48,7 @@ import { applyStoredAppIcon } from "../services/app-icon-service";
 import {
   settingsService,
 } from "../services/settings-service";
+import { mediaCache } from "../services/media-cache-service";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -625,18 +626,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           },
         }).catch(() => {});
         try {
-          // Flush pending logs before closing database
           await logger.flush();
-          // console.log("[AppContext] Logs flushed successfully");
-
-          // Close database connection
-          // await closeSharedCacheDb();
-          // console.log("[AppContext] Database closed successfully");
-
-          // Notify all repositories that database is closed
-          // This prevents race conditions and allows automatic reopening on next operation
-          // mediaCache.notifyDatabaseClosed();
-          // settingsRepository.notifyDatabaseClosed();
+          await closeSharedCacheDb();
+          mediaCache.notifyDatabaseClosed();
+          settingsRepository.notifyDatabaseClosed();
         } catch (error) {
           console.error("[AppContext] Error during background cleanup:", error);
         }
