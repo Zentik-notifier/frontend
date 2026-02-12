@@ -19,9 +19,10 @@ type Props = {
   onProviderSelect: (provider: OAuthProviderPublicFragment) => void;
   disabled?: boolean;
   onSuccess?: () => void;
+  openDownward?: boolean;
 };
 
-export function OAuthSelector({ onProviderSelect, disabled, onSuccess }: Props) {
+export function OAuthSelector({ onProviderSelect, disabled, onSuccess, openDownward = false }: Props) {
   const { t } = useI18n();
   const theme = useTheme();
   const { data } = usePublicAppConfigQuery({ fetchPolicy: "cache-first" });
@@ -183,7 +184,6 @@ export function OAuthSelector({ onProviderSelect, disabled, onSuccess }: Props) 
               style={StyleSheet.absoluteFill}
               onPress={() => setMenuVisible(false)}
             />
-            {/* Dropdown above trigger */}
             <Surface
               elevation={3}
               style={[
@@ -191,10 +191,14 @@ export function OAuthSelector({ onProviderSelect, disabled, onSuccess }: Props) 
                 {
                   left: triggerMeasure.x,
                   width: triggerMeasure.width,
-                  bottom:
-                    triggerMeasure.windowHeight -
-                    triggerMeasure.y +
-                    4,
+                  ...(openDownward
+                    ? { top: triggerMeasure.y + triggerMeasure.height + 4 }
+                    : {
+                        bottom:
+                          triggerMeasure.windowHeight -
+                          triggerMeasure.y +
+                          4,
+                      }),
                   backgroundColor: theme.colors.surface,
                   borderColor: theme.colors.outlineVariant,
                 },

@@ -4,7 +4,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import { Portal, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LoginForm from './LoginForm';
 
@@ -27,14 +27,17 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.form}>
-          <LoginForm 
-            onSuccess={handleSuccess}
-            onCancel={onClose}
-          />
-        </View>
-      </SafeAreaView>
+      <Portal.Host>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+          <View style={styles.form}>
+            <LoginForm
+              onSuccess={handleSuccess}
+              onCancel={onClose}
+              oauthDropdownOpenDownward
+            />
+          </View>
+        </SafeAreaView>
+      </Portal.Host>
     </Modal>
   );
 }

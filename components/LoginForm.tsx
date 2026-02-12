@@ -17,12 +17,14 @@ type Props = {
   onSuccess?: () => void;
   onCancel?: () => void;
   initialEmail?: string;
+  oauthDropdownOpenDownward?: boolean;
 };
 
 export default function LoginForm({
   onSuccess,
   onCancel,
   initialEmail,
+  oauthDropdownOpenDownward = false,
 }: Props) {
   const { t } = useI18n();
   const { locale } = useI18n();
@@ -193,6 +195,7 @@ export default function LoginForm({
               onProviderSelect={openProviderLogin}
               disabled={isLoading}
               onSuccess={onSuccess}
+              openDownward={oauthDropdownOpenDownward}
             />
           </View>
         </View>
