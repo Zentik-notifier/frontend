@@ -81,13 +81,12 @@ function copySharedFilesToTarget(
     return;
   }
 
-  // Files to exclude from extensions (React Native bridges and Watch-only files)
   const excludedFiles = [
-    "CloudKitSyncBridge.swift", // React Native bridge, not needed in extensions
-    "CloudKitManager.swift", // Legacy monolith (removed)
-    "WatchCloudKit.swift", // Watch-only orchestrator
-    "WatchDataStore.swift", // Watch-only data store
-    "WatchSettingsManager.swift", // Watch-only settings
+    "PhoneSyncEngineCKSync.swift",
+    "WatchSyncEngineCKSync.swift",
+    "WatchDataStore.swift",
+    "WatchSettingsManager.swift",
+    "CKSyncBridge.swift",
   ];
 
   // Read all .swift files from the ZentikShared directory
@@ -129,6 +128,24 @@ function copySharedFilesToTarget(
   }
 }
 
+function applyZentikExtensionFlag(pbxProject: any, targetName: string) {
+  const configurations = pbxProject.pbxXCBuildConfigurationSection();
+  for (const key in configurations) {
+    if (typeof configurations[key].buildSettings !== "undefined") {
+      const buildSettingsObj = configurations[key].buildSettings;
+      if (
+        typeof buildSettingsObj.PRODUCT_NAME !== "undefined" &&
+        buildSettingsObj.PRODUCT_NAME === `"${targetName}"`
+      ) {
+        const existingFlags = buildSettingsObj.OTHER_SWIFT_FLAGS ?? "$(inherited)";
+        const flagsStr = typeof existingFlags === "string" ? existingFlags : Array.isArray(existingFlags) ? existingFlags.join(" ") : "$(inherited)";
+        const trimmed = flagsStr.replace(/^"|"$/g, "").trim();
+        buildSettingsObj.OTHER_SWIFT_FLAGS = `"${trimmed} -D ZENTIK_EXTENSION"`;
+      }
+    }
+  }
+}
+
 async function addAppExtensionTarget(
   newConfig: ExportedConfigWithProps,
   projectRoot: string,
@@ -141,13 +158,12 @@ async function addAppExtensionTarget(
   // Return target UUID
   const pbxProject = newConfig.modResults;
 
-  // Files to exclude from extensions (React Native bridges and Watch-only files)
   const excludedFiles = [
-    "CloudKitSyncBridge.swift", // React Native bridge, not needed in extensions
-    "CloudKitManager.swift", // Legacy monolith (removed)
-    "WatchCloudKit.swift", // Watch-only orchestrator
-    "WatchDataStore.swift", // Watch-only data store
-    "WatchSettingsManager.swift", // Watch-only settings
+    "PhoneSyncEngineCKSync.swift",
+    "WatchSyncEngineCKSync.swift",
+    "WatchDataStore.swift",
+    "WatchSettingsManager.swift",
+    "CKSyncBridge.swift",
   ];
 
   const existingTargetKey = pbxProject.findTargetKey(targetName);
@@ -202,6 +218,7 @@ async function addAppExtensionTarget(
       }
     }
 
+    applyZentikExtensionFlag(pbxProject, targetName);
     return existingTargetKey;
   }
 
@@ -276,6 +293,7 @@ async function addAppExtensionTarget(
       }
     }
   }
+  applyZentikExtensionFlag(pbxProject, targetName);
 
   pbxProject.addTargetAttribute("DevelopmentTeam", developmentTeam, targetName);
   pbxProject.addTargetAttribute("DevelopmentTeam", developmentTeam);

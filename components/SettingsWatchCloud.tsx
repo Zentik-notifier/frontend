@@ -10,11 +10,6 @@ import {
   NativeEventEmitter,
   NativeModules,
 } from "react-native";
-import type {
-  CloudKitSyncProgressEvent,
-  CloudKitSyncStep,
-  CloudKitSyncPhase,
-} from "@/types/cloudkit-sync-events";
 import {
   Button,
   Card,
@@ -86,31 +81,7 @@ export function SettingsWatchCloud() {
     }
   }, [isWatchSupported]);
 
-  useEffect(() => {
-    if (Platform.OS !== "ios" || !NativeModules.CloudKitSyncBridge || isWatchSupported !== true) {
-      return;
-    }
-    const eventEmitter = new NativeEventEmitter(
-      NativeModules.CloudKitSyncBridge,
-    );
-    const handleSyncProgress = (event: CloudKitSyncProgressEvent) => {
-      setSyncProgress(event);
-      if (
-        event.step === "full_sync" &&
-        (event.phase === "completed" || event.phase === "failed")
-      ) {
-        setTimeout(() => {
-          setSyncProgress(null);
-          loadCloudKitStatus();
-        }, 2000);
-      }
-    };
-    const subscription = eventEmitter.addListener(
-      "cloudKitSyncProgress",
-      handleSyncProgress,
-    );
-    return () => subscription.remove();
-  }, [isWatchSupported]);
+  // Sync progress no longer available (CKSyncEngine runs natively without RN bridge)
 
   const loadCloudKitStatus = async () => {
     if (Platform.OS !== "ios") return;
@@ -131,11 +102,11 @@ export function SettingsWatchCloud() {
   };
 
   const getSyncProgressText = (progress: {
-    step?: CloudKitSyncStep | string;
+    step?: string;
     currentItem: number;
     totalItems: number;
     itemType: string;
-    phase: CloudKitSyncPhase | string;
+    phase: string;
   }): string => {
     const stepKey = progress.step || "unknown";
     const phase = progress.phase;

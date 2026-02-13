@@ -1,4 +1,16 @@
 #!/usr/bin/env node
+/**
+ * Post-build script for iOS. Runs after prebuild and on eas-build-post-install.
+ * - Updates ShareExtension entitlements
+ * - Removes obsolete CloudKitSyncBridge.m
+ * - Copies CKSyncBridge.m to ZentikDev only (RN bridge)
+ * - Copies ZentikShared .swift files to all targets
+ *
+ * Exclude list (CKSyncBridge = RN bridge, main app only):
+ * - NSE/NCE: PhoneSyncEngineCKSync, WatchSyncEngineCKSync, watchOnly, CKSyncBridge
+ * - Watch: PhoneSyncEngineCKSync, CKSyncBridge
+ * - Widget: NotificationActionHandler, PhoneSyncEngineCKSync, WatchSyncEngineCKSync, watchOnly, CKSyncBridge
+ */
 
 const fs = require('fs');
 const path = require('path');
@@ -84,6 +96,25 @@ for (const { path: shareExtDir, name: entitlementsFileName, isDev: isDevDir } of
 
 console.log(`Done: updated ${updated} entitlements file(s).`);
 
+// Remove obsolete CloudKit bridge
+const cloudKitBridgePath = path.join(iosDir, 'ZentikDev', 'CloudKitSyncBridge.m');
+if (fs.existsSync(cloudKitBridgePath)) {
+  fs.unlinkSync(cloudKitBridgePath);
+  console.log('Removed obsolete CloudKitSyncBridge.m');
+}
+
+// Copy CKSyncBridge.m to main app only (RN bridge, requires React module)
+const cksyncBridgeMPath = path.join(sharedFilesDir, 'CKSyncBridge.m');
+const zentikDevPath = path.join(iosDir, 'ZentikDev');
+if (fs.existsSync(cksyncBridgeMPath) && fs.existsSync(zentikDevPath)) {
+  const destPath = path.join(zentikDevPath, 'CKSyncBridge.m');
+  fs.copyFileSync(cksyncBridgeMPath, destPath);
+  let content = fs.readFileSync(destPath, 'utf-8');
+  content = content.replace(/BUNDLE_ID_PLACEHOLDER/g, bundleIdentifier);
+  fs.writeFileSync(destPath, content, 'utf-8');
+  console.log('Copied CKSyncBridge.m to ZentikDev');
+}
+
 // Copy shared files to all iOS targets
 if (fs.existsSync(sharedFilesDir)) {
   console.log('\nSyncing shared Swift files into targets...');
@@ -93,15 +124,16 @@ if (fs.existsSync(sharedFilesDir)) {
 
   console.log(`Found ${sharedFiles.length} shared Swift file(s) in plugins/ZentikShared`);
 
-  // Files that are Watch-only and shouldn't be in extensions
-  const watchOnlyFiles = ['WatchCloudKit.swift', 'WatchDataStore.swift', 'WatchSettingsManager.swift'];
+  const watchOnlyFiles = ['WatchDataStore.swift', 'WatchSettingsManager.swift'];
+
+  const rnBridgeOnlyFiles = ['CKSyncBridge.swift'];
 
   const iosTargets = [
-    { path: path.join(iosDir, 'ZentikDev'), name: 'iOS App (ZentikDev)', exclude: ['CloudKitManager.swift'] },
-    { path: path.join(iosDir, 'ZentikNotificationService'), name: 'Notification Service Extension', exclude: ['CloudKitSyncBridge.swift', 'CloudKitManager.swift', ...watchOnlyFiles] },
-    { path: path.join(iosDir, 'ZentikNotificationContentExtension'), name: 'Notification Content Extension', exclude: ['CloudKitSyncBridge.swift', 'CloudKitManager.swift', ...watchOnlyFiles] },
-    { path: watchTargetDir, name: 'Watch Target', exclude: ['CloudKitSyncBridge.swift', 'CloudKitManager.swift', 'PhoneCloudKit.swift'] },
-    { path: path.join(__dirname, '..', 'targets', 'widget'), name: 'Widget Target', exclude: ['NotificationActionHandler.swift', 'CloudKitSyncBridge.swift', 'CloudKitManager.swift', ...watchOnlyFiles] }
+    { path: path.join(iosDir, 'ZentikDev'), name: 'iOS App (ZentikDev)', exclude: ['WatchSyncEngineCKSync.swift'] },
+    { path: path.join(iosDir, 'ZentikNotificationService'), name: 'Notification Service Extension', exclude: ['PhoneSyncEngineCKSync.swift', 'WatchSyncEngineCKSync.swift', ...watchOnlyFiles, ...rnBridgeOnlyFiles] },
+    { path: path.join(iosDir, 'ZentikNotificationContentExtension'), name: 'Notification Content Extension', exclude: ['PhoneSyncEngineCKSync.swift', 'WatchSyncEngineCKSync.swift', ...watchOnlyFiles, ...rnBridgeOnlyFiles] },
+    { path: watchTargetDir, name: 'Watch Target', exclude: ['PhoneSyncEngineCKSync.swift', ...rnBridgeOnlyFiles] },
+    { path: path.join(__dirname, '..', 'targets', 'widget'), name: 'Widget Target', exclude: ['NotificationActionHandler.swift', 'PhoneSyncEngineCKSync.swift', 'WatchSyncEngineCKSync.swift', ...watchOnlyFiles, ...rnBridgeOnlyFiles] }
   ];
 
   let totalCopied = 0;
@@ -162,21 +194,4 @@ if (fs.existsSync(sharedFilesDir)) {
   }
 
   console.log(`\nDone: copied ${totalCopied} file(s) across all targets.`);
-
-  // Copy CloudKitSyncBridge.m to iOS App only (Objective-C bridge file)
-  const cloudkitBridgeM = 'CloudKitSyncBridge.m';
-  const cloudkitBridgeMSource = path.join(sharedFilesDir, cloudkitBridgeM);
-  const iosAppPath = path.join(iosDir, 'ZentikDev');
-
-  if (fs.existsSync(cloudkitBridgeMSource) && fs.existsSync(iosAppPath)) {
-    const cloudkitBridgeMDest = path.join(iosAppPath, cloudkitBridgeM);
-    fs.copyFileSync(cloudkitBridgeMSource, cloudkitBridgeMDest);
-
-    // Replace bundle ID placeholder
-    let content = fs.readFileSync(cloudkitBridgeMDest, 'utf-8');
-    content = content.replace(/BUNDLE_ID_PLACEHOLDER/g, bundleIdentifier);
-    fs.writeFileSync(cloudkitBridgeMDest, content, 'utf-8');
-
-    console.log(`\nCopied ${cloudkitBridgeM} to iOS App: ${path.relative(process.cwd(), cloudkitBridgeMDest)}`);
-  }
 }

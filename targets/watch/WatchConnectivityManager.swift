@@ -3,12 +3,9 @@ import CloudKit
 import WatchConnectivity
 
 /**
- * WatchConnectivityManager - Wrapper per WatchCloudKit
- * 
- * This is a minimal stub that maintains the interface used by content.swift
- * but uses WatchCloudKit internally for data synchronization.
- * 
- * TODO: Implement CloudKit fetch methods to replace WatchConnectivity
+ * WatchConnectivityManager - Wrapper for WatchSyncEngineCKSync
+ *
+ * Uses CKSyncEngine for CloudKit sync. WatchDataStore is the source of truth.
  */
 class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     static let shared = WatchConnectivityManager()
@@ -34,6 +31,8 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     
     private let syncStateQueue = DispatchQueue(label: "WatchConnectivityManager.syncStateQueue")
     private var syncInFlight: Bool = false
+    private var pendingIncrementalSync: Bool = false
+    private var pendingFullSync: Bool = false
 
     private let topUpQueue = DispatchQueue(label: "WatchConnectivityManager.topUpQueue")
     private var topUpInFlight: Bool = false
@@ -106,8 +105,6 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
                 if let type = applicationContext["type"] as? String {
                     if type == "watchTokenSettings" {
                         handleWatchTokenSettings(message: applicationContext, replyHandler: { _ in })
-                    } else if type == "watchSubscriptionSyncMode" {
-                        handleSubscriptionSyncMode(message: applicationContext, replyHandler: { _ in })
                     }
                 }
             } else {
@@ -136,8 +133,6 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
                     if let type = applicationContext["type"] as? String {
                         if type == "watchTokenSettings" {
                             handleWatchTokenSettings(message: applicationContext, replyHandler: { _ in })
-                        } else if type == "watchSubscriptionSyncMode" {
-                            handleSubscriptionSyncMode(message: applicationContext, replyHandler: { _ in })
                         }
                     }
                 } else {
@@ -166,41 +161,16 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
                 source: "Watch"
             )
             
-            // Immediately disable subscriptions to prevent receiving individual events during full sync
-            WatchCloudKit.shared.disableSubscriptions { result in
-                switch result {
-                case .failure(let error):
-                    LoggingSystem.shared.log(
-                        level: "WARN",
-                        tag: "WatchConnectivity",
-                        message: "Failed to disable subscriptions before full sync (non-fatal)",
-                        metadata: ["error": error.localizedDescription],
-                        source: "Watch"
-                    )
-                case .success:
-                    LoggingSystem.shared.log(
-                        level: "INFO",
-                        tag: "WatchConnectivity",
-                        message: "Subscriptions disabled before full sync",
-                        source: "Watch"
-                    )
-                }
-                
-                // Trigger full sync on watch
-                DispatchQueue.main.async { [weak self] in
-                    self?.isFullSyncing = true
-                }
-                self.requestSync(fullSync: true)
+            DispatchQueue.main.async { [weak self] in
+                self?.isFullSyncing = true
             }
-            
+            self.requestSync(fullSync: true)
             replyHandler(["success": true, "message": "Full sync triggered"])
             return
         }
         
         if type == "watchTokenSettings" {
             handleWatchTokenSettings(message: message, replyHandler: replyHandler)
-        } else if type == "watchSubscriptionSyncMode" {
-            handleSubscriptionSyncMode(message: message, replyHandler: replyHandler)
         } else {
             replyHandler(["success": false, "error": "Unknown message type"])
         }
@@ -210,46 +180,20 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         if let type = applicationContext["type"] as? String {
             if type == "watchTokenSettings" {
                 handleWatchTokenSettings(message: applicationContext, replyHandler: { _ in })
-            } else if type == "watchSubscriptionSyncMode" {
-                handleSubscriptionSyncMode(message: applicationContext, replyHandler: { _ in })
             } else if type == "triggerFullSync" {
                 if WatchExtensionDelegate.isInBackground {
                     return
                 }
-                // Handle full sync request from iPhone (works in background via applicationContext)
                 LoggingSystem.shared.log(
                     level: "INFO",
                     tag: "WatchConnectivity",
                     message: "Received full sync request from iPhone (via applicationContext)",
                     source: "Watch"
                 )
-                
-                // Immediately disable subscriptions to prevent receiving individual events during full sync
-                WatchCloudKit.shared.disableSubscriptions { result in
-                    switch result {
-                    case .failure(let error):
-                        LoggingSystem.shared.log(
-                            level: "WARN",
-                            tag: "WatchConnectivity",
-                            message: "Failed to disable subscriptions before full sync (non-fatal)",
-                            metadata: ["error": error.localizedDescription],
-                            source: "Watch"
-                        )
-                    case .success:
-                        LoggingSystem.shared.log(
-                            level: "INFO",
-                            tag: "WatchConnectivity",
-                            message: "Subscriptions disabled before full sync",
-                            source: "Watch"
-                        )
-                    }
-                    
-                    // Trigger full sync on watch
-                    DispatchQueue.main.async { [weak self] in
-                        self?.isFullSyncing = true
-                    }
-                    self.requestSync(fullSync: true)
+                DispatchQueue.main.async { [weak self] in
+                    self?.isFullSyncing = true
                 }
+                self.requestSync(fullSync: true)
             }
         }
     }
@@ -279,27 +223,6 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         replyHandler(["success": true])
     }
     
-    private func handleSubscriptionSyncMode(message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
-        guard let modeString = message["mode"] as? String else {
-            LoggingSystem.shared.log(level: "ERROR", tag: "WatchConnectivity", message: "Missing subscription sync mode", source: "Watch")
-            replyHandler(["success": false, "error": "Missing mode"])
-            return
-        }
-        
-        let mode = SubscriptionSyncMode.from(string: modeString)
-        WatchSettingsManager.shared.subscriptionSyncMode = mode
-        
-        LoggingSystem.shared.log(
-            level: "INFO",
-            tag: "WatchConnectivity",
-            message: "Subscription sync mode updated",
-            metadata: ["mode": mode.stringValue],
-            source: "Watch"
-        )
-        
-        replyHandler(["success": true, "mode": mode.stringValue])
-    }
-    
     @objc private func appDidBecomeActive() {
         // Check if iPhone did a full sync while watch was in background
         // If iPhone's last full sync is more recent than watch's last full sync,
@@ -322,31 +245,10 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
                 source: "Watch"
             )
             
-            WatchCloudKit.shared.disableSubscriptions { [weak self] result in
-                switch result {
-                case .failure(let error):
-                    LoggingSystem.shared.log(
-                        level: "WARN",
-                        tag: "WatchConnectivity",
-                        message: "Failed to disable subscriptions before full sync (non-fatal)",
-                        metadata: ["error": error.localizedDescription],
-                        source: "Watch"
-                    )
-                case .success:
-                    LoggingSystem.shared.log(
-                        level: "INFO",
-                        tag: "WatchConnectivity",
-                        message: "Subscriptions disabled before full sync",
-                        source: "Watch"
-                    )
-                }
-                
-                // Perform full sync instead of incremental
-                DispatchQueue.main.async { [weak self] in
-                    self?.isFullSyncing = true
-                }
-                self?.requestSync(fullSync: true)
+            DispatchQueue.main.async { [weak self] in
+                self?.isFullSyncing = true
             }
+            requestSync(fullSync: true)
         } else {
             // Normal incremental sync
             performIncrementalSync()
@@ -372,18 +274,22 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
             guard let self = self else { return }
 
             if self.syncInFlight {
-                LoggingSystem.shared.log(
-                    level: "INFO",
-                    tag: "CloudKit",
-                    message: "Sync already in progress; skipping",
-                    metadata: ["fullSync": fullSync ? "true" : "false"],
-                    source: "Watch"
-                )
-
                 if fullSync {
-                    DispatchQueue.main.async { [weak self] in
-                        self?.isFullSyncing = false
-                    }
+                    self.pendingFullSync = true
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "CloudKit",
+                        message: "Full sync queued (sync in progress)",
+                        source: "Watch"
+                    )
+                } else {
+                    self.pendingIncrementalSync = true
+                    LoggingSystem.shared.log(
+                        level: "INFO",
+                        tag: "CloudKit",
+                        message: "Incremental sync queued (sync in progress)",
+                        source: "Watch"
+                    )
                 }
                 return
             }
@@ -397,9 +303,37 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
+    private func runNextPendingSyncIfAny() {
+        syncStateQueue.async { [weak self] in
+            guard let self = self else { return }
+            guard !self.syncInFlight else { return }
+
+            let runFull = self.pendingFullSync
+            let runIncremental = self.pendingIncrementalSync
+            self.pendingFullSync = false
+            self.pendingIncrementalSync = false
+
+            if runFull {
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Running queued full sync", source: "Watch")
+                self.syncInFlight = true
+                DispatchQueue.main.async { [weak self] in
+                    self?.isSyncing = true
+                    self?.isFullSyncing = true
+                }
+                self.performSyncInternal(fullSync: true)
+            } else if runIncremental {
+                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Running queued incremental sync", source: "Watch")
+                self.syncInFlight = true
+                DispatchQueue.main.async { [weak self] in
+                    self?.isSyncing = true
+                }
+                self.performSyncInternal(fullSync: false)
+            }
+        }
+    }
+
     private func performSyncInternal(fullSync: Bool) {
-        // Check if CloudKit is enabled before syncing
-        guard WatchCloudKit.shared.isCloudKitEnabled else {
+        guard WatchSyncEngineCKSync.shared.isCloudKitEnabled else {
             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping sync", source: "Watch")
             DispatchQueue.main.async { [weak self] in
                 self?.isSyncing = false
@@ -408,35 +342,39 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
             syncStateQueue.async { [weak self] in
                 guard let self = self else { return }
                 self.syncInFlight = false
+                self.runNextPendingSyncIfAny()
             }
             return
         }
 
-        WatchCloudKit.shared.syncFromCloudKitIncremental(fullSync: fullSync) { count, error in
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
+        let completion: (Error?) -> Void = { [weak self] error in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
                 self.isSyncing = false
                 if fullSync {
                     self.isFullSyncing = false
                 }
-
                 if let error = error {
                     LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: fullSync ? "Full sync failed" : "Incremental sync failed", metadata: ["error": error.localizedDescription], source: "Watch")
-                } else if count > 0 {
-                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: fullSync ? "Full sync completed" : "Incremental sync completed", metadata: ["updatedCount": "\(count)"], source: "Watch")
+                } else {
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: fullSync ? "Full sync completed" : "Incremental sync completed", source: "Watch")
                     self.scheduleUIRefresh(reason: fullSync ? "fullSync" : "incrementalSync")
-                    
-                    // After full sync, ensure we're filled to max limit (refill if needed after deletions)
                     if fullSync {
                         self.ensureFilledToMaxLimit(reason: "fullSync")
                     }
                 }
             }
-
             self.syncStateQueue.async { [weak self] in
                 guard let self = self else { return }
                 self.syncInFlight = false
+                self.runNextPendingSyncIfAny()
             }
+        }
+
+        if fullSync {
+            WatchSyncEngineCKSync.shared.resetStateAndFetchFullSync(completion: completion)
+        } else {
+            WatchSyncEngineCKSync.shared.fetchChangesNow(completion: completion)
         }
     }
     
@@ -722,97 +660,23 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
             self.isWaitingForResponse = true
             self.isConnected = true
         }
-        
-        let group = DispatchGroup()
-        var fetchedNotifications: [[String: Any]] = []
-        var fetchedBuckets: [[String: Any]] = []
-        var fetchError: Error?
-        
-        // Fetch notifications
-        group.enter()
-        // Check if CloudKit is enabled before fetching
-        guard WatchCloudKit.shared.isCloudKitEnabled else {
+        guard WatchSyncEngineCKSync.shared.isCloudKitEnabled else {
             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping fetch", source: "Watch")
-            group.leave()
+            DispatchQueue.main.async { self.isWaitingForResponse = false }
             return
         }
-
-        WatchCloudKit.shared.fetchAllNotificationsFromCloudKit { notifications, error in
-            if let error = error {
-                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching notifications from CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
-                fetchError = error
-                    } else {
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Fetched notifications from CloudKit", metadata: ["count": "\(notifications.count)"], source: "Watch")
-                fetchedNotifications = notifications
-            }
-            group.leave()
-        }
-        
-        // Fetch buckets
-        group.enter()
-        // Check if CloudKit is enabled before fetching
-        guard WatchCloudKit.shared.isCloudKitEnabled else {
-            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping fetch", source: "Watch")
-            group.leave()
-            return
-        }
-
-        WatchCloudKit.shared.fetchAllBucketsFromCloudKit { buckets, error in
-        if let error = error {
-                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching buckets from CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
-                fetchError = error
-        } else {
-                LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Fetched buckets from CloudKit", metadata: ["count": "\(buckets.count)"], source: "Watch")
-                fetchedBuckets = buckets
-            }
-            group.leave()
-        }
-        
-        group.notify(queue: .main) {
-            if let error = fetchError {
-                LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching data from CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
+        WatchSyncEngineCKSync.shared.fetchChangesNow { error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Error fetching from CloudKit", metadata: ["error": error.localizedDescription], source: "Watch")
+                } else {
+                    LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Data fetched and cached successfully", source: "Watch")
+                }
+                self.loadCachedData()
+                self.updateBucketCounts()
+                self.lastUpdate = Date()
                 self.isWaitingForResponse = false
-            return
-        }
-        
-            // Create a lookup map for buckets by ID
-            var bucketMap: [String: [String: Any]] = [:]
-            for bucket in fetchedBuckets {
-                if let bucketId = bucket["id"] as? String {
-                    bucketMap[bucketId] = bucket
-                }
             }
-            
-            // Enrich notifications with bucket information
-            let enrichedNotifications = fetchedNotifications.map { notification -> [String: Any] in
-                var enriched = notification
-                if let bucketId = notification["bucketId"] as? String,
-                   let bucket = bucketMap[bucketId] {
-                    // Add bucket information to notification
-                    enriched["bucketName"] = bucket["name"] as? String
-                    enriched["bucketColor"] = bucket["color"] as? String
-                    enriched["bucketIconUrl"] = bucket["iconUrl"] as? String
-                }
-                return enriched
-            }
-            
-            // Calculate unread count
-            let unreadCount = enrichedNotifications.filter { ($0["isRead"] as? Bool) == false }.count
-            
-            // Update WatchDataStore
-            self.dataStore.updateFromiPhone(
-                notifications: enrichedNotifications,
-                buckets: fetchedBuckets,
-                        unreadCount: unreadCount
-                    )
-            
-            // Reload from cache and update UI (already on main thread from group.notify)
-            self.loadCachedData()
-            self.updateBucketCounts()
-            self.lastUpdate = Date()
-            self.isWaitingForResponse = false
-                            
-            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Data fetched and cached successfully", metadata: ["notifications": "\(enrichedNotifications.count)", "buckets": "\(fetchedBuckets.count)", "unread": "\(unreadCount)"], source: "Watch")
         }
     }
     
@@ -864,9 +728,7 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     func requestFullRefresh() {
         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Incremental refresh requested", source: "Watch")
         
-        // Perform incremental sync in background without blocking UI
-        // Check if CloudKit is enabled before syncing
-        guard WatchCloudKit.shared.isCloudKitEnabled else {
+        guard WatchSyncEngineCKSync.shared.isCloudKitEnabled else {
             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping sync", source: "Watch")
             return
         }
@@ -879,9 +741,7 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     func requestFullSync() {
         LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Full sync requested from settings", source: "Watch")
         
-        // Perform full sync in background without blocking UI
-        // Check if CloudKit is enabled before syncing
-        guard WatchCloudKit.shared.isCloudKitEnabled else {
+        guard WatchSyncEngineCKSync.shared.isCloudKitEnabled else {
             LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "CloudKit is disabled, skipping full sync", source: "Watch")
             return
         }
@@ -989,18 +849,14 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
             if self.topUpInFlight { return }
             self.topUpInFlight = true
 
-            WatchCloudKit.shared.fetchLatestNotificationsFromCloudKit(limit: maxLimit) { notifications, error in
+            WatchSyncEngineCKSync.shared.fetchChangesNow { error in
                 if let error {
                     LoggingSystem.shared.log(level: "ERROR", tag: "CloudKit", message: "Top-up fetch failed", metadata: ["error": error.localizedDescription, "reason": reason], source: "Watch")
-                    self.topUpQueue.async { self.topUpInFlight = false }
-                    return
+                } else {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.scheduleUIRefresh(reason: "topUp(\(reason))", debounceInterval: self?.uiRefreshFastDebounceInterval)
+                    }
                 }
-
-                self.dataStore.replaceNotificationsFromCloudKit(notifications: notifications)
-                DispatchQueue.main.async { [weak self] in
-                    self?.scheduleUIRefresh(reason: "topUp(\(reason))", debounceInterval: self?.uiRefreshFastDebounceInterval)
-                }
-
                 self.topUpQueue.async { self.topUpInFlight = false }
             }
         }

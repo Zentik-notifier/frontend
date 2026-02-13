@@ -7,18 +7,23 @@ import * as path from 'path';
  * that handles notification actions with full NCE-like functionality
  */
 
-/**
- * Get all Swift files from the ZentikShared directory
- */
-function getSharedSwiftFiles(sharedFilesSource: string): string[] {
+const IOS_APP_EXCLUDED_SWIFT_FILES = [
+  "WatchSyncEngineCKSync.swift",
+];
+
+function getSharedSwiftFiles(sharedFilesSource: string, excludeForIOSApp = false): string[] {
   if (!fs.existsSync(sharedFilesSource)) {
     return [];
   }
 
   const entries = fs.readdirSync(sharedFilesSource, { withFileTypes: true });
-  return entries
+  let files = entries
     .filter(entry => entry.isFile() && entry.name.endsWith('.swift'))
     .map(entry => entry.name);
+  if (excludeForIOSApp) {
+    files = files.filter(f => !IOS_APP_EXCLUDED_SWIFT_FILES.includes(f));
+  }
+  return files;
 }
 
 /**
@@ -46,8 +51,7 @@ function copySharedFilesToAppDelegate(
     return;
   }
 
-  // Get all Swift files from ZentikShared directory
-  const sharedSwiftFiles = getSharedSwiftFiles(sharedFilesSource);
+  const sharedSwiftFiles = getSharedSwiftFiles(sharedFilesSource, true);
   const sharedObjCFiles = getSharedObjCFiles(sharedFilesSource);
 
   if (sharedSwiftFiles.length === 0 && sharedObjCFiles.length === 0) {
@@ -122,9 +126,8 @@ const withCustomAppDelegate: ConfigPlugin = (config) => {
       return newConfig;
     }
 
-    // Get all Swift files from ZentikShared directory
     const sharedFilesSource = path.join(projectRoot, 'plugins', 'ZentikShared');
-    const sharedSwiftFiles = getSharedSwiftFiles(sharedFilesSource);
+    const sharedSwiftFiles = getSharedSwiftFiles(sharedFilesSource, true);
     const sharedObjCFiles = getSharedObjCFiles(sharedFilesSource);
 
     // Add all files to the project

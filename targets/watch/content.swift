@@ -1632,10 +1632,9 @@ struct AnimatedImageView: View {
 
 struct SettingsView: View {
     @StateObject private var connectivityManager = WatchConnectivityManager.shared
-    @State private var cloudKitEnabled: Bool = WatchCloudKit.shared.isCloudKitEnabled
+    @State private var cloudKitEnabled: Bool = WatchSyncEngineCKSync.shared.isCloudKitEnabled
     @State private var cloudKitDebugEnabled: Bool = CloudKitManagerBase.isCloudKitDebugEnabled()
     @State private var maxNotificationsLimit: Int = WatchSettingsManager.shared.maxNotificationsLimit
-    @State private var syncMode: SubscriptionSyncMode = WatchSettingsManager.shared.subscriptionSyncMode
     @State private var watchToken: String? = UserDefaults.standard.string(forKey: "watch_access_token")
     @State private var serverAddress: String? = UserDefaults.standard.string(forKey: "watch_server_address")
     
@@ -1842,68 +1841,6 @@ struct SettingsView: View {
                 }
             }
             
-            Section(header: Text("Background Sync")) {
-                // Foreground Only
-                Button(action: { syncMode = .foregroundOnly }) {
-                    HStack(spacing: 10) {
-                        Image(systemName: syncMode == .foregroundOnly ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(syncMode == .foregroundOnly ? .blue : .secondary)
-                            .font(.system(size: 20))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Foreground Only")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            Text("Sync only while app is open")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                    }
-                }
-                .buttonStyle(.plain)
-                
-                // Background Interval (default)
-                Button(action: { syncMode = .backgroundInterval }) {
-                    HStack(spacing: 10) {
-                        Image(systemName: syncMode == .backgroundInterval ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(syncMode == .backgroundInterval ? .blue : .secondary)
-                            .font(.system(size: 20))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Periodic (30 min)")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            Text("Sync periodically in background")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                    }
-                }
-                .buttonStyle(.plain)
-                
-                // Always Active
-                Button(action: { syncMode = .alwaysActive }) {
-                    HStack(spacing: 10) {
-                        Image(systemName: syncMode == .alwaysActive ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(syncMode == .alwaysActive ? .blue : .secondary)
-                            .font(.system(size: 20))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Always Active")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            Text("Real-time sync, higher battery usage")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-            .onChange(of: syncMode) { _, newValue in
-                WatchSettingsManager.shared.subscriptionSyncMode = newValue
-            }
-            
             Section(header: Text("Logs")) {
                 NavigationLink(destination: LogsView()) {
                     HStack(spacing: 10) {
@@ -1921,9 +1858,8 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            cloudKitEnabled = WatchCloudKit.shared.isCloudKitEnabled
+            cloudKitEnabled = WatchSyncEngineCKSync.shared.isCloudKitEnabled
             maxNotificationsLimit = WatchSettingsManager.shared.maxNotificationsLimit
-            syncMode = WatchSettingsManager.shared.subscriptionSyncMode
             // Refresh token and address on appear
             watchToken = UserDefaults.standard.string(forKey: "watch_access_token")
             serverAddress = UserDefaults.standard.string(forKey: "watch_server_address")

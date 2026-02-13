@@ -1,7 +1,7 @@
 import { NativeModules, Platform } from 'react-native';
 import { settingsService } from './settings-service';
 
-const { WidgetReloadBridge, DatabaseAccessBridge, CloudKitSyncBridge } = NativeModules;
+const { WidgetReloadBridge, DatabaseAccessBridge, CKSyncBridge } = NativeModules;
 
 const isIOS = Platform.OS === 'ios';
 
@@ -431,27 +431,25 @@ class IosBridgeService {
   // ========== CloudKit Sync Methods ==========
 
   /**
-   * Trigger CloudKit sync immediately (debounce removed for faster sync)
-   * CloudKit sync always happens regardless of Watch availability
-   * Multiple calls will trigger multiple syncs, but CloudKit handles rate limiting
+   * Trigger CloudKit sync for recent notifications (lightweight).
+   * CKSyncEngine handles scheduling; this just adds pending changes.
    */
   async triggerCloudKitSyncWithDebounce(): Promise<void> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       return;
     }
 
     await this.waitForCloudKitReady();
 
     try {
-      await CloudKitSyncBridge.triggerSyncToCloudWithDebounce();
+      await CKSyncBridge.triggerSyncToCloudWithDebounce();
     } catch (error) {
       console.error('[CloudKit] Failed to trigger sync:', error);
     }
   }
 
   /**
-   * Trigger immediate CloudKit sync
-   * Returns sync statistics
+   * Trigger immediate full CloudKit sync.
    */
   async triggerCloudKitSync(): Promise<{
     success: boolean;
@@ -460,7 +458,7 @@ class IosBridgeService {
     notificationsUpdated: number;
     bucketsUpdated: number;
   }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       return {
         success: false,
         notificationsSynced: 0,
@@ -473,8 +471,14 @@ class IosBridgeService {
     await this.waitForCloudKitReady();
 
     try {
-      const result = await CloudKitSyncBridge.triggerSyncToCloud();
-      return result;
+      const result = await CKSyncBridge.triggerFullSyncToCloud();
+      return {
+        success: result?.success ?? false,
+        notificationsSynced: result?.notificationsSynced ?? 0,
+        bucketsSynced: result?.bucketsSynced ?? 0,
+        notificationsUpdated: 0,
+        bucketsUpdated: 0,
+      };
     } catch (error) {
       console.error('[CloudKit] Failed to trigger sync:', error);
       return {
@@ -490,7 +494,6 @@ class IosBridgeService {
   /**
    * Trigger a DESTRUCTIVE CloudKit sync with full zone reset.
    * Deletes the zone, recreates it, and re-uploads everything.
-   * Should ONLY be called when the user explicitly presses a reset button in the UI.
    */
   async triggerCloudKitSyncWithReset(): Promise<{
     success: boolean;
@@ -499,7 +502,7 @@ class IosBridgeService {
     notificationsUpdated: number;
     bucketsUpdated: number;
   }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       return {
         success: false,
         notificationsSynced: 0,
@@ -512,8 +515,14 @@ class IosBridgeService {
     await this.waitForCloudKitReady();
 
     try {
-      const result = await CloudKitSyncBridge.triggerSyncToCloudWithReset();
-      return result;
+      const result = await CKSyncBridge.triggerSyncToCloudWithReset();
+      return {
+        success: result?.success ?? false,
+        notificationsSynced: result?.notificationsSynced ?? 0,
+        bucketsSynced: result?.bucketsSynced ?? 0,
+        notificationsUpdated: 0,
+        bucketsUpdated: 0,
+      };
     } catch (error) {
       console.error('[CloudKit] Failed to trigger sync with reset:', error);
       return {
@@ -527,28 +536,22 @@ class IosBridgeService {
   }
 
   /**
-   * Update notification read status in CloudKit (single notification)
-   * More efficient than triggering a full sync when only updating read status
-   * readAt: null means unread, non-null means read
+   * Update notification read status in CloudKit (single notification).
+   * readAt: null means unread, non-null means read.
    */
   async updateNotificationReadStatusInCloudKit(
     notificationId: string,
     readAt: string | null
   ): Promise<boolean> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       return false;
     }
 
     await this.waitForCloudKitReady();
 
     try {
-      // Convert ISO8601 string to timestamp (milliseconds since epoch)
       const readAtTimestamp = readAt ? new Date(readAt).getTime() : null;
-      
-      await CloudKitSyncBridge.updateNotificationReadStatus(
-        notificationId,
-        readAtTimestamp
-      );
+      await CKSyncBridge.updateNotificationReadStatus(notificationId, readAtTimestamp);
       return true;
     } catch (error) {
       console.error('[CloudKit] Failed to update notification read status:', error);
@@ -557,28 +560,21 @@ class IosBridgeService {
   }
 
   /**
-   * Update multiple notifications read status in CloudKit (batch)
-   * More efficient than triggering a full sync when updating multiple notifications
-   * readAt: null means unread, non-null means read
+   * Update multiple notifications read status in CloudKit (batch).
    */
   async updateNotificationsReadStatusInCloudKit(
     notificationIds: string[],
     readAt: string | null
   ): Promise<{ success: boolean; updatedCount: number }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       return { success: false, updatedCount: 0 };
     }
 
     await this.waitForCloudKitReady();
 
     try {
-      // Convert ISO8601 string to timestamp (milliseconds since epoch)
       const readAtTimestamp = readAt ? new Date(readAt).getTime() : null;
-      
-      const result = await CloudKitSyncBridge.updateNotificationsReadStatus(
-        notificationIds,
-        readAtTimestamp
-      );
+      const result = await CKSyncBridge.updateNotificationsReadStatus(notificationIds, readAtTimestamp);
       return { success: result.success, updatedCount: result.updatedCount || 0 };
     } catch (error) {
       console.error('[CloudKit] Failed to update notifications read status:', error);
@@ -587,18 +583,17 @@ class IosBridgeService {
   }
 
   /**
-   * Delete notification from CloudKit (single notification)
-   * More efficient than triggering a full sync when only deleting one notification
+   * Delete notification from CloudKit (single notification).
    */
   async deleteNotificationFromCloudKit(notificationId: string): Promise<boolean> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       return false;
     }
 
     await this.waitForCloudKitReady();
 
     try {
-      await CloudKitSyncBridge.deleteNotification(notificationId);
+      await CKSyncBridge.deleteNotification(notificationId);
       return true;
     } catch (error) {
       console.error('[CloudKit] Failed to delete notification:', error);
@@ -607,20 +602,19 @@ class IosBridgeService {
   }
 
   /**
-   * Delete multiple notifications from CloudKit (batch)
-   * More efficient than triggering a full sync when deleting multiple notifications
+   * Delete multiple notifications from CloudKit (batch).
    */
   async deleteNotificationsFromCloudKit(
     notificationIds: string[]
   ): Promise<{ success: boolean; deletedCount: number }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       return { success: false, deletedCount: 0 };
     }
 
     await this.waitForCloudKitReady();
 
     try {
-      const result = await CloudKitSyncBridge.deleteNotifications(notificationIds);
+      const result = await CKSyncBridge.deleteNotifications(notificationIds);
       return { success: result.success, deletedCount: result.deletedCount || 0 };
     } catch (error) {
       console.error('[CloudKit] Failed to delete notifications:', error);
@@ -629,17 +623,15 @@ class IosBridgeService {
   }
 
   /**
-   * Retry sending notifications to CloudKit that were saved by NSE but failed to send
-   * This is called at app startup to ensure all notifications are synced to CloudKit
+   * Retry sending recent notifications to CloudKit (NSE catch-up).
    */
   async retryNSENotificationsToCloudKit(): Promise<{ success: boolean; count: number }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       return { success: false, count: 0 };
     }
 
     try {
-      const result = await CloudKitSyncBridge.retryNSENotificationsToCloudKit();
-      console.log('[CloudKit] Retried NSE notifications to CloudKit:', result.count);
+      const result = await CKSyncBridge.retryNSENotificationsToCloudKit();
       return { success: result.success || false, count: result.count || 0 };
     } catch (error) {
       console.error('[CloudKit] Failed to retry NSE notifications to CloudKit:', error);
@@ -648,70 +640,31 @@ class IosBridgeService {
   }
 
   /**
-   * Update all CloudKit notification records that don't have readAt set
-   * This is useful for initializing or fixing records that are missing the readAt field
-   * 
-   * @param readAtTimestamp Optional timestamp (in milliseconds since epoch) to set for readAt.
-   *                        If undefined, sets readAt to nil (unread).
-   *                        If provided, sets all records to that timestamp (e.g., to mark all as read).
-   */
-  async updateAllNotificationsWithoutReadAt(
-    readAtTimestamp?: number
-  ): Promise<{ success: boolean; count: number }> {
-    if (!isIOS || !CloudKitSyncBridge) {
-      return { success: false, count: 0 };
-    }
-
-    try {
-      const result = await CloudKitSyncBridge.updateAllNotificationsWithoutReadAt(
-        readAtTimestamp ? readAtTimestamp : undefined
-      );
-      console.log('[CloudKit] Updated notifications without readAt:', result.count);
-      return { success: result.success || false, count: result.count || 0 };
-    } catch (error) {
-      console.error('[CloudKit] Failed to update notifications without readAt:', error);
-      return { success: false, count: 0 };
-    }
-  }
-
-  /**
-   * Trigger full sync with verification
-   * Resets sync timestamp, performs complete sync, and verifies counts
-   * Useful for debugging and ensuring all data is synced
-   */
-  /**
-   * Perform incremental sync from CloudKit
-   * Fetches only records that have changed since the last sync
+   * Perform incremental sync from CloudKit.
+   * CKSyncEngine fetches only changes since last state serialization.
    */
   async syncFromCloudKitIncremental(fullSync: boolean = false): Promise<{
     success: boolean;
     updatedCount: number;
   }> {
-    if (!isIOS || !CloudKitSyncBridge) {
-      return {
-        success: false,
-        updatedCount: 0,
-      };
+    if (!isIOS || !CKSyncBridge) {
+      return { success: false, updatedCount: 0 };
     }
 
     try {
-      const result = await CloudKitSyncBridge.syncFromCloudKitIncremental(fullSync);
+      const result = await CKSyncBridge.syncFromCloudKitIncremental(fullSync);
       if (isCloudKitDebugEnabled()) {
         console.log('[CloudKit] Incremental sync completed:', result);
       }
       return result;
     } catch (error) {
       console.error('[CloudKit] Failed to perform incremental sync:', error);
-      return {
-        success: false,
-        updatedCount: 0,
-      };
+      return { success: false, updatedCount: 0 };
     }
   }
 
   /**
-   * Fetch all notifications currently stored in CloudKit.
-   * Intended for recovery flows (notifications only).
+   * Fetch all notifications currently stored in CloudKit (recovery).
    */
   async fetchAllNotificationsFromCloudKit(): Promise<{
     success: boolean;
@@ -729,12 +682,12 @@ class IosBridgeService {
       actions?: any[];
     }>;
   }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       return { success: false, count: 0, notifications: [] };
     }
 
     try {
-      const result = await CloudKitSyncBridge.fetchAllNotificationsFromCloudKit();
+      const result = await CKSyncBridge.fetchAllNotificationsFromCloudKit();
       if (isCloudKitDebugEnabled()) {
         console.log('[CloudKit] fetchAllNotificationsFromCloudKit completed:', {
           success: result?.success,
@@ -765,7 +718,7 @@ class IosBridgeService {
     bucketsSynced: number;
     bucketsUpdated: number;
   }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       return {
         success: false,
         sqliteNotifications: 0,
@@ -782,13 +735,31 @@ class IosBridgeService {
     }
 
     try {
-      const result = await CloudKitSyncBridge.triggerFullSyncWithVerification();
+      const cloudResult = await CKSyncBridge.triggerFullSyncToCloud();
+      const bucketsSynced = cloudResult?.bucketsSynced ?? 0;
+      const notificationsSynced = cloudResult?.notificationsSynced ?? 0;
+      const cloudSuccess = cloudResult?.success ?? false;
+
+      await CKSyncBridge.triggerWatchFullSync();
+
       if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Full sync with verification completed:', result);
+        console.log('[CloudKit] Full sync completed:', { cloudSuccess, bucketsSynced, notificationsSynced });
       }
-      return result;
+      return {
+        success: cloudSuccess,
+        sqliteNotifications: notificationsSynced,
+        cloudKitNotifications: notificationsSynced,
+        notificationsMatch: true,
+        sqliteBuckets: bucketsSynced,
+        cloudKitBuckets: bucketsSynced,
+        bucketsMatch: true,
+        notificationsSynced,
+        notificationsUpdated: 0,
+        bucketsSynced,
+        bucketsUpdated: 0,
+      };
     } catch (error) {
-      console.error('[CloudKit] Failed to trigger full sync with verification:', error);
+      console.error('[CloudKit] Failed to trigger full sync:', error);
       return {
         success: false,
         sqliteNotifications: 0,
@@ -810,181 +781,119 @@ class IosBridgeService {
    * Also marks CloudKit as ready so queued operations can proceed.
    */
   async initializeCloudKitSchema(): Promise<{ success: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       throw new Error('CloudKit schema initialization is only available on iOS');
     }
 
     try {
-      const result = await CloudKitSyncBridge.initializeSchemaIfNeeded();
-      if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Schema initialization completed:', result);
-      }
-      // Signal readiness to any operations waiting for CloudKit init
+      const result = await CKSyncBridge.initializeSchemaIfNeeded();
       this._cloudKitInitialized = true;
       this._cloudKitReadyResolve?.();
-      return result;
+      return { success: !!result?.success };
     } catch (error) {
       console.error('[CloudKit] Failed to initialize schema:', error);
       throw error;
     }
   }
 
-  /**
-   * Setup CloudKit subscriptions
-   * Should be called after zone is initialized
-   */
   async setupCloudKitSubscriptions(): Promise<{ success: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       throw new Error('CloudKit subscriptions setup is only available on iOS');
     }
 
     try {
-      const result = await CloudKitSyncBridge.setupSubscriptions();
-      if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Subscriptions setup completed:', result);
-      }
-      return result;
+      const result = await CKSyncBridge.setupSubscriptions();
+      return { success: !!result?.success };
     } catch (error) {
       console.error('[CloudKit] Failed to setup subscriptions:', error);
       throw error;
     }
   }
 
-  /**
-   * Check if Watch is supported (WCSession.isSupported()).
-   * On macOS Catalyst this is true only when a Watch is paired.
-   * When false, CloudKit section should be hidden and CK must not run.
-   */
   async isWatchSupported(): Promise<{ supported: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS) {
       return { supported: false };
     }
+    const isIphone = !(Platform as { isPad?: boolean }).isPad;
     try {
-      const fn = (CloudKitSyncBridge as any).isWatchSupported;
-      if (typeof fn !== 'function') {
-        return { supported: false };
+      if (!CKSyncBridge?.isWatchSupported) {
+        return { supported: isIphone };
       }
-      const result = await fn();
+      const result = await CKSyncBridge.isWatchSupported();
       return { supported: !!result?.supported };
     } catch (error) {
       console.error('[CloudKit] Failed to check watch support:', error);
-      return { supported: false };
+      return { supported: isIphone };
     }
   }
 
   async getProcessMemoryUsage(): Promise<{ residentMB: number; virtualMB: number } | null> {
-    if (!isIOS || !CloudKitSyncBridge) {
-      return null;
-    }
-    try {
-      const fn = (CloudKitSyncBridge as any).getProcessMemoryUsage;
-      if (typeof fn !== 'function') {
-        return null;
-      }
-      const result = await fn();
-      if (result && typeof result.residentMB === 'number' && typeof result.virtualMB === 'number') {
-        return { residentMB: result.residentMB, virtualMB: result.virtualMB };
-      }
-      return null;
-    } catch {
-      return null;
-    }
+    return null;
   }
 
-  /**
-   * Check if CloudKit is enabled
-   */
   async isCloudKitEnabled(): Promise<{ enabled: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       return { enabled: false };
     }
 
     try {
-      const result = await CloudKitSyncBridge.isCloudKitEnabled();
-      return result;
+      const result = await CKSyncBridge.isCloudKitEnabled();
+      return { enabled: !!result?.enabled };
     } catch (error) {
       console.error('[CloudKit] Failed to check enabled state:', error);
       return { enabled: false };
     }
   }
 
-  /**
-   * Check if CloudKit debug logging is enabled
-   */
   async isCloudKitDebugEnabled(): Promise<{ enabled: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       return { enabled: false };
     }
 
     try {
-      const fn = (CloudKitSyncBridge as any).isCloudKitDebugEnabled;
-      if (typeof fn !== 'function') {
-        // Backward compatibility: native module built without debug methods.
-        return { enabled: false };
-      }
-
-      const result = await fn();
-      return result;
+      const result = await CKSyncBridge.isCloudKitDebugEnabled();
+      return { enabled: !!result?.enabled };
     } catch (error) {
       console.error('[CloudKit] Failed to check debug enabled state:', error);
       return { enabled: false };
     }
   }
 
-  /**
-   * Set CloudKit debug logging enabled state
-   */
   async setCloudKitDebugEnabled(enabled: boolean): Promise<{ success: boolean; enabled: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       throw new Error('CloudKit debug flag is only available on iOS');
     }
 
     try {
-      const fn = (CloudKitSyncBridge as any).setCloudKitDebugEnabled;
-      if (typeof fn !== 'function') {
-        throw new Error('CloudKit debug methods are not available in this build (rebuild iOS app)');
-      }
-
-      const result = await fn(enabled);
-      console.log('[CloudKit] Debug enabled state changed:', result);
-      return result;
+      const result = await CKSyncBridge.setCloudKitDebugEnabled(enabled);
+      return { success: !!result?.success, enabled: !!result?.enabled };
     } catch (error) {
       console.error('[CloudKit] Failed to set debug enabled state:', error);
       throw error;
     }
   }
 
-  /**
-   * Set CloudKit enabled state
-   */
   async setCloudKitEnabled(enabled: boolean): Promise<{ success: boolean; enabled: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       throw new Error('CloudKit enable/disable is only available on iOS');
     }
 
     try {
-      const result = await CloudKitSyncBridge.setCloudKitEnabled(enabled);
-      if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Enabled state changed:', result);
-      }
-      return result;
+      const result = await CKSyncBridge.setCloudKitEnabled(enabled);
+      return { success: !!result?.success, enabled: !!result?.enabled };
     } catch (error) {
       console.error('[CloudKit] Failed to set enabled state:', error);
       throw error;
     }
   }
 
-  /**
-   * Get CloudKit notification limit
-   * Returns null if limit is not set (unlimited)
-   */
   async getCloudKitNotificationLimit(): Promise<{ limit: number | null }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       return { limit: null };
     }
 
     try {
-      const result = await CloudKitSyncBridge.getCloudKitNotificationLimit();
+      const result = await CKSyncBridge.getCloudKitNotificationLimit();
       return { limit: result.limit ?? null };
     } catch (error) {
       console.error('[CloudKit] Failed to get CloudKit notification limit:', error);
@@ -992,20 +901,13 @@ class IosBridgeService {
     }
   }
 
-  /**
-   * Set CloudKit notification limit
-   * Pass null/undefined to remove limit (unlimited)
-   */
   async setCloudKitNotificationLimit(limit: number | null): Promise<{ success: boolean; limit: number | null }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       throw new Error('CloudKit notification limit is only available on iOS');
     }
 
     try {
-      const result = await CloudKitSyncBridge.setCloudKitNotificationLimit(limit ?? undefined);
-      if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Notification limit changed:', limit);
-      }
+      const result = await CKSyncBridge.setCloudKitNotificationLimit(limit ?? undefined);
       return { success: result.success, limit: result.limit ?? null };
     } catch (error) {
       console.error('[CloudKit] Failed to set notification limit:', error);
@@ -1013,16 +915,13 @@ class IosBridgeService {
     }
   }
 
-  /**
-   * Check if initial sync has been completed
-   */
   async isInitialSyncCompleted(): Promise<{ completed: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       return { completed: false };
     }
 
     try {
-      const result = await CloudKitSyncBridge.isInitialSyncCompleted();
+      const result = await CKSyncBridge.isInitialSyncCompleted();
       return result;
     } catch (error) {
       console.error('[CloudKit] Failed to check initial sync status:', error);
@@ -1030,19 +929,13 @@ class IosBridgeService {
     }
   }
 
-  /**
-   * Reset initial sync flag (to trigger initial sync again)
-   */
   async resetInitialSyncFlag(): Promise<{ success: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       throw new Error('Reset initial sync flag is only available on iOS');
     }
 
     try {
-      const result = await CloudKitSyncBridge.resetInitialSyncFlag();
-      if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Initial sync flag reset:', result);
-      }
+      const result = await CKSyncBridge.resetInitialSyncFlag();
       return result;
     } catch (error) {
       console.error('[CloudKit] Failed to reset initial sync flag:', error);
@@ -1050,19 +943,13 @@ class IosBridgeService {
     }
   }
 
-  /**
-   * Delete CloudKit zone and all its data
-   */
   async deleteCloudKitZone(): Promise<{ success: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       throw new Error('Delete CloudKit zone is only available on iOS');
     }
 
     try {
-      const result = await CloudKitSyncBridge.deleteCloudKitZone();
-      if (isCloudKitDebugEnabled()) {
-        console.log('[CloudKit] Zone deleted:', result);
-      }
+      const result = await CKSyncBridge.deleteCloudKitZone();
       return result;
     } catch (error) {
       console.error('[CloudKit] Failed to delete zone:', error);
@@ -1070,56 +957,28 @@ class IosBridgeService {
     }
   }
 
-
-  /**
-   * Subscribe to CloudKit sync progress events
-   * The callback will be called with progress updates during sync operations
-   */
   subscribeToSyncProgress(
-    callback: (progress: {
+    _callback: (progress: {
       currentItem: number;
       totalItems: number;
       itemType: 'notification' | 'bucket';
       phase: 'syncing' | 'completed';
     }) => void
   ): void {
-    if (!isIOS || !CloudKitSyncBridge) {
-      return;
-    }
-
-    try {
-      CloudKitSyncBridge.subscribeToSyncProgress(callback);
-    } catch (error) {
-      console.error('[CloudKit] Failed to subscribe to sync progress:', error);
-    }
+    // CKSyncEngine handles progress internally - no-op
   }
 
-  /**
-   * Unsubscribe from CloudKit sync progress events
-   */
   unsubscribeFromSyncProgress(): void {
-    if (!isIOS || !CloudKitSyncBridge) {
-      return;
-    }
-
-    try {
-      CloudKitSyncBridge.unsubscribeFromSyncProgress();
-    } catch (error) {
-      console.error('[CloudKit] Failed to unsubscribe from sync progress:', error);
-    }
+    // CKSyncEngine handles progress internally - no-op
   }
 
-  /**
-   * Reset CloudKit zone: delete everything and re-initialize
-   * This will delete all data and recreate the zone with fresh schema
-   */
   async resetCloudKitZone(): Promise<{ success: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       throw new Error('resetCloudKitZone is only available on iOS');
     }
 
     try {
-      const result = await CloudKitSyncBridge.resetCloudKitZone();
+      const result = await CKSyncBridge.resetCloudKitZone();
       console.log('[CloudKit] Zone reset completed successfully');
       return result;
     } catch (error) {
@@ -1128,17 +987,13 @@ class IosBridgeService {
     }
   }
 
-  /**
-   * Send Watch token and server address to Watch app
-   */
   async sendWatchTokenSettings(token: string, serverAddress: string): Promise<{ success: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
+    if (!isIOS || !CKSyncBridge) {
       throw new Error('sendWatchTokenSettings is only available on iOS');
     }
 
     try {
-      const result = await CloudKitSyncBridge.sendWatchTokenSettings(token, serverAddress);
-      console.log('[WatchConnectivity] Token settings sent to Watch');
+      const result = await CKSyncBridge.sendWatchTokenSettings(token, serverAddress);
       return result;
     } catch (error) {
       console.error('[WatchConnectivity] Failed to send token settings to Watch:', error);
@@ -1146,42 +1001,6 @@ class IosBridgeService {
     }
   }
 
-  /**
-   * Get Watch subscription sync mode
-   * Returns: "foregroundOnly" | "alwaysActive" | "backgroundInterval"
-   */
-  async getWatchSubscriptionSyncMode(): Promise<{ mode: string }> {
-    if (!isIOS || !CloudKitSyncBridge) {
-      return { mode: 'foregroundOnly' };
-    }
-
-    try {
-      const result = await CloudKitSyncBridge.getWatchSubscriptionSyncMode();
-      return { mode: result.mode ?? 'foregroundOnly' };
-    } catch (error) {
-      console.error('[WatchConnectivity] Failed to get subscription sync mode:', error);
-      return { mode: 'foregroundOnly' };
-    }
-  }
-
-  /**
-   * Set Watch subscription sync mode and send to Watch via WatchConnectivity
-   * @param mode - "foregroundOnly" | "alwaysActive" | "backgroundInterval"
-   */
-  async setWatchSubscriptionSyncMode(mode: string): Promise<{ success: boolean; mode: string; sentToWatch: boolean }> {
-    if (!isIOS || !CloudKitSyncBridge) {
-      throw new Error('setWatchSubscriptionSyncMode is only available on iOS');
-    }
-
-    try {
-      const result = await CloudKitSyncBridge.setWatchSubscriptionSyncMode(mode);
-      console.log('[WatchConnectivity] Subscription sync mode set:', mode);
-      return result;
-    } catch (error) {
-      console.error('[WatchConnectivity] Failed to set subscription sync mode:', error);
-      throw error;
-    }
-  }
 }
 
 export default new IosBridgeService();

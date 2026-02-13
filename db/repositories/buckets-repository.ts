@@ -5,7 +5,6 @@
 
 import { Platform } from 'react-native';
 import { executeQuery as executeQuerySafe } from '../../services/db-setup';
-import iosBridgeService from '../../services/ios-bridge';
 
 /**
  * Bucket interface matching GraphQL BucketFragment
@@ -123,13 +122,6 @@ export async function saveBucket(bucket: BucketData): Promise<void> {
       );
     }
   }, 'saveBucket');
-
-  // Trigger CloudKit sync with debounce on iOS
-  if (Platform.OS === 'ios') {
-    iosBridgeService.triggerCloudKitSyncWithDebounce().catch((error) => {
-      console.error('[BucketsRepository] Failed to trigger CloudKit sync:', error);
-    });
-  }
 }
 
 /**
@@ -178,13 +170,6 @@ export async function saveBuckets(buckets: BucketData[]): Promise<void> {
       });
     }
   }, 'saveBuckets');
-
-  // Trigger CloudKit sync with debounce on iOS
-  if (Platform.OS === 'ios') {
-    iosBridgeService.triggerCloudKitSyncWithDebounce().catch((error) => {
-      console.error('[BucketsRepository] Failed to trigger CloudKit sync:', error);
-    });
-  }
 }
 
 /**

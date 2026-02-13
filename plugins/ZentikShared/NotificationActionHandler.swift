@@ -46,10 +46,13 @@ public class NotificationActionHandler {
         }
     }
 
-    #if os(iOS)
+    #if os(iOS) && !ZENTIK_EXTENSION
     private static func updateReadStatusInCloudKit_iOS(notificationId: String, readAt: Date?) async -> StepResult {
-        await withCheckedContinuation { continuation in
-            PhoneCloudKit.shared.updateNotificationsReadStatusInCloudKit(
+        guard #available(iOS 17.0, *) else {
+            return StepResult(name: "cloudkit", success: true)
+        }
+        return await withCheckedContinuation { continuation in
+            PhoneSyncEngineCKSync.shared.updateNotificationsReadStatusInCloudKit(
                 notificationIds: [notificationId],
                 readAt: readAt
             ) { success, error in
@@ -63,8 +66,11 @@ public class NotificationActionHandler {
     }
 
     private static func deleteFromCloudKit_iOS(notificationId: String) async -> StepResult {
-        await withCheckedContinuation { continuation in
-            PhoneCloudKit.shared.deleteNotificationFromCloudKit(notificationId: notificationId) { success, error in
+        guard #available(iOS 17.0, *) else {
+            return StepResult(name: "cloudkit", success: true)
+        }
+        return await withCheckedContinuation { continuation in
+            PhoneSyncEngineCKSync.shared.deleteNotificationFromCloudKit(notificationId: notificationId) { success, error in
                 if success {
                     continuation.resume(returning: StepResult(name: "cloudkit", success: true))
                 } else {
@@ -72,6 +78,14 @@ public class NotificationActionHandler {
                 }
             }
         }
+    }
+    #elseif os(iOS)
+    private static func updateReadStatusInCloudKit_iOS(notificationId: String, readAt: Date?) async -> StepResult {
+        StepResult(name: "cloudkit", success: true)
+    }
+
+    private static func deleteFromCloudKit_iOS(notificationId: String) async -> StepResult {
+        StepResult(name: "cloudkit", success: true)
     }
     #endif
 
@@ -141,7 +155,7 @@ public class NotificationActionHandler {
 
     private static func updateReadStatusInCloudKit_watch(notificationId: String, readAt: Date?) async -> StepResult {
         await withCheckedContinuation { continuation in
-            WatchCloudKit.shared.updateNotificationsReadStatusInCloudKit(
+            WatchSyncEngineCKSync.shared.updateNotificationsReadStatusInCloudKit(
                 notificationIds: [notificationId],
                 readAt: readAt
             ) { success, _, error in
@@ -156,7 +170,7 @@ public class NotificationActionHandler {
 
     private static func deleteFromCloudKit_watch(notificationId: String) async -> StepResult {
         await withCheckedContinuation { continuation in
-            WatchCloudKit.shared.deleteNotificationFromCloudKit(notificationId: notificationId) { success, error in
+            WatchSyncEngineCKSync.shared.deleteNotificationFromCloudKit(notificationId: notificationId) { success, error in
                 if success {
                     continuation.resume(returning: StepResult(name: "cloudkit", success: true))
                 } else {
@@ -171,7 +185,7 @@ public class NotificationActionHandler {
             return StepResult(name: "cloudkit", success: true)
         }
         return await withCheckedContinuation { continuation in
-            WatchCloudKit.shared.deleteNotificationsFromCloudKit(notificationIds: notificationIds) { success, _, error in
+            WatchSyncEngineCKSync.shared.deleteNotificationsFromCloudKit(notificationIds: notificationIds) { success, _, error in
                 if success {
                     continuation.resume(returning: StepResult(name: "cloudkit", success: true))
                 } else {
@@ -186,7 +200,7 @@ public class NotificationActionHandler {
             return StepResult(name: "cloudkit", success: true)
         }
         return await withCheckedContinuation { continuation in
-            WatchCloudKit.shared.updateNotificationsReadStatusInCloudKit(
+            WatchSyncEngineCKSync.shared.updateNotificationsReadStatusInCloudKit(
                 notificationIds: notificationIds,
                 readAt: readAt
             ) { success, _, error in
@@ -836,14 +850,6 @@ public class NotificationActionHandler {
                         return StepResult(name: "sqlite", success: true)
                     }()
 
-                    // Notify React Native (main app only; safe no-op in extensions)
-                    if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
-                        let selector = NSSelectorFromString("notifyNotificationUpdated:")
-                        if bridgeClass.responds(to: selector) {
-                            _ = bridgeClass.perform(selector, with: notificationId)
-                        }
-                    }
-
                     #if os(iOS)
                     async let ck = updateReadStatusInCloudKit_iOS(notificationId: notificationId, readAt: Date())
                     #endif
@@ -877,14 +883,6 @@ public class NotificationActionHandler {
                         return StepResult(name: "sqlite", success: true)
                     }()
 
-                    // Notify React Native (main app only; safe no-op in extensions)
-                    if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
-                        let selector = NSSelectorFromString("notifyNotificationUpdated:")
-                        if bridgeClass.responds(to: selector) {
-                            _ = bridgeClass.perform(selector, with: notificationId)
-                        }
-                    }
-                    
                     #if os(iOS)
                     async let ck = updateReadStatusInCloudKit_iOS(notificationId: notificationId, readAt: nil)
                     #endif
@@ -948,13 +946,6 @@ public class NotificationActionHandler {
                     async let ck = deleteFromCloudKit_iOS(notificationId: notificationId)
                     #endif
 
-                    if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
-                        let selector = NSSelectorFromString("notifyNotificationDeleted:")
-                        if bridgeClass.responds(to: selector) {
-                            _ = bridgeClass.perform(selector, with: notificationId)
-                        }
-                    }
-
                     var results: [StepResult] = [await rest, db]
                     #if os(iOS)
                     results.append(await ck)
@@ -994,13 +985,6 @@ public class NotificationActionHandler {
                     // Keep CloudKit in sync so other devices/watch converge.
                     async let ck = deleteFromCloudKit_iOS(notificationId: notificationId)
                     #endif
-
-                    if let bridgeClass = NSClassFromString("CloudKitSyncBridge") as? NSObject.Type {
-                        let selector = NSSelectorFromString("notifyNotificationDeleted:")
-                        if bridgeClass.responds(to: selector) {
-                            _ = bridgeClass.perform(selector, with: notificationId)
-                        }
-                    }
 
                     var results: [StepResult] = [await rest, db]
                     #if os(iOS)

@@ -308,40 +308,11 @@ export const useCleanup = () => {
                                 return;
                             }
 
-                            console.log('[Cleanup] Initializing CloudKit schema...');
                             await iosBridgeService.initializeCloudKitSchema();
-                            console.log('[Cleanup] ✓ CloudKit schema initialized');
+                            console.log('[Cleanup] ✓ CloudKit ready');
 
-                            // Step 2: Setup subscriptions (after zone is initialized)
-                            try {
-                                await iosBridgeService.setupCloudKitSubscriptions();
-                                console.log('[Cleanup] ✓ CloudKit subscriptions setup completed');
-                            } catch (error) {
-                                console.warn('[Cleanup] ⚠️ CloudKit subscriptions setup failed (will retry later):', error);
-                                // Don't throw - subscriptions can be retried later
-                            }
-
-                            // Step 3: Trigger incremental sync (only if initial sync already completed)
-                            const syncStatus = await iosBridgeService.isInitialSyncCompleted();
-                            if (syncStatus.completed) {
-                                try {
-                                    const result = await iosBridgeService.syncFromCloudKitIncremental(false);
-                                    if (result.success) {
-                                        console.log(`[Cleanup] ✓ CloudKit incremental sync completed - Updated: ${result.updatedCount} records`);
-                                        // Invalidate React Query to refresh UI
-                                        queryClient.invalidateQueries({ queryKey: ['notifications'] });
-                                        queryClient.invalidateQueries({ queryKey: ['app-state'] });
-                                    } else {
-                                        console.warn(`[Cleanup] ⚠️ CloudKit incremental sync failed`);
-                                    }
-                                } catch (error) {
-                                    console.warn(`[Cleanup] ⚠️ CloudKit incremental sync error:`, error);
-                                }
-                            } else {
-                                console.log('[Cleanup] Initial sync not completed yet, will be triggered by schema initialization');
-                            }
-
-                            // Step 4: Push to CloudKit any notifications saved by NSE that didn't make it (no cursor or after cursor)
+                            // CKSyncEngine (automaticallySync=true) handles fetching from CloudKit.
+                            // We only need to push any NSE-saved notifications that missed the Darwin→CK path.
                             try {
                                 const retryResult = await iosBridgeService.retryNSENotificationsToCloudKit();
                                 if (retryResult.count > 0) {

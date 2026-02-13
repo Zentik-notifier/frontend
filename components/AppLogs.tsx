@@ -127,11 +127,11 @@ export default function AppLogs() {
 
   // Listen to watch logs transfer progress events
   useEffect(() => {
-    if (Platform.OS !== 'ios' || !NativeModules.CloudKitSyncBridge) {
+    if (Platform.OS !== 'ios' || !NativeModules.CKSyncBridge) {
       return;
     }
 
-    const eventEmitter = new NativeEventEmitter(NativeModules.CloudKitSyncBridge);
+    const eventEmitter = new NativeEventEmitter(NativeModules.CKSyncBridge);
 
     const handleWatchLogsTransferProgress = (event: {
       currentBatch: number;

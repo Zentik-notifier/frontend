@@ -5,7 +5,7 @@ import CloudKit
 ///
 /// Notes
 /// - This is intentionally "low level": zone/token/subscriptions + chunked modify operations.
-/// - Higher-level orchestration (full sync, applying DB patches, etc.) lives in PhoneCloudKit / WatchCloudKit.
+/// - Higher-level orchestration lives in PhoneSyncEngineCKSync (iOS) and WatchSyncEngineCKSync (watchOS).
 public final class CloudKitManagerBase: NSObject {
 
     public struct Configuration {
@@ -141,13 +141,16 @@ public final class CloudKitManagerBase: NSObject {
 
     /// CloudKit is enabled by default unless explicitly disabled.
     public var isCloudKitEnabled: Bool {
-        guard let sharedDefaults = sharedUserDefaults else {
-            return !UserDefaults.standard.bool(forKey: CloudKitManagerBase.cloudKitDisabledKey)
-        }
-        if sharedDefaults.object(forKey: CloudKitManagerBase.cloudKitDisabledKey) == nil {
+        CloudKitManagerBase.isCloudKitEnabled
+    }
+
+    public static var isCloudKitEnabled: Bool {
+        let appGroupId = resolveDefaultAppGroupIdentifier()
+        let defaults = resolveDefaults(appGroupIdentifier: appGroupId)
+        if defaults.object(forKey: cloudKitDisabledKey) == nil {
             return true
         }
-        return !sharedDefaults.bool(forKey: CloudKitManagerBase.cloudKitDisabledKey)
+        return !defaults.bool(forKey: cloudKitDisabledKey)
     }
 
     public static func setCloudKitDisabled(_ disabled: Bool) {

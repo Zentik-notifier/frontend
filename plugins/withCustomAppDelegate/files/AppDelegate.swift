@@ -44,11 +44,6 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
   
 #if os(iOS)
   private var wcSession: WCSession?
-  private static let cloudKitNotificationQueue = DispatchQueue(label: "com.zentik.cloudkit.notifications", qos: .utility)
-  private static var pendingCloudKitNotifications: [CKNotification] = []
-  private static var cloudKitNotificationTimer: Timer?
-  private static let cloudKitNotificationDebounceInterval: TimeInterval = 0.3
-  private static let cloudKitNotificationLock = NSLock()
 #endif
 
   public override func application(
@@ -80,16 +75,13 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
 #if os(iOS)
     application.registerForRemoteNotifications()
     setupWatchConnectivity()
+    if #available(iOS 17.0, *) {
+      PhoneSyncEngineCKSync.shared.initialize()
+    }
     NotificationCenter.default.addObserver(
       self,
       selector: #selector(handleSendWatchTokenSettings(_:)),
       name: NSNotification.Name("SendWatchTokenSettings"),
-      object: nil
-    )
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(handleCloudKitSyncProgress(_:)),
-      name: NSNotification.Name("CloudKitSyncProgress"),
       object: nil
     )
     registerDarwinNSENotificationSavedObserver()
@@ -123,6 +115,23 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
     CFNotificationCenterRemoveEveryObserver(center, observer)
   }
 
+  public override func applicationDidEnterBackground(_ application: UIApplication) {
+    super.applicationDidEnterBackground(application)
+    var bgTaskId = UIBackgroundTaskIdentifier.invalid
+    bgTaskId = application.beginBackgroundTask(withName: "db-checkpoint") {
+      if bgTaskId != .invalid {
+        application.endBackgroundTask(bgTaskId)
+        bgTaskId = .invalid
+      }
+    }
+    DatabaseAccess.drainAndCheckpoint {
+      if bgTaskId != .invalid {
+        application.endBackgroundTask(bgTaskId)
+        bgTaskId = .invalid
+      }
+    }
+  }
+
   public override func applicationWillTerminate(_ application: UIApplication) {
     unregisterDarwinNSENotificationSavedObserver()
     super.applicationWillTerminate(application)
@@ -132,17 +141,17 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
     LoggingSystem.shared.log(
       level: "INFO",
       tag: "AppDelegate",
-      message: "Darwin notification received (NSE saved notification), forwarding to CloudKit retry",
+      message: "Darwin notification received (NSE saved notification), adding pending for CloudKit sync",
       metadata: [:],
       source: "AppDelegate"
     )
-    DispatchQueue.main.async { [weak self] in
-      guard PhoneCloudKit.shared.isCloudKitEnabled else { return }
-      PhoneCloudKit.shared.retryNSENotificationsToCloudKit { count, error in
+    DispatchQueue.main.async {
+      guard #available(iOS 17.0, *), PhoneSyncEngineCKSync.shared.isCloudKitEnabled else { return }
+      PhoneSyncEngineCKSync.shared.addPendingForRecentNotifications(limit: 5) { count, error in
         if let error = error {
-          print("☁️ [AppDelegate] NSE→CK retry failed: \(error.localizedDescription)")
+          print("☁️ [AppDelegate] NSE→CK sync failed: \(error.localizedDescription)")
         } else if count > 0 {
-          print("☁️ [AppDelegate] NSE→CK retry pushed \(count) notification(s)")
+          print("☁️ [AppDelegate] NSE→CK sync queued \(count) notification(s)")
         }
       }
     }
@@ -150,25 +159,6 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
 #endif
   
 #if os(iOS)
-  @objc private func handleCloudKitSyncProgress(_ notification: Notification) {
-    guard let userInfo = notification.userInfo,
-          let currentItem = userInfo["currentItem"] as? Int,
-          let totalItems = userInfo["totalItems"] as? Int,
-          let itemType = userInfo["itemType"] as? String,
-          let phase = userInfo["phase"] as? String else {
-      return
-    }
-    
-    let step = userInfo["step"] as? String ?? ""
-    CloudKitSyncBridge.notifySyncProgress(
-      currentItem: currentItem,
-      totalItems: totalItems,
-      itemType: itemType,
-      phase: phase,
-      step: step
-    )
-  }
-  
   @objc private func handleSendWatchTokenSettings(_ notification: Notification) {
     guard let userInfo = notification.userInfo,
           let token = userInfo["token"] as? String,
@@ -310,14 +300,6 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
     let totalBatches = message["totalBatches"] as? Int ?? 1
     let isLastBatch = message["isLastBatch"] as? Bool ?? true
     
-    // Notify React Native of batch reception progress
-    CloudKitSyncBridge.notifyWatchLogsTransferProgress(
-      currentBatch: batchIndex + 1,
-      totalBatches: totalBatches,
-      logsInBatch: logsData.count,
-      phase: isLastBatch ? "receiving_last" : "receiving"
-    )
-    
     // Convert received logs to LogEntry format
     let receivedLogs: [LoggingSystem.LogEntry] = logsData.compactMap { dict in
       guard let id = dict["id"] as? String,
@@ -402,13 +384,6 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
           source: "AppDelegate"
         )
         
-        // Notify React Native that all batches have been received
-        CloudKitSyncBridge.notifyWatchLogsTransferProgress(
-          currentBatch: totalBatches,
-          totalBatches: totalBatches,
-          logsInBatch: receivedLogs.count,
-          phase: "completed"
-        )
       } else {
         print("📱 [AppDelegate] ✅ Saved log batch \(batchIndex + 1)/\(totalBatches) from Watch (\(receivedLogs.count) logs)")
       }
@@ -630,154 +605,22 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
   }
   
-  /// Called when app receives remote notification (CloudKit changes)
   public override func application(
     _ application: UIApplication,
     didReceiveRemoteNotification userInfo: [AnyHashable: Any],
     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
   ) {
-    // Check if this is a CloudKit notification
-    guard let ckNotification = PhoneCloudKit.shared.parseCloudKitNotification(from: userInfo) else {
-      LoggingSystem.shared.log(
-        level: "INFO",
-        tag: "CloudKit",
-        message: "Non-CloudKit notification - forwarding to super",
-        source: "AppDelegate"
-      )
+    guard let _ = CKNotification(fromRemoteNotificationDictionary: userInfo as? [String: NSObject] ?? [:]) else {
       super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
       return
     }
-
-    guard PhoneCloudKit.shared.isCloudKitEnabled else {
-      print("☁️ [AppDelegate] ⚠️ CloudKit is disabled, ignoring remote notification")
+    guard #available(iOS 17.0, *), PhoneSyncEngineCKSync.shared.isCloudKitEnabled else {
       completionHandler(.noData)
       return
     }
-
-    // Batch process notifications to avoid blocking when many arrive at once
-    Self.cloudKitNotificationLock.lock()
-    Self.pendingCloudKitNotifications.append(ckNotification)
-    let currentCount = Self.pendingCloudKitNotifications.count
-    Self.cloudKitNotificationLock.unlock()
-    
-    // Cancel existing timer
-    Self.cloudKitNotificationTimer?.invalidate()
-    Self.cloudKitNotificationTimer = nil
-    
-    // If we have many notifications, process immediately
-    if currentCount >= 10 {
-      Self.processBatchedCloudKitNotifications(completionHandler: completionHandler)
-    } else {
-      // Schedule debounced batch processing
-      Self.cloudKitNotificationTimer = Timer.scheduledTimer(withTimeInterval: Self.cloudKitNotificationDebounceInterval, repeats: false) { _ in
-        Self.processBatchedCloudKitNotifications(completionHandler: completionHandler)
-      }
+    PhoneSyncEngineCKSync.shared.fetchChangesNow { error in
+      completionHandler(error == nil ? .newData : .failed)
     }
-  }
-  
-  private static func processBatchedCloudKitNotifications(completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-    cloudKitNotificationLock.lock()
-    let notifications = pendingCloudKitNotifications
-    pendingCloudKitNotifications.removeAll()
-    cloudKitNotificationLock.unlock()
-    
-    cloudKitNotificationTimer?.invalidate()
-    cloudKitNotificationTimer = nil
-    
-    guard !notifications.isEmpty else {
-      completionHandler(.noData)
-      return
-    }
-    
-    // Process on background queue to avoid blocking main thread
-    cloudKitNotificationQueue.async {
-      let recordIDs = notifications.compactMap { notification -> CKRecord.ID? in
-        if let queryNotification = notification as? CKQueryNotification {
-          return queryNotification.recordID
-        }
-        return nil
-      }
-      
-      // Fetch all records in batch
-      if !recordIDs.isEmpty {
-        PhoneCloudKit.shared.fetchRecords(recordIDs: recordIDs) { result in
-          switch result {
-          case .failure(let error):
-            LoggingSystem.shared.log(
-              level: "ERROR",
-              tag: "CloudKit",
-              message: "Failed to fetch records after push batch",
-              metadata: ["error": error.localizedDescription, "count": "\(recordIDs.count)"],
-              source: "AppDelegate"
-            )
-            // Fallback: notify individual IDs
-            for recordID in recordIDs {
-              let fallbackId = Self.extractZentikId(fromRecordName: recordID.recordName)
-              CloudKitSyncBridge.notifyRecordChanged(
-                recordType: "Unknown",
-                recordId: fallbackId,
-                reason: "push_fetch_failed",
-                recordData: nil
-              )
-            }
-            completionHandler(.failed)
-            
-          case .success(let recordsByID):
-            var notificationIds: [String] = []
-            var bucketIds: [String] = []
-            
-            for (recordID, record) in recordsByID {
-              let recordType = record.recordType
-              let id = (record["id"] as? String) ?? Self.extractZentikId(fromRecordName: recordID.recordName)
-              
-              CloudKitSyncBridge.notifyRecordChanged(
-                recordType: recordType,
-                recordId: id,
-                reason: "push",
-                recordData: nil
-              )
-              
-              if recordType == PhoneCloudKit.Defaults.notificationRecordType {
-                notificationIds.append(id)
-              } else if recordType == PhoneCloudKit.Defaults.bucketRecordType {
-                bucketIds.append(id)
-              }
-            }
-            
-            // Notify in batch
-            for id in notificationIds {
-              CloudKitSyncBridge.notifyNotificationUpdated(id)
-            }
-            for id in bucketIds {
-              CloudKitSyncBridge.notifyBucketUpdated(id)
-            }
-            
-            completionHandler(.newData)
-          }
-        }
-      } else {
-        // Zone-level notifications
-        for notification in notifications {
-          CloudKitSyncBridge.notifyRecordChanged(
-            recordType: "Zone",
-            recordId: notification.subscriptionID ?? "unknown",
-            reason: "push_zone",
-            recordData: nil
-          )
-        }
-        completionHandler(.newData)
-      }
-    }
-  }
-
-  private static func extractZentikId(fromRecordName recordName: String) -> String {
-    if recordName.hasPrefix("Notification-") {
-      return recordName.replacingOccurrences(of: "Notification-", with: "")
-    }
-    if recordName.hasPrefix("Bucket-") {
-      return recordName.replacingOccurrences(of: "Bucket-", with: "")
-    }
-    return recordName
   }
 #endif
   

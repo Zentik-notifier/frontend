@@ -115,13 +115,6 @@ export async function saveNotificationToCache(notificationData: NotificationFrag
       );
     }
   }, 'saveNotificationToCache');
-
-  // Trigger CloudKit sync with debounce on iOS
-  if (Platform.OS === 'ios') {
-    iosBridgeService.triggerCloudKitSyncWithDebounce().catch((error) => {
-      console.error('[NotificationsRepository] Failed to trigger CloudKit sync:', error);
-    });
-  }
 }
 
 /**

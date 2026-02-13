@@ -585,14 +585,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           onRotateDeviceKeys: hasAuth ? push.registerDevice : undefined,
         });
 
-        // Retry any notifications that failed to send to CloudKit from NSE
-        if (hasAuth && Platform.OS === 'ios') {
-          const iosBridgeService = (await import('@/services/ios-bridge')).default;
-          iosBridgeService.retryNSENotificationsToCloudKit().catch((error: unknown) => {
-            console.warn('[AppContext] Failed to retry NSE notifications to CloudKit:', error);
-          });
-        }
-
         // Invalidate app-state cache to force refetch and ensure unread count is correct
         queryClient.invalidateQueries({ queryKey: ['app-state'] });
         console.log('[AppContext] Invalidated app-state cache to refresh unread count');

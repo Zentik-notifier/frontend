@@ -95,8 +95,30 @@ public class DatabaseAccess {
                 flock(lockFileDescriptor, LOCK_UN)
                 close(lockFileDescriptor)
                 lockFileDescriptor = -1
-                print("📱 [DatabaseAccess] 🔓 Force-released file lock for suspension (0xdead10cc prevention)")
             }
+        }
+    }
+
+    /// Drain pending database operations and checkpoint WAL to release all internal SQLite locks.
+    /// Call from AppDelegate.applicationDidEnterBackground inside a beginBackgroundTask.
+    /// The completion is called on an arbitrary queue once it's safe for iOS to suspend.
+    public static func drainAndCheckpoint(completion: @escaping () -> Void) {
+        suspendLock.lock()
+        isSuspending = true
+        suspendLock.unlock()
+        forceReleaseLockForSuspension()
+
+        dbQueue.async {
+            guard let dbPath = getDbPath() else {
+                completion()
+                return
+            }
+            var db: OpaquePointer?
+            if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let database = db {
+                sqlite3_wal_checkpoint_v2(database, nil, SQLITE_CHECKPOINT_TRUNCATE, nil, nil)
+                sqlite3_close(database)
+            }
+            completion()
         }
     }
     
@@ -1015,6 +1037,137 @@ public class DatabaseAccess {
             }
         }
     }
+
+    /// Upsert notification from CloudKit record. Builds fragment matching NotificationFragment structure.
+    public static func upsertNotificationFromCloudKit(
+        id: String,
+        bucketId: String,
+        title: String,
+        body: String,
+        subtitle: String?,
+        createdAt: String,
+        readAt: Date?,
+        attachments: [[String: Any]],
+        actions: [[String: Any]],
+        source: String = "DatabaseAccess",
+        completion: @escaping (Bool) -> Void
+    ) {
+        let readAtStr = readAt.map { String(Int64($0.timeIntervalSince1970 * 1000)) }
+        let fragment: [String: Any] = [
+            "id": id,
+            "createdAt": createdAt,
+            "readAt": readAtStr as Any,
+            "message": [
+                "title": title,
+                "body": body,
+                "subtitle": subtitle as Any,
+                "bucket": ["id": bucketId, "name": "", "color": NSNull(), "iconUrl": NSNull()],
+                "attachments": attachments,
+                "actions": actions
+            ]
+        ]
+        guard let fragmentData = try? JSONSerialization.data(withJSONObject: fragment),
+              let fragmentString = String(data: fragmentData, encoding: .utf8) else {
+            completion(false)
+            return
+        }
+        let hasAttachments = attachments.isEmpty ? 0 : 1
+        performDatabaseOperation(
+            type: .write,
+            name: "UpsertNotificationFromCloudKit",
+            source: source,
+            operation: { db, _ in
+                let sql = """
+                    INSERT INTO notifications (id, created_at, read_at, bucket_id, bucket_icon_url, has_attachments, fragment)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        created_at = excluded.created_at,
+                        read_at = excluded.read_at,
+                        bucket_id = excluded.bucket_id,
+                        fragment = excluded.fragment,
+                        has_attachments = excluded.has_attachments
+                """
+                var stmt: OpaquePointer?
+                guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                    return .failure("Failed to prepare upsert statement")
+                }
+                defer { sqlite3_finalize(stmt) }
+                sqlite3_bind_text(stmt, 1, (id as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 2, (createdAt as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                if let readAtStr, let cstr = (readAtStr as NSString).utf8String {
+                    sqlite3_bind_text(stmt, 3, cstr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                } else {
+                    sqlite3_bind_null(stmt, 3)
+                }
+                sqlite3_bind_text(stmt, 4, (bucketId as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_null(stmt, 5)
+                sqlite3_bind_int(stmt, 6, Int32(hasAttachments))
+                sqlite3_bind_text(stmt, 7, (fragmentString as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                return sqlite3_step(stmt) == SQLITE_DONE ? .success : .failure("Upsert failed")
+            }
+        ) { result in
+            switch result {
+            case .success: completion(true)
+            default: completion(false)
+            }
+        }
+    }
+
+    /// Upsert bucket from CloudKit record.
+    public static func upsertBucketFromCloudKit(
+        id: String,
+        name: String,
+        color: String?,
+        iconUrl: String?,
+        source: String = "DatabaseAccess",
+        completion: @escaping (Bool) -> Void
+    ) {
+        let now = ISO8601DateFormatter().string(from: Date())
+        let fragment: [String: Any] = [
+            "id": id,
+            "name": name,
+            "color": color as Any,
+            "iconUrl": iconUrl as Any
+        ]
+        guard let fragmentData = try? JSONSerialization.data(withJSONObject: fragment),
+              let fragmentString = String(data: fragmentData, encoding: .utf8) else {
+            completion(false)
+            return
+        }
+        performDatabaseOperation(
+            type: .write,
+            name: "UpsertBucketFromCloudKit",
+            source: source,
+            operation: { db, _ in
+                let sql = """
+                    INSERT INTO buckets (id, name, icon, description, fragment, updated_at, synced_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        name = excluded.name,
+                        fragment = excluded.fragment,
+                        updated_at = excluded.updated_at
+                """
+                var stmt: OpaquePointer?
+                guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                    return .failure("Failed to prepare upsert statement")
+                }
+                defer { sqlite3_finalize(stmt) }
+                sqlite3_bind_text(stmt, 1, (id as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 2, (name as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_null(stmt, 3)
+                sqlite3_bind_null(stmt, 4)
+                sqlite3_bind_text(stmt, 5, (fragmentString as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 6, (now as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_int64(stmt, 7, Int64(Date().timeIntervalSince1970 * 1000))
+                return sqlite3_step(stmt) == SQLITE_DONE ? .success : .failure("Upsert failed")
+            }
+        ) { result in
+            switch result {
+            case .success: completion(true)
+            default: completion(false)
+            }
+        }
+    }
     
     // MARK: - Generic Database Operation Handler
     
@@ -1038,6 +1191,15 @@ public class DatabaseAccess {
     ) {
         // Execute on dedicated serial queue
         dbQueue.async {
+            // Reject new operations while the app is being suspended (prevents 0xdead10cc)
+            suspendLock.lock()
+            let suspending = isSuspending
+            suspendLock.unlock()
+            if suspending {
+                completion(.failure("App is suspending"))
+                return
+            }
+
             let startTime = Date()
             var operationCompleted = false
             var finalResult: DatabaseOperationResult = .timeout

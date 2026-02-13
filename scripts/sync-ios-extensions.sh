@@ -1,7 +1,13 @@
 #!/bin/bash
-
+#
 # Sync iOS extensions and shared Swift files from ./plugins into ./ios and ./targets.
-# Focus: show what gets copied and where.
+# Run manually: npm run sync-ios-extensions
+#
+# Exclude list (CKSyncBridge = RN bridge, main app only):
+# - NSE/NCE: PhoneSyncEngineCKSync, WatchSyncEngineCKSync, CloudKit*, CKSyncBridge
+# - Watch: PhoneSyncEngineCKSync, CloudKit*, CKSyncBridge
+# - Widget: NotificationActionHandler, PhoneSyncEngineCKSync, WatchSyncEngineCKSync, watchOnly, CloudKit*, CKSyncBridge
+#
 
 set -e  # Exit on error
 
@@ -178,40 +184,22 @@ if [ $db_bridge_copied -gt 0 ]; then
     print_success "DatabaseAccessBridge: copied $db_bridge_copied file(s)"
 fi
 
-# 3.7 CloudKitSyncBridge (iOS app only)
-# CloudKitSyncBridge.swift viene copiato automaticamente dalla sezione file condivisi
-# Qui copiamo solo il file .m (Objective-C bridge)
-print_status "Syncing CloudKitSyncBridge (Objective-C bridge)..."
-
-CLOUDKIT_SYNC_BRIDGE_SOURCE="plugins/ZentikShared"
-CLOUDKIT_SYNC_BRIDGE_DEST="$IOS_DIR/ZentikDev"
-
-CLOUDKIT_SYNC_BRIDGE_FILES=(
-    "CloudKitSyncBridge.m"
-)
-
-cloudkit_bridge_copied=0
-for file in "${CLOUDKIT_SYNC_BRIDGE_FILES[@]}"; do
-    source_file="$CLOUDKIT_SYNC_BRIDGE_SOURCE/$file"
-    dest_file="$CLOUDKIT_SYNC_BRIDGE_DEST/$file"
-    
-    if [ -f "$source_file" ]; then
-        cp -f "$source_file" "$dest_file"
-        replace_placeholders "$dest_file" "$BUNDLE_ID"
-        if is_verbose; then
-            print_status "Copied $file to iOS app"
-        fi
-        ((cloudkit_bridge_copied++))
-    else
-        print_warning "$file not found in $CLOUDKIT_SYNC_BRIDGE_SOURCE"
-    fi
-done
-
-if [ $cloudkit_bridge_copied -gt 0 ]; then
-    print_success "CloudKitSyncBridge: copied $cloudkit_bridge_copied file(s) (.m only)"
+# 4. Remove obsolete CloudKit bridge files from iOS app
+if [ -f "$IOS_DIR/ZentikDev/CloudKitSyncBridge.m" ]; then
+    rm -f "$IOS_DIR/ZentikDev/CloudKitSyncBridge.m"
+    print_status "Removed obsolete CloudKitSyncBridge.m"
 fi
 
-# 4. Shared Files (copied into iOS app + extensions + watch/widget targets)
+# 4.1 CKSyncBridge (iOS app only - full sync + trigger Watch)
+print_status "Syncing CKSyncBridge..."
+CK_SYNC_BRIDGE_SOURCE="plugins/ZentikShared"
+if [ -f "$CK_SYNC_BRIDGE_SOURCE/CKSyncBridge.m" ]; then
+    cp -f "$CK_SYNC_BRIDGE_SOURCE/CKSyncBridge.m" "$IOS_DIR/ZentikDev/CKSyncBridge.m"
+    replace_placeholders "$IOS_DIR/ZentikDev/CKSyncBridge.m" "$BUNDLE_ID"
+    print_success "CKSyncBridge.m copied"
+fi
+
+# 5. Shared Files (copied into iOS app + extensions + watch/widget targets)
 print_status "Syncing shared Swift files into all targets..."
 
 SHARED_SOURCE="plugins/ZentikShared"
@@ -303,13 +291,13 @@ copy_shared_files() {
 
 if [ -d "$SHARED_SOURCE" ]; then
     # Copia file condivisi in iOS App principale
-    copy_shared_files "$IOS_DIR/ZentikDev" "iOS App" "" "${SHARED_FILES[@]}"
+    copy_shared_files "$IOS_DIR/ZentikDev" "iOS App" "WatchSyncEngineCKSync.swift|PhoneCloudKit.swift|WatchCloudKit.swift|CloudKitSyncBridge.swift" "${SHARED_FILES[@]}"
     
-    # Copia file condivisi in Notification Service Extension (escludi bridge RN + monolite CloudKit)
-    copy_shared_files "$SERVICE_DEST" "NSE" "CloudKitSyncBridge.swift|CloudKitManager.swift" "${SHARED_FILES[@]}"
+    # Copia file condivisi in Notification Service Extension (escludi bridge RN + monolite CloudKit + CKSyncEngine)
+    copy_shared_files "$SERVICE_DEST" "NSE" "PhoneSyncEngineCKSync.swift|WatchSyncEngineCKSync.swift|PhoneCloudKit.swift|WatchCloudKit.swift|CloudKitSyncBridge.swift|CKSyncBridge.swift" "${SHARED_FILES[@]}"
     
-    # Copia file condivisi in Content Extension (escludi bridge RN + monolite CloudKit)
-    copy_shared_files "$CONTENT_DEST" "NCE" "CloudKitSyncBridge.swift|CloudKitManager.swift" "${SHARED_FILES[@]}"
+    # Copia file condivisi in Content Extension
+    copy_shared_files "$CONTENT_DEST" "NCE" "PhoneSyncEngineCKSync.swift|WatchSyncEngineCKSync.swift|PhoneCloudKit.swift|WatchCloudKit.swift|CloudKitSyncBridge.swift|CKSyncBridge.swift" "${SHARED_FILES[@]}"
     
     # 5. Watch Extension
     print_status "Syncing Watch target shared files..."
@@ -317,9 +305,8 @@ if [ -d "$SHARED_SOURCE" ]; then
     WATCH_DIR="targets/watch"
     
     if [ -d "$WATCH_DIR" ]; then
-        # Exclude CloudKitSyncBridge.swift (React Native bridge, not needed on Watch)
-        # Start cutting out the monolithic CloudKitManager.swift from the watch target.
-        copy_shared_files "$WATCH_DIR" "Watch" "CloudKitSyncBridge.swift|CloudKitManager.swift|PhoneCloudKit.swift" "${SHARED_FILES[@]}"
+        # Exclude PhoneSyncEngineCKSync and old CloudKit files
+        copy_shared_files "$WATCH_DIR" "Watch" "PhoneSyncEngineCKSync.swift|PhoneCloudKit.swift|WatchCloudKit.swift|CloudKitSyncBridge.swift|CKSyncBridge.swift" "${SHARED_FILES[@]}"
 
         # Ensure NotificationActionHandler is available for WatchExtension builds.
         # Some build steps rely on it being present in targets/watch.
@@ -340,7 +327,7 @@ if [ -d "$SHARED_SOURCE" ]; then
     if [ -d "$WIDGET_DIR" ]; then
         # Exclude Watch-only files and React Native bridges
         # Widget Extension doesn't handle CloudKit remote notifications and doesn't need CloudKit sync
-        copy_shared_files "$WIDGET_DIR" "Widget" "NotificationActionHandler.swift|CloudKitSyncBridge.swift|CloudKitManager.swift|WatchCloudKit.swift|WatchDataStore.swift|WatchSettingsManager.swift" "${SHARED_FILES[@]}"
+        copy_shared_files "$WIDGET_DIR" "Widget" "NotificationActionHandler.swift|WatchCloudKit.swift|WatchDataStore.swift|WatchSettingsManager.swift|PhoneSyncEngineCKSync.swift|WatchSyncEngineCKSync.swift|PhoneCloudKit.swift|CloudKitSyncBridge.swift|CKSyncBridge.swift" "${SHARED_FILES[@]}"
         
         print_success "Widget target synced"
     else
@@ -371,9 +358,6 @@ if [ -f "$APPDELEGATE_DEST" ]; then
 fi
 if [ $db_bridge_copied -gt 0 ]; then
     print_status "DatabaseAccessBridge: $db_bridge_copied file(s)"
-fi
-if [ $cloudkit_bridge_copied -gt 0 ]; then
-    print_status "CloudKitSyncBridge (.m): $cloudkit_bridge_copied file(s)"
 fi
 if [ -d "$WATCH_DIR" ]; then
     print_status "Watch target Swift files: $WATCH_FILES"

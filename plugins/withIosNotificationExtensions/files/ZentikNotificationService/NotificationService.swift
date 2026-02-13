@@ -1,4 +1,3 @@
-import CloudKit
 import CoreFoundation
 import CryptoKit
 import Intents
@@ -84,7 +83,7 @@ class NotificationService: UNNotificationServiceExtension {
       // Update badge count before setting up actions (fast operation)
       updateBadgeCount(content: bestAttemptContent)
       
-      // Save to DB; CloudKit save in NSE is best effort (fire-and-forget, no timeout). App also pushes via Darwin + retryNSENotificationsToCloudKit.
+      // Save to DB; App pushes to CloudKit via Darwin notification → AppDelegate.handleNSENotificationSaved → PhoneSyncEngineCKSync.addPendingForRecentNotifications
       // Watch receives the notification via system mirroring from iPhone; we can intercept it in Watch delegate.
       let proceedToShow: () -> Void = { [weak self] in
         guard let self = self else { return }
@@ -2013,108 +2012,10 @@ class NotificationService: UNNotificationServiceExtension {
           nil,
           true
         )
-        // Run continuation off dbQueue to avoid deadlock: _handleChatMessage calls getBucketById (via applySingleTextFieldTitleBodyBucketFallback) which blocks on dbQueue; if we run whenDone on dbQueue we'd wait ~10s for semaphore timeout.
+        // Darwin notification triggers AppDelegate.handleNSENotificationSaved() which pushes to CloudKit via PhoneSyncEngineCKSync.addPendingForRecentNotifications
         DispatchQueue.global(qos: .userInitiated).async { whenDone?() }
-        self?.saveNotificationToCloudKit(
-          notificationId: notificationId,
-          bucketId: bucketId,
-          title: content.title,
-          body: content.body,
-          subtitle: content.subtitle.isEmpty ? nil : content.subtitle,
-          createdAt: Date(),
-          readAt: nil,
-          attachments: attachments,
-          actions: messageObj["actions"] as? [[String: Any]] ?? [],
-          whenCloudKitDone: nil
-        )
       }
     )
-  }
-  
-  // MARK: - CloudKit Sync (best effort from NSE, no timeout; app also pushes via retryNSENotificationsToCloudKit)
-  
-  private func saveNotificationToCloudKit(
-    notificationId: String,
-    bucketId: String,
-    title: String,
-    body: String,
-    subtitle: String?,
-    createdAt: Date,
-    readAt: Date?,
-    attachments: [[String: Any]],
-    actions: [[String: Any]],
-    whenCloudKitDone: (() -> Void)? = nil
-  ) {
-    guard PhoneCloudKit.shared.isCloudKitEnabled else {
-      print("📱 [NotificationService] ⚠️ CloudKit is disabled, skipping save for notification: \(notificationId)")
-      whenCloudKitDone?()
-      return
-    }
-    print("📱 [NotificationService] ☁️ Saving to CloudKit: notificationId=\(notificationId) bucketId=\(bucketId) title=\(title)")
-
-    // Convert actions to CloudKit format
-    // Actions are already normalized (with "type" instead of "t") from messageObj processing
-    let cloudKitActions = actions.map { action -> [String: Any] in
-      // Support both normalized format (from messageObj) and raw format (fallback)
-      var actionType: String
-      if let type = action["type"] as? String {
-        actionType = type.uppercased()
-      } else if let t = action["t"] as? Int {
-        // Fallback: convert numeric type to string
-        actionType = NotificationActionType.stringFrom(int: t) ?? "CUSTOM"
-      } else {
-        actionType = "CUSTOM"
-      }
-      
-      var dict: [String: Any] = [
-        "type": actionType,
-        "label": (action["title"] as? String) ?? ""
-      ]
-      
-      // Support both "value" and "v" for value field
-      if let value = action["value"] as? String {
-        dict["value"] = value
-      } else if let v = action["v"] as? String {
-        dict["value"] = v
-      }
-      
-      if let id = action["id"] as? String {
-        dict["id"] = id
-      }
-      if let url = action["url"] as? String {
-        dict["url"] = url
-      }
-      if let bucketId = action["bucketId"] as? String {
-        dict["bucketId"] = bucketId
-      }
-      if let minutes = action["minutes"] as? Int {
-        dict["minutes"] = minutes
-      }
-      return dict
-    }
-    
-    PhoneCloudKit.shared.saveNotificationToCloudKit(
-      notificationId: notificationId,
-      bucketId: bucketId,
-      title: title,
-      body: body,
-      subtitle: subtitle,
-      createdAt: createdAt,
-      readAt: readAt,
-      attachments: attachments,
-      actions: cloudKitActions
-    ) { success, error in
-      if success {
-        print("📱 [NotificationService] 💾 Notification saved to CloudKit: \(notificationId), calling whenDone")
-      } else {
-        let errorMessage = error?.localizedDescription ?? "Unknown error"
-        print("📱 [NotificationService] ❌ Failed to save notification to CloudKit: \(notificationId), error: \(errorMessage), calling whenDone")
-        if let ckError = error as? CKError {
-          print("📱 [NotificationService] CloudKit error details: \(ckError.localizedDescription), code: \(ckError.errorCode)")
-        }
-      }
-      whenCloudKitDone?()
-    }
   }
 
   private func writeTempFile(data: Data, filename: String) -> URL? {
