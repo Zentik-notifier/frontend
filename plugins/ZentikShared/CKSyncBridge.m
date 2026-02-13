@@ -4,8 +4,9 @@
 //
 
 #import <React/RCTBridgeModule.h>
+#import <React/RCTEventEmitter.h>
 
-@interface RCT_EXTERN_MODULE(CKSyncBridge, NSObject)
+@interface RCT_EXTERN_MODULE(CKSyncBridge, RCTEventEmitter)
 
 // Watch support
 RCT_EXTERN_METHOD(isWatchSupported:(RCTPromiseResolveBlock)resolve

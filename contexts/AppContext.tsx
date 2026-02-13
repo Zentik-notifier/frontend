@@ -27,6 +27,7 @@ import {
   UsePushNotifications,
   usePushNotifications,
 } from "@/hooks/usePushNotifications";
+import { refreshNotificationQueries } from "@/hooks/notifications/useNotificationQueries";
 import { initializeBackgroundTasks } from "@/services/background-tasks";
 import { closeSharedCacheDb, openSharedCacheDb } from "@/services/db-setup";
 import { logger } from "@/services/logger";
@@ -40,7 +41,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { Alert, AppState, Platform } from "react-native";
+import { Alert, AppState, NativeEventEmitter, NativeModules, Platform } from "react-native";
 import { registerTranslation } from "react-native-paper-dates";
 import { useSettings } from "../hooks/useSettings";
 import { settingsRepository } from "../services/settings-repository";
@@ -162,6 +163,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Best-effort: iOS/Android scheduling is OS-controlled; interval is a minimum hint.
     initializeBackgroundTasks();
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const { CKSyncBridge } = NativeModules;
+    if (!CKSyncBridge) return;
+    const emitter = new NativeEventEmitter(CKSyncBridge);
+    const subscription = emitter.addListener('onCloudKitDataUpdated', () => {
+      refreshNotificationQueries(queryClient).catch(() => {});
+    });
+    return () => subscription.remove();
+  }, [queryClient]);
 
   useEffect(() => {
     const registerDatePickerTranslations = async () => {
@@ -585,9 +597,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           onRotateDeviceKeys: hasAuth ? push.registerDevice : undefined,
         });
 
-        // Invalidate app-state cache to force refetch and ensure unread count is correct
-        queryClient.invalidateQueries({ queryKey: ['app-state'] });
-        console.log('[AppContext] Invalidated app-state cache to refresh unread count');
+        // Invalidate notification + app-state caches so the list and unread count
+        // reflect any changes that arrived via CloudKit while the app was in background.
+        refreshNotificationQueries(queryClient).catch(() => {});
 
         refetchChangelogs().catch(() => {});
 

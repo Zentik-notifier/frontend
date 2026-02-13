@@ -14,9 +14,44 @@ import CloudKit
 import WatchConnectivity
 
 @objc(CKSyncBridge)
-class CKSyncBridge: NSObject {
+class CKSyncBridge: RCTEventEmitter {
 
-    @objc static func requiresMainQueueSetup() -> Bool { false }
+    private var hasListeners = false
+    private var ckObserver: NSObjectProtocol?
+
+    @objc override static func requiresMainQueueSetup() -> Bool { false }
+
+    override func supportedEvents() -> [String]! {
+        ["onCloudKitDataUpdated"]
+    }
+
+    override func startObserving() {
+        hasListeners = true
+        ckObserver = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("CloudKitDataUpdated"),
+            object: nil,
+            queue: nil
+        ) { [weak self] notification in
+            guard let self, self.hasListeners else { return }
+            let userInfo = notification.userInfo ?? [:]
+            let changedIds = userInfo["changedNotificationIds"] as? [String] ?? []
+            let deletedIds = userInfo["deletedNotificationIds"] as? [String] ?? []
+            let bucketIds = userInfo["changedBucketIds"] as? [String] ?? []
+            self.sendEvent(withName: "onCloudKitDataUpdated", body: [
+                "changedNotificationIds": changedIds,
+                "deletedNotificationIds": deletedIds,
+                "changedBucketIds": bucketIds,
+            ])
+        }
+    }
+
+    override func stopObserving() {
+        hasListeners = false
+        if let observer = ckObserver {
+            NotificationCenter.default.removeObserver(observer)
+            ckObserver = nil
+        }
+    }
 
     // MARK: - Watch support
 
