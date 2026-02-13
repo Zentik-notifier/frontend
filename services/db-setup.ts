@@ -486,7 +486,10 @@ export async function openSharedCacheDb(): Promise<ISharedCacheDb> {
  */
 export async function closeSharedCacheDb(): Promise<void> {
   if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-    iosBridgeDbPromise = null;
+    // On iOS the bridge adapter is a stateless wrapper around DatabaseAccess
+    // which manages connections per-operation. Don't destroy the adapter;
+    // otherwise the next openSharedCacheDb call re-runs schema init which
+    // fails with INIT_FAILED while isSuspending is still true.
     return;
   }
   if (!dbInstance || Platform.OS === 'web' || isClosing) {
