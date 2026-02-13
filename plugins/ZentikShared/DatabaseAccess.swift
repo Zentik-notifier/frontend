@@ -1510,8 +1510,11 @@ public class DatabaseAccess {
                 print("📱 [\(source)] 🔒 [\(operationName)] Database locked after \(String(format: "%.3f", elapsed))s")
             }
             
-            // Call completion handler on main thread if needed for UI updates
-            DispatchQueue.main.async {
+            // Call completion on a global queue to avoid deadlocks.
+            // Previously this dispatched to main thread, which caused deadlocks
+            // when synchronous wrappers (e.g. setSettingValueSync) blocked the
+            // main thread with a semaphore while waiting for this completion.
+            DispatchQueue.global(qos: .userInitiated).async {
                 completion(finalResult)
             }
         }
