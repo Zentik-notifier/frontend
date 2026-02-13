@@ -16,7 +16,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
         ...config,
         name,
         slug: "zentik",
-        version: "1.8.0",
+        version: "1.8.1",
         orientation: "default",
         icon: "./assets/icons/generators/glas_default.png",
         scheme,
@@ -62,7 +62,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             supportsTablet: true,
             bundleIdentifier,
             appleTeamId: "C3F24V5NS5",
-            buildNumber: "116",
+            buildNumber: "117",
             usesAppleSignIn: true,
             associatedDomains: [
                 "applinks:notifier.zentik.app"
@@ -96,7 +96,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                 backgroundColor: "#ffffff",
             },
             package: bundleIdentifier,
-            versionCode: 116,
+            versionCode: 117,
             permissions: [
                 "android.permission.RECEIVE_BOOT_COMPLETED",
                 "android.permission.WAKE_LOCK",
