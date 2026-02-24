@@ -1,4 +1,4 @@
-name: Deploy Frontend to EAS and Railway
+name: Deploy Frontend to EAS
 
 on:
   push:
@@ -36,6 +36,7 @@ jobs:
         run: eas update --environment production --channel production --auto --non-interactive
 
   deploy-railway:
+    if: false  # disabled for now
     runs-on: ubuntu-latest
     container: ghcr.io/railwayapp/cli:latest
     env:

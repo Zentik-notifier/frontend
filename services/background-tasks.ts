@@ -17,7 +17,7 @@ import { checkChangelogUpdates } from '@/utils/changelogUtils';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import packageJson from '../package.json';
-import { createAutoDbBackupNow } from './db-auto-backup';
+import { createAutoDbBackupNow, getLatestAutoDbBackup } from './db-auto-backup';
 import { installConsoleLoggerBridge } from './console-logger-hook';
 import { logger, saveTaskToFile } from './logger';
 
@@ -35,6 +35,7 @@ type TaskRunResult = {
 };
 
 const MIN_INTERVAL_MINUTES = 15;
+const DB_BACKUP_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 async function runTask(
   taskName: string,
@@ -52,10 +53,6 @@ async function runTask(
     await saveTaskToFile(taskName, 'failed', `${taskName} failed`, { error: String(e) });
     return BackgroundFetch.BackgroundTaskResult.Failed;
   }
-}
-
-function secondsToMinutes(seconds: number): number {
-  return Math.max(MIN_INTERVAL_MINUTES, Math.ceil(seconds / 60));
 }
 
 // Global references for task callbacks (set by hooks during runtime)
@@ -84,6 +81,21 @@ if (!isWeb) {
       return runTask(
         DB_AUTO_BACKUP_TASK,
         async () => {
+          const latest = await getLatestAutoDbBackup();
+          if (latest?.timestamp) {
+            const iso = latest.timestamp.replace(
+              /^(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})-(\d{3})/,
+              '$1:$2:$3.$4'
+            );
+            const lastDate = new Date(iso);
+            if (!isNaN(lastDate.getTime()) && Date.now() - lastDate.getTime() < DB_BACKUP_MIN_INTERVAL_MS) {
+              return {
+                message: 'DB auto-backup skipped (last backup is recent)',
+                meta: { lastBackupTimestamp: latest.timestamp },
+              };
+            }
+          }
+
           const backup = await createAutoDbBackupNow({ keepCopies: 3 });
           return {
             message: 'DB auto-backup task completed',
@@ -106,14 +118,14 @@ if (!isWeb) {
       return runTask(
         NOTIFICATION_REFRESH_TASK,
         async () => {
-          if (!globalCleanupCallback || !globalRegisterDeviceCallback) {
-            throw new Error('Cleanup/register callbacks not available yet');
+          if (!globalCleanupCallback) {
+            throw new Error('Cleanup callback not available yet');
           }
 
-          await globalCleanupCallback({
-            force: true,
-            onRotateDeviceKeys: globalRegisterDeviceCallback as () => Promise<boolean>,
-          });
+          // Key rotation must NOT run in background tasks: iOS can kill the process
+          // mid-rotation, leaving the backend with a new public key while the device
+          // still holds the old private key → all notifications become undecryptable.
+          await globalCleanupCallback({ force: true });
 
           return { message: 'Notifications refresh task completed successfully' };
         },
@@ -320,15 +332,13 @@ if (!isWeb) {
   }
 }
 
-export async function enableDbAutoBackupTask(options?: { intervalMinutes?: number }): Promise<void> {
+export async function enableDbAutoBackupTask(): Promise<void> {
   if (isWeb) return;
 
   if (Platform.OS === 'ios' && !Device.isDevice) {
     logger.info('Background tasks unavailable on iOS simulator', undefined, 'Tasks');
     return;
   }
-
-  const intervalMinutes = options?.intervalMinutes ?? 6 * 60;
 
   try {
     const status = await BackgroundFetch.getStatusAsync();
@@ -339,9 +349,9 @@ export async function enableDbAutoBackupTask(options?: { intervalMinutes?: numbe
 
     try {
       await BackgroundFetch.registerTaskAsync(DB_AUTO_BACKUP_TASK, {
-        minimumInterval: intervalMinutes,
+        minimumInterval: MIN_INTERVAL_MINUTES,
       });
-      logger.info(`DB auto-backup task registered (interval: ${intervalMinutes} min)`, undefined, 'Tasks');
+      logger.info(`DB auto-backup task registered (interval: ${MIN_INTERVAL_MINUTES} min)`, undefined, 'Tasks');
     } catch (e) {
       logger.warn('DB auto-backup registration failed', (e as any)?.message ?? e, 'Tasks');
     }
@@ -357,23 +367,13 @@ export async function disableDbAutoBackupTask(): Promise<void> {
   } catch {}
 }
 
-export async function enablePushBackgroundTasks(options?: {
-  notificationsRefreshMinimumIntervalSeconds?: number;
-  changelogCheckMinimumIntervalMinutes?: number;
-  noPushCheckMinimumIntervalMinutes?: number;
-  cloudKitSyncMinimumIntervalMinutes?: number;
-}): Promise<void> {
+export async function enablePushBackgroundTasks(): Promise<void> {
   if (isWeb) return;
 
   if (Platform.OS === 'ios' && !Device.isDevice) {
     logger.info('Background tasks unavailable on iOS simulator', undefined, 'Tasks');
     return;
   }
-
-  const notificationsRefreshMinutes = secondsToMinutes(options?.notificationsRefreshMinimumIntervalSeconds ?? 180);
-  const changelogCheckMinutes = options?.changelogCheckMinimumIntervalMinutes ?? 15;
-  const noPushCheckMinutes = options?.noPushCheckMinimumIntervalMinutes ?? 15;
-  const cloudKitSyncMinutes = options?.cloudKitSyncMinimumIntervalMinutes ?? 15;
 
   try {
     const status = await BackgroundFetch.getStatusAsync();
@@ -382,47 +382,43 @@ export async function enablePushBackgroundTasks(options?: {
       return;
     }
 
-    const registerWithLog = async (taskName: string, minimumIntervalMinutes: number) => {
+    const registerWithLog = async (taskName: string) => {
       if (!TaskManager.isTaskDefined(taskName)) {
         logger.warn(`Cannot register '${taskName}': task is not defined`, undefined, 'Tasks');
         return;
       }
 
       try {
-        await BackgroundFetch.registerTaskAsync(taskName, { minimumInterval: minimumIntervalMinutes });
-        logger.info(`${taskName} registered (interval: ${minimumIntervalMinutes} min)`, undefined, 'Tasks');
+        await BackgroundFetch.registerTaskAsync(taskName, { minimumInterval: MIN_INTERVAL_MINUTES });
+        logger.info(`${taskName} registered (interval: ${MIN_INTERVAL_MINUTES} min)`, undefined, 'Tasks');
       } catch (e) {
         logger.warn(`${taskName} registration failed`, (e as any)?.message ?? e, 'Tasks');
       }
     };
 
-    try {
-      await BackgroundFetch.unregisterTaskAsync(NOTIFICATION_REFRESH_TASK);
-    } catch {}
-    try {
-      await BackgroundFetch.unregisterTaskAsync(CHANGELOG_CHECK_TASK);
-    } catch {}
-    try {
-      await BackgroundFetch.unregisterTaskAsync(NO_PUSH_CHECK_TASK);
-    } catch {}
-    try {
-      await BackgroundFetch.unregisterTaskAsync(CLOUDKIT_SYNC_TASK);
-    } catch {}
-
-    await registerWithLog(NOTIFICATION_REFRESH_TASK, notificationsRefreshMinutes);
-    await registerWithLog(CHANGELOG_CHECK_TASK, changelogCheckMinutes);
-    await registerWithLog(NO_PUSH_CHECK_TASK, noPushCheckMinutes);
-    if (Platform.OS === 'ios') {
-      await registerWithLog(CLOUDKIT_SYNC_TASK, cloudKitSyncMinutes);
+    // Unregister ALL tasks (including DB backup) to reset the native scheduler.
+    // expo-background-task shares a single BGProcessingTask for all JS tasks and
+    // only schedules it when the task count goes from 0 → 1.
+    const allTasks = [DB_AUTO_BACKUP_TASK, NOTIFICATION_REFRESH_TASK, CHANGELOG_CHECK_TASK, NO_PUSH_CHECK_TASK, CLOUDKIT_SYNC_TASK];
+    for (const task of allTasks) {
+      try { await BackgroundFetch.unregisterTaskAsync(task); } catch {}
     }
+
+    await registerWithLog(NOTIFICATION_REFRESH_TASK);
+    await registerWithLog(CHANGELOG_CHECK_TASK);
+    await registerWithLog(NO_PUSH_CHECK_TASK);
+    if (Platform.OS === 'ios') {
+      await registerWithLog(CLOUDKIT_SYNC_TASK);
+    }
+    await registerWithLog(DB_AUTO_BACKUP_TASK);
   } catch (error) {
-    logger.error('Error enabling push background tasks', error, 'Tasks');
+    logger.error('Error enabling background tasks', error, 'Tasks');
   }
 }
 
 export async function initializeBackgroundTasks(): Promise<void> {
   if (isWeb) return;
-  await enableDbAutoBackupTask({ intervalMinutes: 6 * 60 });
+  await enableDbAutoBackupTask();
 }
 
 export async function triggerBackgroundTasksForTesting(): Promise<boolean> {

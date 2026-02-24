@@ -306,6 +306,23 @@ class IosBridgeService {
     }
   }
 
+  async checkDecryptionFailureFlag(): Promise<boolean> {
+    if (!isIOS || !DatabaseAccessBridge) return false;
+    try {
+      const result = await DatabaseAccessBridge.checkDecryptionFailureFlag();
+      return result?.needsReregistration === true;
+    } catch {
+      return false;
+    }
+  }
+
+  async clearDecryptionFailureFlag(): Promise<void> {
+    if (!isIOS || !DatabaseAccessBridge) return;
+    try {
+      await DatabaseAccessBridge.clearDecryptionFailureFlag();
+    } catch {}
+  }
+
   /**
    * Get database path (for debugging)
    */

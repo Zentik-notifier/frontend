@@ -9,10 +9,16 @@ import UserNotifications
  * Receives CloudKit change notifications and updates local cache.
  * Implements UNUserNotificationCenterDelegate to handle notifications in foreground.
  *
- * CKSyncEngine with automaticallySync=true handles sync scheduling.
- * CloudKit silent pushes trigger immediate fetch via fetchChangesNow().
+ * Sync behaviour depends on WatchSyncMode (managed by WatchSettingsManager):
+ * - foregroundOnly:      sync only when the app is in the foreground
+ * - alwaysActive:        CKSyncEngine automaticallySync=true, process every push
+ * - backgroundInterval:  periodic background refresh (~15 min), pushes deferred
  */
 class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationCenterDelegate {
+
+    private var backgroundRefreshInterval: TimeInterval {
+        WatchSettingsManager.shared.backgroundInterval.timeInterval
+    }
 
     private static let backgroundLock = NSLock()
     private static var _isInBackground = false
@@ -20,6 +26,8 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
         get { backgroundLock.lock(); defer { backgroundLock.unlock() }; return _isInBackground }
         set { backgroundLock.lock(); defer { backgroundLock.unlock() }; _isInBackground = newValue }
     }
+
+    private var hasPendingPushChanges = false
 
     func applicationDidFinishLaunching() {
         UNUserNotificationCenter.current().delegate = self
@@ -35,7 +43,9 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
         }
 
         WKExtension.shared().registerForRemoteNotifications()
-        LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "Application launched - registering for remote notifications", source: "WatchExtensionDelegate")
+
+        let mode = WatchSettingsManager.shared.syncMode
+        LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "Application launched", metadata: ["syncMode": mode.rawValue], source: "WatchExtensionDelegate")
 
         guard WatchSyncEngineCKSync.shared.isCloudKitEnabled else {
             LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "CloudKit is disabled, skipping CKSyncEngine init", source: "WatchExtensionDelegate")
@@ -44,6 +54,10 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
         WatchSyncEngineCKSync.shared.initialize()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             WKExtension.shared().registerForRemoteNotifications()
+        }
+
+        if mode == .backgroundInterval {
+            scheduleNextBackgroundRefresh()
         }
     }
 
@@ -61,12 +75,29 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
         if WatchSyncEngineCKSync.shared.isCloudKitEnabled {
             WatchSyncEngineCKSync.shared.fetchChangesNow()
         }
+        hasPendingPushChanges = false
         NotificationCenter.default.post(name: NSNotification.Name("WatchAppDidBecomeActive"), object: nil)
     }
 
     func applicationWillResignActive() {
         WatchExtensionDelegate.isInBackground = true
         NotificationCenter.default.post(name: NSNotification.Name("WatchAppWillResignActive"), object: nil)
+    }
+
+    // MARK: - Background Refresh Scheduling
+
+    func scheduleNextBackgroundRefresh() {
+        let preferredDate = Date(timeIntervalSinceNow: backgroundRefreshInterval)
+        WKExtension.shared().scheduleBackgroundRefresh(
+            withPreferredDate: preferredDate,
+            userInfo: nil
+        ) { error in
+            if let error {
+                LoggingSystem.shared.log(level: "WARN", tag: "Watch", message: "Failed to schedule background refresh", metadata: ["error": error.localizedDescription], source: "WatchExtensionDelegate")
+            } else {
+                LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "Background refresh scheduled", metadata: ["preferredDate": ISO8601DateFormatter().string(from: preferredDate)], source: "WatchExtensionDelegate")
+            }
+        }
     }
 
     // MARK: - Background Tasks
@@ -79,39 +110,86 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
                 connectivityTask.setTaskCompletedWithSnapshot(false)
             } else if let urlSessionTask = task as? WKURLSessionRefreshBackgroundTask {
                 urlSessionTask.setTaskCompletedWithSnapshot(false)
+            } else if task is WKApplicationRefreshBackgroundTask {
+                handleApplicationRefreshTask(task)
             } else {
                 task.setTaskCompletedWithSnapshot(false)
             }
         }
     }
 
+    private func handleApplicationRefreshTask(_ task: WKRefreshBackgroundTask) {
+        let mode = WatchSettingsManager.shared.syncMode
+        guard mode == .backgroundInterval, WatchSyncEngineCKSync.shared.isCloudKitEnabled else {
+            task.setTaskCompletedWithSnapshot(false)
+            return
+        }
+
+        LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "Background refresh task started", source: "WatchExtensionDelegate")
+
+        WatchSyncEngineCKSync.shared.fetchChangesNow { error in
+            if let error {
+                LoggingSystem.shared.log(level: "WARN", tag: "Watch", message: "Background refresh sync failed", metadata: ["error": error.localizedDescription], source: "WatchExtensionDelegate")
+            } else {
+                LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "Background refresh sync completed", source: "WatchExtensionDelegate")
+            }
+            task.setTaskCompletedWithSnapshot(false)
+        }
+        hasPendingPushChanges = false
+
+        scheduleNextBackgroundRefresh()
+    }
+
     // MARK: - Remote Notifications
 
     func didReceiveRemoteNotification(_ userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (WKBackgroundFetchResult) -> Void) {
-        LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "Received remote notification", metadata: ["keyCount": "\(userInfo.count)"], source: "WatchExtensionDelegate")
+        let mode = WatchSettingsManager.shared.syncMode
 
-        if let notification = CKNotification(fromRemoteNotificationDictionary: userInfo as! [String: NSObject]) {
-            LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "CloudKit notification detected", metadata: [
-                "type": "\(notification.notificationType.rawValue)",
-                "subscriptionID": notification.subscriptionID ?? "nil"
-            ], source: "WatchExtensionDelegate")
+        guard let notification = CKNotification(fromRemoteNotificationDictionary: userInfo as! [String: NSObject]) else {
+            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Non-CloudKit notification on Watch", source: "WatchExtensionDelegate")
+            completionHandler(.noData)
+            return
+        }
 
-            guard WatchSyncEngineCKSync.shared.isCloudKitEnabled else {
+        LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "CloudKit notification detected", metadata: [
+            "type": "\(notification.notificationType.rawValue)",
+            "subscriptionID": notification.subscriptionID ?? "nil",
+            "syncMode": mode.rawValue,
+            "isBackground": Self.isInBackground
+        ], source: "WatchExtensionDelegate")
+
+        guard WatchSyncEngineCKSync.shared.isCloudKitEnabled else {
+            completionHandler(.noData)
+            return
+        }
+
+        switch mode {
+        case .foregroundOnly:
+            if Self.isInBackground {
+                hasPendingPushChanges = true
                 completionHandler(.noData)
                 return
             }
-            WatchSyncEngineCKSync.shared.fetchChangesNow { error in
-                if let error {
-                    LoggingSystem.shared.log(level: "ERROR", tag: "Watch", message: "CloudKit push processing failed", metadata: ["error": error.localizedDescription], source: "WatchExtensionDelegate")
-                    completionHandler(.failed)
-                } else {
-                    LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "CloudKit push processed", source: "WatchExtensionDelegate")
-                    completionHandler(.newData)
-                }
+
+        case .backgroundInterval:
+            hasPendingPushChanges = true
+            if Self.isInBackground {
+                completionHandler(.noData)
+                return
             }
-        } else {
-            LoggingSystem.shared.log(level: "INFO", tag: "CloudKit", message: "Non-CloudKit notification on Watch", source: "WatchExtensionDelegate")
-            completionHandler(.noData)
+
+        case .alwaysActive:
+            break
+        }
+
+        WatchSyncEngineCKSync.shared.fetchChangesNow { error in
+            if let error {
+                LoggingSystem.shared.log(level: "ERROR", tag: "Watch", message: "CloudKit push processing failed", metadata: ["error": error.localizedDescription], source: "WatchExtensionDelegate")
+                completionHandler(.failed)
+            } else {
+                LoggingSystem.shared.log(level: "INFO", tag: "Watch", message: "CloudKit push processed", source: "WatchExtensionDelegate")
+                completionHandler(.newData)
+            }
         }
     }
 

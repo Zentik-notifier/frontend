@@ -7,7 +7,7 @@ import { settingsService } from "@/services/settings-service";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { getAllBuckets } from "@/db/repositories/buckets-repository";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import { useNotificationActions } from "./useNotificationActions";
 import { useGetVersionsInfo } from "./useGetVersionsInfo";
 import iosBridgeService from "@/services/ios-bridge";
@@ -201,8 +201,20 @@ export const useCleanup = () => {
                 console.warn("[Cleanup] Failed to update device metadata", error);
             }
 
-            // 4.1 Rotate device keys (every 7 days)
+            // 4.1 Rotate device keys (every 7 days, or immediately if NSE flagged decryption failure)
             try {
+                const authData = settingsService.getAuthData();
+                const hasAuth = !!authData.accessToken;
+                const hasDeviceId = !!authData.deviceId;
+                const hasDeviceToken = !!authData.deviceToken;
+
+                let nseDecryptionFailed = false;
+                if (Platform.OS === 'ios' && hasAuth) {
+                    try {
+                        nseDecryptionFailed = await iosBridgeService.checkDecryptionFailureFlag();
+                    } catch {}
+                }
+
                 const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
                 const now = new Date();
                 const lastKeysRotation = settingsService.getSettings().lastKeysRotation;
@@ -210,23 +222,27 @@ export const useCleanup = () => {
                 const lastRotationDate = lastKeysRotation ? new Date(lastKeysRotation) : null;
                 const isLastRotationValid = !!lastRotationDate && !Number.isNaN(lastRotationDate.getTime());
                 const shouldRotate =
+                    nseDecryptionFailed ||
                     !lastKeysRotation ||
                     !isLastRotationValid ||
                     (now.getTime() - (lastRotationDate as Date).getTime() >= sevenDaysInMs);
 
-                const authData = settingsService.getAuthData();
-                const hasAuth = !!authData.accessToken;
-                const hasDeviceId = !!authData.deviceId;
-                const hasDeviceToken = !!authData.deviceToken;
-
                 if (shouldRotate && hasAuth && hasDeviceId && hasDeviceToken && onRotateDeviceKeys) {
-                    console.log('[Cleanup] Rotating device keys (7 days elapsed)');
-                    const ok = await onRotateDeviceKeys();
-                    if (ok === false) {
-                        console.warn('[Cleanup] Device key rotation failed');
+                    if (AppState.currentState !== 'active') {
+                        console.log('[Cleanup] Skipping key rotation (app is not in active state)');
                     } else {
-                        await settingsService.setLastKeysRotation(now.toISOString());
-                        console.log('[Cleanup] ✓ Device keys rotated');
+                        const reason = nseDecryptionFailed ? 'NSE decryption failure detected' : '7 days elapsed';
+                        console.log(`[Cleanup] Rotating device keys (${reason})`);
+                        const ok = await onRotateDeviceKeys();
+                        if (ok === false) {
+                            console.warn('[Cleanup] Device key rotation failed');
+                        } else {
+                            await settingsService.setLastKeysRotation(now.toISOString());
+                            if (nseDecryptionFailed) {
+                                await iosBridgeService.clearDecryptionFailureFlag();
+                            }
+                            console.log('[Cleanup] ✓ Device keys rotated');
+                        }
                     }
                 }
             } catch (error) {

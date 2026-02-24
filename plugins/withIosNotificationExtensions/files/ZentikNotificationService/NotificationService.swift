@@ -779,6 +779,7 @@ class NotificationService: UNNotificationServiceExtension {
         message: "Private key not found in keychain",
         metadata: nil
       )
+      flagDecryptionFailure()
       return nil
     }
     do {
@@ -831,8 +832,14 @@ class NotificationService: UNNotificationServiceExtension {
         message: "Decryption failed",
         metadata: ["error": error.localizedDescription]
       )
+      flagDecryptionFailure()
       return nil
     }
+  }
+
+  private func flagDecryptionFailure() {
+    let defaults = UserDefaults(suiteName: AppConfig.appGroupId)
+    defaults?.set(true, forKey: "zentik_needs_key_reregistration")
   }
 
   private func decryptAESKey(encryptedKey: Data, privateKey: SecKey) throws -> Data {

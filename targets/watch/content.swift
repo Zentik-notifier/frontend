@@ -1634,6 +1634,8 @@ struct SettingsView: View {
     @StateObject private var connectivityManager = WatchConnectivityManager.shared
     @State private var cloudKitEnabled: Bool = WatchSyncEngineCKSync.shared.isCloudKitEnabled
     @State private var cloudKitDebugEnabled: Bool = CloudKitManagerBase.isCloudKitDebugEnabled()
+    @State private var syncMode: WatchSyncMode = WatchSettingsManager.shared.syncMode
+    @State private var backgroundInterval: WatchBackgroundInterval = WatchSettingsManager.shared.backgroundInterval
     @State private var maxNotificationsLimit: Int = WatchSettingsManager.shared.maxNotificationsLimit
     @State private var watchToken: String? = UserDefaults.standard.string(forKey: "watch_access_token")
     @State private var serverAddress: String? = UserDefaults.standard.string(forKey: "watch_server_address")
@@ -1686,7 +1688,63 @@ struct SettingsView: View {
                 .onChange(of: cloudKitDebugEnabled) { _, newValue in
                     CloudKitManagerBase.setCloudKitDebugEnabled(newValue)
                 }
-                
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "battery.75percent")
+                            .font(.system(size: 20))
+                            .foregroundColor(.green)
+                            .frame(width: 32, height: 32)
+
+                        Text("Sync Mode")
+                            .font(.headline)
+                    }
+
+                    Picker("", selection: $syncMode) {
+                        Text("Foreground only").tag(WatchSyncMode.foregroundOnly)
+                        Text("Always active").tag(WatchSyncMode.alwaysActive)
+                        Text("Background intervals").tag(WatchSyncMode.backgroundInterval)
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(height: 60)
+
+                    Group {
+                        switch syncMode {
+                        case .foregroundOnly:
+                            Text("Sync only while the app is open. Best battery life.")
+                        case .alwaysActive:
+                            Text("Real-time updates, even in background. Higher battery usage.")
+                        case .backgroundInterval:
+                            Text("Periodic background sync. Balanced battery and freshness.")
+                        }
+                    }
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+
+                    if syncMode == .backgroundInterval {
+                        Picker("Interval", selection: $backgroundInterval) {
+                            ForEach(WatchBackgroundInterval.allCases) { interval in
+                                Text(interval.label).tag(interval)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                        .frame(height: 60)
+                    }
+                }
+                .onChange(of: syncMode) { _, newValue in
+                    WatchSettingsManager.shared.setSyncMode(newValue)
+                    WatchSyncEngineCKSync.shared.reinitializeWithCurrentSettings()
+                    if newValue == .backgroundInterval {
+                        (WKExtension.shared().delegate as? WatchExtensionDelegate)?.scheduleNextBackgroundRefresh()
+                    }
+                }
+                .onChange(of: backgroundInterval) { _, newValue in
+                    WatchSettingsManager.shared.setBackgroundInterval(newValue)
+                    if syncMode == .backgroundInterval {
+                        (WKExtension.shared().delegate as? WatchExtensionDelegate)?.scheduleNextBackgroundRefresh()
+                    }
+                }
+
                 Button(action: {
                     connectivityManager.requestFullSync()
                 }) {
@@ -1859,8 +1917,9 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             cloudKitEnabled = WatchSyncEngineCKSync.shared.isCloudKitEnabled
+            syncMode = WatchSettingsManager.shared.syncMode
+            backgroundInterval = WatchSettingsManager.shared.backgroundInterval
             maxNotificationsLimit = WatchSettingsManager.shared.maxNotificationsLimit
-            // Refresh token and address on appear
             watchToken = UserDefaults.standard.string(forKey: "watch_access_token")
             serverAddress = UserDefaults.standard.string(forKey: "watch_server_address")
         }

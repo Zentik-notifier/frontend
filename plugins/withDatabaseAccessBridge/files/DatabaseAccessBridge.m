@@ -192,4 +192,16 @@ RCT_EXTERN_METHOD(
   rejecter:(RCTPromiseRejectBlock)reject
 )
 
+// MARK: - Decryption Failure Flag
+
+RCT_EXTERN_METHOD(
+  checkDecryptionFailureFlag:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+  clearDecryptionFailureFlag:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
 @end

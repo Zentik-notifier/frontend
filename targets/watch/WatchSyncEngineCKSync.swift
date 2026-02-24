@@ -116,15 +116,24 @@ public final class WatchSyncEngineCKSync: NSObject {
     }
 
     private func initializeSyncEngine() async {
+        let mode = WatchSettingsManager.shared.syncMode
         var configuration = CKSyncEngine.Configuration(
             database: database,
             stateSerialization: lastKnownStateSerialization,
             delegate: self
         )
-        configuration.automaticallySync = true
+        configuration.automaticallySync = (mode == .alwaysActive)
         let engine = CKSyncEngine(configuration)
         setSyncEngine(engine)
-        infoLog("CKSyncEngine initialized")
+        infoLog("CKSyncEngine initialized", metadata: ["syncMode": mode.rawValue, "automaticallySync": mode == .alwaysActive])
+    }
+
+    public func reinitializeWithCurrentSettings() {
+        setSyncEngine(nil)
+        Task {
+            await initializeSyncEngine()
+            infoLog("CKSyncEngine reinitialized after settings change")
+        }
     }
 
     public func addPendingNotification(notificationId: String) {

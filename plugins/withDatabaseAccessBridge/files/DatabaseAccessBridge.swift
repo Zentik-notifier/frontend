@@ -562,4 +562,26 @@ class DatabaseAccessBridge: NSObject {
       }
     )
   }
+
+  // MARK: - Decryption Failure Flag
+
+  @objc
+  func checkDecryptionFailureFlag(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    let defaults = UserDefaults(suiteName: AppConfig.appGroupId)
+    let needsReregistration = defaults?.bool(forKey: "zentik_needs_key_reregistration") ?? false
+    resolve(["needsReregistration": needsReregistration])
+  }
+
+  @objc
+  func clearDecryptionFailureFlag(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    let defaults = UserDefaults(suiteName: AppConfig.appGroupId)
+    defaults?.removeObject(forKey: "zentik_needs_key_reregistration")
+    resolve(["success": true])
+  }
 }
