@@ -8,12 +8,15 @@ import { useSettings } from "@/hooks/useSettings";
 import { checkChangelogUpdates } from "@/utils/changelogUtils";
 
 export function useChangelogs() {
-  const { versions } = useGetVersionsInfo();
+  const { versions, loading: versionsLoading } = useGetVersionsInfo();
   const { settings } = useSettings();
-  const { data: changelogData, refetch: refetchChangelogs } =
-    useChangelogsForModalQuery({
-      fetchPolicy: "cache-and-network",
-    });
+  const {
+    data: changelogData,
+    loading: changelogLoading,
+    refetch: refetchChangelogs,
+  } = useChangelogsForModalQuery({
+    fetchPolicy: "cache-and-network",
+  });
 
   const { appVersion, backendVersion, nativeVersion } = versions;
   const lastSeenChangelogId = settings.lastSeenChangelogId;
@@ -32,6 +35,10 @@ export function useChangelogs() {
     useState(false);
 
   useEffect(() => {
+    if (changelogLoading || versionsLoading) {
+      return;
+    }
+
     const {
       latestEntry,
       unreadIds,
@@ -49,7 +56,15 @@ export function useChangelogs() {
     setNeedsChangelogAppUpdateNotice(needsAppUpdateNotice);
     setNeedsChangelogBackendBehindNotice(needsBackendBehindNotice);
     setShouldOpenChangelogModal(shouldOpenModal);
-  }, [changelogData, appVersion, backendVersion, nativeVersion, lastSeenChangelogId]);
+  }, [
+    changelogData,
+    changelogLoading,
+    versionsLoading,
+    appVersion,
+    backendVersion,
+    nativeVersion,
+    lastSeenChangelogId,
+  ]);
 
   return {
     latestChangelog,

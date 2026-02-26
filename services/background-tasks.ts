@@ -210,6 +210,8 @@ if (!isWeb) {
             trigger: null,
           });
 
+          await settingsService.setLastSeenChangelogId(latestEntry.id);
+
           return {
             message: 'Changelog notification scheduled',
             meta: {

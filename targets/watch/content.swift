@@ -1639,7 +1639,15 @@ struct SettingsView: View {
     @State private var maxNotificationsLimit: Int = WatchSettingsManager.shared.maxNotificationsLimit
     @State private var watchToken: String? = UserDefaults.standard.string(forKey: "watch_access_token")
     @State private var serverAddress: String? = UserDefaults.standard.string(forKey: "watch_server_address")
-    
+
+    private var syncModeLabel: String {
+        switch syncMode {
+        case .foregroundOnly: return "Foreground only"
+        case .alwaysActive: return "Always active"
+        case .backgroundInterval: return "Background intervals"
+        }
+    }
+
     var body: some View {
         List {
             Section(header: Text("CloudKit")) {
@@ -1689,46 +1697,41 @@ struct SettingsView: View {
                     CloudKitManagerBase.setCloudKitDebugEnabled(newValue)
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
+                NavigationLink(destination: SyncModeSelectionView(syncMode: $syncMode)) {
                     HStack(spacing: 10) {
                         Image(systemName: "battery.75percent")
                             .font(.system(size: 20))
                             .foregroundColor(.green)
                             .frame(width: 32, height: 32)
-
-                        Text("Sync Mode")
-                            .font(.headline)
-                    }
-
-                    Picker("", selection: $syncMode) {
-                        Text("Foreground only").tag(WatchSyncMode.foregroundOnly)
-                        Text("Always active").tag(WatchSyncMode.alwaysActive)
-                        Text("Background intervals").tag(WatchSyncMode.backgroundInterval)
-                    }
-                    .pickerStyle(.wheel)
-                    .frame(height: 60)
-
-                    Group {
-                        switch syncMode {
-                        case .foregroundOnly:
-                            Text("Sync only while the app is open. Best battery life.")
-                        case .alwaysActive:
-                            Text("Real-time updates, even in background. Higher battery usage.")
-                        case .backgroundInterval:
-                            Text("Periodic background sync. Balanced battery and freshness.")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Sync Mode")
+                                .font(.headline)
+                            Text(syncModeLabel)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
                         }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+                }
 
-                    if syncMode == .backgroundInterval {
-                        Picker("Interval", selection: $backgroundInterval) {
-                            ForEach(WatchBackgroundInterval.allCases) { interval in
-                                Text(interval.label).tag(interval)
+                if syncMode == .backgroundInterval {
+                    NavigationLink(destination: IntervalSelectionView(interval: $backgroundInterval)) {
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Interval")
+                                    .font(.headline)
+                                Text(backgroundInterval.label)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
                             }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
-                        .pickerStyle(.wheel)
-                        .frame(height: 60)
                     }
                 }
                 .onChange(of: syncMode) { _, newValue in
@@ -1928,6 +1931,74 @@ struct SettingsView: View {
             watchToken = UserDefaults.standard.string(forKey: "watch_access_token")
             serverAddress = UserDefaults.standard.string(forKey: "watch_server_address")
         }
+    }
+}
+
+// MARK: - Sync Mode Selection View
+
+struct SyncModeSelectionView: View {
+    @Binding var syncMode: WatchSyncMode
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List {
+            ForEach(WatchSyncMode.allCases) { mode in
+                Button(action: {
+                    syncMode = mode
+                    dismiss()
+                }) {
+                    HStack {
+                        Text(modeLabel(mode))
+                            .foregroundColor(.primary)
+                        Spacer()
+                        if syncMode == mode {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.blue)
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Sync Mode")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func modeLabel(_ mode: WatchSyncMode) -> String {
+        switch mode {
+        case .foregroundOnly: return "Foreground only"
+        case .alwaysActive: return "Always active"
+        case .backgroundInterval: return "Background intervals"
+        }
+    }
+}
+
+// MARK: - Interval Selection View
+
+struct IntervalSelectionView: View {
+    @Binding var interval: WatchBackgroundInterval
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List {
+            ForEach(WatchBackgroundInterval.allCases) { option in
+                Button(action: {
+                    interval = option
+                    dismiss()
+                }) {
+                    HStack {
+                        Text(option.label)
+                            .foregroundColor(.primary)
+                        Spacer()
+                        if interval == option {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.blue)
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Interval")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
