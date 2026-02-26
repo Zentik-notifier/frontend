@@ -1734,19 +1734,6 @@ struct SettingsView: View {
                         }
                     }
                 }
-                .onChange(of: syncMode) { _, newValue in
-                    WatchSettingsManager.shared.setSyncMode(newValue)
-                    WatchSyncEngineCKSync.shared.reinitializeWithCurrentSettings()
-                    if newValue == .backgroundInterval {
-                        (WKExtension.shared().delegate as? WatchExtensionDelegate)?.scheduleNextBackgroundRefresh()
-                    }
-                }
-                .onChange(of: backgroundInterval) { _, newValue in
-                    WatchSettingsManager.shared.setBackgroundInterval(newValue)
-                    if syncMode == .backgroundInterval {
-                        (WKExtension.shared().delegate as? WatchExtensionDelegate)?.scheduleNextBackgroundRefresh()
-                    }
-                }
 
                 Button(action: {
                     connectivityManager.requestFullSync()
@@ -1914,6 +1901,19 @@ struct SettingsView: View {
                             .font(.headline)
                     }
                 }
+            }
+        }
+        .onChange(of: syncMode) { newValue in
+            WatchSettingsManager.shared.setSyncMode(newValue)
+            WatchSyncEngineCKSync.shared.reinitializeWithCurrentSettings()
+            if newValue == .backgroundInterval {
+                (WKExtension.shared().delegate as? WatchExtensionDelegate)?.scheduleNextBackgroundRefresh()
+            }
+        }
+        .onChange(of: backgroundInterval) { newValue in
+            WatchSettingsManager.shared.setBackgroundInterval(newValue)
+            if syncMode == .backgroundInterval {
+                (WKExtension.shared().delegate as? WatchExtensionDelegate)?.scheduleNextBackgroundRefresh()
             }
         }
         .navigationTitle("Settings")
