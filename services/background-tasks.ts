@@ -201,6 +201,20 @@ if (!isWeb) {
               ? bodyTemplate.replace('{{version}}', latestEntry.uiVersion)
               : bodyTemplate) || latestEntry.description;
 
+          try {
+            await settingsService.setLastSeenChangelogId(latestEntry.id);
+          } catch (e) {
+            logger.warn(
+              'Failed to persist lastSeenChangelogId, skipping notification to avoid duplicates',
+              e,
+              'ChangelogBackgroundTask'
+            );
+            return {
+              message: 'Changelog notification skipped (could not persist lastSeenChangelogId)',
+              meta: { changelogId: latestEntry.id, appVersion, backendVersion },
+            };
+          }
+
           await Notifications.scheduleNotificationAsync({
             content: {
               title,
@@ -209,8 +223,6 @@ if (!isWeb) {
             },
             trigger: null,
           });
-
-          await settingsService.setLastSeenChangelogId(latestEntry.id);
 
           return {
             message: 'Changelog notification scheduled',
