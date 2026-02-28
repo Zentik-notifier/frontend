@@ -43,13 +43,16 @@ async function runTask(
   startedMessage?: string
 ): Promise<typeof BackgroundFetch.BackgroundTaskResult.Success | typeof BackgroundFetch.BackgroundTaskResult.Failed> {
   installConsoleLoggerBridge();
+  logger.info(`${taskName} started`, undefined, 'Tasks');
   await saveTaskToFile(taskName, 'started', startedMessage ?? `${taskName} started`);
 
   try {
     const result = await fn();
+    logger.info(`${taskName} completed`, result.meta, 'Tasks');
     await saveTaskToFile(taskName, 'completed', result.message, result.meta);
     return BackgroundFetch.BackgroundTaskResult.Success;
   } catch (e) {
+    logger.error(`${taskName} failed`, e, 'Tasks');
     await saveTaskToFile(taskName, 'failed', `${taskName} failed`, { error: String(e) });
     return BackgroundFetch.BackgroundTaskResult.Failed;
   }
@@ -81,6 +84,7 @@ if (!isWeb) {
       return runTask(
         DB_AUTO_BACKUP_TASK,
         async () => {
+          logger.info('Checking latest DB auto-backup before creating a new one', undefined, 'Tasks');
           const latest = await getLatestAutoDbBackup();
           if (latest?.timestamp) {
             const iso = latest.timestamp.replace(
@@ -89,6 +93,7 @@ if (!isWeb) {
             );
             const lastDate = new Date(iso);
             if (!isNaN(lastDate.getTime()) && Date.now() - lastDate.getTime() < DB_BACKUP_MIN_INTERVAL_MS) {
+              logger.info('DB auto-backup skipped because the previous backup is still fresh', { lastBackupTimestamp: latest.timestamp }, 'Tasks');
               return {
                 message: 'DB auto-backup skipped (last backup is recent)',
                 meta: { lastBackupTimestamp: latest.timestamp },
@@ -97,6 +102,7 @@ if (!isWeb) {
           }
 
           const backup = await createAutoDbBackupNow({ keepCopies: 3 });
+          logger.info('DB auto-backup created', { backupName: backup?.name, timestamp: backup?.timestamp }, 'Tasks');
           return {
             message: 'DB auto-backup task completed',
             meta: {
@@ -118,6 +124,7 @@ if (!isWeb) {
       return runTask(
         NOTIFICATION_REFRESH_TASK,
         async () => {
+          logger.info('Starting notifications refresh cleanup', { hasCleanupCallback: !!globalCleanupCallback }, 'Tasks');
           if (!globalCleanupCallback) {
             throw new Error('Cleanup callback not available yet');
           }
@@ -126,6 +133,7 @@ if (!isWeb) {
           // mid-rotation, leaving the backend with a new public key while the device
           // still holds the old private key → all notifications become undecryptable.
           await globalCleanupCallback({ force: true });
+          logger.info('Notifications refresh cleanup completed', undefined, 'Tasks');
 
           return { message: 'Notifications refresh task completed successfully' };
         },
@@ -142,6 +150,7 @@ if (!isWeb) {
         CHANGELOG_CHECK_TASK,
         async () => {
           const apiBase = settingsService.getApiBaseWithPrefix().replace(/\/$/, '');
+          logger.info('Starting changelog background check', { apiBase }, 'ChangelogBackgroundTask');
 
           let changelogData: ChangelogsForModalQuery | undefined;
           try {
@@ -151,6 +160,7 @@ if (!isWeb) {
             } else {
               const list = (await res.json()) as ChangelogsForModalQuery['changelogs'];
               changelogData = { changelogs: list };
+              logger.info('Fetched changelog entries', { count: list.length }, 'ChangelogBackgroundTask');
             }
           } catch (e) {
             logger.warn('Error fetching changelogs via REST', e, 'ChangelogBackgroundTask');
@@ -164,6 +174,7 @@ if (!isWeb) {
                 fetchPolicy: 'network-only',
               });
               backendVersion = (backendRes.data as any)?.getBackendVersion;
+              logger.info('Fetched backend version for changelog check', { backendVersion }, 'ChangelogBackgroundTask');
             }
           } catch (e) {
             logger.warn('Failed to fetch backend version', e, 'ChangelogBackgroundTask');
@@ -180,6 +191,19 @@ if (!isWeb) {
             backendVersion,
             nativeVersion,
           });
+
+          logger.info(
+            'Changelog evaluation completed',
+            {
+              shouldOpenModal,
+              unreadCount: unreadIds.length,
+              latestChangelogId: latestEntry?.id,
+              appVersion,
+              backendVersion,
+              nativeVersion,
+            },
+            'ChangelogBackgroundTask'
+          );
 
           if (!shouldOpenModal || !latestEntry || unreadIds.length === 0) {
             return {
@@ -203,6 +227,7 @@ if (!isWeb) {
 
           try {
             await settingsService.setLastSeenChangelogId(latestEntry.id);
+            logger.info('Persisted lastSeenChangelogId before scheduling notification', { changelogId: latestEntry.id }, 'ChangelogBackgroundTask');
           } catch (e) {
             logger.warn(
               'Failed to persist lastSeenChangelogId, skipping notification to avoid duplicates',
@@ -216,6 +241,7 @@ if (!isWeb) {
           }
 
           await Notifications.scheduleNotificationAsync({
+            identifier: `changelog-${latestEntry.id}`,
             content: {
               title,
               body,
@@ -223,6 +249,7 @@ if (!isWeb) {
             },
             trigger: null,
           });
+          logger.info('Scheduled changelog local notification', { changelogId: latestEntry.id, notificationIdentifier: `changelog-${latestEntry.id}` }, 'ChangelogBackgroundTask');
 
           return {
             message: 'Changelog notification scheduled',
@@ -246,6 +273,7 @@ if (!isWeb) {
       return runTask(
         NO_PUSH_CHECK_TASK,
         async () => {
+          logger.info('Starting NO_PUSH background check', { hasApolloClient: !!apolloClient }, 'NoPushCheckTask');
           if (!apolloClient) {
             throw new Error('Apollo client not available');
           }
@@ -255,6 +283,7 @@ if (!isWeb) {
             fetchPolicy: 'network-only',
           });
           const notifications: NotificationFragment[] = result.data?.notifications || [];
+          logger.info('Fetched notifications for NO_PUSH check', { totalNotifications: notifications.length }, 'NoPushCheckTask');
 
           if (notifications.length === 0) {
             return { message: 'No notifications found', meta: { notificationCount: 0 } };
@@ -265,6 +294,8 @@ if (!isWeb) {
               notification.message.deliveryType === NotificationDeliveryType.NoPush &&
               !notification.receivedAt
           );
+
+          logger.info('Computed NO_PUSH unreceived notifications', { unreceivedCount: noPushUnreceived.length }, 'NoPushCheckTask');
 
           if (noPushUnreceived.length === 0) {
             return {
@@ -289,6 +320,7 @@ if (!isWeb) {
                 },
                 trigger: null,
               });
+              logger.info('Scheduled NO_PUSH local notification', { notificationId: notification.id }, 'NoPushCheckTask');
             } catch (error) {
               logger.warn(`Failed to schedule notification for ${notification.id}`, error, 'NoPushCheckTask');
             }
@@ -300,9 +332,12 @@ if (!isWeb) {
             try {
               await globalUpdateReceivedNotificationsCallback({ id: latestNotificationId });
               markedReceived = true;
+              logger.info('Marked latest NO_PUSH notification as received', { latestNotificationId }, 'NoPushCheckTask');
             } catch (e) {
               logger.warn('Failed to mark notifications as received', e, 'NoPushCheckTask');
             }
+          } else {
+            logger.info('Skipped mark-as-received: update callback not available', undefined, 'NoPushCheckTask');
           }
 
           return {
@@ -329,10 +364,12 @@ if (!isWeb) {
         CLOUDKIT_SYNC_TASK,
         async () => {
           if (Platform.OS !== 'ios') {
+            logger.info('CloudKit sync task skipped because platform is not iOS', { platform: Platform.OS }, 'Tasks');
             return { message: 'CloudKit sync task skipped (not iOS)' };
           }
           const { default: iosBridgeService } = await import('@/services/ios-bridge');
           const result = await iosBridgeService.retryNSENotificationsToCloudKit();
+          logger.info('CloudKit sync retry completed', { pushedCount: result.count, success: result.success }, 'Tasks');
           return {
             message: 'CloudKit sync task completed',
             meta: { pushedCount: result.count, success: result.success },
@@ -391,6 +428,7 @@ export async function enablePushBackgroundTasks(): Promise<void> {
 
   try {
     const status = await BackgroundFetch.getStatusAsync();
+    logger.info('Background task status retrieved before registration', { status: BackgroundFetch.BackgroundTaskStatus[status] }, 'Tasks');
     if (status === BackgroundFetch.BackgroundTaskStatus.Restricted) {
       logger.warn('Background tasks restricted on this device', { status: BackgroundFetch.BackgroundTaskStatus[status] }, 'Tasks');
       return;
@@ -414,6 +452,7 @@ export async function enablePushBackgroundTasks(): Promise<void> {
     // expo-background-task shares a single BGProcessingTask for all JS tasks and
     // only schedules it when the task count goes from 0 → 1.
     const allTasks = [DB_AUTO_BACKUP_TASK, NOTIFICATION_REFRESH_TASK, CHANGELOG_CHECK_TASK, NO_PUSH_CHECK_TASK, CLOUDKIT_SYNC_TASK];
+    logger.info('Resetting native background-task registrations before re-registering', { tasks: allTasks }, 'Tasks');
     for (const task of allTasks) {
       try { await BackgroundFetch.unregisterTaskAsync(task); } catch {}
     }

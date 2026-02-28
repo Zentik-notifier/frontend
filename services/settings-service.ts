@@ -1160,19 +1160,14 @@ class SettingsService {
 
       await Promise.all(
         keys.map(async (key) => {
-          try {
-            const value = settings[key];
-            if (value !== undefined) {
-              // Save string settings directly, JSON settings as stringified JSON
-              const valueToSave = stringKeys.has(key)
-                ? String(value)
-                : JSON.stringify(value);
-              await settingsRepository.setSetting(key, valueToSave);
-            } else {
-              await settingsRepository.removeSetting(key);
-            }
-          } catch (error) {
-            console.error(`Failed to save setting ${key}:`, error);
+          const value = settings[key];
+          if (value !== undefined) {
+            const valueToSave = stringKeys.has(key)
+              ? String(value)
+              : JSON.stringify(value);
+            await settingsRepository.setSetting(key, valueToSave);
+          } else {
+            await settingsRepository.removeSetting(key);
           }
         })
       );
