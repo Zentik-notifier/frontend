@@ -235,23 +235,25 @@ class IOSNativePushNotificationService {
     private handleNotificationResponse = async (response: Notifications.NotificationResponse) => {
         console.log('[IOSNativePushNotificationService] iOS notification response:', JSON.stringify(response));
 
-        // Extract payload from push notification trigger (where the actual data is stored)
         const pushTrigger = response.notification.request.trigger as any;
-        const payload = pushTrigger?.payload
+        const contentData = response.notification.request.content?.data as Record<string, unknown> | undefined;
+        const payload = pushTrigger?.payload || contentData;
         const notificationId = payload?.nid ?? payload?.notificationId as string | undefined;
+        const changelogId = payload?.changelogId as string | undefined;
 
-        // Background reception (user tapped): report received before handling actions
+        if (changelogId && this.actionCallbacks?.onOpenChangelog) {
+            await this.actionCallbacks.onOpenChangelog(changelogId);
+            return;
+        }
+
         if (notificationId && this.actionCallbacks && this.deviceToken) {
             this.actionCallbacks.pushNotificationReceived(notificationId).catch(console.error);
         }
         const actionIdentifier = response.actionIdentifier;
 
-        // Handle default action (tap on notification)
         if (actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
-            // Check for pending intents when app opens from notification tap
             const hadPendingIntent = await this.processPendingIntents();
 
-            // Only handle default tap if no pending intent was processed
             if (!hadPendingIntent) {
                 await this.handleDefaultTapAction(notificationId, payload);
             }

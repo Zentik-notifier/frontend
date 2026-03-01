@@ -302,6 +302,16 @@ export function useNotificationActions() {
     }
   }, [updateUserDeviceMutation]);
 
+  const onOpenChangelog = useCallback(async (changelogId: string) => {
+    try {
+      await settingsService.setLastSeenChangelogId(changelogId);
+      const { openChangelogModal } = await import('@/services/changelog-modal-service');
+      openChangelogModal();
+    } catch (e) {
+      console.warn('[useNotificationActions] Failed to open changelog from notification tap', e);
+    }
+  }, []);
+
   const pushNotificationReceived = useCallback(async (notificationId: string) => {
     try {
       // Report to server that notification was received
@@ -333,6 +343,7 @@ export function useNotificationActions() {
     onDelete,
     onSnooze,
     onOpenNotification,
+    onOpenChangelog,
     executeAction,
     refreshPushToken,
     pushNotificationReceived,

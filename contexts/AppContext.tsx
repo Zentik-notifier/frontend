@@ -46,6 +46,7 @@ import { registerTranslation } from "react-native-paper-dates";
 import { useSettings } from "../hooks/useSettings";
 import { settingsRepository } from "../services/settings-repository";
 import { applyStoredAppIcon } from "../services/app-icon-service";
+import { registerChangelogModalOpener } from "../services/changelog-modal-service";
 import {
   settingsService,
 } from "../services/settings-service";
@@ -674,10 +675,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }).catch(() => {});
   };
 
-  const openChangelogModal = async () => {
+  const openChangelogModal = useCallback(async () => {
     setIsChangelogModalOpen(true);
     await refetchChangelogs();
-  };
+  }, [refetchChangelogs]);
+
+  useEffect(() => {
+    registerChangelogModalOpener(openChangelogModal);
+    return () => registerChangelogModalOpener(null);
+  }, [openChangelogModal]);
 
   const closeChangelogModal = async () => {
     if (latestChangelog?.id) {

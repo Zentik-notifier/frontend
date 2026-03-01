@@ -149,6 +149,8 @@ if (!isWeb) {
       return runTask(
         CHANGELOG_CHECK_TASK,
         async () => {
+          await settingsService.ensureInitialized();
+
           const apiBase = settingsService.getApiBaseWithPrefix().replace(/\/$/, '');
           logger.info('Starting changelog background check', { apiBase }, 'ChangelogBackgroundTask');
 

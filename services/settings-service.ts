@@ -1,5 +1,5 @@
-import { BehaviorSubject, Observable } from 'rxjs';
-import { distinctUntilChanged, map } from 'rxjs/operators';
+import { BehaviorSubject, Observable, firstValueFrom } from 'rxjs';
+import { distinctUntilChanged, filter, map, take } from 'rxjs/operators';
 import { MediaType, UserSettingType, NotificationFragment } from '@/generated/gql-operations-generated';
 import { ThemePreset } from './theme-presets';
 import { startOfDay, subDays, isWithinInterval } from '@/utils/date-utils';
@@ -445,6 +445,13 @@ class SettingsService {
 
   public get isInitialized$(): Observable<boolean> {
     return this.initializedSubject.asObservable().pipe(distinctUntilChanged());
+  }
+
+  public async ensureInitialized(): Promise<void> {
+    if (this.initializedSubject.value) return;
+    await firstValueFrom(
+      this.initializedSubject.pipe(filter((v) => v), take(1))
+    );
   }
 
   public selectSettings<K extends keyof UserSettings>(key: K): Observable<UserSettings[K]> {
