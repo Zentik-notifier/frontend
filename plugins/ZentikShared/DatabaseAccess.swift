@@ -40,13 +40,19 @@ public class DatabaseAccess {
     private static let DB_MAX_RETRIES: Int = 5  // Max 5 retry attempts
     
     // MARK: - Background suspension protection (0xdead10cc prevention)
-    
+
     /// Set to true when the app is about to be suspended.
     /// Database operations check this flag and abort early to avoid holding
     /// file locks while the process is suspended, which causes the system to
     /// kill the app with termination reason 0xdead10cc.
     private static var isSuspending = false
     private static let suspendLock = NSLock()
+
+    /// The currently open SQLite database handle (if any).
+    /// Used by forceReleaseLockForSuspension() to call sqlite3_interrupt()
+    /// and force in-flight queries to abort, releasing SQLite's internal
+    /// fcntl() locks that flock() alone cannot release.
+    private static var activeDatabase: OpaquePointer?
     
     private static var backgroundObserver: NSObjectProtocol?
     private static var foregroundObserver: NSObjectProtocol?
@@ -91,6 +97,12 @@ public class DatabaseAccess {
     /// Called when the app is about to be suspended to prevent 0xdead10cc.
     private static func forceReleaseLockForSuspension() {
         lockQueue.sync {
+            // Interrupt any running SQLite operation so sqlite3_step() returns
+            // SQLITE_INTERRUPT immediately, allowing the connection to close and
+            // release SQLite's internal fcntl() locks on .db/.wal/.shm files.
+            if let db = activeDatabase {
+                sqlite3_interrupt(db)
+            }
             if lockFileDescriptor != -1 {
                 flock(lockFileDescriptor, LOCK_UN)
                 close(lockFileDescriptor)
@@ -1289,8 +1301,14 @@ public class DatabaseAccess {
                     operationCompleted = true
                     return
                 }
-                
+
+                // Track the active database so forceReleaseLockForSuspension() can
+                // call sqlite3_interrupt() to abort in-flight queries and release
+                // SQLite's internal file locks before the app is suspended.
+                lockQueue.sync { activeDatabase = database }
+
                 defer {
+                    lockQueue.sync { activeDatabase = nil }
                     sqlite3_close(database)
                 }
                 
@@ -1402,6 +1420,16 @@ public class DatabaseAccess {
                 var operationResult: DatabaseOperationResult = .failure("Max retries exceeded")
                 
                 while retries >= 0 && !operationCompleted {
+                    // Bail out immediately if the app is being suspended (prevents 0xdead10cc)
+                    suspendLock.lock()
+                    let suspendingNow = isSuspending
+                    suspendLock.unlock()
+                    if suspendingNow {
+                        print("📱 [\(source)] ⏸️ [\(operationName)] Aborting: app is suspending")
+                        operationResult = .failure("App is suspending")
+                        break
+                    }
+
                     // Check if we're approaching timeout
                     let elapsed = Date().timeIntervalSince(startTime)
                     if elapsed >= timeout * 0.9 {  // 90% of timeout
@@ -1409,14 +1437,14 @@ public class DatabaseAccess {
                         operationResult = .timeout
                         break
                     }
-                    
+
                     operationResult = operation(database, isVerbose)
-                    
+
                     switch operationResult {
                     case .success:
                         // Success, exit retry loop
                         retries = -1
-                        
+
                     case .locked:
                         if retries > 0 {
                             let attempt = DB_MAX_RETRIES - retries
@@ -1428,7 +1456,13 @@ public class DatabaseAccess {
                             print("📱 [\(source)] ❌ [\(operationName)] Max retries exceeded")
                             retries = -1
                         }
-                        
+
+                    case .failure(let msg) where msg.contains("interrupted"):
+                        // sqlite3_interrupt() was called by forceReleaseLockForSuspension()
+                        // — do not retry, let the connection close to release locks.
+                        print("📱 [\(source)] ⏸️ [\(operationName)] Interrupted for background suspension")
+                        retries = -1
+
                     case .failure(let msg) where msg.contains("BUSY") || msg.contains("LOCKED"):
                         if retries > 0 {
                             let attempt = DB_MAX_RETRIES - retries
@@ -1440,11 +1474,11 @@ public class DatabaseAccess {
                             print("📱 [\(source)] ❌ [\(operationName)] Max retries exceeded")
                             retries = -1
                         }
-                        
+
                     case .timeout:
                         print("📱 [\(source)] ⏱️ [\(operationName)] Operation timeout")
                         retries = -1
-                        
+
                     case .failure(let error):
                         print("📱 [\(source)] ❌ [\(operationName)] Operation failed: \(error)")
                         retries = -1
