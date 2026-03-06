@@ -953,6 +953,7 @@ class MediaCacheService {
             [MediaType.Gif]: 0,
             [MediaType.Audio]: 0,
             [MediaType.Icon]: 0,
+            [MediaType.File]: 0,
         };
 
         items.forEach(item => {

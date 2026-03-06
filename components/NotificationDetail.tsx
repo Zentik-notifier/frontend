@@ -456,7 +456,7 @@ export default function NotificationDetail({
         {!!message?.tags?.length && (
           <View style={styles.tagsContainer}>
             {message.tags.map((tag) => (
-              <Chip key={tag} compact style={styles.tagChip}>{tag}</Chip>
+              <Chip key={tag} compact style={styles.tagChip} textStyle={styles.tagChipText}>{tag}</Chip>
             ))}
           </View>
         )}
@@ -712,10 +712,20 @@ const styles = StyleSheet.create({
   tagsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    gap: 4,
+    marginBottom: 4,
   },
   tagChip: {
-    height: 26,
+    borderRadius: 10,
+    marginBottom: 0,
+  },
+  tagChipText: {
+    fontSize: 11,
+    lineHeight: 13,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    marginVertical: 0,
+    marginHorizontal: 0,
   },
   linksContainer: {
     marginTop: 16,

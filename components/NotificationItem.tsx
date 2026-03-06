@@ -375,10 +375,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               contentContainerStyle={styles.tagsContent}
             >
               {notification.message.tags.slice(0, 3).map((tag) => (
-                <Chip key={tag} compact style={styles.tagChip}>{tag}</Chip>
+                <Chip key={tag} compact style={styles.tagChip} textStyle={styles.tagChipText}>{tag}</Chip>
               ))}
               {notification.message.tags.length > 3 && (
-                <Chip compact style={styles.tagChip}>
+                <Chip compact style={styles.tagChip} textStyle={styles.tagChipText}>
                   +{notification.message.tags.length - 3}
                 </Chip>
               )}
@@ -525,7 +525,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   tagChip: {
-    height: 22,
+    borderRadius: 10,
+    marginBottom: 0,
+  },
+  tagChipText: {
+    fontSize: 10,
+    lineHeight: 12,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    marginVertical: 0,
+    marginHorizontal: 0,
   },
   galleryPressable: {
     width: "100%",
