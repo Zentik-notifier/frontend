@@ -29,7 +29,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Icon, IconButton, Surface, Text, useTheme } from "react-native-paper";
+import { Chip, Icon, IconButton, Surface, Text, useTheme } from "react-native-paper";
 import { ExecutionExpandedContent } from "./EntityExecutionsSection";
 import ButtonGroup from "./ui/ButtonGroup";
 import DetailModal from "./ui/DetailModal";
@@ -452,6 +452,15 @@ export default function NotificationDetail({
           />
         )}
 
+        {/* Tags */}
+        {!!message?.tags?.length && (
+          <View style={styles.tagsContainer}>
+            {message.tags.map((tag) => (
+              <Chip key={tag} compact style={styles.tagChip}>{tag}</Chip>
+            ))}
+          </View>
+        )}
+
         {/* Body */}
         {message?.body && (
           <SmartTextRenderer
@@ -699,6 +708,14 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     lineHeight: 24,
     marginBottom: 16,
+  },
+  tagsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  tagChip: {
+    height: 26,
   },
   linksContainer: {
     marginTop: 16,

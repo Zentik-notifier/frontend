@@ -98,6 +98,7 @@ export default function CreateNotification() {
   const [addOpenNotificationAction, setAddOpenNotificationAction] = useState<
     boolean | null
   >(null);
+  const [tags, setTags] = useState<string>("");
   const [snoozeTimes, setSnoozeTimes] = useState<number[] | null>(null);
   const [locale, setLocale] = useState<string>(notificationFormDefaults.locale);
   const [postponeTimes, setPostponeTimes] = useState<number[] | null>(null);
@@ -234,6 +235,7 @@ export default function CreateNotification() {
     setLocale(defaults.locale);
     setShowJsonPreview(defaults.showJsonPreview);
     setTapAction(defaults.tapAction);
+    setTags("");
   };
 
   // Helper function to build the message payload for GraphQL mutation
@@ -252,6 +254,8 @@ export default function CreateNotification() {
 
     if (subtitle.trim()) message.subtitle = subtitle.trim();
     if (body.trim()) message.body = body.trim();
+    const parsedTags = tags.split(",").map((t) => t.trim()).filter(Boolean);
+    if (parsedTags.length > 0) message.tags = parsedTags;
     if (attachments.length > 0) message.attachments = attachments;
     if (sound.trim()) message.sound = sound.trim();
 
@@ -418,6 +422,28 @@ export default function CreateNotification() {
                 placeholder={t("notifications.content.subtitlePlaceholder")}
                 placeholderTextColor={theme.colors.onSurfaceVariant}
                 maxLength={100}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>
+                {t("notifications.tags")}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.outline,
+                    color: theme.colors.onSurface,
+                  },
+                ]}
+                value={tags}
+                onChangeText={setTags}
+                placeholder={t("notifications.addTags")}
+                placeholderTextColor={theme.colors.onSurfaceVariant}
+                autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
 

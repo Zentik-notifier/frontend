@@ -133,6 +133,10 @@ export default function NotificationsList({
       filters.searchQuery = notificationVisualization.searchQuery;
     }
 
+    if (notificationVisualization.selectedTags?.length > 0) {
+      filters.tags = notificationVisualization.selectedTags;
+    }
+
     // Handle time range filters
     if (notificationVisualization.timeRange) {
       const now = new Date();

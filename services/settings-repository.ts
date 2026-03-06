@@ -51,7 +51,12 @@ export class SettingsRepository {
 
     try {
       if (this.isWeb()) {
-        this.db = await openWebStorageDb();
+        const db = await openWebStorageDb();
+        // openWebStorageDb returns {} in SSR/Node.js contexts where IndexedDB is unavailable.
+        // In that case, keep db as null so operations degrade gracefully.
+        if (typeof (db as any)?.get === 'function') {
+          this.db = db;
+        }
       } else {
         this.db = await openSharedCacheDb();
         await this.createTablesIfNeeded();
@@ -103,6 +108,7 @@ export class SettingsRepository {
 
     try {
       if (this.isWeb()) {
+        if (!this.db) return null;
         const webDb = this.db as IDBPDatabase<WebStorageDB>;
         const result = await webDb.get('keyvalue', `app_setting:${key}`);
         return result || null;
@@ -136,6 +142,7 @@ export class SettingsRepository {
     while (true) {
       try {
         if (this.isWeb()) {
+          if (!this.db) return;
           const webDb = this.db as IDBPDatabase<WebStorageDB>;
           await webDb.put('keyvalue', value, `app_setting:${key}`);
         } else {
@@ -180,6 +187,7 @@ export class SettingsRepository {
 
     try {
       if (this.isWeb()) {
+        if (!this.db) return;
         const webDb = this.db as IDBPDatabase<WebStorageDB>;
         await webDb.delete('keyvalue', `app_setting:${key}`);
       } else {
@@ -203,10 +211,11 @@ export class SettingsRepository {
 
     try {
       if (this.isWeb()) {
+        if (!this.db) return new Map();
         const webDb = this.db as IDBPDatabase<WebStorageDB>;
         const allKeys = await webDb.getAllKeys('keyvalue');
         const settingsMap = new Map<string, string>();
-        
+
         for (const key of allKeys) {
           if (typeof key === 'string' && key.startsWith('app_setting:')) {
             const value = await webDb.get('keyvalue', key);
@@ -245,9 +254,10 @@ export class SettingsRepository {
 
     try {
       if (this.isWeb()) {
+        if (!this.db) return;
         const webDb = this.db as IDBPDatabase<WebStorageDB>;
         const allKeys = await webDb.getAllKeys('keyvalue');
-        
+
         for (const key of allKeys) {
           if (typeof key === 'string' && key.startsWith('app_setting:')) {
             await webDb.delete('keyvalue', key);

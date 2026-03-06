@@ -26,6 +26,7 @@ import {
   View,
 } from "react-native";
 import {
+  Chip,
   Icon,
   Surface,
   Text,
@@ -365,6 +366,24 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               enableHtml={enableHtmlRendering}
             />
           )}
+
+          {!!notification.message?.tags?.length && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.tagsRow}
+              contentContainerStyle={styles.tagsContent}
+            >
+              {notification.message.tags.slice(0, 3).map((tag) => (
+                <Chip key={tag} compact style={styles.tagChip}>{tag}</Chip>
+              ))}
+              {notification.message.tags.length > 3 && (
+                <Chip compact style={styles.tagChip}>
+                  +{notification.message.tags.length - 3}
+                </Chip>
+              )}
+            </ScrollView>
+          )}
         </Surface>
 
         {/* Date positioned absolutely in top right */}
@@ -497,6 +516,16 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginBottom: 2,
     marginTop: 1,
+  },
+  tagsRow: {
+    marginTop: 4,
+  },
+  tagsContent: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  tagChip: {
+    height: 22,
   },
   galleryPressable: {
     width: "100%",

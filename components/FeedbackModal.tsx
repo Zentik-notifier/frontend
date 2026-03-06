@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alert, StyleSheet, TextInput, View } from "react-native";
+import { Alert, Keyboard, StyleSheet, TextInput, View } from "react-native";
 import { Checkbox, HelperText, Text, useTheme } from "react-native-paper";
 import { useI18n } from "@/hooks/useI18n";
 import DetailModal from "./ui/DetailModal";
@@ -169,6 +169,8 @@ export default function FeedbackModal({
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
               style={[
                 styles.emailInput,
                 {
@@ -193,6 +195,8 @@ export default function FeedbackModal({
           multiline
           numberOfLines={5}
           textAlignVertical="top"
+          blurOnSubmit={true}
+          returnKeyType="done"
           style={[
             styles.textArea,
             {

@@ -972,6 +972,10 @@
     "errors": {
       "markAllAsReadFailed": "Failed to mark all notifications as read. Please try again."
     },
+    "tags": "Tags",
+    "filterByTags": "Filter by Tags",
+    "addTags": "Add Tags (comma-separated)",
+    "noTags": "No tags",
     "unreadAbove": "Unread",
     "unreadBelow": "Unread",
     "deleteSelected": {

@@ -61,6 +61,7 @@ export interface NotificationVisualization {
   loadOnlyVisible: boolean;
   enableHtmlRendering: boolean;
   isCompactMode: boolean;
+  selectedTags: string[];
 }
 
 export interface ThemeSettings {
@@ -191,6 +192,7 @@ const DEFAULT_SETTINGS: UserSettings = {
     loadOnlyVisible: false,
     enableHtmlRendering: true,
     isCompactMode: true,
+    selectedTags: [],
   },
   notificationsPreferences: {
     unencryptOnBigPayload: false,
@@ -862,6 +864,13 @@ class SettingsService {
       ].filter(Boolean).join(' ').toLowerCase();
 
       if (!searchableText.includes(query)) {
+        return false;
+      }
+    }
+
+    if (filters.selectedTags?.length > 0) {
+      const msgTags = notification.message?.tags ?? [];
+      if (!filters.selectedTags.some((tag) => msgTags.includes(tag))) {
         return false;
       }
     }

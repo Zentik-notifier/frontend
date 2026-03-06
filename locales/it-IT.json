@@ -1043,6 +1043,10 @@
     "errors": {
       "markAllAsReadFailed": "Impossibile segnare tutte le notifiche come lette. Riprova."
     },
+    "tags": "Tag",
+    "filterByTags": "Filtra per Tag",
+    "addTags": "Aggiungi Tag (separati da virgola)",
+    "noTags": "Nessun tag",
     "deleteSelected": {
       "title": "Elimina Notifiche Selezionate",
       "message": "Sei sicuro di voler eliminare {{count}} notifiche selezionate? Questa azione non può essere annullata."

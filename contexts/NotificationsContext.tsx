@@ -177,6 +177,7 @@ export function NotificationsProvider({
     if (filters.selectedBucketIds.length > 0) count++;
     if (filters.showOnlyWithAttachments) count++;
     if (filters.sortBy !== "newest") count++;
+    if (filters.selectedTags?.length > 0) count++;
     dispatch({ type: "SET_ACTIVE_FILTERS_COUNT", payload: count });
   };
 

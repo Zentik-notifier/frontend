@@ -1,5 +1,5 @@
-import React, { ReactNode } from "react";
-import { Dimensions, ScrollView, StyleSheet, View } from "react-native";
+import React, { ReactNode, useEffect, useState } from "react";
+import { Dimensions, Keyboard, Platform, ScrollView, StyleSheet, View } from "react-native";
 import {
   Button,
   Icon,
@@ -39,12 +39,22 @@ export default function DetailModal({
   actions,
 }: DetailModalProps) {
   const theme = useTheme();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   const containerStyle = {
     backgroundColor: theme.colors.surface,
     borderRadius: 12,
     marginHorizontal: 16,
-    marginVertical: 24,
+    marginTop: 24,
+    marginBottom: 24 + keyboardHeight,
     maxHeight: Dimensions.get("window").height * 0.8,
   };
 

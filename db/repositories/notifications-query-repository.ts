@@ -93,6 +93,14 @@ function applyFilters(
     });
   }
 
+  // Filter by tags (OR logic)
+  if (filters.tags && filters.tags.length > 0) {
+    filtered = filtered.filter(n => {
+      const msgTags: string[] = (n.message as any).tags ?? [];
+      return filters.tags!.some(tag => msgTags.includes(tag));
+    });
+  }
+
   return filtered;
 }
 
@@ -239,7 +247,7 @@ export async function queryNotifications(
 
         // If we have complex filters or search, we still need to load everything
         // But for simple queries (e.g., by bucket, by read status), we can optimize
-        const hasComplexFilters = filters?.searchQuery || filters?.createdAfter || filters?.createdBefore;
+        const hasComplexFilters = filters?.searchQuery || filters?.createdAfter || filters?.createdBefore || (filters?.tags && filters.tags.length > 0);
 
         if (hasComplexFilters) {
           // Fallback to full scan for complex queries

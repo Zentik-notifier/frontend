@@ -5,14 +5,16 @@ import { useAppContext } from "@/contexts/AppContext";
 import { NotificationVisualization } from "@/services/settings-service";
 import { useNotificationsContext } from "@/contexts/NotificationsContext";
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, ScrollView, Dimensions } from "react-native";
+import { StyleSheet, View, ScrollView, Dimensions, TextInput as RNTextInput } from "react-native";
 import { DatePickerModal } from "react-native-paper-dates";
 import {
   Button,
+  Chip,
   Icon,
   Modal,
   Portal,
   Text,
+  TextInput,
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
@@ -39,6 +41,7 @@ export default function NotificationVisualizationModal() {
 
   // Local state for date range picker modal
   const [showDateRangePicker, setShowDateRangePicker] = useState(false);
+  const [tagInput, setTagInput] = useState("");
 
   // Sync local state when modal opens or saved filters change
   useEffect(() => {
@@ -85,6 +88,23 @@ export default function NotificationVisualizationModal() {
     setLocalFilters((prev) => ({ ...prev, enableHtmlRendering }));
   };
 
+  const handleAddTag = () => {
+    const tag = tagInput.trim();
+    if (!tag) return;
+    const current = localFilters.selectedTags ?? [];
+    if (!current.includes(tag)) {
+      setLocalFilters((prev) => ({ ...prev, selectedTags: [...current, tag] }));
+    }
+    setTagInput("");
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setLocalFilters((prev) => ({
+      ...prev,
+      selectedTags: (prev.selectedTags ?? []).filter((t) => t !== tag),
+    }));
+  };
+
   const clearAllFilters = () => {
     setLocalFilters({
       hideRead: false,
@@ -97,6 +117,7 @@ export default function NotificationVisualizationModal() {
       loadOnlyVisible: false,
       enableHtmlRendering: true,
       isCompactMode: localFilters.isCompactMode,
+      selectedTags: [],
     });
   };
 
@@ -583,6 +604,51 @@ export default function NotificationVisualizationModal() {
               </View>
             </View>
 
+            {/* Tags Filter */}
+            <View style={styles.section}>
+              <Text
+                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
+              >
+                {t("notifications.filterByTags")}
+              </Text>
+              <View style={styles.tagInputRow}>
+                <TextInput
+                  mode="outlined"
+                  dense
+                  value={tagInput}
+                  onChangeText={setTagInput}
+                  placeholder={t("notifications.tags")}
+                  style={styles.tagInput}
+                  autoCapitalize="none"
+                  returnKeyType="done"
+                  onSubmitEditing={handleAddTag}
+                />
+                <Button
+                  mode="contained-tonal"
+                  compact
+                  onPress={handleAddTag}
+                  disabled={!tagInput.trim()}
+                  style={styles.tagAddButton}
+                >
+                  +
+                </Button>
+              </View>
+              {(localFilters.selectedTags?.length ?? 0) > 0 && (
+                <View style={styles.tagChipsRow}>
+                  {localFilters.selectedTags!.map((tag) => (
+                    <Chip
+                      key={tag}
+                      compact
+                      onClose={() => handleRemoveTag(tag)}
+                      style={styles.filterTagChip}
+                    >
+                      {tag}
+                    </Chip>
+                  ))}
+                </View>
+              )}
+            </View>
+
             {hasActiveFilters && (
               <View
                 style={[
@@ -822,5 +888,25 @@ const styles = StyleSheet.create({
   },
   applyButton: {
     flex: 1,
+  },
+  tagInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  tagInput: {
+    flex: 1,
+  },
+  tagAddButton: {
+    marginTop: 6,
+  },
+  tagChipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 8,
+  },
+  filterTagChip: {
+    height: 28,
   },
 });

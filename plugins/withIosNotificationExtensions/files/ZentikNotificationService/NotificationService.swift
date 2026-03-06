@@ -469,7 +469,12 @@ class NotificationService: UNNotificationServiceExtension {
         if let tapAction = (sensitive["tap"] as? [String: Any]) ?? (sensitive["tp"] as? [String: Any]) {
           updated["tapAction"] = tapAction
         }
-        
+
+        // Handle tags
+        if let tags = sensitive["tg"] as? [String] {
+          updated["tags"] = tags
+        }
+
         content.userInfo = updated
         
         // Log decrypted payload
@@ -534,9 +539,14 @@ class NotificationService: UNNotificationServiceExtension {
       if let tapAction = (userInfo["tap"] as? [String: Any]) ?? (userInfo["tp"] as? [String: Any]) {
         updated["tapAction"] = tapAction
       }
-      
+
+      // Handle tags
+      if let tags = userInfo["tg"] as? [String] {
+        updated["tags"] = tags
+      }
+
       content.userInfo = updated
-      
+
       // Log non-encrypted payload
       var payloadMeta: [String: Any] = [
         "title": content.title,
@@ -1849,6 +1859,7 @@ class NotificationService: UNNotificationServiceExtension {
       "deliveryType": deliveryTypeForDB,
       "locale": NSNull(),
       "snoozes": NSNull(),
+      "tags": (userInfo["tags"] as? [String]) ?? NSNull(),
       "createdAt": now,
       "updatedAt": now
     ]

@@ -975,6 +975,10 @@ export interface Translation {
     errors: {
       markAllAsReadFailed: string;
     };
+    tags: string;
+    filterByTags: string;
+    addTags: string;
+    noTags: string;
     unreadAbove: string;
     unreadBelow: string;
     deleteSelected: {

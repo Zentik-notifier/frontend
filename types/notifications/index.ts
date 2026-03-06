@@ -48,6 +48,9 @@ export interface NotificationFilters {
   
   /** Search in title/body/subtitle */
   searchQuery?: string;
+
+  /** Filter by tags (OR logic: show if notification has at least one of these tags) */
+  tags?: string[];
 }
 
 /**

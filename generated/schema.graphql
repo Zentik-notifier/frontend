@@ -42,6 +42,7 @@ type Attachment {
   id: ID!
   mediaType: MediaType
   messageId: String
+  mime: String
   originalFilename: String
   size: Float
   updatedAt: DateTime!
@@ -209,6 +210,7 @@ input CreateMessageDto {
   snoozes: [Float!]
   sound: String
   subtitle: String
+  tags: [String!]
   tapAction: NotificationActionDto
   tapUrl: String
   title: String!
@@ -580,6 +582,7 @@ type MassMarkResult {
 
 enum MediaType {
   AUDIO
+  FILE
   GIF
   ICON
   IMAGE
@@ -613,6 +616,7 @@ type Message {
   snoozes: [Float!]
   sound: String
   subtitle: String
+  tags: [String!]
   tapAction: NotificationAction
   title: String!
   updatedAt: DateTime!
@@ -621,6 +625,7 @@ type Message {
 type MessageAttachment {
   attachmentUuid: String
   mediaType: MediaType!
+  mime: String
   name: String
   saveOnServer: Boolean
   url: String
@@ -826,6 +831,7 @@ enum NotificationActionType {
 input NotificationAttachmentDto {
   attachmentUuid: String
   mediaType: MediaType!
+  mime: String
   name: String
   saveOnServer: Boolean
   url: String

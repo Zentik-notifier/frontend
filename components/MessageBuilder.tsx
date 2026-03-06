@@ -70,6 +70,7 @@ export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
   const [delayMinutes, setDelayMinutes] = useState("");
   const [remindEveryMinutes, setRemindEveryMinutes] = useState("");
   const [maxReminders, setMaxReminders] = useState("");
+  const [tags, setTags] = useState("");
   const [optionsExpanded, setOptionsExpanded] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -195,6 +196,8 @@ export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
       const maxRemindersNum =
         maxReminders.trim() !== "" ? parseInt(maxReminders, 10) : undefined;
 
+      const parsedTags = tags.split(",").map((t) => t.trim()).filter(Boolean);
+
       const createMessageDto: CreateMessageDto = {
         bucketId,
         title: messageData.title!,
@@ -209,6 +212,7 @@ export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
         addOpenNotificationAction,
         snoozes: snoozeTimes,
         postpones: postponeTimes,
+        ...(parsedTags.length > 0 && { tags: parsedTags }),
         ...(scheduledSendAt && { scheduledSendAt }),
         ...(remindEvery != null && remindEvery >= 1 && { remindEveryMinutes: remindEvery }),
         ...(maxRemindersNum != null && maxRemindersNum >= 1 && { maxReminders: maxRemindersNum }),
@@ -239,6 +243,7 @@ export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
       setDelayMinutes("");
       setRemindEveryMinutes("");
       setMaxReminders("");
+      setTags("");
 
       hideModal();
     } catch (error) {
@@ -252,6 +257,7 @@ export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
     addOpenNotificationAction,
     snoozeTimes,
     postponeTimes,
+    tags,
     scheduleSendEnabled,
     delayMinutes,
     remindEveryMinutes,
@@ -298,6 +304,7 @@ export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
     setDelayMinutes("");
     setRemindEveryMinutes("");
     setMaxReminders("");
+    setTags("");
   }, []);
 
   const deliveryTypeOptions: SelectorOption[] = [
@@ -585,6 +592,18 @@ export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
                             value={messageData.subtitle ?? ""}
                             onChangeText={(text) => setMessageData((prev) => ({ ...prev, subtitle: text }))}
                             placeholder={t("compose.messageBuilder.subtitlePlaceholder")}
+                            style={styles.textInput}
+                          />
+                        </View>
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.inputLabel}>{t("notifications.tags")}</Text>
+                          <TextInput
+                            mode="outlined"
+                            value={tags}
+                            onChangeText={setTags}
+                            placeholder={t("notifications.addTags")}
+                            autoCapitalize="none"
+                            autoCorrect={false}
                             style={styles.textInput}
                           />
                         </View>

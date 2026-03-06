@@ -83,6 +83,7 @@ fragment MessageFragment on Message {
   sound
   deliveryType
   locale
+  tags
   snoozes
   executionId
   bucket {
