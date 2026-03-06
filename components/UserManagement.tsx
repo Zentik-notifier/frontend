@@ -98,7 +98,7 @@ export default function UserManagement() {
   const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data, loading, error, refetch } = useGetAllUsersQuery();
+  const { data, loading, error, refetch } = useGetAllUsersQuery({ fetchPolicy: "cache-and-network" });
   const [createUser] = useAdminCreateUserMutation();
   const [deleteUser] = useAdminDeleteUserMutation();
 

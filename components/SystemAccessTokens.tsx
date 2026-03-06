@@ -36,7 +36,7 @@ export default function SystemAccessTokens() {
 
   const disabledActions = isOfflineAuth || isBackendUnreachable;
 
-  const { data, loading, refetch, error } = useGetSystemAccessTokensQuery();
+  const { data, loading, refetch, error } = useGetSystemAccessTokensQuery({ fetchPolicy: "cache-and-network" });
   const [revokeSystemToken] = useRevokeSystemAccessTokenMutation();
 
   const handleRefresh = async () => {

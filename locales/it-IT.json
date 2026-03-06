@@ -2817,6 +2817,7 @@
       "useCustomServer": "Usa server personalizzato",
       "customServerUrl": "URL Server Personalizzato",
       "customServerPlaceholder": "https://tuo-server.com",
+      "customServerUrlHint": "Inserisci l'URL completo incluso il protocollo (https://). Non aggiungere slash finale o percorsi.",
       "testConnection": "Testa Connessione",
       "enterServerUrl": "Inserisci un URL del server",
       "connectionSuccessful": "Connessione al server riuscita!",

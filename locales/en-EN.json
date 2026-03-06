@@ -2812,6 +2812,7 @@
       "useCustomServer": "Use custom server",
       "customServerUrl": "Custom Server URL",
       "customServerPlaceholder": "https://your-server.com",
+      "customServerUrlHint": "Enter the full URL including protocol (https://). Do not include a trailing slash or path.",
       "testConnection": "Test Connection",
       "enterServerUrl": "Enter server URL",
       "connectionSuccessful": "Connection to server successful!",

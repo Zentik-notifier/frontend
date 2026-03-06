@@ -135,6 +135,9 @@ const Step1 = memo(() => {
                 returnKeyType="done"
                 onSubmitEditing={() => Keyboard.dismiss()}
               />
+              <Text variant="bodySmall" style={styles.inputHint}>
+                {t("onboardingV2.step1.customServerUrlHint")}
+              </Text>
               <Button
                 mode="contained-tonal"
                 onPress={testServerConnection}
@@ -332,7 +335,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   input: {
+    marginBottom: 4,
+  },
+  inputHint: {
+    opacity: 0.6,
     marginBottom: 8,
+    marginHorizontal: 4,
   },
   testButton: {
     marginTop: 8,

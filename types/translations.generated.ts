@@ -2815,6 +2815,7 @@ export interface Translation {
       useCustomServer: string;
       customServerUrl: string;
       customServerPlaceholder: string;
+      customServerUrlHint: string;
       testConnection: string;
       enterServerUrl: string;
       connectionSuccessful: string;

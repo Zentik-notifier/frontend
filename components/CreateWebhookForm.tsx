@@ -117,6 +117,7 @@ export default function CreateWebhookForm({
 
   const [updateWebhookMutation, { loading: updatingWebhook }] =
     useUpdateWebhookMutation({
+      refetchQueries: [GetUserWebhooksDocument],
       onCompleted: (data) => {
         router.back();
       },

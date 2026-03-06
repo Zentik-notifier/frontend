@@ -70,7 +70,9 @@ export default function SystemAccessTokenForm({
       }
     },
   });
-  const [updateSystemToken] = useUpdateSystemAccessTokenMutation();
+  const [updateSystemToken] = useUpdateSystemAccessTokenMutation({
+    refetchQueries: [GetSystemAccessTokensDocument],
+  });
 
   const {
     data: usersData,

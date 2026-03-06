@@ -97,6 +97,7 @@ export default function CreateExternalNotifySystemForm({
   });
 
   const [updateMutation, { loading: updating }] = useUpdateExternalNotifySystemMutation({
+    refetchQueries: [GetExternalNotifySystemsDocument],
     onCompleted: () => router.back(),
     onError: (err) => {
       setErrorMessage(err.message || t("externalServers.updateErrorMessage"));

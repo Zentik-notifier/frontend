@@ -337,7 +337,7 @@ export default function CreatePayloadMapperForm({
     });
 
   const [updatePayloadMapperMutation, { loading: updatingPayloadMapper }] =
-    useUpdatePayloadMapperMutation();
+    useUpdatePayloadMapperMutation({ refetchQueries: [GetPayloadMappersDocument] });
 
   const [deletePayloadMapperMutation, { loading: deletingPayloadMapper }] =
     useDeletePayloadMapperMutation({

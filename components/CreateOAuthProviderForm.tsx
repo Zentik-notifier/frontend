@@ -46,7 +46,7 @@ export default function CreateOAuthProviderForm({
   const [createOAuthProvider, { loading: creating }] =
     useCreateOAuthProviderMutation();
   const [updateOAuthProvider, { loading: updating }] =
-    useUpdateOAuthProviderMutation();
+    useUpdateOAuthProviderMutation({ refetchQueries: [AllOAuthProvidersDocument] });
 
   const isSaving = creating || updating;
 

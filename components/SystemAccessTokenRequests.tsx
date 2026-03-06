@@ -2,6 +2,7 @@ import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Button, Text } from "react-native-paper";
 import {
+  GetSystemAccessTokensDocument,
   SystemAccessTokenRequestFragment,
   useSystemAccessTokenRequestsQuery,
   useApproveSystemAccessTokenRequestMutation,
@@ -24,7 +25,9 @@ export default function SystemAccessTokenRequestsManagement({
   const { data, refetch } = useSystemAccessTokenRequestsQuery({
     fetchPolicy: "cache-and-network",
   });
-  const [approveRequest] = useApproveSystemAccessTokenRequestMutation();
+  const [approveRequest] = useApproveSystemAccessTokenRequestMutation({
+    refetchQueries: [GetSystemAccessTokensDocument],
+  });
   const [declineRequest] = useDeclineSystemAccessTokenRequestMutation();
 
   const requests = (data?.systemAccessTokenRequests || []).filter(
