@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useMemo, useState, useEffect } from "react";
-import { Platform, StyleSheet, View, Keyboard } from "react-native";
+import { KeyboardAvoidingView, Platform, StyleSheet, View, Keyboard } from "react-native";
 import { Button, Modal, Portal, Text, useTheme } from "react-native-paper";
 import { OnboardingProvider, useOnboarding } from "./OnboardingContext";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
@@ -255,7 +255,8 @@ const OnboardingModalV2Content: React.FC<OnboardingModalProps> = memo(
 
     return (
       <Modal visible onDismiss={handleSkip}>
-        <View
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={[
             styles.modalContent,
             { backgroundColor: theme.colors.background },
@@ -265,7 +266,7 @@ const OnboardingModalV2Content: React.FC<OnboardingModalProps> = memo(
           <ProgressIndicator />
           <StepRenderer push={push} />
           <NavigationButtons onClose={onClose} />
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     );
   }
