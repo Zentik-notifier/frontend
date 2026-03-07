@@ -3,6 +3,7 @@ import { Alert, Keyboard, StyleSheet, TextInput, View } from "react-native";
 import { Checkbox, HelperText, Text, useTheme } from "react-native-paper";
 import { useI18n } from "@/hooks/useI18n";
 import DetailModal from "./ui/DetailModal";
+import CommunityLinks from "./ui/CommunityLinks";
 import { useAppLog } from "@/hooks/useAppLog";
 import { useGetMeQuery } from "@/generated/gql-operations-generated";
 
@@ -213,6 +214,8 @@ export default function FeedbackModal({
             {validationError}
           </HelperText>
         )}
+
+        <CommunityLinks />
       </View>
     </DetailModal>
   );

@@ -1374,7 +1374,11 @@
     "download": "Download",
     "actions": "Actions",
     "selectAll": "Select All",
-    "deselectAll": "Deselect All"
+    "deselectAll": "Deselect All",
+    "discord": "Discord",
+    "github": "GitHub",
+    "documentation": "Documentation",
+    "communitySupport": "Need help? Join our community"
   },
   "notificationDetail": {
     "loading": "Loading notification...",

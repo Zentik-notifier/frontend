@@ -1,15 +1,28 @@
 import { useAppContext } from "@/contexts/AppContext";
-import { UserRole, useGetMeQuery, usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
+import {
+  UserRole,
+  useGetMeQuery,
+  usePublicAppConfigQuery,
+} from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppTheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
 import { Image } from "expo-image";
-import { Linking, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Avatar, Icon, Menu, Surface, Text, TouchableRipple, useTheme } from "react-native-paper";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  Avatar,
+  Icon,
+  Menu,
+  Surface,
+  Text,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { VersionInfo } from "./VersionInfo";
 import PaperMenu from "./ui/PaperMenu";
+import CommunityLinks from "./ui/CommunityLinks";
 
 interface UserDropdownProps {
   isMenuOpen: boolean;
@@ -25,7 +38,12 @@ export default function UserDropdown({
   const theme = useTheme();
   const { themeMode, setThemeMode } = useAppTheme();
   const { t } = useI18n();
-  const { navigateToSettings, navigateToAdmin, navigateToSelfService, navigateToChangelogs } = useNavigationUtils();
+  const {
+    navigateToSettings,
+    navigateToAdmin,
+    navigateToSelfService,
+    navigateToChangelogs,
+  } = useNavigationUtils();
 
   const { data: userData } = useGetMeQuery();
   const { data: providersData } = usePublicAppConfigQuery();
@@ -123,6 +141,14 @@ export default function UserDropdown({
             </Text>
           </View>
         </View>
+        <View
+          style={[
+            styles.communityRow,
+            { borderBottomColor: theme.colors.outlineVariant },
+          ]}
+        >
+          <CommunityLinks iconsOnly iconSize={24} />
+        </View>
 
         {/* Getting Started */}
         <Menu.Item
@@ -135,21 +161,15 @@ export default function UserDropdown({
           titleStyle={{ color: theme.colors.onSurface }}
         />
 
-        {/* Documentation */}
-        <Menu.Item
-          onPress={() => {
-            Linking.openURL("https://notifier-docs.zentik.app");
-            closeMenu();
-          }}
-          title={t("userDropdown.documentation")}
-          leadingIcon="book-outline"
-          titleStyle={{ color: theme.colors.onSurface }}
-        />
-
         {/* Theme Toggle */}
         <TouchableRipple
           onPress={() => {
-            const next = themeMode === "system" ? "light" : themeMode === "light" ? "dark" : "system";
+            const next =
+              themeMode === "system"
+                ? "light"
+                : themeMode === "light"
+                  ? "dark"
+                  : "system";
             setThemeMode(next);
           }}
           style={styles.themeToggleRow}
@@ -309,5 +329,10 @@ const styles = StyleSheet.create({
   themeToggleRow: {
     paddingHorizontal: 16,
     paddingVertical: 10,
+  },
+  communityRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
   },
 });

@@ -17,6 +17,7 @@ import {
   useTheme,
 } from "react-native-paper";
 import Selector, { SelectorOption } from "@/components/ui/Selector";
+import CommunityLinks from "@/components/ui/CommunityLinks";
 import { useOnboarding } from "./OnboardingContext";
 
 const Step1 = memo(() => {
@@ -186,6 +187,8 @@ const Step1 = memo(() => {
             </View>
           )}
         </View>
+
+        <CommunityLinks />
 
         {externalNotifySystemsEnabled && (
           <View style={styles.section}>

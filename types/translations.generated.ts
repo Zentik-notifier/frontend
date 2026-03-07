@@ -1378,6 +1378,10 @@ export interface Translation {
     actions: string;
     selectAll: string;
     deselectAll: string;
+    discord: string;
+    github: string;
+    documentation: string;
+    communitySupport: string;
   };
   notificationDetail: {
     loading: string;
