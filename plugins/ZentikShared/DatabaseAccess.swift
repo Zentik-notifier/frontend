@@ -1309,7 +1309,15 @@ public class DatabaseAccess {
 
                 defer {
                     lockQueue.sync { activeDatabase = nil }
-                    sqlite3_close(database)
+                    // Use sqlite3_close_v2 to avoid re-acquiring WAL file locks
+                    // during close. If the app is suspending, skip close entirely
+                    // to prevent 0xdead10cc — the OS will reclaim file descriptors.
+                    suspendLock.lock()
+                    let closeSuspending = isSuspending
+                    suspendLock.unlock()
+                    if !closeSuspending {
+                        sqlite3_close_v2(database)
+                    }
                 }
                 
                 // Configure SQLite for concurrent access with WAL mode
