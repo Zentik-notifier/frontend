@@ -22,7 +22,7 @@ class CKSyncBridge: RCTEventEmitter {
     @objc override static func requiresMainQueueSetup() -> Bool { false }
 
     override func supportedEvents() -> [String]! {
-        ["onCloudKitDataUpdated"]
+        ["onCloudKitDataUpdated", "watchLogsTransferProgress"]
     }
 
     override func startObserving() {
