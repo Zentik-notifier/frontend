@@ -970,6 +970,9 @@ export interface Translation {
     sendButton: string;
     resetForm: string;
     loadTestData: string;
+    scheduledSend: string;
+    scheduledSendDescription: string;
+    scheduledSendPlaceholder: string;
     warningNotRegistered: string;
     sendErrorTitle: string;
     errors: {
@@ -2493,6 +2496,7 @@ export interface Translation {
     inProgress: string;
     queued: string;
     completed: string;
+    open: string;
   };
   messageReminders: {
     title: string;
