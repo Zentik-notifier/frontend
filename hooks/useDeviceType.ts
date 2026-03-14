@@ -1,7 +1,7 @@
-import * as Device from 'expo-device';
-import { useMemo } from 'react';
+import * as Device from "expo-device";
+import { useMemo } from "react";
 import { Platform, useWindowDimensions } from "react-native";
-import { useSettings } from './useSettings';
+import { useSettings } from "./useSettings";
 
 export function useDeviceType() {
   const { width } = useWindowDimensions();
@@ -10,20 +10,32 @@ export function useDeviceType() {
 
   return useMemo(() => {
     const isReady = width > 0;
-    const isAutoLayout = layout === 'auto';
+    const isAutoLayout = layout === "auto";
+
+    // On web, expo-device always reports DESKTOP — use touch detection + width instead
+    const isWebMobileDevice =
+      Platform.OS === "web" &&
+      typeof window !== "undefined" &&
+      (window.matchMedia("(pointer: coarse)").matches ||
+        "ontouchstart" in window ||
+        navigator.maxTouchPoints > 0);
 
     let deviceType: Device.DeviceType;
     if (isAutoLayout) {
-      deviceType = Device.deviceType ?? Device.DeviceType.PHONE;
+      if (Platform.OS === "web" && isWebMobileDevice) {
+        deviceType = Device.DeviceType.PHONE;
+      } else {
+        deviceType = Device.deviceType ?? Device.DeviceType.PHONE;
+      }
     } else {
       switch (layout) {
-        case 'desktop':
+        case "desktop":
           deviceType = Device.DeviceType.DESKTOP;
           break;
-        case 'tablet':
+        case "tablet":
           deviceType = Device.DeviceType.TABLET;
           break;
-        case 'mobile':
+        case "mobile":
           deviceType = Device.DeviceType.PHONE;
           break;
         default:
@@ -32,7 +44,8 @@ export function useDeviceType() {
     }
 
     const isVerySmallDevice = isAutoLayout && width > 0 && width < 850;
-    const isMobile = deviceType === Device.DeviceType.PHONE || isVerySmallDevice;
+    const isMobile =
+      deviceType === Device.DeviceType.PHONE || isVerySmallDevice;
     const isTablet = !isMobile && deviceType === Device.DeviceType.TABLET;
     const isDesktop = !isMobile && deviceType === Device.DeviceType.DESKTOP;
 
@@ -42,13 +55,19 @@ export function useDeviceType() {
     }
     if (Platform.OS === "web" && typeof window !== "undefined") {
       // Check if device has touch capability
-      isSwipeableEnabled = (
+      isSwipeableEnabled =
         window.matchMedia("(pointer: coarse)").matches ||
         "ontouchstart" in window ||
-        navigator.maxTouchPoints > 0
-      );
+        navigator.maxTouchPoints > 0;
     }
 
-    return { isReady, deviceType, isMobile, isTablet, isDesktop, isSwipeableEnabled }
+    return {
+      isReady,
+      deviceType,
+      isMobile,
+      isTablet,
+      isDesktop,
+      isSwipeableEnabled,
+    };
   }, [layout, width]);
 }

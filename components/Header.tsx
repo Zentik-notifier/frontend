@@ -121,6 +121,7 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(phone)/(settings)/message-reminders": "messageReminders.title",
   "/(phone)/(settings)/user/change-password": "changePassword.title",
   "/(phone)/(settings)/user/profile": "userProfile.title",
+  "/(phone)/(settings)/user/attachments": "userAttachments.title",
   "/(phone)/(home)/notification/[id]": "notificationDetail.title",
   "/(desktop)/(admin)/user-management/list": "administration.userManagement",
   "/(phone)/(admin)/user-management/list": "administration.userManagement",
@@ -140,6 +141,7 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(desktop)/(settings)/message-reminders": "messageReminders.title",
   "/(desktop)/(settings)/user/profile": "userProfile.title",
   "/(desktop)/(settings)/user/change-password": "changePassword.title",
+  "/(desktop)/(settings)/user/attachments": "userAttachments.title",
   "/(desktop)/(admin)/user-management/[id]": "administration.userDetails",
   "/(phone)/(admin)/user-management/[id]": "administration.userDetails",
   "/(phone)/(admin)/oauth-providers/create":

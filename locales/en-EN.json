@@ -967,6 +967,9 @@
     "sendButton": "Send Notification",
     "resetForm": "Reset Form",
     "loadTestData": "Load Test Data",
+    "scheduledSend": "Schedule Send",
+    "scheduledSendDescription": "Delay the notification delivery by a specified number of minutes",
+    "scheduledSendPlaceholder": "Delay in minutes (e.g. 60)",
     "warningNotRegistered": "⚠️ Device not registered for push notifications, but notification will still be sent",
     "sendErrorTitle": "Error",
     "errors": {
@@ -2489,7 +2492,8 @@
     "clear": "Clear history",
     "inProgress": "In progress",
     "queued": "Queued",
-    "completed": "Completed"
+    "completed": "Completed",
+    "open": "Open"
   },
   "messageReminders": {
     "title": "Pending messages",

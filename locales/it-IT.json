@@ -1038,6 +1038,9 @@
     "sendButton": "Invia Notifica",
     "resetForm": "Ripristina Form",
     "loadTestData": "Carica Dati di Test",
+    "scheduledSend": "Invio Programmato",
+    "scheduledSendDescription": "Ritarda la consegna della notifica di un numero specificato di minuti",
+    "scheduledSendPlaceholder": "Ritardo in minuti (es. 60)",
     "warningNotRegistered": "⚠️ Dispositivo non registrato per le notifiche push, ma la notifica verrà comunque inviata",
     "sendErrorTitle": "Errore",
     "errors": {
@@ -2727,7 +2730,8 @@
     "clear": "Cancella cronologia",
     "inProgress": "In corso",
     "queued": "In coda",
-    "completed": "Completati"
+    "completed": "Completati",
+    "open": "Apri"
   },
   "messageReminders": {
     "title": "Messaggi in sospeso",

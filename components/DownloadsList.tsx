@@ -1,8 +1,8 @@
 import { downloadHistoryService, DownloadHistoryEntry } from "@/services/download-history-service";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useCallback, useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
-import { List, Text, useTheme } from "react-native-paper";
+import { Alert, Linking, Platform, StyleSheet, View } from "react-native";
+import { IconButton, List, Menu, Text, useTheme } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
 import { useDownloadQueue } from "@/hooks/useMediaCache";
 import { MediaType } from "@/generated/gql-operations-generated";
@@ -25,8 +25,18 @@ function formatSize(bytes?: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function DownloadEntryRow({ entry }: { entry: DownloadHistoryEntry }) {
+function DownloadEntryRow({
+  entry,
+  onDelete,
+  onOpen,
+}: {
+  entry: DownloadHistoryEntry;
+  onDelete: (id: string) => void;
+  onOpen: (url: string) => void;
+}) {
   const theme = useTheme();
+  const { t } = useI18n();
+  const [menuVisible, setMenuVisible] = useState(false);
   const { item: cachedItem } = useCachedItem(entry.url, entry.mediaType, { force: false });
   const previewUri =
     cachedItem?.localPath &&
@@ -67,6 +77,34 @@ function DownloadEntryRow({ entry }: { entry: DownloadHistoryEntry }) {
           {formatDate(entry.completedAt)} · {formatSize(entry.size)}
         </Text>
       </View>
+      <Menu
+        visible={menuVisible}
+        onDismiss={() => setMenuVisible(false)}
+        anchor={
+          <IconButton
+            icon="dots-vertical"
+            size={20}
+            onPress={() => setMenuVisible(true)}
+          />
+        }
+      >
+        <Menu.Item
+          leadingIcon="open-in-new"
+          onPress={() => {
+            setMenuVisible(false);
+            onOpen(entry.url);
+          }}
+          title={t("downloads.open")}
+        />
+        <Menu.Item
+          leadingIcon="delete"
+          onPress={() => {
+            setMenuVisible(false);
+            onDelete(entry.id);
+          }}
+          title={t("common.delete")}
+        />
+      </Menu>
     </View>
   );
 }
@@ -118,6 +156,19 @@ export default function DownloadsList() {
     setEntries([]);
   }, []);
 
+  const handleDeleteEntry = useCallback(async (id: string) => {
+    await downloadHistoryService.removeEntry(id);
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+
+  const handleOpenEntry = useCallback((url: string) => {
+    if (Platform.OS === "web") {
+      window.open(url, "_blank");
+    } else {
+      Linking.openURL(url).catch(() => {});
+    }
+  }, []);
+
   const hasQueue =
     queueState.isProcessing ||
     (queueState.currentItem != null) ||
@@ -155,7 +206,12 @@ export default function DownloadsList() {
         {entries.length > 0 ? (
           <List.Section title={t("downloads.completed")} style={styles.section}>
             {entries.map((entry) => (
-              <DownloadEntryRow key={entry.id} entry={entry} />
+              <DownloadEntryRow
+                key={entry.id}
+                entry={entry}
+                onDelete={handleDeleteEntry}
+                onOpen={handleOpenEntry}
+              />
             ))}
           </List.Section>
         ) : !hasQueue ? (

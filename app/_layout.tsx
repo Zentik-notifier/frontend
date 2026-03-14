@@ -11,6 +11,7 @@ import { useNavigationUtils } from "@/utils/navigation";
 import { getCustomScheme } from "@/utils/universal-links";
 import { useFonts } from "expo-font";
 import * as Linking from "expo-linking";
+import { Redirect, useSegments } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { InteractionManager, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -89,9 +90,21 @@ function DeepLinkHandler() {
 
 function AppContent() {
   const { isMobile } = useDeviceType();
+  const segments = useSegments() as string[];
+  const { homeRoute } = useNavigationUtils();
 
   // Handle foreground notifications with toast
   // useForegroundNotificationHandler();
+
+  // Redirect to the correct route group when device type doesn't match the current path
+  const isOnDesktopRoute = segments[0] === "(desktop)";
+  const isOnPhoneRoute = segments[0] === "(phone)";
+  if (isMobile && isOnDesktopRoute) {
+    return <Redirect href={homeRoute} />;
+  }
+  if (!isMobile && isOnPhoneRoute) {
+    return <Redirect href={homeRoute} />;
+  }
 
   return (
     <AppProvider>

@@ -48,6 +48,12 @@ export const downloadHistoryService = {
     return entries.sort((a, b) => b.completedAt - a.completedAt);
   },
 
+  async removeEntry(id: string): Promise<void> {
+    const entries = await readEntries();
+    const filtered = entries.filter((e) => e.id !== id);
+    await writeEntries(filtered);
+  },
+
   async clear(): Promise<void> {
     await AsyncStorage.removeItem(DOWNLOADS_HISTORY_KEY);
   },

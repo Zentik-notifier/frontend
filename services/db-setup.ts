@@ -115,7 +115,7 @@ function isIndexedDBAvailable(): boolean {
  * This helper waits (with a timeout) until indexedDB appears before
  * attempting to open the database.
  */
-async function waitForIndexedDB(timeoutMs: number = 10000, intervalMs: number = 100): Promise<void> {
+async function waitForIndexedDB(timeoutMs: number = 2000, intervalMs: number = 100): Promise<void> {
   // Only relevant on web; on native we skip the check
   if (Platform.OS !== 'web') return;
 
@@ -987,6 +987,20 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
     return {} as IDBPDatabase<WebStorageDB>;
   }
 
+  // Cache the promise immediately to prevent duplicate initialization attempts
+  const initPromise = initWebStorageDb();
+  webDbPromise = initPromise;
+
+  try {
+    return await initPromise;
+  } catch (error) {
+    // Clear the cached promise on failure so a future call can retry
+    webDbPromise = null;
+    throw error;
+  }
+}
+
+async function initWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
   try {
     await waitForIndexedDB();
     // If indexedDB is still not available (e.g. during SSR / Node build),
@@ -1003,7 +1017,7 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
       throw new Error('IndexedDB not available');
     }
 
-    webDbPromise = openDB<WebStorageDB>('zentik-storage', 9, {
+    return await openDB<WebStorageDB>('zentik-storage', 9, {
       upgrade(db, oldVersion, newVersion, transaction) {
         if (!db.objectStoreNames.contains('keyvalue')) {
           db.createObjectStore('keyvalue');
@@ -1068,8 +1082,6 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
 
     throw error;
   }
-
-  return webDbPromise;
 }
 
 /**

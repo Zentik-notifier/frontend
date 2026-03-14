@@ -110,6 +110,8 @@ export default function CreateNotification() {
   const [previewFormat, setPreviewFormat] = useState<"json" | "curl">("curl");
   const [groupId, setGroupId] = useState<string>("");
   const [collapseId, setCollapseId] = useState<string>("");
+  const [scheduleSendEnabled, setScheduleSendEnabled] = useState(false);
+  const [scheduleSendMinutes, setScheduleSendMinutes] = useState<string>("");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [targetingMode, setTargetingMode] = useState<
     "bucket+token" | "magicCode"
@@ -236,6 +238,8 @@ export default function CreateNotification() {
     setShowJsonPreview(defaults.showJsonPreview);
     setTapAction(defaults.tapAction);
     setTags("");
+    setScheduleSendEnabled(false);
+    setScheduleSendMinutes("");
   };
 
   // Helper function to build the message payload for GraphQL mutation
@@ -290,6 +294,16 @@ export default function CreateNotification() {
     // Add tapAction to the message
     if (tapAction) {
       message.tapAction = tapAction;
+    }
+
+    // Add scheduledSendAt if enabled
+    if (scheduleSendEnabled && scheduleSendMinutes.trim()) {
+      const minutes = parseInt(scheduleSendMinutes, 10);
+      if (!isNaN(minutes) && minutes > 0) {
+        message.scheduledSendAt = new Date(
+          Date.now() + minutes * 60 * 1000
+        ).toISOString();
+      }
     }
 
     return message;
@@ -951,6 +965,56 @@ export default function CreateNotification() {
                 placeholder={t("notifications.targeting.collapseIdPlaceholder")}
                 placeholderTextColor={theme.colors.onSurfaceVariant}
               />
+            </View>
+
+            {/* Scheduled Send Section */}
+            <View style={styles.field}>
+              <View style={styles.switchRow}>
+                <View style={styles.switchLabelContainer}>
+                  <Text
+                    style={[
+                      styles.switchLabel,
+                      { color: theme.colors.onSurface },
+                    ]}
+                  >
+                    {t("notifications.scheduledSend")}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.switchDescription,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {t("notifications.scheduledSendDescription")}
+                  </Text>
+                </View>
+                <Switch
+                  value={scheduleSendEnabled}
+                  onValueChange={setScheduleSendEnabled}
+                  trackColor={{
+                    false: theme.colors.outline,
+                    true: theme.colors.primary,
+                  }}
+                />
+              </View>
+              {scheduleSendEnabled && (
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    {
+                      backgroundColor: theme.colors.surface,
+                      borderColor: theme.colors.outline,
+                      color: theme.colors.onSurface,
+                      marginTop: 8,
+                    },
+                  ]}
+                  value={scheduleSendMinutes}
+                  onChangeText={setScheduleSendMinutes}
+                  placeholder={t("notifications.scheduledSendPlaceholder")}
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                  keyboardType="numeric"
+                />
+              )}
             </View>
 
             {/* User Selection Section */}

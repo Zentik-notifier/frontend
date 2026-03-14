@@ -101,6 +101,7 @@ const settingSections: Record<string, SectionConfig> = {
   firebasePush: {
     title: "Firebase Cloud Messaging (FCM)",
     icon: "fire",
+    visibleWhen: () => false,
     settings: [
       ServerSettingType.FirebasePush,
       {
@@ -359,7 +360,7 @@ const settingSections: Record<string, SectionConfig> = {
 
 // Helper function to get field type
 function getFieldType(
-  setting: ServerSetting
+  setting: ServerSetting,
 ): "text" | "number" | "boolean" | "select" | "json" {
   if (setting.possibleValues && setting.possibleValues.length > 0) {
     return "select";
@@ -425,7 +426,7 @@ function SettingSection({
     .map(getSettingKey);
 
   const sectionSettings = settings.filter((s) =>
-    visibleSettings.includes(s.configType)
+    visibleSettings.includes(s.configType),
   );
 
   if (sectionSettings.length === 0) return null;
@@ -495,7 +496,8 @@ function SettingField({
   const isPushPassthroughToken =
     setting.configType === ServerSettingType.PushPassthroughToken;
   const tokensWithToken = systemTokens?.filter((t) => t.token) ?? [];
-  const showTokenSelector = isPushPassthroughToken && tokensWithToken.length > 0;
+  const showTokenSelector =
+    isPushPassthroughToken && tokensWithToken.length > 0;
 
   if (fieldType === "boolean") {
     return (
@@ -519,7 +521,7 @@ function SettingField({
         (val) => ({
           id: val,
           name: val,
-        })
+        }),
       );
 
       return (
@@ -613,7 +615,7 @@ function SettingField({
   const displayValue =
     isSensitive && !showSecret && value
       ? "•".repeat(Math.min(value.length, 40))
-      : value ?? "";
+      : (value ?? "");
 
   if (showTokenSelector) {
     const selectorOptions: SelectorOption[] = [
@@ -709,7 +711,7 @@ export function ServerSettings() {
 
   // State
   const [values, setValues] = useState<Record<ServerSettingType, any>>(
-    {} as Record<ServerSettingType, any>
+    {} as Record<ServerSettingType, any>,
   );
   const [originalValues, setOriginalValues] = useState<
     Record<ServerSettingType, any>
@@ -719,10 +721,10 @@ export function ServerSettings() {
   // GraphQL operations
   const { data, loading, error, refetch } = useQuery(GetServerSettingsDocument);
   const [batchUpdateServerSettings] = useMutation(
-    BatchUpdateServerSettingsDocument
+    BatchUpdateServerSettingsDocument,
   );
   const [restartServerMutation, { loading: restarting }] = useMutation(
-    RestartServerDocument
+    RestartServerDocument,
   );
 
   const settings = (data?.serverSettings ?? []) as ServerSetting[];
@@ -756,7 +758,7 @@ export function ServerSettings() {
       console.error("Failed to load server settings:", error);
       Alert.alert(
         t("common.error" as any),
-        t("serverSettings.failedToLoad" as any)
+        t("serverSettings.failedToLoad" as any),
       );
     }
   }, [error, t]);
@@ -770,7 +772,7 @@ export function ServerSettings() {
     try {
       // Get changed settings
       const changes = (Object.keys(values) as ServerSettingType[]).filter(
-        (key) => values[key] !== originalValues[key]
+        (key) => values[key] !== originalValues[key],
       );
 
       // Prepare batch update input
@@ -806,13 +808,13 @@ export function ServerSettings() {
               confirmRestartServer();
             },
           },
-        ]
+        ],
       );
     } catch (error) {
       console.error("Failed to save settings:", error);
       Alert.alert(
         t("common.error" as any),
-        t("serverSettings.failedToSave" as any)
+        t("serverSettings.failedToSave" as any),
       );
     } finally {
       setSaving(false);
@@ -840,18 +842,18 @@ export function ServerSettings() {
               await restartServerMutation();
               Alert.alert(
                 t("common.success" as any),
-                t("serverSettings.restartSuccess" as any)
+                t("serverSettings.restartSuccess" as any),
               );
             } catch (error) {
               console.error("Failed to restart server:", error);
               Alert.alert(
                 t("common.error" as any),
-                t("serverSettings.restartFailed" as any)
+                t("serverSettings.restartFailed" as any),
               );
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -950,7 +952,10 @@ export function ServerSettings() {
           </View>
           <Text
             variant="bodyMedium"
-            style={[styles.unsavedBannerText, { color: theme.colors.onSurface }]}
+            style={[
+              styles.unsavedBannerText,
+              { color: theme.colors.onSurface },
+            ]}
           >
             {t("serverSettings.unsavedChangesBanner" as any)}
           </Text>

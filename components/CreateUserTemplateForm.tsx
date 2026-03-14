@@ -18,7 +18,9 @@ import React, { useEffect, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import {
   Button,
+  Card,
   Dialog,
+  List,
   Portal,
   Text,
   TextInput,
@@ -77,6 +79,12 @@ export default function CreateUserTemplateForm({
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [body, setBody] = useState("");
+
+  // Collapsible sections state
+  const [titleExpanded, setTitleExpanded] = useState(false);
+  const [subtitleExpanded, setSubtitleExpanded] = useState(false);
+  const [bodyExpanded, setBodyExpanded] = useState(true);
+  const [testInputExpanded, setTestInputExpanded] = useState(false);
 
   // Test section states
   const [testInput, setTestInput] = useState(`{
@@ -351,58 +359,97 @@ export default function CreateUserTemplateForm({
         <Text style={styles.errorText}>{fieldErrors.description}</Text>
       )}
 
-      <CodeEditor
-        value={title}
-        onChange={(text: string) => {
-          setTitle(text);
-          if (fieldErrors.title) {
-            setFieldErrors({ ...fieldErrors, title: undefined });
-          }
-        }}
-        placeholder={t("userTemplates.form.titlePlaceholder")}
-        label={t("userTemplates.form.title")}
-        language="handlebars"
-        error={!!fieldErrors.title}
-        errorText={fieldErrors.title}
-        height={72}
-      />
+      {/* Title Template */}
+      <Card style={styles.codeSectionCard}>
+        <List.Accordion
+          title={t("userTemplates.form.title")}
+          description={title ? title.substring(0, 50) : t("userTemplates.form.titlePlaceholder")}
+          expanded={titleExpanded}
+          onPress={() => setTitleExpanded(!titleExpanded)}
+          left={(props) => <List.Icon {...props} icon="format-title" />}
+        >
+          <Card.Content>
+            <CodeEditor
+              value={title}
+              onChange={(text: string) => {
+                setTitle(text);
+                if (fieldErrors.title) {
+                  setFieldErrors({ ...fieldErrors, title: undefined });
+                }
+              }}
+              placeholder={t("userTemplates.form.titlePlaceholder")}
+              label={t("userTemplates.form.title")}
+              language="handlebars"
+              error={!!fieldErrors.title}
+              errorText={fieldErrors.title}
+              height={72}
+            />
+          </Card.Content>
+        </List.Accordion>
+      </Card>
       {fieldErrors.title && (
         <Text style={styles.errorText}>{fieldErrors.title}</Text>
       )}
 
-      <CodeEditor
-        value={subtitle}
-        onChange={(text: string) => {
-          setSubtitle(text);
-          if (fieldErrors.subtitle) {
-            setFieldErrors({ ...fieldErrors, subtitle: undefined });
-          }
-        }}
-        placeholder={t("userTemplates.form.subtitlePlaceholder")}
-        label={t("userTemplates.form.subtitle")}
-        language="handlebars"
-        error={!!fieldErrors.subtitle}
-        errorText={fieldErrors.subtitle}
-        height={72}
-      />
+      {/* Subtitle Template */}
+      <Card style={styles.codeSectionCard}>
+        <List.Accordion
+          title={t("userTemplates.form.subtitle")}
+          description={subtitle ? subtitle.substring(0, 50) : t("userTemplates.form.subtitlePlaceholder")}
+          expanded={subtitleExpanded}
+          onPress={() => setSubtitleExpanded(!subtitleExpanded)}
+          left={(props) => <List.Icon {...props} icon="subtitles" />}
+        >
+          <Card.Content>
+            <CodeEditor
+              value={subtitle}
+              onChange={(text: string) => {
+                setSubtitle(text);
+                if (fieldErrors.subtitle) {
+                  setFieldErrors({ ...fieldErrors, subtitle: undefined });
+                }
+              }}
+              placeholder={t("userTemplates.form.subtitlePlaceholder")}
+              label={t("userTemplates.form.subtitle")}
+              language="handlebars"
+              error={!!fieldErrors.subtitle}
+              errorText={fieldErrors.subtitle}
+              height={72}
+            />
+          </Card.Content>
+        </List.Accordion>
+      </Card>
       {fieldErrors.subtitle && (
         <Text style={styles.errorText}>{fieldErrors.subtitle}</Text>
       )}
 
-      <CodeEditor
-        value={body}
-        onChange={(text: string) => {
-          setBody(text);
-          if (fieldErrors.body) {
-            setFieldErrors({ ...fieldErrors, body: undefined });
-          }
-        }}
-        placeholder={t("userTemplates.form.bodyPlaceholder")}
-        label={t("userTemplates.form.body")}
-        language="handlebars"
-        error={!!fieldErrors.body}
-        errorText={fieldErrors.body}
-      />
+      {/* Body Template */}
+      <Card style={styles.codeSectionCard}>
+        <List.Accordion
+          title={t("userTemplates.form.body")}
+          description={body ? body.substring(0, 50) : t("userTemplates.form.bodyPlaceholder")}
+          expanded={bodyExpanded}
+          onPress={() => setBodyExpanded(!bodyExpanded)}
+          left={(props) => <List.Icon {...props} icon="text-box" />}
+        >
+          <Card.Content>
+            <CodeEditor
+              value={body}
+              onChange={(text: string) => {
+                setBody(text);
+                if (fieldErrors.body) {
+                  setFieldErrors({ ...fieldErrors, body: undefined });
+                }
+              }}
+              placeholder={t("userTemplates.form.bodyPlaceholder")}
+              label={t("userTemplates.form.body")}
+              language="handlebars"
+              error={!!fieldErrors.body}
+              errorText={fieldErrors.body}
+            />
+          </Card.Content>
+        </List.Accordion>
+      </Card>
       {fieldErrors.body && (
         <Text style={styles.errorText}>{fieldErrors.body}</Text>
       )}
@@ -413,24 +460,32 @@ export default function CreateUserTemplateForm({
           {t("userTemplates.form.test")}
         </Text>
 
-        <CodeEditor
-          value={testInput}
-          onChange={(text: string) => {
-            setTestInput(text);
-            if (fieldErrors.testInput) {
-              setFieldErrors({ ...fieldErrors, testInput: undefined });
-            }
-          }}
-          placeholder={t("userTemplates.form.testInputPlaceholder")}
-          label={t("userTemplates.form.testInput")}
-          language="json"
-          error={!!fieldErrors.testInput}
-          errorText={fieldErrors.testInput}
-        />
-
-        <Text style={styles.helpText}>
-          {t("userTemplates.form.testInputHelp")}
-        </Text>
+        <Card style={styles.codeSectionCard}>
+          <List.Accordion
+            title={t("userTemplates.form.testInput")}
+            description={t("userTemplates.form.testInputHelp")}
+            expanded={testInputExpanded}
+            onPress={() => setTestInputExpanded(!testInputExpanded)}
+            left={(props) => <List.Icon {...props} icon="file-document-edit" />}
+          >
+            <Card.Content>
+              <CodeEditor
+                value={testInput}
+                onChange={(text: string) => {
+                  setTestInput(text);
+                  if (fieldErrors.testInput) {
+                    setFieldErrors({ ...fieldErrors, testInput: undefined });
+                  }
+                }}
+                placeholder={t("userTemplates.form.testInputPlaceholder")}
+                label={t("userTemplates.form.testInput")}
+                language="json"
+                error={!!fieldErrors.testInput}
+                errorText={fieldErrors.testInput}
+              />
+            </Card.Content>
+          </List.Accordion>
+        </Card>
 
         <Button
           mode="outlined"
@@ -549,10 +604,14 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: 16,
   },
+  codeSectionCard: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
   errorText: {
     color: "#B00020",
     fontSize: 12,
-    marginTop: -12,
+    marginTop: -4,
     marginBottom: 8,
     marginLeft: 16,
   },
