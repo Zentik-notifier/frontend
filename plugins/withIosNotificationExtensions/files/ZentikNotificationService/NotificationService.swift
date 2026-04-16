@@ -1010,8 +1010,12 @@ class NotificationService: UNNotificationServiceExtension {
   }
 
   override func serviceExtensionTimeWillExpire() {
+    // Interrupt any in-flight DB work and force-release file locks before the
+    // extension process is killed. Prevents 0xdead10cc on the main app next
+    // time it opens the shared cache DB.
+    DatabaseAccess.forceReleaseLockForSuspension()
     LoggingSystem.shared.flushLogs()
-    
+
     if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {
       contentHandler(bestAttemptContent)
     }

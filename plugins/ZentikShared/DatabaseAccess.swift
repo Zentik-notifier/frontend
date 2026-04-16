@@ -95,7 +95,9 @@ public class DatabaseAccess {
     
     /// Force-release the file lock regardless of current state.
     /// Called when the app is about to be suspended to prevent 0xdead10cc.
-    private static func forceReleaseLockForSuspension() {
+    /// Public so AppDelegate bg-task expiration handlers and NSE
+    /// `serviceExtensionTimeWillExpire` can invoke it synchronously.
+    public static func forceReleaseLockForSuspension() {
         lockQueue.sync {
             // Interrupt any running SQLite operation so sqlite3_step() returns
             // SQLITE_INTERRUPT immediately, allowing the connection to close and
@@ -111,25 +113,21 @@ public class DatabaseAccess {
         }
     }
 
-    /// Drain pending database operations and checkpoint WAL to release all internal SQLite locks.
+    /// Interrupt any in-flight SQLite operations and wait for the serial
+    /// dbQueue to drain before signalling that iOS can suspend the process.
+    /// With `PRAGMA journal_mode=DELETE` (rollback journal), every transaction
+    /// releases all POSIX advisory locks on close, so no WAL checkpoint is
+    /// required here — the name is kept for backwards compatibility.
     /// Call from AppDelegate.applicationDidEnterBackground inside a beginBackgroundTask.
-    /// The completion is called on an arbitrary queue once it's safe for iOS to suspend.
     public static func drainAndCheckpoint(completion: @escaping () -> Void) {
         suspendLock.lock()
         isSuspending = true
         suspendLock.unlock()
         forceReleaseLockForSuspension()
 
+        // Completion runs after any queued operations have finished;
+        // since dbQueue is serial, appending this block guarantees ordering.
         dbQueue.async {
-            guard let dbPath = getDbPath() else {
-                completion()
-                return
-            }
-            var db: OpaquePointer?
-            if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let database = db {
-                sqlite3_wal_checkpoint_v2(database, nil, SQLITE_CHECKPOINT_TRUNCATE, nil, nil)
-                sqlite3_close(database)
-            }
             completion()
         }
     }
@@ -201,10 +199,9 @@ public class DatabaseAccess {
                 source: source,
                 verboseLogging: false,
                 operation: { db, _ in
-                runExec(db, "PRAGMA journal_mode=WAL") &&
+                runExec(db, "PRAGMA journal_mode=DELETE") &&
                 runExec(db, "PRAGMA foreign_keys=ON") &&
                 runExec(db, "PRAGMA busy_timeout=5000") &&
-                runExec(db, "PRAGMA wal_autocheckpoint=1000") &&
                 runExec(db, """
                     CREATE TABLE IF NOT EXISTS cache_item (
                         key TEXT PRIMARY KEY,
@@ -1264,10 +1261,10 @@ public class DatabaseAccess {
                 
                 var db: OpaquePointer?
                 
-                // Open database with appropriate flags
-                // Important: For WAL mode, even read operations need READWRITE access to WAL/SHM files
-                // Only use READONLY if database doesn't exist yet (which we handle above)
-                let openFlags = operationType == .read ? 
+                // Open database with appropriate flags.
+                // DELETE journal mode still benefits from READWRITE for reads when
+                // the rollback journal needs to be rolled back on recovery.
+                let openFlags = operationType == .read ?
                     SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX :
                     SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
                 
@@ -1309,58 +1306,23 @@ public class DatabaseAccess {
 
                 defer {
                     lockQueue.sync { activeDatabase = nil }
-                    // Use sqlite3_close_v2 to avoid re-acquiring WAL file locks
-                    // during close. If the app is suspending, skip close entirely
-                    // to prevent 0xdead10cc — the OS will reclaim file descriptors.
-                    suspendLock.lock()
-                    let closeSuspending = isSuspending
-                    suspendLock.unlock()
-                    if !closeSuspending {
-                        sqlite3_close_v2(database)
-                    }
+                    // Always close. With DELETE journal mode the rollback journal
+                    // is removed on commit and any advisory locks are released by
+                    // sqlite3_close_v2. Skipping close leaks SQLite state and can
+                    // keep the journal file around for recovery next open.
+                    sqlite3_close_v2(database)
                 }
                 
-                // Configure SQLite for concurrent access with WAL mode
-                // WAL allows multiple concurrent readers (critical when app is foreground)
+                // Use DELETE journal mode (rollback journal) instead of WAL.
+                // WAL creates persistent -shm/-wal files with POSIX advisory locks
+                // that iOS strictly enforces on suspension → 0xdead10cc kills.
+                // DELETE mode releases all locks at end-of-transaction on close.
                 sqlite3_busy_timeout(database, DB_BUSY_TIMEOUT)
-                
-                // Check current journal mode and set WAL if needed
-                var pragmaStmt: OpaquePointer?
-                if sqlite3_prepare_v2(database, "PRAGMA journal_mode", -1, &pragmaStmt, nil) == SQLITE_OK {
-                    let stepResult = sqlite3_step(pragmaStmt)
-                    if stepResult == SQLITE_ROW {
-                        if let modeCString = sqlite3_column_text(pragmaStmt, 0) {
-                            let mode = String(cString: modeCString)
-                            if isVerbose {
-                            print("📱 [\(source)] ℹ️ [\(operationName)] Current journal mode: \(mode)")
-                            }
-                            
-                            // Only set WAL mode for write operations or if not already in WAL mode
-                            if operationType == .write && mode.uppercased() != "WAL" {
-                                sqlite3_finalize(pragmaStmt)
-                                if sqlite3_prepare_v2(database, "PRAGMA journal_mode=WAL", -1, &pragmaStmt, nil) == SQLITE_OK {
-                                    let walStepResult = sqlite3_step(pragmaStmt)
-                                    if walStepResult == SQLITE_ROW {
-                                        if let walModeCString = sqlite3_column_text(pragmaStmt, 0) {
-                                            let walMode = String(cString: walModeCString)
-                                            print("📱 [\(source)] ✅ [\(operationName)] Set journal mode to: \(walMode)")
-                                        }
-                                    }
-                                    sqlite3_finalize(pragmaStmt)
-                                    
-                                    // Optimize WAL checkpoint
-                                    if sqlite3_prepare_v2(database, "PRAGMA wal_autocheckpoint=1000", -1, &pragmaStmt, nil) == SQLITE_OK {
-                                        sqlite3_step(pragmaStmt)
-                                        sqlite3_finalize(pragmaStmt)
-                                    }
-                                }
-                            } else {
-                                sqlite3_finalize(pragmaStmt)
-                            }
-                        } else {
-                            sqlite3_finalize(pragmaStmt)
-                        }
-                    } else {
+
+                if operationType == .write {
+                    var pragmaStmt: OpaquePointer?
+                    if sqlite3_prepare_v2(database, "PRAGMA journal_mode=DELETE", -1, &pragmaStmt, nil) == SQLITE_OK {
+                        sqlite3_step(pragmaStmt)
                         sqlite3_finalize(pragmaStmt)
                     }
                 }

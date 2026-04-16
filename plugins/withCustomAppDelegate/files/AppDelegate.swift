@@ -119,6 +119,9 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
     super.applicationDidEnterBackground(application)
     var bgTaskId = UIBackgroundTaskIdentifier.invalid
     bgTaskId = application.beginBackgroundTask(withName: "db-checkpoint") {
+      // Expiration handler: if drainAndCheckpoint didn't finish in time,
+      // force-release SQLite locks NOW before iOS kills us with 0xdead10cc.
+      DatabaseAccess.forceReleaseLockForSuspension()
       if bgTaskId != .invalid {
         application.endBackgroundTask(bgTaskId)
         bgTaskId = .invalid
