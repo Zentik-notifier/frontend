@@ -230,10 +230,9 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         let sharedDefaults = UserDefaults(suiteName: "group.com.apocaliss92.zentik")
         let iphoneLastFullSync = sharedDefaults?.double(forKey: "iphone_last_fullsync_timestamp") ?? 0
         let watchLastFullSync = sharedDefaults?.double(forKey: "watch_last_fullsync_timestamp") ?? 0
-        
+
         if iphoneLastFullSync > watchLastFullSync && iphoneLastFullSync > 0 {
-            // iPhone did full sync more recently than watch
-            // Disable subscriptions immediately to prevent receiving individual events
+            // iPhone did full sync more recently than watch → always honour.
             LoggingSystem.shared.log(
                 level: "INFO",
                 tag: "WatchConnectivity",
@@ -244,15 +243,36 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
                 ],
                 source: "Watch"
             )
-            
+
             DispatchQueue.main.async { [weak self] in
                 self?.isFullSyncing = true
             }
             requestSync(fullSync: true)
-        } else {
-            // Normal incremental sync
-            performIncrementalSync()
+            return
         }
+
+        // Incremental sync: gate to avoid re-syncing on every foreground.
+        // Users who glance at the watch 10×/day should not trigger 10 CloudKit
+        // fetches — the push subscription already keeps the cache fresh.
+        let now = Date().timeIntervalSince1970
+        let cacheKey = "watch_last_incremental_sync_at"
+        let last = UserDefaults.standard.double(forKey: cacheKey)
+        let minIntervalSeconds: TimeInterval = 30 * 60
+        if now - last < minIntervalSeconds {
+            LoggingSystem.shared.log(
+                level: "DEBUG",
+                tag: "WatchConnectivity",
+                message: "Skipping incremental sync on foreground (cache still fresh)",
+                metadata: [
+                    "secondsSinceLast": Int(now - last),
+                    "minIntervalSeconds": Int(minIntervalSeconds)
+                ],
+                source: "Watch"
+            )
+            return
+        }
+        UserDefaults.standard.set(now, forKey: cacheKey)
+        performIncrementalSync()
     }
     
     @objc private func appWillResignActive() {

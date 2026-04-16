@@ -29,6 +29,55 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
 
     private var hasPendingPushChanges = false
 
+    // MARK: - alwaysActive burst detector (battery drain guard)
+    //
+    // If the user keeps `alwaysActive` mode on while receiving a sustained
+    // storm of CloudKit pushes, every push wakes the watch → battery drain.
+    // We keep a rolling window of push timestamps and auto-downgrade to
+    // `backgroundInterval` when the rate exceeds a safe threshold.
+    private let alwaysActiveBurstWindow: TimeInterval = 5 * 60   // 5 minutes
+    private let alwaysActiveBurstLimit: Int = 100                // ≈ 20 pushes/min sustained for 5m
+    private var alwaysActivePushTimestamps: [TimeInterval] = []
+    private let alwaysActiveBurstLock = NSLock()
+
+    /// Records a push and triggers an auto-downgrade if a sustained burst
+    /// exceeds the safety threshold. Returns `true` if downgrade happened.
+    @discardableResult
+    private func trackAlwaysActivePushAndMaybeDowngrade() -> Bool {
+        alwaysActiveBurstLock.lock()
+        defer { alwaysActiveBurstLock.unlock() }
+        let now = Date().timeIntervalSince1970
+        alwaysActivePushTimestamps.append(now)
+        let cutoff = now - alwaysActiveBurstWindow
+        alwaysActivePushTimestamps.removeAll { $0 < cutoff }
+
+        guard alwaysActivePushTimestamps.count >= alwaysActiveBurstLimit else { return false }
+
+        // Threshold breached → downgrade + notify UI + reset window.
+        alwaysActivePushTimestamps.removeAll()
+        WatchSettingsManager.shared.setSyncMode(.backgroundInterval)
+        WatchSettingsManager.shared.markAutoDowngrade()
+        WatchSyncEngineCKSync.shared.reinitializeWithCurrentSettings()
+        scheduleNextBackgroundRefresh()
+        LoggingSystem.shared.log(
+            level: "WARN",
+            tag: "Watch",
+            message: "Auto-downgraded syncMode from alwaysActive to backgroundInterval due to push burst",
+            metadata: [
+                "burstCount": alwaysActiveBurstLimit,
+                "windowSeconds": Int(alwaysActiveBurstWindow)
+            ],
+            source: "WatchExtensionDelegate"
+        )
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("WatchSyncModeAutoDowngraded"),
+                object: nil
+            )
+        }
+        return true
+    }
+
     func applicationDidFinishLaunching() {
         UNUserNotificationCenter.current().delegate = self
 
@@ -179,7 +228,15 @@ class WatchExtensionDelegate: NSObject, WKExtensionDelegate, UNUserNotificationC
             }
 
         case .alwaysActive:
-            break
+            // Record the push and, if a sustained burst is detected,
+            // auto-downgrade to backgroundInterval to protect the battery.
+            // When downgraded, defer this push to the next background
+            // refresh instead of fetching immediately.
+            if trackAlwaysActivePushAndMaybeDowngrade() {
+                hasPendingPushChanges = true
+                completionHandler(.noData)
+                return
+            }
         }
 
         WatchSyncEngineCKSync.shared.fetchChangesNow { error in

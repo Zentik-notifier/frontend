@@ -1639,6 +1639,7 @@ struct SettingsView: View {
     @State private var maxNotificationsLimit: Int = WatchSettingsManager.shared.maxNotificationsLimit
     @State private var watchToken: String? = UserDefaults.standard.string(forKey: "watch_access_token")
     @State private var serverAddress: String? = UserDefaults.standard.string(forKey: "watch_server_address")
+    @State private var autoDowngradedAt: Date? = WatchSettingsManager.shared.autoDowngradedAt
 
     private var syncModeLabel: String {
         switch syncMode {
@@ -1650,6 +1651,31 @@ struct SettingsView: View {
 
     var body: some View {
         List {
+            if let downgradedAt = autoDowngradedAt {
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "battery.25")
+                                .foregroundColor(.orange)
+                            Text("Sync mode auto-adjusted")
+                                .font(.headline)
+                        }
+                        Text("Switched from \"Always active\" to \"Background intervals\" to protect your battery after a push burst.")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(downgradedAt, style: .relative)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Button("Dismiss") {
+                            WatchSettingsManager.shared.clearAutoDowngradeFlag()
+                            autoDowngradedAt = nil
+                        }
+                        .font(.caption)
+                    }
+                }
+            }
+
             Section(header: Text("CloudKit")) {
                 HStack(spacing: 10) {
                     Image(systemName: "icloud.fill")
@@ -1905,6 +1931,10 @@ struct SettingsView: View {
         }
         .onChange(of: syncMode) { newValue in
             WatchSettingsManager.shared.setSyncMode(newValue)
+            // User made a conscious choice → previous auto-downgrade banner
+            // is no longer relevant.
+            WatchSettingsManager.shared.clearAutoDowngradeFlag()
+            autoDowngradedAt = nil
             WatchSyncEngineCKSync.shared.reinitializeWithCurrentSettings()
             if newValue == .backgroundInterval {
                 (WKExtension.shared().delegate as? WatchExtensionDelegate)?.scheduleNextBackgroundRefresh()
@@ -1925,11 +1955,16 @@ struct SettingsView: View {
             maxNotificationsLimit = WatchSettingsManager.shared.maxNotificationsLimit
             watchToken = UserDefaults.standard.string(forKey: "watch_access_token")
             serverAddress = UserDefaults.standard.string(forKey: "watch_server_address")
+            autoDowngradedAt = WatchSettingsManager.shared.autoDowngradedAt
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("WatchTokenSettingsReceived"))) { _ in
             // Update token and address when received
             watchToken = UserDefaults.standard.string(forKey: "watch_access_token")
             serverAddress = UserDefaults.standard.string(forKey: "watch_server_address")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("WatchSyncModeAutoDowngraded"))) { _ in
+            syncMode = WatchSettingsManager.shared.syncMode
+            autoDowngradedAt = WatchSettingsManager.shared.autoDowngradedAt
         }
     }
 }
@@ -1947,14 +1982,20 @@ struct SyncModeSelectionView: View {
                     syncMode = mode
                     dismiss()
                 }) {
-                    HStack {
-                        Text(modeLabel(mode))
-                            .foregroundColor(.primary)
-                        Spacer()
-                        if syncMode == mode {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.blue)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Text(modeLabel(mode))
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if syncMode == mode {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.blue)
+                            }
                         }
+                        Text(modeDescription(mode))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -1968,6 +2009,17 @@ struct SyncModeSelectionView: View {
         case .foregroundOnly: return "Foreground only"
         case .alwaysActive: return "Always active"
         case .backgroundInterval: return "Background intervals"
+        }
+    }
+
+    private func modeDescription(_ mode: WatchSyncMode) -> String {
+        switch mode {
+        case .foregroundOnly:
+            return "Lowest battery drain. Syncs only while the app is open."
+        case .backgroundInterval:
+            return "Balanced. Periodic refresh every few minutes when backgrounded."
+        case .alwaysActive:
+            return "⚠️ Wakes the watch on every push. May drain battery if you receive many notifications."
         }
     }
 }

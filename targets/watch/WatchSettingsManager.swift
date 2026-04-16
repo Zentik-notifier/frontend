@@ -46,6 +46,7 @@ class WatchSettingsManager {
     private let maxNotificationsLimitKey = "watch_max_notifications_limit"
     private let syncModeKey = "watch_sync_mode"
     private let backgroundIntervalKey = "watch_background_interval"
+    private let autoDowngradedAtKey = "watch_sync_mode_auto_downgraded_at"
 
     private init() {}
 
@@ -103,6 +104,34 @@ class WatchSettingsManager {
     func setBackgroundInterval(_ interval: WatchBackgroundInterval) {
         #if os(watchOS)
         UserDefaults.standard.set(interval.rawValue, forKey: backgroundIntervalKey)
+        UserDefaults.standard.synchronize()
+        #endif
+    }
+
+    // MARK: - Auto-downgrade flag
+
+    /// Timestamp of the most recent automatic downgrade from `alwaysActive`
+    /// to `backgroundInterval` triggered by a push burst. Nil if never.
+    /// UI can observe this and surface a banner to the user.
+    var autoDowngradedAt: Date? {
+        #if os(watchOS)
+        let ts = UserDefaults.standard.double(forKey: autoDowngradedAtKey)
+        return ts > 0 ? Date(timeIntervalSince1970: ts) : nil
+        #else
+        return nil
+        #endif
+    }
+
+    func markAutoDowngrade() {
+        #if os(watchOS)
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: autoDowngradedAtKey)
+        UserDefaults.standard.synchronize()
+        #endif
+    }
+
+    func clearAutoDowngradeFlag() {
+        #if os(watchOS)
+        UserDefaults.standard.removeObject(forKey: autoDowngradedAtKey)
         UserDefaults.standard.synchronize()
         #endif
     }
