@@ -10,7 +10,6 @@ import {
   useTriggerAttachmentsCleanupMutation,
   useTriggerMessagesCleanupMutation,
   useTriggerSessionsCleanupMutation,
-  useTriggerSystemAccessTokenResetMutation,
 } from "@/generated/gql-operations-generated";
 import {
   useSystemAccessTokens,
@@ -707,19 +706,14 @@ function SettingField({
 }
 
 type CronJobDef = {
-  key:
-    | "messagesCleanup"
-    | "attachmentsCleanup"
-    | "sessionsCleanup"
-    | "systemAccessTokenReset";
+  key: "messagesCleanup" | "attachmentsCleanup" | "sessionsCleanup";
   icon: string;
 };
 
 const CRON_JOBS: CronJobDef[] = [
-  { key: "messagesCleanup", icon: "message-text-remove" },
-  { key: "attachmentsCleanup", icon: "paperclip-remove" },
+  { key: "messagesCleanup", icon: "broom" },
+  { key: "attachmentsCleanup", icon: "paperclip-off" },
   { key: "sessionsCleanup", icon: "account-clock" },
-  { key: "systemAccessTokenReset", icon: "key-refresh" },
 ];
 
 function CronJobsSection() {
@@ -730,8 +724,6 @@ function CronJobsSection() {
   const [triggerMessagesCleanup] = useTriggerMessagesCleanupMutation();
   const [triggerAttachmentsCleanup] = useTriggerAttachmentsCleanupMutation();
   const [triggerSessionsCleanup] = useTriggerSessionsCleanupMutation();
-  const [triggerSystemAccessTokenReset] =
-    useTriggerSystemAccessTokenResetMutation();
 
   const runJob = async (job: CronJobDef) => {
     setRunningKey(job.key);
@@ -751,11 +743,6 @@ function CronJobsSection() {
         case "sessionsCleanup": {
           const res = await triggerSessionsCleanup();
           message = res.data?.triggerSessionsCleanup ?? "";
-          break;
-        }
-        case "systemAccessTokenReset": {
-          const res = await triggerSystemAccessTokenReset();
-          message = res.data?.triggerSystemAccessTokenReset ?? "";
           break;
         }
       }
