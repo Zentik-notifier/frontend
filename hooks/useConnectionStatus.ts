@@ -387,9 +387,14 @@ export function useConnectionStatus(push: UsePushNotifications) {
 
     setIsUpdating(true);
     try {
-      // Apply OTA update (native apps)
+      // Apply OTA update (native apps): fetch the new bundle then reload.
+      // reloadAsync alone reloads the CURRENT bundle and does nothing visible.
       if (isOtaUpdatesEnabled) {
-        await safeUpdates.reloadAsync();
+        const result = await safeUpdates.downloadAndReload();
+        if (!result.reloaded) {
+          console.warn('[useConnectionStatus] OTA downloadAndReload did not reload', result);
+          setIsUpdating(false);
+        }
         return;
       }
 

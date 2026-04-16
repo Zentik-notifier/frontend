@@ -14,6 +14,7 @@ import {
   Text,
   useTheme,
 } from "react-native-paper";
+import { safeUpdates } from "@/utils/safe-updates";
 
 interface VersionInfoProps {
   style?: any;
@@ -54,12 +55,11 @@ export function VersionInfo({
   }, []);
 
   const reloadApp = async () => {
-    try {
-      const Updates = await import("expo-updates");
-
-      await Updates.reloadAsync();
-    } catch (error) {
-      console.error("Failed to reload app:", error);
+    // Full OTA pipeline: check → fetch → reload. Calling reloadAsync alone
+    // reloads the bundle currently in local storage and does nothing visible.
+    const result = await safeUpdates.downloadAndReload();
+    if (!result.reloaded) {
+      console.error("Failed to reload app:", result);
       setErrorMessage(t("appSettings.versions.reloadErrorMessage"));
       setShowErrorDialog(true);
     }
