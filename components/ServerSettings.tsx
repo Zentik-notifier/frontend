@@ -7,6 +7,10 @@ import {
   GetServerSettingsDocument,
   RestartServerDocument,
   ServerSettingType,
+  useTriggerAttachmentsCleanupMutation,
+  useTriggerMessagesCleanupMutation,
+  useTriggerSessionsCleanupMutation,
+  useTriggerSystemAccessTokenResetMutation,
 } from "@/generated/gql-operations-generated";
 import {
   useSystemAccessTokens,
@@ -702,6 +706,149 @@ function SettingField({
   );
 }
 
+type CronJobDef = {
+  key:
+    | "messagesCleanup"
+    | "attachmentsCleanup"
+    | "sessionsCleanup"
+    | "systemAccessTokenReset";
+  icon: string;
+};
+
+const CRON_JOBS: CronJobDef[] = [
+  { key: "messagesCleanup", icon: "message-text-remove" },
+  { key: "attachmentsCleanup", icon: "paperclip-remove" },
+  { key: "sessionsCleanup", icon: "account-clock" },
+  { key: "systemAccessTokenReset", icon: "key-refresh" },
+];
+
+function CronJobsSection() {
+  const { t } = useI18n();
+  const theme = useTheme();
+  const [runningKey, setRunningKey] = useState<string | null>(null);
+
+  const [triggerMessagesCleanup] = useTriggerMessagesCleanupMutation();
+  const [triggerAttachmentsCleanup] = useTriggerAttachmentsCleanupMutation();
+  const [triggerSessionsCleanup] = useTriggerSessionsCleanupMutation();
+  const [triggerSystemAccessTokenReset] =
+    useTriggerSystemAccessTokenResetMutation();
+
+  const runJob = async (job: CronJobDef) => {
+    setRunningKey(job.key);
+    try {
+      let message = "";
+      switch (job.key) {
+        case "messagesCleanup": {
+          const res = await triggerMessagesCleanup();
+          message = res.data?.triggerMessagesCleanup ?? "";
+          break;
+        }
+        case "attachmentsCleanup": {
+          const res = await triggerAttachmentsCleanup();
+          message = res.data?.triggerAttachmentsCleanup ?? "";
+          break;
+        }
+        case "sessionsCleanup": {
+          const res = await triggerSessionsCleanup();
+          message = res.data?.triggerSessionsCleanup ?? "";
+          break;
+        }
+        case "systemAccessTokenReset": {
+          const res = await triggerSystemAccessTokenReset();
+          message = res.data?.triggerSystemAccessTokenReset ?? "";
+          break;
+        }
+      }
+      Alert.alert(
+        t("serverSettings.cronJobs.successTitle" as any),
+        message,
+      );
+    } catch (error) {
+      Alert.alert(
+        t("serverSettings.cronJobs.errorTitle" as any),
+        error instanceof Error ? error.message : String(error),
+      );
+    } finally {
+      setRunningKey(null);
+    }
+  };
+
+  const confirmAndRun = (job: CronJobDef) => {
+    const label = t(`serverSettings.cronJobs.${job.key}` as any);
+    Alert.alert(
+      t("serverSettings.cronJobs.confirmTitle" as any),
+      t("serverSettings.cronJobs.confirmMessage", { job: label } as any),
+      [
+        { text: t("common.cancel" as any), style: "cancel" },
+        { text: t("serverSettings.cronJobs.runNow" as any), onPress: () => runJob(job) },
+      ],
+    );
+  };
+
+  return (
+    <Card style={styles.sectionCard}>
+      <Card.Content>
+        <View style={styles.sectionHeader}>
+          <Icon source="clock-outline" size={24} color={theme.colors.primary} />
+          <Text variant="headlineSmall" style={styles.sectionTitle}>
+            {t("serverSettings.sections.cronJobs" as any)}
+          </Text>
+        </View>
+
+        <Text
+          variant="bodySmall"
+          style={{
+            color: theme.colors.onSurfaceVariant,
+            marginBottom: 12,
+          }}
+        >
+          {t("serverSettings.cronJobs.description" as any)}
+        </Text>
+
+        {CRON_JOBS.map((job, index) => {
+          const running = runningKey === job.key;
+          return (
+            <View
+              key={job.key}
+              style={[
+                styles.cronJobRow,
+                index < CRON_JOBS.length - 1 && {
+                  borderBottomWidth: 1,
+                  borderBottomColor: "rgba(0,0,0,0.08)",
+                },
+              ]}
+            >
+              <View style={styles.cronJobIcon}>
+                <Icon source={job.icon} size={22} color={theme.colors.primary} />
+              </View>
+              <View style={styles.cronJobBody}>
+                <Text variant="bodyLarge">
+                  {t(`serverSettings.cronJobs.${job.key}` as any)}
+                </Text>
+                <Text
+                  variant="bodySmall"
+                  style={{ color: theme.colors.onSurfaceVariant }}
+                >
+                  {t(`serverSettings.cronJobs.${job.key}Description` as any)}
+                </Text>
+              </View>
+              <Button
+                mode="outlined"
+                compact
+                onPress={() => confirmAndRun(job)}
+                loading={running}
+                disabled={runningKey !== null}
+              >
+                {t("serverSettings.cronJobs.runNow" as any)}
+              </Button>
+            </View>
+          );
+        })}
+      </Card.Content>
+    </Card>
+  );
+}
+
 const UNSAVED_BANNER_HEIGHT = 56;
 
 export function ServerSettings() {
@@ -920,6 +1067,8 @@ export function ServerSettings() {
           />
         ))}
 
+        <CronJobsSection />
+
         <View style={styles.footer}>
           <Text
             variant="bodySmall"
@@ -1080,5 +1229,19 @@ const styles = StyleSheet.create({
   footerText: {
     textAlign: "center",
     lineHeight: 18,
+  },
+  cronJobRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    gap: 12,
+  },
+  cronJobIcon: {
+    width: 32,
+    alignItems: "center",
+  },
+  cronJobBody: {
+    flex: 1,
+    gap: 2,
   },
 });

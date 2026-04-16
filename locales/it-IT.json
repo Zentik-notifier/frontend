@@ -2385,7 +2385,24 @@
       "logStorage": "Archiviazione Log",
       "prometheus": "Metriche Prometheus",
       "systemAccessTokens": "Token di Accesso di Sistema",
-      "externalNotifySystems": "Sistemi di notifica esterni"
+      "externalNotifySystems": "Sistemi di notifica esterni",
+      "cronJobs": "Job pianificati"
+    },
+    "cronJobs": {
+      "description": "Esegui manualmente un job pianificato",
+      "runNow": "Esegui adesso",
+      "confirmTitle": "Esegui cron job",
+      "confirmMessage": "Eseguire \"{{job}}\" adesso?",
+      "successTitle": "Cron completato",
+      "errorTitle": "Cron fallito",
+      "messagesCleanup": "Pulizia messaggi",
+      "messagesCleanupDescription": "Elimina messaggi effimeri, scaduti e letti da tutti i dispositivi (ogni ora)",
+      "attachmentsCleanup": "Pulizia allegati",
+      "attachmentsCleanupDescription": "Elimina allegati più vecchi di ATTACHMENTS_MAX_AGE (ogni ora)",
+      "sessionsCleanup": "Pulizia sessioni",
+      "sessionsCleanupDescription": "Elimina sessioni inattive da più di 14 giorni (ogni giorno alle 03:15)",
+      "systemAccessTokenReset": "Reset mensile token di sistema",
+      "systemAccessTokenResetDescription": "Azzera il conteggio mensile delle chiamate per i token entrati in un nuovo periodo (ogni ora)"
     },
     "fields": {
       "JwtAccessTokenExpiration": "Scadenza Token di Accesso JWT",

@@ -2623,7 +2623,24 @@
       "logStorage": "Log Storage",
       "prometheus": "Prometheus Metrics",
       "systemAccessTokens": "System Access Tokens",
-      "externalNotifySystems": "External Notify Systems"
+      "externalNotifySystems": "External Notify Systems",
+      "cronJobs": "Cron Jobs"
+    },
+    "cronJobs": {
+      "description": "Manually run a scheduled job on demand",
+      "runNow": "Run now",
+      "confirmTitle": "Run cron job",
+      "confirmMessage": "Run \"{{job}}\" now?",
+      "successTitle": "Cron completed",
+      "errorTitle": "Cron failed",
+      "messagesCleanup": "Messages cleanup",
+      "messagesCleanupDescription": "Delete ephemeral, expired and fully-received messages (runs hourly)",
+      "attachmentsCleanup": "Attachments cleanup",
+      "attachmentsCleanupDescription": "Delete attachments older than ATTACHMENTS_MAX_AGE (runs hourly)",
+      "sessionsCleanup": "Sessions cleanup",
+      "sessionsCleanupDescription": "Delete sessions inactive for more than 14 days (runs daily at 03:15)",
+      "systemAccessTokenReset": "System tokens monthly reset",
+      "systemAccessTokenResetDescription": "Reset monthly call count on system access tokens that entered a new billing period (runs hourly)"
     },
     "authentication": "Authentication & JWT",
     "apnPush": "Apple Push Notifications (APN)",

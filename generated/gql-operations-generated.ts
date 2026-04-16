@@ -781,10 +781,18 @@ export type Mutation = {
   shareBucket: EntityPermission;
   shareExternalNotifySystem: EntityPermission;
   toggleOAuthProvider: OAuthProvider;
+  /** Manually trigger the attachments cleanup cron job (deletes attachments older than ATTACHMENTS_MAX_AGE) */
+  triggerAttachmentsCleanup: Scalars['String']['output'];
   /** Manually trigger a database backup */
   triggerBackup: Scalars['String']['output'];
   /** Manually trigger log cleanup based on retention policy */
   triggerLogCleanup: Scalars['Boolean']['output'];
+  /** Manually trigger the messages cleanup cron job (deletes ephemeral, expired and fully-received messages) */
+  triggerMessagesCleanup: Scalars['String']['output'];
+  /** Manually trigger the sessions cleanup cron job (deletes sessions with lastActivity older than 14 days) */
+  triggerSessionsCleanup: Scalars['String']['output'];
+  /** Manually trigger the system access tokens monthly reset cron job */
+  triggerSystemAccessTokenReset: Scalars['String']['output'];
   unshareBucket: Scalars['Boolean']['output'];
   unshareExternalNotifySystem: Scalars['Boolean']['output'];
   updateAccessToken: AccessTokenListDto;
@@ -3565,6 +3573,26 @@ export type TriggerLogCleanupMutationVariables = Exact<{ [key: string]: never; }
 
 
 export type TriggerLogCleanupMutation = { __typename?: 'Mutation', triggerLogCleanup: boolean };
+
+export type TriggerMessagesCleanupMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type TriggerMessagesCleanupMutation = { __typename?: 'Mutation', triggerMessagesCleanup: string };
+
+export type TriggerAttachmentsCleanupMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type TriggerAttachmentsCleanupMutation = { __typename?: 'Mutation', triggerAttachmentsCleanup: string };
+
+export type TriggerSessionsCleanupMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type TriggerSessionsCleanupMutation = { __typename?: 'Mutation', triggerSessionsCleanup: string };
+
+export type TriggerSystemAccessTokenResetMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type TriggerSystemAccessTokenResetMutation = { __typename?: 'Mutation', triggerSystemAccessTokenReset: string };
 
 export type GetUserLogsQueryVariables = Exact<{
   input: GetUserLogsInput;
@@ -8399,6 +8427,42 @@ export function useTriggerLogCleanupMutation(baseOptions?: ApolloReactHooks.Muta
 export type TriggerLogCleanupMutationHookResult = ReturnType<typeof useTriggerLogCleanupMutation>;
 export type TriggerLogCleanupMutationResult = Apollo.MutationResult<TriggerLogCleanupMutation>;
 export type TriggerLogCleanupMutationOptions = Apollo.BaseMutationOptions<TriggerLogCleanupMutation, TriggerLogCleanupMutationVariables>;
+export const TriggerMessagesCleanupDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"TriggerMessagesCleanup"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"triggerMessagesCleanup"}}]}}]} as unknown as DocumentNode;
+export type TriggerMessagesCleanupMutationFn = Apollo.MutationFunction<TriggerMessagesCleanupMutation, TriggerMessagesCleanupMutationVariables>;
+export function useTriggerMessagesCleanupMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<TriggerMessagesCleanupMutation, TriggerMessagesCleanupMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<TriggerMessagesCleanupMutation, TriggerMessagesCleanupMutationVariables>(TriggerMessagesCleanupDocument, options);
+      }
+export type TriggerMessagesCleanupMutationHookResult = ReturnType<typeof useTriggerMessagesCleanupMutation>;
+export type TriggerMessagesCleanupMutationResult = Apollo.MutationResult<TriggerMessagesCleanupMutation>;
+export type TriggerMessagesCleanupMutationOptions = Apollo.BaseMutationOptions<TriggerMessagesCleanupMutation, TriggerMessagesCleanupMutationVariables>;
+export const TriggerAttachmentsCleanupDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"TriggerAttachmentsCleanup"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"triggerAttachmentsCleanup"}}]}}]} as unknown as DocumentNode;
+export type TriggerAttachmentsCleanupMutationFn = Apollo.MutationFunction<TriggerAttachmentsCleanupMutation, TriggerAttachmentsCleanupMutationVariables>;
+export function useTriggerAttachmentsCleanupMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<TriggerAttachmentsCleanupMutation, TriggerAttachmentsCleanupMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<TriggerAttachmentsCleanupMutation, TriggerAttachmentsCleanupMutationVariables>(TriggerAttachmentsCleanupDocument, options);
+      }
+export type TriggerAttachmentsCleanupMutationHookResult = ReturnType<typeof useTriggerAttachmentsCleanupMutation>;
+export type TriggerAttachmentsCleanupMutationResult = Apollo.MutationResult<TriggerAttachmentsCleanupMutation>;
+export type TriggerAttachmentsCleanupMutationOptions = Apollo.BaseMutationOptions<TriggerAttachmentsCleanupMutation, TriggerAttachmentsCleanupMutationVariables>;
+export const TriggerSessionsCleanupDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"TriggerSessionsCleanup"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"triggerSessionsCleanup"}}]}}]} as unknown as DocumentNode;
+export type TriggerSessionsCleanupMutationFn = Apollo.MutationFunction<TriggerSessionsCleanupMutation, TriggerSessionsCleanupMutationVariables>;
+export function useTriggerSessionsCleanupMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<TriggerSessionsCleanupMutation, TriggerSessionsCleanupMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<TriggerSessionsCleanupMutation, TriggerSessionsCleanupMutationVariables>(TriggerSessionsCleanupDocument, options);
+      }
+export type TriggerSessionsCleanupMutationHookResult = ReturnType<typeof useTriggerSessionsCleanupMutation>;
+export type TriggerSessionsCleanupMutationResult = Apollo.MutationResult<TriggerSessionsCleanupMutation>;
+export type TriggerSessionsCleanupMutationOptions = Apollo.BaseMutationOptions<TriggerSessionsCleanupMutation, TriggerSessionsCleanupMutationVariables>;
+export const TriggerSystemAccessTokenResetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"TriggerSystemAccessTokenReset"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"triggerSystemAccessTokenReset"}}]}}]} as unknown as DocumentNode;
+export type TriggerSystemAccessTokenResetMutationFn = Apollo.MutationFunction<TriggerSystemAccessTokenResetMutation, TriggerSystemAccessTokenResetMutationVariables>;
+export function useTriggerSystemAccessTokenResetMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<TriggerSystemAccessTokenResetMutation, TriggerSystemAccessTokenResetMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<TriggerSystemAccessTokenResetMutation, TriggerSystemAccessTokenResetMutationVariables>(TriggerSystemAccessTokenResetDocument, options);
+      }
+export type TriggerSystemAccessTokenResetMutationHookResult = ReturnType<typeof useTriggerSystemAccessTokenResetMutation>;
+export type TriggerSystemAccessTokenResetMutationResult = Apollo.MutationResult<TriggerSystemAccessTokenResetMutation>;
+export type TriggerSystemAccessTokenResetMutationOptions = Apollo.BaseMutationOptions<TriggerSystemAccessTokenResetMutation, TriggerSystemAccessTokenResetMutationVariables>;
 export const GetUserLogsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetUserLogs"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"GetUserLogsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userLogs"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"logs"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"payload"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"page"}},{"kind":"Field","name":{"kind":"Name","value":"limit"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}}]}}]}}]} as unknown as DocumentNode;
 
 /**

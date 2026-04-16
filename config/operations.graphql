@@ -1631,6 +1631,22 @@ mutation TriggerLogCleanup {
   triggerLogCleanup
 }
 
+mutation TriggerMessagesCleanup {
+  triggerMessagesCleanup
+}
+
+mutation TriggerAttachmentsCleanup {
+  triggerAttachmentsCleanup
+}
+
+mutation TriggerSessionsCleanup {
+  triggerSessionsCleanup
+}
+
+mutation TriggerSystemAccessTokenReset {
+  triggerSystemAccessTokenReset
+}
+
 query GetUserLogs($input: GetUserLogsInput!) {
   userLogs(input: $input) {
     logs {

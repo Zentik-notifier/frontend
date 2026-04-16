@@ -2627,6 +2627,23 @@ export interface Translation {
       prometheus: string;
       systemAccessTokens: string;
       externalNotifySystems: string;
+      cronJobs: string;
+    };
+    cronJobs: {
+      description: string;
+      runNow: string;
+      confirmTitle: string;
+      confirmMessage: string;
+      successTitle: string;
+      errorTitle: string;
+      messagesCleanup: string;
+      messagesCleanupDescription: string;
+      attachmentsCleanup: string;
+      attachmentsCleanupDescription: string;
+      sessionsCleanup: string;
+      sessionsCleanupDescription: string;
+      systemAccessTokenReset: string;
+      systemAccessTokenResetDescription: string;
     };
     authentication: string;
     apnPush: string;
