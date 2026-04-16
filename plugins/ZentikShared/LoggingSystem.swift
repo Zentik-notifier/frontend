@@ -54,7 +54,10 @@ public class LoggingSystem {
     public static let shouldSyncLogsNotification = Notification.Name("LoggingSystemShouldSyncLogs")
     private let syncThreshold = 10 // Send to iPhone when buffer reaches this size
     
-    private var flushTimers: [String: Timer] = [:]
+    /// Single shared flush timer + the set of sources that need flushing.
+    /// Coalescing avoids waking the runloop once per source per burst.
+    private var flushTimer: Timer?
+    private var pendingFlushSources: Set<String> = []
     private let flushInterval: TimeInterval = 5.0
     private let queue = DispatchQueue(label: "com.zentik.loggingsystem", attributes: .concurrent)
     private let logsDirectory: String
@@ -198,16 +201,28 @@ public class LoggingSystem {
     
     // MARK: - Buffer Management
     
-    /// Schedule flush timer for a specific source
+    /// Schedule flush for a specific source using a single shared timer.
+    /// Coalesces many per-source flush requests into a single wake-up every
+    /// `flushInterval` seconds, iterating all pending sources when it fires.
     private func scheduleFlush(forSource source: String) {
-        DispatchQueue.main.async {
-            // Cancel existing timer for this source
-            self.flushTimers[source]?.invalidate()
-            
-            // Schedule new timer
-            self.flushTimers[source] = Timer.scheduledTimer(withTimeInterval: self.flushInterval, repeats: false) { [weak self] _ in
-                self?.flushLogs(forSource: source)
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.pendingFlushSources.insert(source)
+            self.flushTimer?.invalidate()
+            self.flushTimer = Timer.scheduledTimer(withTimeInterval: self.flushInterval, repeats: false) { [weak self] _ in
+                self?.drainPendingFlushes()
             }
+        }
+    }
+
+    /// Drain the set of pending sources, flushing each.
+    /// Runs on the main queue (scheduled by the timer).
+    private func drainPendingFlushes() {
+        let sources = self.pendingFlushSources
+        self.pendingFlushSources.removeAll()
+        self.flushTimer = nil
+        for source in sources {
+            self.flushLogs(forSource: source)
         }
     }
     
@@ -291,13 +306,13 @@ public class LoggingSystem {
             // Get logs and clear buffer
             let logsToWrite = logs
             self.logBuffers[source] = []
-            
-            // Cancel timer
+
+            // Remove from pending set; shared timer is reused across sources
+            // and will cancel itself when drainPendingFlushes runs.
             DispatchQueue.main.async {
-                self.flushTimers[source]?.invalidate()
-                self.flushTimers[source] = nil
+                self.pendingFlushSources.remove(source)
             }
-            
+
             // Write logs to file (both iOS and watchOS save locally)
             self.writeLogsToFile(logs: logsToWrite, forSource: source)
         }
@@ -357,13 +372,12 @@ public class LoggingSystem {
             
             // Clear all buffers
             self.logBuffers.removeAll()
-            
-            // Cancel all timers
+
+            // Cancel pending flushes
             DispatchQueue.main.async {
-                for timer in self.flushTimers.values {
-                    timer.invalidate()
-                }
-                self.flushTimers.removeAll()
+                self.flushTimer?.invalidate()
+                self.flushTimer = nil
+                self.pendingFlushSources.removeAll()
             }
         }
     }
@@ -371,9 +385,8 @@ public class LoggingSystem {
     /// Force flush on deinit
     deinit {
         DispatchQueue.main.async {
-            for timer in self.flushTimers.values {
-                timer.invalidate()
-            }
+            self.flushTimer?.invalidate()
+            self.flushTimer = nil
         }
         flushLogs()
     }
